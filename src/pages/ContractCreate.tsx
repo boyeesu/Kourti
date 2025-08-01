@@ -48,9 +48,15 @@ export default function ContractCreate() {
   const [parties, setParties] = useState<ContractParty[]>([]);
   const [clauses, setClauses] = useState<ContractClause[]>([]);
   
-  const [newParty, setNewParty] = useState({
+  const [newParty, setNewParty] = useState<{
+    name: string;
+    type: 'individual' | 'organization';
+    email: string;
+    address: string;
+    role: string;
+  }>({
     name: "",
-    type: "organization" as const,
+    type: "organization",
     email: "",
     address: "",
     role: "",
