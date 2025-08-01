@@ -6,6 +6,7 @@ import {
   FileText,
   FileCheck,
   Users,
+  UserCheck,
   Settings,
   ChevronRight,
   Menu
@@ -30,6 +31,7 @@ import logo from "@/assets/kouti-legal-logo.png";
 const navigationItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Cases", url: "/cases", icon: Briefcase },
+  { title: "Clients", url: "/clients", icon: UserCheck },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Documents", url: "/documents", icon: FileText },
   { title: "Contracts", url: "/contracts", icon: FileCheck },
