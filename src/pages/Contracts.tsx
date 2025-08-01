@@ -1,0 +1,437 @@
+import { useState } from "react";
+import { useSearch } from "@/hooks/use-search";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  Eye, 
+  Edit, 
+  MoreVertical,
+  FileCheck,
+  Calendar,
+  User,
+  Clock,
+  AlertTriangle,
+  GitBranch,
+  Zap
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+export default function Contracts() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const { term: globalSearch } = useSearch();
+
+  const contracts = [
+    {
+      id: "CONTRACT-001",
+      name: "Software License Agreement - Acme Corp",
+      description: "Annual software licensing contract with maintenance and support",
+      status: "Active",
+      effectiveDate: "2024-01-01",
+      expiryDate: "2024-12-31",
+      createdBy: "Sarah Wilson",
+      client: "Acme Corporation",
+      value: "$125,000",
+      versions: 3,
+      lastUpdated: "2024-01-15",
+      daysToExpiry: 337,
+      autoRenewal: true
+    },
+    {
+      id: "CONTRACT-002",
+      name: "Consulting Services Agreement - Tech Solutions",
+      description: "Professional consulting services for system integration",
+      status: "Draft",
+      effectiveDate: "2024-02-01",
+      expiryDate: "2024-07-31",
+      createdBy: "Michael Chen",
+      client: "Tech Solutions Inc",
+      value: "$75,000",
+      versions: 1,
+      lastUpdated: "2024-01-28",
+      daysToExpiry: 184,
+      autoRenewal: false
+    },
+    {
+      id: "CONTRACT-003",
+      name: "Employment Contract - Senior Developer",
+      description: "Full-time employment agreement with stock options",
+      status: "Active",
+      effectiveDate: "2024-01-15",
+      expiryDate: "2026-01-15",
+      createdBy: "Jessica Thompson",
+      client: "StartupXYZ",
+      value: "$95,000",
+      versions: 2,
+      lastUpdated: "2024-01-20",
+      daysToExpiry: 719,
+      autoRenewal: false
+    },
+    {
+      id: "CONTRACT-004",
+      name: "Non-Disclosure Agreement - Innovation Labs",
+      description: "Mutual NDA for collaborative research project",
+      status: "Expired",
+      effectiveDate: "2023-06-01",
+      expiryDate: "2024-01-01",
+      createdBy: "David Rodriguez",
+      client: "Innovation Labs",
+      value: "$0",
+      versions: 1,
+      lastUpdated: "2023-12-15",
+      daysToExpiry: -27,
+      autoRenewal: false
+    },
+    {
+      id: "CONTRACT-005",
+      name: "Vendor Supply Agreement - Property Group",
+      description: "Supply contract for construction materials",
+      status: "Signed",
+      effectiveDate: "2024-02-01",
+      expiryDate: "2024-05-01",
+      createdBy: "Sarah Wilson",
+      client: "Property Group Ltd",
+      value: "$250,000",
+      versions: 4,
+      lastUpdated: "2024-01-25",
+      daysToExpiry: 93,
+      autoRenewal: true
+    }
+  ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Active": return "bg-success text-success-foreground";
+      case "Signed": return "bg-primary text-primary-foreground";
+      case "Draft": return "bg-muted text-muted-foreground";
+      case "Expired": return "bg-destructive text-destructive-foreground";
+      case "Under Review": return "bg-warning text-warning-foreground";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const getExpiryStatus = (daysToExpiry: number) => {
+    if (daysToExpiry < 0) return { color: "text-destructive", text: "Expired" };
+    if (daysToExpiry <= 30) return { color: "text-destructive", text: "Expires Soon" };
+    if (daysToExpiry <= 90) return { color: "text-warning", text: "Expires in 3 months" };
+    return { color: "text-success", text: "Active" };
+  };
+
+  const filteredContracts = contracts.filter(contract => {
+    const termMatches = (t: string) =>
+      contract.name.toLowerCase().includes(t.toLowerCase()) ||
+      contract.client.toLowerCase().includes(t.toLowerCase()) ||
+      contract.id.toLowerCase().includes(t.toLowerCase());
+
+    const matchesLocal = searchTerm === "" || termMatches(searchTerm);
+    const matchesGlobal = globalSearch === "" || termMatches(globalSearch);
+    const matchesStatus =
+      statusFilter === "all" || contract.status.toLowerCase() === statusFilter;
+    return matchesLocal && matchesGlobal && matchesStatus;
+  });
+
+  const contractStats = {
+    total: contracts.length,
+    active: contracts.filter(c => c.status === "Active").length,
+    expiringSoon: contracts.filter(c => c.daysToExpiry <= 30 && c.daysToExpiry > 0).length,
+    expired: contracts.filter(c => c.daysToExpiry < 0).length
+  };
+
+  return (
+    <div className="px-4 py-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Contracts</h1>
+          <p className="text-muted-foreground">Manage contracts with version control and AI-powered analysis</p>
+        </div>
+        <Button className="shadow-md">
+          <Plus className="h-4 w-4 mr-2" />
+          New Contract
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <FileCheck className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Contracts</p>
+                <p className="text-2xl font-bold">{contractStats.total}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-success/10 rounded-lg">
+                <Clock className="h-5 w-5 text-success" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold">{contractStats.active}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-warning/10 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Expiring Soon</p>
+                <p className="text-2xl font-bold">{contractStats.expiringSoon}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-destructive/10 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Expired</p>
+                <p className="text-2xl font-bold">{contractStats.expired}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-lg">Filter Contracts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search contracts, clients, or contract IDs..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="signed">Signed</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Contracts Table */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>All Contracts ({filteredContracts.length})</CardTitle>
+          <CardDescription>
+            Comprehensive contract management with version control and expiry tracking
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Contract</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Effective Date</TableHead>
+                  <TableHead>Expiry</TableHead>
+                  <TableHead>Versions</TableHead>
+                  <TableHead>Created By</TableHead>
+                  <TableHead className="w-[50px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredContracts.map((contract) => {
+                  const expiryStatus = getExpiryStatus(contract.daysToExpiry);
+                  return (
+                    <TableRow key={contract.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{contract.name}</div>
+                          <div className="text-sm text-muted-foreground">{contract.id}</div>
+                          {contract.description && (
+                            <div className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
+                              {contract.description}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{contract.client}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getStatusColor(contract.status)} variant="secondary">
+                            {contract.status}
+                          </Badge>
+                          {contract.autoRenewal && (
+                            <Badge variant="outline" className="text-xs">
+                              Auto-Renew
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">{contract.value}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {contract.effectiveDate}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {contract.expiryDate}
+                          </div>
+                          <div className={`text-xs ${expiryStatus.color}`}>
+                            {expiryStatus.text}
+                            {contract.daysToExpiry > 0 && ` (${contract.daysToExpiry} days)`}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <GitBranch className="h-4 w-4 text-muted-foreground" />
+                          v{contract.versions}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="text-sm">{contract.createdBy}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Updated {contract.lastUpdated}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Contract
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Contract
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <GitBranch className="h-4 w-4 mr-2" />
+                              Version History
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Zap className="h-4 w-4 mr-2" />
+                              AI Analysis
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {filteredContracts.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No contracts found matching your criteria.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* AI Contract Features */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            AI Contract Analysis
+          </CardTitle>
+          <CardDescription>
+            Leverage AI to enhance your contract management workflow
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg border bg-muted/30">
+              <h4 className="font-medium mb-2">Contract Intelligence</h4>
+              <p className="text-sm text-muted-foreground">
+                Extract key terms, obligations, and deadlines automatically from contract documents.
+              </p>
+            </div>
+            <div className="p-4 rounded-lg border bg-muted/30">
+              <h4 className="font-medium mb-2">Risk Detection</h4>
+              <p className="text-sm text-muted-foreground">
+                Identify potential risks, missing clauses, and areas requiring legal attention.
+              </p>
+            </div>
+            <div className="p-4 rounded-lg border bg-muted/30">
+              <h4 className="font-medium mb-2">Renewal Alerts</h4>
+              <p className="text-sm text-muted-foreground">
+                Smart notifications for contract renewals, expiries, and important milestone dates.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
