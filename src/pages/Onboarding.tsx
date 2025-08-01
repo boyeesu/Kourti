@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -8,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Building, Users, FileText, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/kouti-legal-logo.png";
 
 const steps = [
@@ -39,6 +43,7 @@ const steps = [
 
 export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     organization: {
       name: "",
@@ -52,6 +57,16 @@ export default function Onboarding() {
     },
     practiceAreas: [],
   });
+
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/auth", { replace: true });
+    }
+  }, [user, navigate]);
 
   const practiceAreaOptions = [
     "Corporate Law",
@@ -80,10 +95,47 @@ export default function Onboarding() {
     }
   };
 
-  const handleFinish = () => {
-    // TODO: Submit onboarding data when backend is ready
-    console.log("Onboarding completed:", formData);
-    // Navigate to dashboard
+  const handleFinish = async () => {
+    setLoading(true);
+    try {
+      // Create organization
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .insert({
+          name: formData.organization.name,
+          description: formData.organization.description,
+        })
+        .select()
+        .single();
+
+      if (orgError) throw orgError;
+
+      // Update user profile with organization
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          organization_id: orgData.id,
+          role: 'admin',
+        })
+        .eq('user_id', user?.id);
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: "Onboarding completed!",
+        description: "Welcome to Kouti Legal. You're all set to get started.",
+      });
+
+      navigate("/dashboard", { replace: true });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to complete onboarding. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addEmailField = () => {

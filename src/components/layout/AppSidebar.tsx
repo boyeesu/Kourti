@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Briefcase,
@@ -9,7 +9,8 @@ import {
   UserCheck,
   Settings,
   ChevronRight,
-  Menu
+  Menu,
+  LogOut
 } from "lucide-react";
 
 import {
@@ -26,6 +27,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/kouti-legal-logo.png";
 
 const navigationItems = [
@@ -45,8 +48,28 @@ const managementItems = [
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
+  const { signOut } = useAuth();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+      navigate("/auth", { replace: true });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+      });
+    }
+  };
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";
@@ -142,6 +165,27 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <Separator className="my-4" />
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="h-10 w-full">
+                  <Button
+                    variant="ghost"
+                    onClick={handleSignOut}
+                    className="justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <LogOut className="h-5 w-5 flex-shrink-0" />
+                    {!collapsed && <span className="ml-3 font-medium">Sign Out</span>}
+                  </Button>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
