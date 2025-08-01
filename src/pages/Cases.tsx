@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom"; // Keep this import from 'codex/create-view-for-cases-and-edit-status'
+import { Link, useNavigate } from "react-router-dom";
 import { useCases } from "@/context/CasesContext"; // Keep this import from 'codex/create-view-for-cases-and-edit-status'
 import { useSearch } from "@/hooks/use-search"; // Keep this import from 'main'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Cases() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -98,7 +99,7 @@ export default function Cases() {
           <h1 className="text-3xl font-bold text-foreground">Cases</h1>
           <p className="text-muted-foreground">Manage and track all your legal cases</p>
         </div>
-        <Button className="shadow-md">
+        <Button className="shadow-md" onClick={() => navigate("/cases/create")}>
           <Plus className="h-4 w-4 mr-2" />
           New Case
         </Button>

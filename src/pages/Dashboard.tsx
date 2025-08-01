@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const stats = [
     {
       title: "Active Cases",
@@ -122,7 +124,7 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back! Here's what's happening with your legal practice.</p>
         </div>
-        <Button className="shadow-md">
+        <Button className="shadow-md" onClick={() => navigate("/cases/create")}>
           <Plus className="h-4 w-4 mr-2" />
           New Case
         </Button>
@@ -223,7 +225,7 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <Button variant="outline" className="h-20 flex-col gap-2">
+            <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate("/cases/create")}>
               <Briefcase className="h-6 w-6" />
               <span className="text-sm">New Case</span>
             </Button>

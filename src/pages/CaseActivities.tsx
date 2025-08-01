@@ -21,6 +21,17 @@ interface Activity {
   status: string;
   createdAt: string;
   createdBy: string;
+  documents?: ActivityDocument[];
+  notes?: string;
+  voiceTranscription?: string;
+}
+
+interface ActivityDocument {
+  id: string;
+  name: string;
+  size: string;
+  type: string;
+  uploadedAt: string;
 }
 
 export default function CaseActivities() {

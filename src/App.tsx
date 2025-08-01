@@ -12,7 +12,8 @@ import Register from "./pages/Register";
 import Onboarding from "./pages/Onboarding";
 import Cases from "./pages/Cases";
 import CaseDetails from "./pages/CaseDetails";
-import CaseActivities from "./pages/CaseActivities";
+import CaseCreate from "./pages/CaseCreate";
+import CaseActivities from "./pages/CaseActivitiesNew";
 import Calendar from "./pages/Calendar";
 import Documents from "./pages/Documents";
 import DocumentUpload from "./pages/DocumentUpload";
@@ -44,6 +45,7 @@ const App = () => (
                 <Route path="/register" element={<Register />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/cases" element={<Cases />} />
+                <Route path="/cases/create" element={<CaseCreate />} />
                 <Route path="/cases/:caseId" element={<CaseDetails />} />
                 <Route path="/cases/:caseId/activities" element={<CaseActivities />} />
                 <Route path="/calendar" element={<Calendar />} />
