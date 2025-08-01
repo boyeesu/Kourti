@@ -27,7 +27,7 @@ import ContractCompare from "./pages/ContractCompare";
 import ContractView from "./pages/ContractView";
 import ContractEdit from "./pages/ContractEdit";
 import ContractHistory from "./pages/ContractHistory";
-import Users from "./pages/Users";
+import UserManagement from "./pages/UserManagement";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -75,7 +75,7 @@ const App = () => (
                         <Route path="/contracts/:id" element={<ContractView />} />
                         <Route path="/contracts/:id/edit" element={<ContractEdit />} />
                         <Route path="/contracts/:id/history" element={<ContractHistory />} />
-                        <Route path="/users" element={<Users />} />
+                        <Route path="/users" element={<UserManagement />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>

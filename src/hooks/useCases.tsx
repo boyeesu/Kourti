@@ -53,16 +53,15 @@ export function useCases() {
         .from('cases')
         .select(`
           *,
-          client:clients(id, name),
-          assigned_user:profiles(id, first_name, last_name)
+          client:clients(id, name)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data as any[];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 1000, // 30 seconds for faster updates
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -72,7 +71,10 @@ export function useCase(id: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cases')
-        .select('*')
+        .select(`
+          *,
+          client:clients(id, name)
+        `)
         .eq('id', id)
         .single();
 
@@ -80,7 +82,7 @@ export function useCase(id: string) {
       return data as any;
     },
     enabled: !!id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 }
 

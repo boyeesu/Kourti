@@ -548,6 +548,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      invite_user_to_organization: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_role: string
+          p_department?: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       user_role: "superadmin" | "admin" | "user"
