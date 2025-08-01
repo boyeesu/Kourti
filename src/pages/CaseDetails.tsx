@@ -28,12 +28,19 @@ export default function CaseDetails() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <Button variant="outline" className="mb-2" asChild>
-        <Link to="/cases">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Cases
-        </Link>
-      </Button>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" className="mb-2 hover-scale" asChild>
+          <Link to="/cases">
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Cases
+          </Link>
+        </Button>
+        <Button variant="outline" className="mb-2 hover-scale" asChild>
+          <Link to={`/cases/${caseItem.id}/activities`}>
+            Activities & Timeline
+          </Link>
+        </Button>
+      </div>
 
       <Card className="shadow-card">
         <CardHeader>
