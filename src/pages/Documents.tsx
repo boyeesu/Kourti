@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSearch } from "@/hooks/use-search";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,6 @@ import {
   FileImage,
   File,
   MessageSquare,
-  ExternalLink,
   Calendar,
   User
 } from "lucide-react";
@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Documents() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const { term: globalSearch } = useSearch();
@@ -56,7 +57,6 @@ export default function Documents() {
       uploadedBy: "Sarah Wilson",
       uploadDate: "2024-01-28",
       linkedCase: "CASE-001",
-      googleDriveId: "1abc123def456",
       comments: 5,
       lastAccessed: "2 hours ago",
       status: "Under Review"
@@ -69,7 +69,6 @@ export default function Documents() {
       uploadedBy: "Michael Chen",
       uploadDate: "2024-01-27",
       linkedCase: "CASE-002",
-      googleDriveId: "2def456ghi789",
       comments: 3,
       lastAccessed: "1 day ago",
       status: "Approved"
@@ -82,7 +81,6 @@ export default function Documents() {
       uploadedBy: "Jessica Thompson",
       uploadDate: "2024-01-26",
       linkedCase: "CASE-003",
-      googleDriveId: "3ghi789jkl012",
       comments: 1,
       lastAccessed: "3 days ago",
       status: "Draft"
@@ -95,7 +93,6 @@ export default function Documents() {
       uploadedBy: "David Rodriguez",
       uploadDate: "2024-01-25",
       linkedCase: "CASE-004",
-      googleDriveId: "4jkl012mno345",
       comments: 8,
       lastAccessed: "5 days ago",
       status: "Final"
@@ -108,7 +105,6 @@ export default function Documents() {
       uploadedBy: "Sarah Wilson",
       uploadDate: "2024-01-24",
       linkedCase: "CASE-005",
-      googleDriveId: "5mno345pqr678",
       comments: 2,
       lastAccessed: "1 week ago",
       status: "Under Review"
@@ -137,15 +133,6 @@ export default function Documents() {
     }
   };
 
-  const handleViewDocument = (driveId: string) => {
-    const url = `https://drive.google.com/file/d/${driveId}/view`;
-    window.open(url, "_blank", "noopener");
-  };
-
-  const handleDownloadDocument = (driveId: string) => {
-    const url = `https://drive.google.com/uc?export=download&id=${driveId}`;
-    window.open(url, "_blank", "noopener");
-  };
 
   const filteredDocuments = documents.filter(doc => {
     const termMatches = (t: string) =>
@@ -164,16 +151,16 @@ export default function Documents() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Documents</h1>
-          <p className="text-muted-foreground">Manage and review legal documents with Google Drive integration</p>
+          <p className="text-muted-foreground">Manage and review legal documents with AI-powered analysis</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="shadow-sm">
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Connect Google Drive
-          </Button>
-          <Button className="shadow-md">
+          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/documents/upload")}>
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
+          </Button>
+          <Button className="shadow-md" onClick={() => navigate("/bulk-import")}>
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Import
           </Button>
         </div>
       </div>
@@ -215,19 +202,6 @@ export default function Documents() {
               <div>
                 <p className="text-sm text-muted-foreground">This Week</p>
                 <p className="text-2xl font-bold">12</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-destructive/10 rounded-lg">
-                <ExternalLink className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Google Drive</p>
-                <p className="text-2xl font-bold">89%</p>
               </div>
             </div>
           </CardContent>
@@ -344,28 +318,24 @@ export default function Documents() {
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => handleViewDocument(doc.googleDriveId)}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Document
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            AI Review
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => handleDownloadDocument(doc.googleDriveId)}>
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Share className="h-4 w-4 mr-2" />
-                            Share
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => handleViewDocument(doc.googleDriveId)}>
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Open in Google Drive
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
+                         <DropdownMenuContent align="end">
+                           <DropdownMenuItem>
+                             <Eye className="h-4 w-4 mr-2" />
+                             View Document
+                           </DropdownMenuItem>
+                           <DropdownMenuItem>
+                             <MessageSquare className="h-4 w-4 mr-2" />
+                             AI Review
+                           </DropdownMenuItem>
+                           <DropdownMenuItem>
+                             <Download className="h-4 w-4 mr-2" />
+                             Download
+                           </DropdownMenuItem>
+                           <DropdownMenuItem>
+                             <Share className="h-4 w-4 mr-2" />
+                             Share
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>

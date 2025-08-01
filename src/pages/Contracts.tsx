@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSearch } from "@/hooks/use-search";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,8 @@ import {
   Clock,
   AlertTriangle,
   GitBranch,
-  Zap
+  Zap,
+  Upload
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Contracts() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { term: globalSearch } = useSearch();
@@ -170,10 +173,16 @@ export default function Contracts() {
           <h1 className="text-3xl font-bold text-foreground">Contracts</h1>
           <p className="text-muted-foreground">Manage contracts with version control and AI-powered analysis</p>
         </div>
-        <Button className="shadow-md">
-          <Plus className="h-4 w-4 mr-2" />
-          New Contract
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/contracts/create")}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Contract
+          </Button>
+          <Button className="shadow-md" onClick={() => navigate("/bulk-import")}>
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Import
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
