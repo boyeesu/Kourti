@@ -15,6 +15,8 @@ import CaseDetails from "./pages/CaseDetails";
 import CaseCreate from "./pages/CaseCreate";
 import CaseActivities from "./pages/CaseActivitiesNew";
 import Clients from "./pages/Clients";
+import ClientDetails from "./pages/ClientDetails";
+import BulkImport from "./pages/BulkImport";
 import Calendar from "./pages/Calendar";
 import Documents from "./pages/Documents";
 import DocumentUpload from "./pages/DocumentUpload";
@@ -50,6 +52,8 @@ const App = () => (
                 <Route path="/cases/:caseId" element={<CaseDetails />} />
                 <Route path="/cases/:caseId/activities" element={<CaseActivities />} />
                 <Route path="/clients" element={<Clients />} />
+                <Route path="/clients/:clientId" element={<ClientDetails />} />
+                <Route path="/bulk-import" element={<BulkImport />} />
                 <Route path="/calendar" element={<Calendar />} />
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/documents/upload" element={<DocumentUpload />} />

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Building, Mail, Phone, MapPin, MoreHorizontal } from "lucide-react";
+import { Plus, Search, Building, Mail, Phone, MapPin, MoreHorizontal, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -122,10 +122,16 @@ export default function Clients() {
           <h1 className="text-3xl font-bold text-foreground">Clients</h1>
           <p className="text-muted-foreground">Manage your client database and relationships</p>
         </div>
-        <Button className="shadow-md hover-scale">
-          <Plus className="h-4 w-4 mr-2" />
-          New Client
-        </Button>
+        <div className="flex gap-2">
+          <Button className="shadow-md hover-scale">
+            <Plus className="h-4 w-4 mr-2" />
+            New Client
+          </Button>
+          <Button variant="outline" className="hover-scale" onClick={() => navigate("/bulk-import")}>
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Import
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -256,7 +262,12 @@ export default function Clients() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium text-foreground">{client.name}</p>
+                        <button 
+                          onClick={() => navigate(`/clients/${client.id}`)}
+                          className="font-medium text-foreground hover:text-primary story-link text-left"
+                        >
+                          {client.name}
+                        </button>
                         <p className="text-sm text-muted-foreground">{client.id}</p>
                       </div>
                     </div>
@@ -301,7 +312,9 @@ export default function Clients() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}`)}>
+                          View Details
+                        </DropdownMenuItem>
                         <DropdownMenuItem>Edit Client</DropdownMenuItem>
                         <DropdownMenuItem>View Cases</DropdownMenuItem>
                         <DropdownMenuItem>View Contracts</DropdownMenuItem>
