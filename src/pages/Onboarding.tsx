@@ -50,6 +50,11 @@ export default function Onboarding() {
       type: "",
       size: "",
       description: "",
+      address: "",
+      state: "",
+      country: "",
+      phone: "",
+      email: "",
     },
     team: {
       inviteEmails: [""],
@@ -98,12 +103,17 @@ export default function Onboarding() {
   const handleFinish = async () => {
     setLoading(true);
     try {
-      // Create organization
+      // Create organization with all collected data
       const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .insert({
           name: formData.organization.name,
           description: formData.organization.description,
+          address: formData.organization.address,
+          state: formData.organization.state,
+          country: formData.organization.country,
+          phone: formData.organization.phone,
+          email: formData.organization.email,
         })
         .select()
         .single();
@@ -173,7 +183,7 @@ export default function Onboarding() {
         return (
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="orgName">Organization Name</Label>
+              <Label htmlFor="orgName">Organization Name *</Label>
               <Input
                 id="orgName"
                 placeholder="Enter your organization name"
@@ -182,51 +192,130 @@ export default function Onboarding() {
                   ...formData,
                   organization: { ...formData.organization, name: e.target.value }
                 })}
+                required
               />
             </div>
             
-            <div className="space-y-2">
-              <Label>Organization Type</Label>
-              <Select 
-                value={formData.organization.type}
-                onValueChange={(value) => setFormData({
-                  ...formData,
-                  organization: { ...formData.organization, type: value }
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select organization type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="law-firm">Law Firm</SelectItem>
-                  <SelectItem value="corporate-legal">Corporate Legal Department</SelectItem>
-                  <SelectItem value="government">Government Agency</SelectItem>
-                  <SelectItem value="nonprofit">Nonprofit Organization</SelectItem>
-                  <SelectItem value="solo">Solo Practice</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Organization Type *</Label>
+                <Select 
+                  value={formData.organization.type}
+                  onValueChange={(value) => setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, type: value }
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="law-firm">Law Firm</SelectItem>
+                    <SelectItem value="corporate-legal">Corporate Legal Department</SelectItem>
+                    <SelectItem value="government">Government Agency</SelectItem>
+                    <SelectItem value="nonprofit">Nonprofit Organization</SelectItem>
+                    <SelectItem value="solo">Solo Practice</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Organization Size *</Label>
+                <Select 
+                  value={formData.organization.size}
+                  onValueChange={(value) => setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, size: value }
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1-5">1-5 employees</SelectItem>
+                    <SelectItem value="6-20">6-20 employees</SelectItem>
+                    <SelectItem value="21-50">21-50 employees</SelectItem>
+                    <SelectItem value="51-200">51-200 employees</SelectItem>
+                    <SelectItem value="200+">200+ employees</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            
+
             <div className="space-y-2">
-              <Label>Organization Size</Label>
-              <Select 
-                value={formData.organization.size}
-                onValueChange={(value) => setFormData({
+              <Label htmlFor="orgAddress">Business Address *</Label>
+              <Input
+                id="orgAddress"
+                placeholder="Enter your business address"
+                value={formData.organization.address}
+                onChange={(e) => setFormData({
                   ...formData,
-                  organization: { ...formData.organization, size: value }
+                  organization: { ...formData.organization, address: e.target.value }
                 })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select organization size" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1-5">1-5 employees</SelectItem>
-                  <SelectItem value="6-20">6-20 employees</SelectItem>
-                  <SelectItem value="21-50">21-50 employees</SelectItem>
-                  <SelectItem value="51-200">51-200 employees</SelectItem>
-                  <SelectItem value="200+">200+ employees</SelectItem>
-                </SelectContent>
-              </Select>
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="orgState">State/Province *</Label>
+                <Input
+                  id="orgState"
+                  placeholder="Enter state or province"
+                  value={formData.organization.state}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, state: e.target.value }
+                  })}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="orgCountry">Country *</Label>
+                <Input
+                  id="orgCountry"
+                  placeholder="Enter country"
+                  value={formData.organization.country}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, country: e.target.value }
+                  })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="orgPhone">Official Phone Number *</Label>
+                <Input
+                  id="orgPhone"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={formData.organization.phone}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, phone: e.target.value }
+                  })}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="orgEmail">Organization Email *</Label>
+                <Input
+                  id="orgEmail"
+                  type="email"
+                  placeholder="contact@yourfirm.com"
+                  value={formData.organization.email}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, email: e.target.value }
+                  })}
+                  required
+                />
+              </div>
             </div>
             
             <div className="space-y-2">

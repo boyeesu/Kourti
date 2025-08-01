@@ -351,6 +351,7 @@ export type Database = {
       organizations: {
         Row: {
           address: string | null
+          country: string | null
           created_at: string
           description: string | null
           email: string | null
@@ -358,11 +359,13 @@ export type Database = {
           logo_url: string | null
           name: string
           phone: string | null
+          state: string | null
           updated_at: string
           website: string | null
         }
         Insert: {
           address?: string | null
+          country?: string | null
           created_at?: string
           description?: string | null
           email?: string | null
@@ -370,11 +373,13 @@ export type Database = {
           logo_url?: string | null
           name: string
           phone?: string | null
+          state?: string | null
           updated_at?: string
           website?: string | null
         }
         Update: {
           address?: string | null
+          country?: string | null
           created_at?: string
           description?: string | null
           email?: string | null
@@ -382,6 +387,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           phone?: string | null
+          state?: string | null
           updated_at?: string
           website?: string | null
         }
