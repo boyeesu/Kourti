@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useCases } from "@/context/CasesContext"; // Keep this import from 'codex/create-view-for-cases-and-edit-status'
-import { useSearch } from "@/hooks/use-search"; // Keep this import from 'main'
+import { useCases as useContextCases } from "@/context/CasesContext"; // Keep context for compatibility
+import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
+import { useSearch } from "@/hooks/use-search";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,28 +31,74 @@ import {
   MoreVertical,
   FileText,
   Calendar,
-  User
+  User,
+  Trash2
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Cases() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const { toast } = useToast();
 
-  // Keep both hooks and the caseRows mapping
-  const { cases, statuses } = useCases();
+  // Use real data hooks - prioritize over context
+  const { data: realCases = [], isLoading, error } = useCases();
+  const { cases: contextCases, statuses } = useContextCases(); // Keep for status options
   const { term: globalSearch } = useSearch();
+  const deleteCase = useDeleteCase();
 
+  // Use real data if available, fallback to context data
+  const cases = realCases.length > 0 ? realCases : contextCases;
+  
+  // Transform real data to match the expected format
   const caseRows = cases.map(c => ({
-    ...c,
-    documentsCount: c.documents.length,
+    id: c.id || c.case_number,
+    name: c.title || c.name,
+    client: c.client?.name || c.client || 'Unknown Client',
+    status: c.status,
+    priority: c.priority,
+    assignedTo: c.assigned_user?.first_name && c.assigned_user?.last_name 
+      ? `${c.assigned_user.first_name} ${c.assigned_user.last_name}`
+      : c.assignedTo || 'Unassigned',
+    startDate: c.created_at ? new Date(c.created_at).toLocaleDateString() : c.startDate,
+    dueDate: c.next_hearing_date ? new Date(c.next_hearing_date).toLocaleDateString() : c.dueDate || 'No date set',
+    documentsCount: c.documents?.length || 0,
   }));
+
+  const handleDeleteCase = async (caseId: string) => {
+    try {
+      await deleteCase.mutateAsync(caseId);
+    } catch (error) {
+      // Error handled by the mutation
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -230,6 +277,33 @@ export default function Cases() {
                             <FileText className="h-4 w-4 mr-2" />
                             View Documents
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Case
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the case
+                                  and remove all associated data.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteCase(case_item.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
