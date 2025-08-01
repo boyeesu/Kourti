@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { User, Bell, Settings, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useSearch } from "@/hooks/use-search";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +21,17 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { term, setTerm } = useSearch();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -73,7 +86,10 @@ export function AppLayout({ children }: AppLayoutProps) {
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer text-destructive">
+                  <DropdownMenuItem 
+                    className="cursor-pointer text-destructive"
+                    onClick={handleSignOut}
+                  >
                     Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
