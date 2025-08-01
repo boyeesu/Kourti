@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useContracts } from "@/hooks/useContracts";
 import { 
   Table,
   TableBody,
@@ -48,84 +49,15 @@ export default function Contracts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { term: globalSearch } = useSearch();
+  const { data: contracts = [], isLoading } = useContracts();
 
-  const contracts = [
-    {
-      id: "CONTRACT-001",
-      name: "Software License Agreement - Acme Corp",
-      description: "Annual software licensing contract with maintenance and support",
-      status: "Active",
-      effectiveDate: "2024-01-01",
-      expiryDate: "2024-12-31",
-      createdBy: "Sarah Wilson",
-      client: "Acme Corporation",
-      value: "$125,000",
-      versions: 3,
-      lastUpdated: "2024-01-15",
-      daysToExpiry: 337,
-      autoRenewal: true
-    },
-    {
-      id: "CONTRACT-002",
-      name: "Consulting Services Agreement - Tech Solutions",
-      description: "Professional consulting services for system integration",
-      status: "Draft",
-      effectiveDate: "2024-02-01",
-      expiryDate: "2024-07-31",
-      createdBy: "Michael Chen",
-      client: "Tech Solutions Inc",
-      value: "$75,000",
-      versions: 1,
-      lastUpdated: "2024-01-28",
-      daysToExpiry: 184,
-      autoRenewal: false
-    },
-    {
-      id: "CONTRACT-003",
-      name: "Employment Contract - Senior Developer",
-      description: "Full-time employment agreement with stock options",
-      status: "Active",
-      effectiveDate: "2024-01-15",
-      expiryDate: "2026-01-15",
-      createdBy: "Jessica Thompson",
-      client: "StartupXYZ",
-      value: "$95,000",
-      versions: 2,
-      lastUpdated: "2024-01-20",
-      daysToExpiry: 719,
-      autoRenewal: false
-    },
-    {
-      id: "CONTRACT-004",
-      name: "Non-Disclosure Agreement - Innovation Labs",
-      description: "Mutual NDA for collaborative research project",
-      status: "Expired",
-      effectiveDate: "2023-06-01",
-      expiryDate: "2024-01-01",
-      createdBy: "David Rodriguez",
-      client: "Innovation Labs",
-      value: "$0",
-      versions: 1,
-      lastUpdated: "2023-12-15",
-      daysToExpiry: -27,
-      autoRenewal: false
-    },
-    {
-      id: "CONTRACT-005",
-      name: "Vendor Supply Agreement - Property Group",
-      description: "Supply contract for construction materials",
-      status: "Signed",
-      effectiveDate: "2024-02-01",
-      expiryDate: "2024-05-01",
-      createdBy: "Sarah Wilson",
-      client: "Property Group Ltd",
-      value: "$250,000",
-      versions: 4,
-      lastUpdated: "2024-01-25",
-      daysToExpiry: 93,
-      autoRenewal: true
-    }
-  ];
+  if (isLoading) {
+    return (
+      <div className="px-4 py-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -147,8 +79,7 @@ export default function Contracts() {
 
   const filteredContracts = contracts.filter(contract => {
     const termMatches = (t: string) =>
-      contract.name.toLowerCase().includes(t.toLowerCase()) ||
-      contract.client.toLowerCase().includes(t.toLowerCase()) ||
+      contract.title.toLowerCase().includes(t.toLowerCase()) ||
       contract.id.toLowerCase().includes(t.toLowerCase());
 
     const matchesLocal = searchTerm === "" || termMatches(searchTerm);
@@ -160,9 +91,9 @@ export default function Contracts() {
 
   const contractStats = {
     total: contracts.length,
-    active: contracts.filter(c => c.status === "Active").length,
-    expiringSoon: contracts.filter(c => c.daysToExpiry <= 30 && c.daysToExpiry > 0).length,
-    expired: contracts.filter(c => c.daysToExpiry < 0).length
+    active: contracts.filter(c => c.status === "active").length,
+    expiringSoon: 0,
+    expired: 0
   };
 
   return (
@@ -302,12 +233,11 @@ export default function Contracts() {
               </TableHeader>
               <TableBody>
                 {filteredContracts.map((contract) => {
-                  const expiryStatus = getExpiryStatus(contract.daysToExpiry);
                   return (
                     <TableRow key={contract.id}>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{contract.name}</div>
+                          <div className="font-medium">{contract.title}</div>
                           <div className="text-sm text-muted-foreground">{contract.id}</div>
                           {contract.description && (
                             <div className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
@@ -316,51 +246,42 @@ export default function Contracts() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{contract.client}</TableCell>
+                      <TableCell>{contract.client_id || 'No client'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Badge className={getStatusColor(contract.status)} variant="secondary">
                             {contract.status}
                           </Badge>
-                          {contract.autoRenewal && (
-                            <Badge variant="outline" className="text-xs">
-                              Auto-Renew
-                            </Badge>
-                          )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{contract.value}</TableCell>
+                      <TableCell className="font-medium">{contract.currency} {contract.value || '0'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {contract.effectiveDate}
+                          {contract.start_date ? new Date(contract.start_date).toLocaleDateString() : 'No date'}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {contract.expiryDate}
-                          </div>
-                          <div className={`text-xs ${expiryStatus.color}`}>
-                            {expiryStatus.text}
-                            {contract.daysToExpiry > 0 && ` (${contract.daysToExpiry} days)`}
+                            {contract.end_date ? new Date(contract.end_date).toLocaleDateString() : 'No date'}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <GitBranch className="h-4 w-4 text-muted-foreground" />
-                          v{contract.versions}
+                          v1
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <div className="text-sm">{contract.createdBy}</div>
+                            <div className="text-sm">User</div>
                             <div className="text-xs text-muted-foreground">
-                              Updated {contract.lastUpdated}
+                              Created {new Date(contract.created_at).toLocaleDateString()}
                             </div>
                           </div>
                         </div>

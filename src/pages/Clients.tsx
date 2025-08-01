@@ -8,80 +8,22 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useClients } from "@/hooks/useClients";
 
-// Mock client data - in real app this would come from database
-const mockClients = [
-  {
-    id: "CLIENT-001",
-    name: "Acme Corporation",
-    type: "Corporate",
-    email: "legal@acme.com",
-    phone: "+1 (555) 123-4567",
-    address: "123 Business Ave, NY, NY 10001",
-    status: "Active",
-    totalCases: 3,
-    totalContracts: 8,
-    lastActivity: "2024-01-28",
-    primaryContact: "John Smith",
-  },
-  {
-    id: "CLIENT-002", 
-    name: "Tech Solutions Inc",
-    type: "Corporate",
-    email: "contact@techsolutions.com",
-    phone: "+1 (555) 234-5678",
-    address: "456 Innovation Dr, CA, CA 94105",
-    status: "Active",
-    totalCases: 1,
-    totalContracts: 12,
-    lastActivity: "2024-01-25",
-    primaryContact: "Sarah Johnson",
-  },
-  {
-    id: "CLIENT-003",
-    name: "StartupXYZ",
-    type: "Startup",
-    email: "hello@startupxyz.com", 
-    phone: "+1 (555) 345-6789",
-    address: "789 Startup Blvd, TX, TX 78701",
-    status: "Active",
-    totalCases: 2,
-    totalContracts: 3,
-    lastActivity: "2024-01-20",
-    primaryContact: "Mike Chen",
-  },
-  {
-    id: "CLIENT-004",
-    name: "Innovation Labs",
-    type: "Research",
-    email: "research@innovationlabs.org",
-    phone: "+1 (555) 456-7890", 
-    address: "321 Research Way, MA, MA 02139",
-    status: "Inactive",
-    totalCases: 1,
-    totalContracts: 5,
-    lastActivity: "2023-12-15",
-    primaryContact: "Dr. Lisa Wong",
-  },
-  {
-    id: "CLIENT-005",
-    name: "Property Group Ltd",
-    type: "Real Estate",
-    email: "office@propertygroup.com",
-    phone: "+1 (555) 567-8901",
-    address: "654 Property St, FL, FL 33101", 
-    status: "Active",
-    totalCases: 1,
-    totalContracts: 15,
-    lastActivity: "2024-01-22",
-    primaryContact: "Robert Davis",
-  },
-];
 
 export default function Clients() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const { data: clients = [], isLoading } = useClients();
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -101,10 +43,9 @@ export default function Clients() {
     }
   };
 
-  const filteredClients = mockClients.filter(client => {
+  const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.primaryContact.toLowerCase().includes(searchTerm.toLowerCase());
+                         (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === "all" || client.status.toLowerCase() === statusFilter;
     
     return matchesSearch && matchesStatus;
@@ -142,10 +83,10 @@ export default function Clients() {
               <div className="p-3 bg-primary/10 rounded-lg">
                 <Building className="h-6 w-6 text-primary" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{mockClients.length}</p>
-                <p className="text-sm text-muted-foreground">Total Clients</p>
-              </div>
+               <div>
+                 <p className="text-2xl font-bold text-foreground">{clients.length}</p>
+                 <p className="text-sm text-muted-foreground">Total Clients</p>
+               </div>
             </div>
           </CardContent>
         </Card>
@@ -156,12 +97,12 @@ export default function Clients() {
               <div className="p-3 bg-success/10 rounded-lg">
                 <Building className="h-6 w-6 text-success" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {mockClients.filter(c => c.status === "Active").length}
-                </p>
-                <p className="text-sm text-muted-foreground">Active Clients</p>
-              </div>
+               <div>
+                 <p className="text-2xl font-bold text-foreground">
+                   {clients.filter(c => c.status === "active").length}
+                 </p>
+                 <p className="text-sm text-muted-foreground">Active Clients</p>
+               </div>
             </div>
           </CardContent>
         </Card>
@@ -172,12 +113,10 @@ export default function Clients() {
               <div className="p-3 bg-warning/10 rounded-lg">
                 <Building className="h-6 w-6 text-warning" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {mockClients.reduce((sum, client) => sum + client.totalCases, 0)}
-                </p>
-                <p className="text-sm text-muted-foreground">Total Cases</p>
-              </div>
+               <div>
+                 <p className="text-2xl font-bold text-foreground">0</p>
+                 <p className="text-sm text-muted-foreground">Total Cases</p>
+               </div>
             </div>
           </CardContent>
         </Card>
@@ -188,12 +127,10 @@ export default function Clients() {
               <div className="p-3 bg-info/10 rounded-lg">
                 <Building className="h-6 w-6 text-info" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {mockClients.reduce((sum, client) => sum + client.totalContracts, 0)}
-                </p>
-                <p className="text-sm text-muted-foreground">Total Contracts</p>
-              </div>
+               <div>
+                 <p className="text-2xl font-bold text-foreground">0</p>
+                 <p className="text-sm text-muted-foreground">Total Contracts</p>
+               </div>
             </div>
           </CardContent>
         </Card>
@@ -272,38 +209,35 @@ export default function Clients() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-3 w-3 text-muted-foreground" />
-                        <span>{client.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-3 w-3 text-muted-foreground" />
-                        <span>{client.phone}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{client.primaryContact}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getTypeColor(client.type)} variant="outline">
-                      {client.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(client.status)} variant="outline">
-                      {client.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium">{client.totalCases}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium">{client.totalContracts}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">{client.lastActivity}</span>
-                  </TableCell>
+                   <TableCell>
+                     <div className="space-y-1">
+                       <div className="flex items-center gap-2 text-sm">
+                         <Mail className="h-3 w-3 text-muted-foreground" />
+                         <span>{client.email || 'No email'}</span>
+                       </div>
+                       <div className="flex items-center gap-2 text-sm">
+                         <Phone className="h-3 w-3 text-muted-foreground" />
+                         <span>{client.phone || 'No phone'}</span>
+                       </div>
+                     </div>
+                   </TableCell>
+                   <TableCell>
+                     <Badge variant="outline">Individual</Badge>
+                   </TableCell>
+                   <TableCell>
+                     <Badge className={getStatusColor(client.status)} variant="outline">
+                       {client.status}
+                     </Badge>
+                   </TableCell>
+                   <TableCell>
+                     <span className="font-medium">0</span>
+                   </TableCell>
+                   <TableCell>
+                     <span className="font-medium">0</span>
+                   </TableCell>
+                   <TableCell>
+                     <span className="text-sm text-muted-foreground">{new Date(client.created_at).toLocaleDateString()}</span>
+                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

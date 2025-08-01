@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useDocuments } from "@/hooks/useDocuments";
 import { 
   Table,
   TableBody,
@@ -47,69 +48,15 @@ export default function Documents() {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const { term: globalSearch } = useSearch();
+  const { data: documents = [], isLoading } = useDocuments();
 
-  const documents = [
-    {
-      id: "DOC-001",
-      name: "Smith_Contract_Amendment_v2.pdf",
-      type: "PDF",
-      size: "2.4 MB",
-      uploadedBy: "Sarah Wilson",
-      uploadDate: "2024-01-28",
-      linkedCase: "CASE-001",
-      comments: 5,
-      lastAccessed: "2 hours ago",
-      status: "Under Review"
-    },
-    {
-      id: "DOC-002", 
-      name: "Corporate_Merger_Analysis.docx",
-      type: "DOCX",
-      size: "1.8 MB",
-      uploadedBy: "Michael Chen",
-      uploadDate: "2024-01-27",
-      linkedCase: "CASE-002",
-      comments: 3,
-      lastAccessed: "1 day ago",
-      status: "Approved"
-    },
-    {
-      id: "DOC-003",
-      name: "Employment_Agreement_Template.pdf",
-      type: "PDF", 
-      size: "892 KB",
-      uploadedBy: "Jessica Thompson",
-      uploadDate: "2024-01-26",
-      linkedCase: "CASE-003",
-      comments: 1,
-      lastAccessed: "3 days ago",
-      status: "Draft"
-    },
-    {
-      id: "DOC-004",
-      name: "Patent_Application_Draft.pdf",
-      type: "PDF",
-      size: "5.2 MB", 
-      uploadedBy: "David Rodriguez",
-      uploadDate: "2024-01-25",
-      linkedCase: "CASE-004",
-      comments: 8,
-      lastAccessed: "5 days ago",
-      status: "Final"
-    },
-    {
-      id: "DOC-005",
-      name: "Property_Deed_Review.pdf",
-      type: "PDF",
-      size: "3.1 MB",
-      uploadedBy: "Sarah Wilson",
-      uploadDate: "2024-01-24",
-      linkedCase: "CASE-005",
-      comments: 2,
-      lastAccessed: "1 week ago",
-      status: "Under Review"
-    }
-  ];
+  if (isLoading) {
+    return (
+      <div className="px-4 py-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const getFileIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -136,12 +83,11 @@ export default function Documents() {
 
   const filteredDocuments = documents.filter(doc => {
     const termMatches = (t: string) =>
-      doc.name.toLowerCase().includes(t.toLowerCase()) ||
-      doc.linkedCase.toLowerCase().includes(t.toLowerCase());
+      doc.title.toLowerCase().includes(t.toLowerCase());
 
     const matchesLocal = searchTerm === "" || termMatches(searchTerm);
     const matchesGlobal = globalSearch === "" || termMatches(globalSearch);
-    const matchesType = typeFilter === "all" || doc.type.toLowerCase() === typeFilter;
+    const matchesType = typeFilter === "all" || (doc.file_type && doc.file_type.toLowerCase() === typeFilter);
     return matchesLocal && matchesGlobal && matchesType;
   });
 
@@ -175,7 +121,7 @@ export default function Documents() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Documents</p>
-                <p className="text-2xl font-bold">156</p>
+                <p className="text-2xl font-bold">{documents.length}</p>
               </div>
             </div>
           </CardContent>
@@ -188,7 +134,7 @@ export default function Documents() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Under Review</p>
-                <p className="text-2xl font-bold">23</p>
+                <p className="text-2xl font-bold">0</p>
               </div>
             </div>
           </CardContent>
@@ -201,7 +147,7 @@ export default function Documents() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">This Week</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">0</p>
               </div>
             </div>
           </CardContent>
@@ -269,48 +215,48 @@ export default function Documents() {
               <TableBody>
                 {filteredDocuments.map((doc) => (
                   <TableRow key={doc.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {getFileIcon(doc.type)}
-                        <div>
-                          <div className="font-medium">{doc.name}</div>
-                          <div className="text-sm text-muted-foreground">ID: {doc.id}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{doc.type}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">{doc.size}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{doc.linkedCase}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(doc.status)} variant="secondary">
-                        {doc.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <div className="text-sm">{doc.uploadedBy}</div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {doc.uploadDate}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{doc.comments}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {doc.lastAccessed}
-                    </TableCell>
+                     <TableCell>
+                       <div className="flex items-center gap-3">
+                         {getFileIcon(doc.file_type || 'file')}
+                         <div>
+                           <div className="font-medium">{doc.title}</div>
+                           <div className="text-sm text-muted-foreground">ID: {doc.id}</div>
+                         </div>
+                       </div>
+                     </TableCell>
+                     <TableCell>
+                       <Badge variant="outline">{doc.file_type || 'File'}</Badge>
+                     </TableCell>
+                     <TableCell className="text-sm">{doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : 'Unknown'}</TableCell>
+                     <TableCell>
+                       <Badge variant="secondary">{doc.case_id || 'No case'}</Badge>
+                     </TableCell>
+                     <TableCell>
+                       <Badge className="bg-muted text-muted-foreground" variant="secondary">
+                         Uploaded
+                       </Badge>
+                     </TableCell>
+                     <TableCell>
+                       <div className="flex items-center gap-2">
+                         <User className="h-4 w-4 text-muted-foreground" />
+                         <div>
+                           <div className="text-sm">User</div>
+                           <div className="text-xs text-muted-foreground flex items-center gap-1">
+                             <Calendar className="h-3 w-3" />
+                             {new Date(doc.created_at).toLocaleDateString()}
+                           </div>
+                         </div>
+                       </div>
+                     </TableCell>
+                     <TableCell>
+                       <div className="flex items-center gap-1">
+                         <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                         <span className="text-sm">0</span>
+                       </div>
+                     </TableCell>
+                     <TableCell className="text-sm text-muted-foreground">
+                       {new Date(doc.created_at).toLocaleDateString()}
+                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

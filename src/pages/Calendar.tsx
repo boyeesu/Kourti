@@ -11,63 +11,19 @@ import {
   MapPin,
   Users
 } from "lucide-react";
+import { useCalendarEvents } from "@/hooks/useCalendar";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  // Sample events data
-  const events = [
-    {
-      id: 1,
-      title: "Client Meeting - Smith Case",
-      time: "10:00 AM - 11:30 AM",
-      date: "2024-01-29",
-      type: "Meeting",
-      location: "Conference Room A",
-      attendees: ["Sarah Wilson", "John Smith"],
-      case: "CASE-001"
-    },
-    {
-      id: 2,
-      title: "Contract Review Deadline",
-      time: "5:00 PM",
-      date: "2024-01-30",
-      type: "Deadline",
-      location: "N/A",
-      attendees: [],
-      case: "CASE-002"
-    },
-    {
-      id: 3,
-      title: "Court Hearing - Johnson Case",
-      time: "2:00 PM - 4:00 PM",
-      date: "2024-02-15",
-      type: "Hearing",
-      location: "Superior Court, Room 205",
-      attendees: ["Michael Chen", "David Rodriguez"],
-      case: "CASE-001"
-    },
-    {
-      id: 4,
-      title: "Deposition - Williams Case",
-      time: "9:00 AM - 12:00 PM",
-      date: "2024-02-01",
-      type: "Deposition",
-      location: "Law Office - Conference Room B",
-      attendees: ["Jessica Thompson", "Robert Williams"],
-      case: "CASE-003"
-    },
-    {
-      id: 5,
-      title: "Document Review Session",
-      time: "1:00 PM - 3:00 PM",
-      date: "2024-01-31",
-      type: "Review",
-      location: "Office",
-      attendees: ["Sarah Wilson"],
-      case: "CASE-005"
-    }
-  ];
+  const { data: events = [], isLoading } = useCalendarEvents();
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
@@ -114,17 +70,17 @@ export default function Calendar() {
 
   const getEventsForDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return events.filter(event => event.date === dateStr);
+    return events.filter(event => event.start_date.split('T')[0] === dateStr);
   };
 
   const todayEvents = events.filter(event => {
     const today = new Date().toISOString().split('T')[0];
-    return event.date === today;
+    return event.start_date.split('T')[0] === today;
   });
 
   const upcomingEvents = events.filter(event => {
     const today = new Date();
-    const eventDate = new Date(event.date);
+    const eventDate = new Date(event.start_date);
     const diffTime = eventDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 && diffDays <= 7;
@@ -197,7 +153,7 @@ export default function Calendar() {
                         {dayEvents.slice(0, 2).map(event => (
                           <div
                             key={event.id}
-                            className={`text-xs p-1 rounded truncate ${getEventTypeColor(event.type)}`}
+                            className={`text-xs p-1 rounded truncate ${getEventTypeColor(event.event_type)}`}
                           >
                             {event.title}
                           </div>
@@ -230,32 +186,32 @@ export default function Calendar() {
               {todayEvents.length > 0 ? (
                 <div className="space-y-3">
                   {todayEvents.map(event => (
-                    <div key={event.id} className="p-3 rounded-lg border bg-muted/30">
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-sm">{event.title}</h4>
-                        <Badge className={getEventTypeColor(event.type)} variant="secondary">
-                          {event.type}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {event.time}
-                        </div>
-                        {event.location !== "N/A" && (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {event.location}
-                          </div>
-                        )}
-                        {event.attendees.length > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {event.attendees.join(", ")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                     <div key={event.id} className="p-3 rounded-lg border bg-muted/30">
+                       <div className="flex items-start justify-between mb-2">
+                         <h4 className="font-medium text-sm">{event.title}</h4>
+                         <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
+                           {event.event_type}
+                         </Badge>
+                       </div>
+                       <div className="space-y-1 text-xs text-muted-foreground">
+                         <div className="flex items-center gap-1">
+                           <Clock className="h-3 w-3" />
+                           {new Date(event.start_date).toLocaleTimeString()}
+                         </div>
+                         {event.location && (
+                           <div className="flex items-center gap-1">
+                             <MapPin className="h-3 w-3" />
+                             {event.location}
+                           </div>
+                         )}
+                         {event.attendees && event.attendees.length > 0 && (
+                           <div className="flex items-center gap-1">
+                             <Users className="h-3 w-3" />
+                             {event.attendees.join(", ")}
+                           </div>
+                         )}
+                       </div>
+                     </div>
                   ))}
                 </div>
               ) : (
@@ -274,18 +230,18 @@ export default function Calendar() {
               {upcomingEvents.length > 0 ? (
                 <div className="space-y-3">
                   {upcomingEvents.slice(0, 5).map(event => (
-                    <div key={event.id} className="p-3 rounded-lg border bg-muted/30">
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-sm">{event.title}</h4>
-                        <Badge className={getEventTypeColor(event.type)} variant="secondary">
-                          {event.type}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1 text-xs text-muted-foreground">
-                        <div>{new Date(event.date).toLocaleDateString()}</div>
-                        <div>{event.time}</div>
-                      </div>
-                    </div>
+                     <div key={event.id} className="p-3 rounded-lg border bg-muted/30">
+                       <div className="flex items-start justify-between mb-2">
+                         <h4 className="font-medium text-sm">{event.title}</h4>
+                         <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
+                           {event.event_type}
+                         </Badge>
+                       </div>
+                       <div className="space-y-1 text-xs text-muted-foreground">
+                         <div>{new Date(event.start_date).toLocaleDateString()}</div>
+                         <div>{new Date(event.start_date).toLocaleTimeString()}</div>
+                       </div>
+                     </div>
                   ))}
                   {upcomingEvents.length > 5 && (
                     <Button variant="outline" size="sm" className="w-full">

@@ -13,90 +13,53 @@ import {
   Clock,
   AlertCircle
 } from "lucide-react";
+import { useDashboardStats } from "@/hooks/useDashboard";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { data: dashboardData, isLoading } = useDashboardStats();
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   const stats = [
     {
       title: "Active Cases",
-      value: "24",
-      change: "+3 this week",
+      value: dashboardData?.totalCases.toString() || "0",
+      change: `${dashboardData?.activeCases || 0} active`,
       icon: Briefcase,
       color: "text-primary"
     },
     {
       title: "Upcoming Events",
-      value: "8",
+      value: dashboardData?.upcomingEvents.toString() || "0",
       change: "Next 7 days",
       icon: Calendar,
       color: "text-warning"
     },
     {
       title: "Documents",
-      value: "156",
-      change: "+12 this week",
+      value: dashboardData?.totalDocuments.toString() || "0",
+      change: "Total uploaded",
       icon: FileText,
       color: "text-success"
     },
     {
-      title: "Active Contracts",
-      value: "31",
-      change: "4 expire soon",
-      icon: FileCheck,
-      color: "text-destructive"
+      title: "Total Clients",
+      value: dashboardData?.totalClients.toString() || "0",
+      change: "In your organization",
+      icon: Users,
+      color: "text-info"
     }
   ];
 
-  const recentCases = [
-    {
-      id: 1,
-      name: "Smith vs. Johnson Contract Dispute",
-      status: "Active",
-      priority: "High",
-      dueDate: "2024-02-15",
-      client: "Acme Corp"
-    },
-    {
-      id: 2,
-      name: "Corporate Merger Review",
-      status: "Review",
-      priority: "Medium",
-      dueDate: "2024-02-20",
-      client: "Tech Solutions Inc"
-    },
-    {
-      id: 3,
-      name: "Employment Agreement Analysis",
-      status: "Draft",
-      priority: "Low",
-      dueDate: "2024-02-28",
-      client: "StartupXYZ"
-    }
-  ];
-
-  const upcomingEvents = [
-    {
-      id: 1,
-      title: "Client Meeting - Smith Case",
-      time: "10:00 AM",
-      date: "Today",
-      type: "Meeting"
-    },
-    {
-      id: 2,
-      title: "Contract Review Deadline",
-      time: "5:00 PM",
-      date: "Tomorrow",
-      type: "Deadline"
-    },
-    {
-      id: 3,
-      title: "Court Hearing - Johnson Case",
-      time: "2:00 PM",
-      date: "Feb 15",
-      type: "Hearing"
-    }
-  ];
+  const recentCases = dashboardData?.recentCases || [];
+  const upcomingEvents = dashboardData?.upcomingCalendarEvents || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -165,26 +128,22 @@ export default function Dashboard() {
             {recentCases.map((case_item) => (
               <div key={case_item.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                 <div className="space-y-1 flex-1">
-                  <h4 className="font-medium text-foreground">{case_item.name}</h4>
-                  <p className="text-sm text-muted-foreground">{case_item.client}</p>
+                  <h4 className="font-medium text-foreground">{case_item.title}</h4>
                   <div className="flex items-center gap-2">
                     <Badge className={getStatusColor(case_item.status)} variant="secondary">
                       {case_item.status}
-                    </Badge>
-                    <Badge className={getPriorityColor(case_item.priority)} variant="outline">
-                      {case_item.priority}
                     </Badge>
                   </div>
                 </div>
                 <div className="text-right text-sm">
                   <p className="text-muted-foreground flex items-center">
                     <Clock className="h-3 w-3 mr-1" />
-                    Due {case_item.dueDate}
+                    {new Date(case_item.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
             ))}
-            <Button variant="outline" className="w-full">View All Cases</Button>
+            <Button variant="outline" className="w-full" onClick={() => navigate("/cases")}>View All Cases</Button>
           </CardContent>
         </Card>
 
@@ -204,15 +163,15 @@ export default function Dashboard() {
                   <h4 className="font-medium text-foreground">{event.title}</h4>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    {event.time} • {event.date}
+                    {new Date(event.start_date).toLocaleTimeString()} • {new Date(event.start_date).toLocaleDateString()}
                   </div>
                 </div>
                 <Badge variant="outline" className="text-xs">
-                  {event.type}
+                  {event.event_type}
                 </Badge>
               </div>
             ))}
-            <Button variant="outline" className="w-full">View Full Calendar</Button>
+            <Button variant="outline" className="w-full" onClick={() => navigate("/calendar")}>View Full Calendar</Button>
           </CardContent>
         </Card>
       </div>

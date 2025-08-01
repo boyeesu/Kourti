@@ -23,51 +23,27 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar";
 import { Plus, Search } from "lucide-react";
+import { useOrganizationMembers } from "@/hooks/useOrganization";
 
 export default function Users() {
   const [searchTerm, setSearchTerm] = useState("");
+  const { data: users = [], isLoading } = useOrganizationMembers();
 
-  const users = [
-    {
-      id: 1,
-      name: "Sarah Wilson",
-      email: "sarah@example.com",
-      role: "Admin",
-      status: "Active",
-      avatarUrl: "https://avatar.vercel.sh/sarah",
-    },
-    {
-      id: 2,
-      name: "Michael Chen",
-      email: "michael@example.com",
-      role: "Attorney",
-      status: "Active",
-      avatarUrl: "https://avatar.vercel.sh/michael",
-    },
-    {
-      id: 3,
-      name: "Jessica Thompson",
-      email: "jessica@example.com",
-      role: "Paralegal",
-      status: "Invited",
-      avatarUrl: "https://avatar.vercel.sh/jessica",
-    },
-    {
-      id: 4,
-      name: "David Rodriguez",
-      email: "david@example.com",
-      role: "Admin",
-      status: "Disabled",
-      avatarUrl: "https://avatar.vercel.sh/david",
-    },
-  ];
+  if (isLoading) {
+    return (
+      <div className="px-4 py-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const filteredUsers = users.filter((user) => {
     const term = searchTerm.toLowerCase();
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     return (
-      user.name.toLowerCase().includes(term) ||
-      user.email.toLowerCase().includes(term) ||
-      user.role.toLowerCase().includes(term)
+      fullName.toLowerCase().includes(term) ||
+      (user.email && user.email.toLowerCase().includes(term)) ||
+      (user.role && user.role.toLowerCase().includes(term))
     );
   });
 
@@ -127,31 +103,36 @@ export default function Users() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={user.avatarUrl} alt={user.name} />
-                          <AvatarFallback>
-                            {user.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{user.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={getStatusColor(user.status)}
-                        variant="secondary"
-                      >
-                        {user.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredUsers.map((user) => {
+                  const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                  const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase();
+                  
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src="" alt={fullName} />
+                            <AvatarFallback>
+                              {initials || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{fullName || 'No name'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.email || 'No email'}</TableCell>
+                      <TableCell>{user.role || 'user'}</TableCell>
+                      <TableCell>
+                        <Badge
+                          className="bg-success text-success-foreground"
+                          variant="secondary"
+                        >
+                          Active
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
