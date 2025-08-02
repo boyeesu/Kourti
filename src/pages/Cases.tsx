@@ -60,14 +60,11 @@ export default function Cases() {
   const [statusFilter, setStatusFilter] = useState("all");
   const { toast } = useToast();
 
-  // Use real data hooks - prioritize over context
-  const { data: realCases = [], isLoading, error } = useCases();
-  const { cases: contextCases, statuses } = useContextCases(); // Keep for status options
+  // Use real data hooks only
+  const { data: cases = [], isLoading, error } = useCases();
+  const { statuses } = useContextCases(); // Keep for status options only
   const { term: globalSearch } = useSearch();
   const deleteCase = useDeleteCase();
-
-  // Use real data if available, fallback to context data
-  const cases = realCases.length > 0 ? realCases : contextCases;
   
   // Transform real data to match the expected format
   const caseRows = cases.map(c => ({
@@ -101,20 +98,20 @@ export default function Cases() {
   }
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active": return "bg-success text-success-foreground";
-      case "Review": return "bg-warning text-warning-foreground";
-      case "Draft": return "bg-muted text-muted-foreground";
-      case "Closed": return "bg-destructive text-destructive-foreground";
+    switch (status?.toLowerCase()) {
+      case "active": return "bg-success text-success-foreground";
+      case "review": return "bg-warning text-warning-foreground";
+      case "open": return "bg-blue-500 text-blue-50";
+      case "closed": return "bg-destructive text-destructive-foreground";
       default: return "bg-muted text-muted-foreground";
     }
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "High": return "bg-destructive text-destructive-foreground";
-      case "Medium": return "bg-warning text-warning-foreground";
-      case "Low": return "bg-success text-success-foreground";
+    switch (priority?.toLowerCase()) {
+      case "high": return "bg-destructive text-destructive-foreground";
+      case "medium": return "bg-warning text-warning-foreground";
+      case "low": return "bg-success text-success-foreground";
       default: return "bg-muted text-muted-foreground";
     }
   };
@@ -177,12 +174,10 @@ export default function Cases() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                {/* Ensure statuses is available from useCases hook */}
-                {statuses.map((s) => (
-                  <SelectItem key={s} value={s.toLowerCase()}>
-                    {s}
-                  </SelectItem>
-                ))}
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="review">Review</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -313,7 +308,21 @@ export default function Cases() {
             </Table>
           </div>
 
-          {filteredCases.length === 0 && (
+          {filteredCases.length === 0 && cases.length === 0 && (
+            <div className="text-center py-12">
+              <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                <FileText className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No cases yet</h3>
+              <p className="text-muted-foreground mb-4">Get started by creating your first case.</p>
+              <Button onClick={() => navigate("/cases/create")}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Case
+              </Button>
+            </div>
+          )}
+          
+          {filteredCases.length === 0 && cases.length > 0 && (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No cases found matching your criteria.</p>
             </div>

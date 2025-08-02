@@ -61,8 +61,8 @@ const App = () => (
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/cases" element={<Cases />} />
                         <Route path="/cases/create" element={<CaseCreate />} />
-                        <Route path="/cases/:caseId" element={<CaseDetails />} />
-                        <Route path="/cases/:caseId/activities" element={<CaseActivities />} />
+                        <Route path="/cases/:id" element={<CaseDetails />} />
+                        <Route path="/cases/:id/activities" element={<CaseActivities />} />
                         <Route path="/clients" element={<Clients />} />
                         <Route path="/clients/:clientId" element={<ClientDetails />} />
                         <Route path="/bulk-import" element={<BulkImport />} />
