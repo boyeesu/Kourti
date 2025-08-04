@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCases as useContextCases } from "@/context/CasesContext"; // Keep context for compatibility
 import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
 import { useSearch } from "@/hooks/use-search";
@@ -65,21 +65,37 @@ export default function Cases() {
   const { statuses } = useContextCases(); // Keep for status options only
   const { term: globalSearch } = useSearch();
   const deleteCase = useDeleteCase();
-  
-  // Transform real data to match the expected format
+  const [searchParams] = useSearchParams();
+  const clientQuery = searchParams.get("client");
+
   const caseRows = cases.map(c => ({
     id: c.id || c.case_number,
     name: c.title || c.name,
-    client: c.client?.name || c.client || 'Unknown Client',
+    client: c.client?.name || c.client || "Unknown Client",
+    clientId: c.client_id || c.client?.id,
     status: c.status,
     priority: c.priority,
-    assignedTo: c.assigned_user?.first_name && c.assigned_user?.last_name 
-      ? `${c.assigned_user.first_name} ${c.assigned_user.last_name}`
-      : c.assignedTo || 'Unassigned',
-    startDate: c.created_at ? new Date(c.created_at).toLocaleDateString() : c.startDate,
-    dueDate: c.next_hearing_date ? new Date(c.next_hearing_date).toLocaleDateString() : c.dueDate || 'No date set',
+    assignedTo:
+      c.assigned_user?.first_name && c.assigned_user?.last_name
+        ? `${c.assigned_user.first_name} ${c.assigned_user.last_name}`
+        : c.assignedTo || "Unassigned",
+    startDate: c.created_at
+      ? new Date(c.created_at).toLocaleDateString()
+      : c.startDate,
+    dueDate: c.next_hearing_date
+      ? new Date(c.next_hearing_date).toLocaleDateString()
+      : c.dueDate || "No date set",
     documentsCount: c.documents?.length || 0,
   }));
+
+  const clientFilterName = clientQuery
+    ?
+        caseRows.find(
+          (c) =>
+            c.clientId === clientQuery ||
+            c.client.toLowerCase() === clientQuery.toLowerCase(),
+        )?.client || clientQuery
+    : "";
 
   const handleDeleteCase = async (caseId: string) => {
     try {
@@ -132,7 +148,13 @@ export default function Cases() {
     // Status filter
     const matchesStatus = statusFilter === "all" || case_item.status.toLowerCase() === statusFilter;
 
-    return matchesLocalSearch && matchesGlobalSearch && matchesStatus;
+    // Client query filter
+    const matchesClient =
+      !clientQuery ||
+      case_item.clientId === clientQuery ||
+      case_item.client.toLowerCase() === clientQuery.toLowerCase();
+
+    return matchesLocalSearch && matchesGlobalSearch && matchesStatus && matchesClient;
   });
 
   return (
@@ -181,6 +203,11 @@ export default function Cases() {
               </SelectContent>
             </Select>
           </div>
+          {clientQuery && (
+            <div className="mt-4">
+              <Badge variant="secondary">Client: {clientFilterName}</Badge>
+            </div>
+          )}
         </CardContent>
       </Card>
 
