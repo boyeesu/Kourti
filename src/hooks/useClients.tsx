@@ -52,10 +52,23 @@ export function useClient(id: string) {
   return useQuery({
     queryKey: ['client', id],
     queryFn: async () => {
+      // First get the user's organization_id from their profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        throw new Error('User organization not found');
+      }
+
+      // Then query the client with the organization filter
       const { data, error } = await supabase
         .from('clients')
         .select('*')
         .eq('id', id)
+        .eq('organization_id', profile.organization_id)
         .single();
 
       if (error) throw error;
