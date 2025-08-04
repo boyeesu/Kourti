@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Building, Mail, Phone, MapPin, MoreHorizontal, Upload } from "lucide-react";
+import { Plus, Search, Building, Mail, Phone, MoreHorizontal, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useClients } from "@/hooks/useClients";
-
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -33,26 +32,16 @@ export default function Clients() {
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "Corporate": return "bg-primary/10 text-primary";
-      case "Startup": return "bg-warning/10 text-warning";
-      case "Research": return "bg-info/10 text-info";
-      case "Real Estate": return "bg-secondary/10 text-secondary";
-      default: return "bg-muted/10 text-muted-foreground";
-    }
-  };
-
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()));
+                          (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === "all" || client.status.toLowerCase() === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
 
-  const totalCases = clients.reduce((sum, c) => sum + (c.cases[0]?.count || 0), 0);
-  const totalContracts = clients.reduce((sum, c) => sum + (c.contracts[0]?.count || 0), 0);
+  const totalCases = clients.reduce((sum, client) => sum + (client.cases?.[0]?.count || 0), 0);
+  const totalContracts = clients.reduce((sum, client) => sum + (client.contracts?.[0]?.count || 0), 0);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase();
@@ -86,10 +75,10 @@ export default function Clients() {
               <div className="p-3 bg-primary/10 rounded-lg">
                 <Building className="h-6 w-6 text-primary" />
               </div>
-               <div>
-                 <p className="text-2xl font-bold text-foreground">{clients.length}</p>
-                 <p className="text-sm text-muted-foreground">Total Clients</p>
-               </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{clients.length}</p>
+                <p className="text-sm text-muted-foreground">Total Clients</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -100,12 +89,12 @@ export default function Clients() {
               <div className="p-3 bg-success/10 rounded-lg">
                 <Building className="h-6 w-6 text-success" />
               </div>
-               <div>
-                 <p className="text-2xl font-bold text-foreground">
-                   {clients.filter(c => c.status === "active").length}
-                 </p>
-                 <p className="text-sm text-muted-foreground">Active Clients</p>
-               </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">
+                  {clients.filter(c => c.status === "active").length}
+                </p>
+                <p className="text-sm text-muted-foreground">Active Clients</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -116,10 +105,10 @@ export default function Clients() {
               <div className="p-3 bg-warning/10 rounded-lg">
                 <Building className="h-6 w-6 text-warning" />
               </div>
-               <div>
-                 <p className="text-2xl font-bold text-foreground">{totalCases}</p>
-                 <p className="text-sm text-muted-foreground">Total Cases</p>
-               </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{totalCases}</p>
+                <p className="text-sm text-muted-foreground">Total Cases</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -130,10 +119,10 @@ export default function Clients() {
               <div className="p-3 bg-info/10 rounded-lg">
                 <Building className="h-6 w-6 text-info" />
               </div>
-               <div>
-                 <p className="text-2xl font-bold text-foreground">{totalContracts}</p>
-                 <p className="text-sm text-muted-foreground">Total Contracts</p>
-               </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{totalContracts}</p>
+                <p className="text-sm text-muted-foreground">Total Contracts</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -202,7 +191,7 @@ export default function Clients() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <button 
+                        <button
                           onClick={() => navigate(`/clients/${client.id}`)}
                           className="font-medium text-foreground hover:text-primary story-link text-left"
                         >
@@ -212,35 +201,35 @@ export default function Clients() {
                       </div>
                     </div>
                   </TableCell>
-                   <TableCell>
-                     <div className="space-y-1">
-                       <div className="flex items-center gap-2 text-sm">
-                         <Mail className="h-3 w-3 text-muted-foreground" />
-                         <span>{client.email || 'No email'}</span>
-                       </div>
-                       <div className="flex items-center gap-2 text-sm">
-                         <Phone className="h-3 w-3 text-muted-foreground" />
-                         <span>{client.phone || 'No phone'}</span>
-                       </div>
-                     </div>
-                   </TableCell>
-                   <TableCell>
-                     <Badge variant="outline">Individual</Badge>
-                   </TableCell>
-                   <TableCell>
-                     <Badge className={getStatusColor(client.status)} variant="outline">
-                       {client.status}
-                     </Badge>
-                   </TableCell>
-                   <TableCell>
-                     <span className="font-medium">0</span>
-                   </TableCell>
-                   <TableCell>
-                     <span className="font-medium">0</span>
-                   </TableCell>
-                   <TableCell>
-                     <span className="text-sm text-muted-foreground">{new Date(client.created_at).toLocaleDateString()}</span>
-                   </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="h-3 w-3 text-muted-foreground" />
+                        <span>{client.email || 'No email'}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-3 w-3 text-muted-foreground" />
+                        <span>{client.phone || 'No phone'}</span>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">Individual</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(client.status)} variant="outline">
+                      {client.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{client.cases?.[0]?.count ?? 0}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{client.contracts?.[0]?.count ?? 0}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-muted-foreground">{new Date(client.created_at).toLocaleDateString()}</span>
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -253,8 +242,12 @@ export default function Clients() {
                           View Details
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>Edit Client</DropdownMenuItem>
-                        <DropdownMenuItem>View Cases</DropdownMenuItem>
-                        <DropdownMenuItem>View Contracts</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/cases?client=${client.id}`)}>
+                          View Cases
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/contracts?client=${client.id}`)}>
+                          View Contracts
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
