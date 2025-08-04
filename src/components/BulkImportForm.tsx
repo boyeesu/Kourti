@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useCreateClient } from "@/hooks/useClients";
 
 interface BulkImportFormProps {
   entityType: "clients" | "cases" | "contracts" | "documents";
@@ -25,6 +26,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
   const [uploadProgress, setUploadProgress] = useState(0);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const createClient = useCreateClient();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -89,7 +91,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
 
     // Define required fields for each entity type
     const requiredFields: Record<string, string[]> = {
-      clients: ["name", "email", "type"],
+      clients: ["name"],
       cases: ["name", "client", "status"],
       contracts: ["name", "client", "type"],
       documents: ["name", "type", "linkedCase"]
@@ -111,29 +113,43 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
     return { valid, errors };
   };
 
-  const simulateImport = async (data: any[]): Promise<ImportResult> => {
-    return new Promise((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        setUploadProgress(progress);
-        
-        if (progress >= 100) {
-          clearInterval(interval);
-          
-          // Simulate some failures for demo
-          const successful = Math.floor(data.length * 0.9);
-          const failed = data.length - successful;
-          
-          resolve({
-            total: data.length,
-            successful,
-            failed,
-            errors: failed > 0 ? [`${failed} records failed validation`] : []
+  const processImport = async (data: any[]): Promise<ImportResult> => {
+    let successful = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+      setUploadProgress(Math.round((i / data.length) * 100));
+      
+      try {
+        if (entityType === "clients") {
+          await createClient.mutateAsync({
+            name: item.name,
+            email: item.email || undefined,
+            phone: item.phone || undefined,
+            address: item.address || undefined,
+            company: item.company || undefined,
+            notes: item.notes || undefined,
+            status: item.status || "active",
           });
         }
-      }, 200);
-    });
+        // Add other entity types here when implemented
+        successful++;
+      } catch (error) {
+        failed++;
+        errors.push(`Row ${i + 2}: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }
+    
+    setUploadProgress(100);
+    
+    return {
+      total: data.length,
+      successful,
+      failed,
+      errors
+    };
   };
 
   const handleUpload = async () => {
@@ -167,7 +183,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
         return;
       }
 
-      const result = await simulateImport(valid);
+      const result = await processImport(valid);
       setImportResult({
         ...result,
         errors: [...errors, ...result.errors]

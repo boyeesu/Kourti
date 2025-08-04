@@ -64,11 +64,11 @@ export default function Clients() {
           <p className="text-muted-foreground">Manage your client database and relationships</p>
         </div>
         <div className="flex gap-2">
-          <Button className="shadow-md hover-scale">
+          <Button className="shadow-md hover-scale" onClick={() => navigate("/clients/create")}>
             <Plus className="h-4 w-4 mr-2" />
             New Client
           </Button>
-          <Button variant="outline" className="hover-scale" onClick={() => navigate("/bulk-import")}>
+          <Button variant="outline" className="hover-scale" onClick={() => navigate("/bulk-import?type=clients")}>
             <Upload className="h-4 w-4 mr-2" />
             Bulk Import
           </Button>
@@ -249,7 +249,7 @@ export default function Clients() {
                         <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}`)}>
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Edit Client</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>Edit Client</DropdownMenuItem>
                         <DropdownMenuItem>View Cases</DropdownMenuItem>
                         <DropdownMenuItem>View Contracts</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -267,7 +267,7 @@ export default function Clients() {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? "Try adjusting your search criteria" : "Get started by adding your first client"}
               </p>
-              <Button className="hover-scale">
+              <Button className="hover-scale" onClick={() => navigate("/clients/create")}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add First Client
               </Button>
