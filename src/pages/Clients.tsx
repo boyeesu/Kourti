@@ -250,8 +250,12 @@ export default function Clients() {
                           View Details
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>Edit Client</DropdownMenuItem>
-                        <DropdownMenuItem>View Cases</DropdownMenuItem>
-                        <DropdownMenuItem>View Contracts</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/cases?client=${client.id}`)}>
+                          View Cases
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/contracts?client=${client.id}`)}>
+                          View Contracts
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
