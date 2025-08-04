@@ -47,9 +47,12 @@ export default function Clients() {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === "all" || client.status.toLowerCase() === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
+
+  const totalCases = clients.reduce((sum, client) => sum + (client.cases?.[0]?.count || 0), 0);
+  const totalContracts = clients.reduce((sum, client) => sum + (client.contracts?.[0]?.count || 0), 0);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase();
@@ -114,7 +117,7 @@ export default function Clients() {
                 <Building className="h-6 w-6 text-warning" />
               </div>
                <div>
-                 <p className="text-2xl font-bold text-foreground">0</p>
+                 <p className="text-2xl font-bold text-foreground">{totalCases}</p>
                  <p className="text-sm text-muted-foreground">Total Cases</p>
                </div>
             </div>
@@ -128,7 +131,7 @@ export default function Clients() {
                 <Building className="h-6 w-6 text-info" />
               </div>
                <div>
-                 <p className="text-2xl font-bold text-foreground">0</p>
+                 <p className="text-2xl font-bold text-foreground">{totalContracts}</p>
                  <p className="text-sm text-muted-foreground">Total Contracts</p>
                </div>
             </div>
@@ -229,12 +232,12 @@ export default function Clients() {
                        {client.status}
                      </Badge>
                    </TableCell>
-                   <TableCell>
-                     <span className="font-medium">0</span>
-                   </TableCell>
-                   <TableCell>
-                     <span className="font-medium">0</span>
-                   </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{client.cases[0]?.count ?? 0}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{client.contracts[0]?.count ?? 0}</span>
+                  </TableCell>
                    <TableCell>
                      <span className="text-sm text-muted-foreground">{new Date(client.created_at).toLocaleDateString()}</span>
                    </TableCell>
