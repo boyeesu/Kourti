@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "@/hooks/use-search";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,10 +46,12 @@ import {
 
 export default function Contracts() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { term: globalSearch } = useSearch();
   const { data: contracts = [], isLoading } = useContracts();
+  const clientFilter = searchParams.get("client")?.toLowerCase() || "";
 
   if (isLoading) {
     return (
@@ -86,7 +88,12 @@ export default function Contracts() {
     const matchesGlobal = globalSearch === "" || termMatches(globalSearch);
     const matchesStatus =
       statusFilter === "all" || contract.status.toLowerCase() === statusFilter;
-    return matchesLocal && matchesGlobal && matchesStatus;
+    const matchesClient =
+      clientFilter === "" ||
+      contract.client_id?.toLowerCase() === clientFilter ||
+      (contract as any).client_name?.toLowerCase() === clientFilter ||
+      (contract as any).client?.name?.toLowerCase() === clientFilter;
+    return matchesLocal && matchesGlobal && matchesStatus && matchesClient;
   });
 
   const contractStats = {
@@ -103,6 +110,11 @@ export default function Contracts() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Contracts</h1>
           <p className="text-muted-foreground">Manage contracts with version control and AI-powered analysis</p>
+          {clientFilter && (
+            <div className="mt-2">
+              <Badge variant="outline">Client: {clientFilter}</Badge>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="shadow-sm" onClick={() => navigate("/contracts/create")}>

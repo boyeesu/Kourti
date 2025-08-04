@@ -118,7 +118,8 @@ export function useCasesByClient(clientId: string) {
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.organization_id) {
+      const organizationId = profile?.organization_id;
+      if (!organizationId) {
         throw new Error('User organization not found');
       }
 
@@ -126,7 +127,7 @@ export function useCasesByClient(clientId: string) {
         .from('cases')
         .select('*')
         .eq('client_id', clientId)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

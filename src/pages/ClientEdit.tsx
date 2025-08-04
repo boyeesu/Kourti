@@ -50,8 +50,8 @@ type ClientFormData = z.infer<typeof clientSchema>;
 
 export default function ClientEdit() {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const { data: client, isLoading } = useClient(id!);
+  const { clientId } = useParams<{ clientId: string }>();
+  const { data: client, isLoading } = useClient(clientId!);
   const updateClient = useUpdateClient();
   const deleteClient = useDeleteClient();
 
@@ -85,7 +85,7 @@ export default function ClientEdit() {
   const onSubmit = async (data: ClientFormData) => {
     try {
       const clientData = {
-        id: id!,
+        id: clientId!,
         name: data.name,
         email: data.email || undefined,
         phone: data.phone,
@@ -94,9 +94,9 @@ export default function ClientEdit() {
         notes: data.notes,
         status: data.status,
       };
-      
+
       await updateClient.mutateAsync(clientData);
-      navigate(`/clients/${id}`);
+      navigate(`/clients/${clientId}`);
     } catch (error) {
       // Error is handled by the mutation
     }
@@ -104,7 +104,7 @@ export default function ClientEdit() {
 
   const handleDelete = async () => {
     try {
-      await deleteClient.mutateAsync(id!);
+      await deleteClient.mutateAsync(clientId!);
       navigate("/clients");
     } catch (error) {
       // Error is handled by the mutation
@@ -133,7 +133,7 @@ export default function ClientEdit() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/clients/${id}`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/clients/${clientId}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -294,7 +294,7 @@ export default function ClientEdit() {
               />
 
               <div className="flex justify-end gap-4">
-                <Button type="button" variant="outline" onClick={() => navigate(`/clients/${id}`)}>
+                <Button type="button" variant="outline" onClick={() => navigate(`/clients/${clientId}`)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={updateClient.isPending}>
