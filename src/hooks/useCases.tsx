@@ -49,12 +49,23 @@ export function useCases() {
   return useQuery({
     queryKey: ['cases'],
     queryFn: async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        throw new Error('User organization not found');
+      }
+
       const { data, error } = await supabase
         .from('cases')
         .select(`
           *,
           client:clients(id, name)
         `)
+        .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -69,6 +80,16 @@ export function useCase(id: string) {
   return useQuery({
     queryKey: ['case', id],
     queryFn: async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        throw new Error('User organization not found');
+      }
+
       const { data, error } = await supabase
         .from('cases')
         .select(`
@@ -76,6 +97,7 @@ export function useCase(id: string) {
           client:clients(id, name)
         `)
         .eq('id', id)
+        .eq('organization_id', profile.organization_id)
         .single();
 
       if (error) throw error;
@@ -90,10 +112,21 @@ export function useCasesByClient(clientId: string) {
   return useQuery({
     queryKey: ['cases', 'client', clientId],
     queryFn: async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        throw new Error('User organization not found');
+      }
+
       const { data, error } = await supabase
         .from('cases')
         .select('*')
         .eq('client_id', clientId)
+        .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
