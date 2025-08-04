@@ -15,6 +15,8 @@ export interface Client {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  cases?: { count: number }[];
+  contracts?: { count: number }[];
 }
 
 export interface CreateClientData {
@@ -37,7 +39,7 @@ export function useClients() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clients')
-        .select('*')
+        .select('*, cases:cases(count), contracts:contracts(count)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
