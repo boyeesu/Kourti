@@ -71,7 +71,7 @@ export function useCases(initialPageSize = 10) {
         .select(
           `
           *,
-          client:clients(id, name),
+          client:clients!cases_client_id_fkey(id, name),
           assigned_user:profiles!cases_assigned_to_fkey(id, first_name, last_name)
           `,
           { count: 'exact' } // Retained count: 'exact' from the main branch
@@ -83,7 +83,7 @@ export function useCases(initialPageSize = 10) {
       if (error) throw error;
       return { cases: data as any[], count: count || 0 };
     },
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
     staleTime: 30 * 1000, // 30 seconds for faster updates
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -114,7 +114,7 @@ export function useCase(id: string) {
         .from('cases')
         .select(`
           *,
-          client:clients(id, name),
+          client:clients!cases_client_id_fkey(id, name),
           assigned_user:profiles!cases_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('id', id)
@@ -148,7 +148,7 @@ export function useCasesByClient(clientId: string) {
         .from('cases')
         .select(`
           *,
-          client:clients(id, name),
+          client:clients!cases_client_id_fkey(id, name),
           assigned_user:profiles!cases_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('client_id', clientId)

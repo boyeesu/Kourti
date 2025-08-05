@@ -12,6 +12,7 @@ import {
   Users
 } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendar";
+import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -94,10 +95,7 @@ export default function Calendar() {
           <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
           <p className="text-muted-foreground">Schedule and manage your legal events</p>
         </div>
-        <Button className="shadow-md">
-          <Plus className="h-4 w-4 mr-2" />
-          New Event
-        </Button>
+        <EventCreateDialog />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -35,9 +35,20 @@ export function useCalendarEvents() {
   return useQuery({
     queryKey: ['calendar-events'],
     queryFn: async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
+        .eq('organization_id', profile.organization_id)
         .order('start_date', { ascending: true });
 
       if (error) throw error;
