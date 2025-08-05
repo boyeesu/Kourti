@@ -39,11 +39,15 @@ export function useClients() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clients')
-        .select('*, cases:cases(count), contracts:contracts(count)')
+        .select('*, cases:cases!left(count), contracts:contracts!left(count)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Client[];
+      return (data ?? []).map(client => ({
+        ...client,
+        cases: client.cases ?? [],
+        contracts: client.contracts ?? [],
+      })) as Client[];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
