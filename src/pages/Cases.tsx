@@ -77,12 +77,12 @@ export default function App() { // Changed to App for React component export
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const { statuses } = useContextCases(); // Keep for status options only
-  const { term: globalSearch } = useSearch();
+  const { term: globalSearch, setTerm } = useSearch(); // Destructure setTerm from useSearch
   const deleteCase = useDeleteCase();
   const [searchParams] = useSearchParams();
   const clientQuery = searchParams.get("client");
 
-  // Effect to display toast notifications for errors
+  // Effect to display toast notifications for errors and reset global search term
   useEffect(() => {
     if (error) {
       toast({
@@ -94,7 +94,9 @@ export default function App() { // Changed to App for React component export
             : "Failed to load cases. Please try again.",
       });
     }
-  }, [error, toast]);
+    // Reset global search term when the component mounts or if setTerm changes
+    setTerm("");
+  }, [error, toast, setTerm]); // Added setTerm to dependencies
 
   // Map raw case data to a more usable format for the table
   const caseRows = cases.map(c => ({
