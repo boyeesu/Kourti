@@ -63,7 +63,8 @@ export function useCases() {
         .from('cases')
         .select(`
           *,
-          client:clients(id, name)
+          client:clients(id, name),
+          assigned_user:profiles!cases_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
@@ -94,7 +95,8 @@ export function useCase(id: string) {
         .from('cases')
         .select(`
           *,
-          client:clients(id, name)
+          client:clients(id, name),
+          assigned_user:profiles!cases_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('id', id)
         .eq('organization_id', profile.organization_id)
@@ -125,7 +127,11 @@ export function useCasesByClient(clientId: string) {
 
       const { data, error } = await supabase
         .from('cases')
-        .select('*')
+        .select(`
+          *,
+          client:clients(id, name),
+          assigned_user:profiles!cases_assigned_to_fkey(id, first_name, last_name)
+        `)
         .eq('client_id', clientId)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });

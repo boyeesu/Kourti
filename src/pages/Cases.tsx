@@ -76,9 +76,9 @@ export default function Cases() {
     status: c.status,
     priority: c.priority,
     assignedTo:
-      c.assigned_user?.first_name && c.assigned_user?.last_name
-        ? `${c.assigned_user.first_name} ${c.assigned_user.last_name}`
-        : c.assignedTo || "Unassigned",
+      c.assigned_user
+        ? [c.assigned_user.first_name, c.assigned_user.last_name].filter(Boolean).join(" ")
+        : "Unassigned",
     startDate: c.created_at
       ? new Date(c.created_at).toLocaleDateString()
       : c.startDate,
