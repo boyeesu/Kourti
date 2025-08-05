@@ -61,7 +61,10 @@ export default function Cases() {
   const { toast } = useToast();
 
   // Use real data hooks only
-  const { data: cases = [], isLoading, error } = useCases();
+  const { data, isLoading, page, pageSize, setPage } = useCases();
+  const cases = data?.cases || [];
+  const totalCount = data?.count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const { statuses } = useContextCases(); // Keep for status options only
   const { term: globalSearch } = useSearch();
   const deleteCase = useDeleteCase();
@@ -214,7 +217,7 @@ export default function Cases() {
       {/* Cases Table */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>All Cases ({filteredCases.length})</CardTitle>
+          <CardTitle>All Cases ({totalCount})</CardTitle>
           <CardDescription>
             Overview of all cases in your organization
           </CardDescription>
@@ -352,6 +355,28 @@ export default function Cases() {
           {filteredCases.length === 0 && cases.length > 0 && (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No cases found matching your criteria.</p>
+            </div>
+          )}
+
+          {cases.length > 0 && (
+            <div className="flex items-center justify-between mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= totalPages}
+              >
+                Next
+              </Button>
             </div>
           )}
         </CardContent>
