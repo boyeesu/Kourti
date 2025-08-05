@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCases as useContextCases } from "@/context/CasesContext"; // Keep context for compatibility
 import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
@@ -61,12 +61,25 @@ export default function Cases() {
   const { toast } = useToast();
 
   // Use real data hooks only
-  const { data: cases = [], isLoading, error } = useCases();
+  const { data: cases = [], isLoading, error, refetch } = useCases();
   const { statuses } = useContextCases(); // Keep for status options only
   const { term: globalSearch } = useSearch();
   const deleteCase = useDeleteCase();
   const [searchParams] = useSearchParams();
   const clientQuery = searchParams.get("client");
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to load cases.",
+      });
+    }
+  }, [error, toast]);
 
   const caseRows = cases.map(c => ({
     id: c.id || c.case_number,
@@ -109,6 +122,19 @@ export default function Cases() {
     return (
       <div className="px-4 py-6 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 py-6 flex flex-col items-center justify-center">
+        <p className="text-destructive mb-4">
+          {error instanceof Error
+            ? error.message
+            : "Failed to load cases."}
+        </p>
+        <Button onClick={() => refetch()}>Retry</Button>
       </div>
     );
   }
