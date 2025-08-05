@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCases as useContextCases } from "@/context/CasesContext"; // Keep context for compatibility
 import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
@@ -66,10 +66,14 @@ export default function Cases() {
   const totalCount = data?.count || 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const { statuses } = useContextCases(); // Keep for status options only
-  const { term: globalSearch } = useSearch();
+  const { term: globalSearch, setTerm } = useSearch();
   const deleteCase = useDeleteCase();
   const [searchParams] = useSearchParams();
   const clientQuery = searchParams.get("client");
+
+  useEffect(() => {
+    setTerm("");
+  }, [setTerm]);
 
   const caseRows = cases.map(c => ({
     id: c.id || c.case_number,
