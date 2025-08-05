@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import { useUserOrganization } from './useUserOrganization';
 
 export interface Case {
   id: string;
@@ -49,17 +50,12 @@ export interface UpdateCaseData extends Partial<CreateCaseData> {
 export function useCases(initialPageSize = 10) {
   const [page, setPage] = useState(1);
   const pageSize = initialPageSize;
+  const { data: organizationId } = useUserOrganization();
 
   const query = useQuery({
-    queryKey: ['cases', page, pageSize],
+    queryKey: ['cases', page, pageSize, organizationId],
     queryFn: async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      if (!profile?.organization_id) {
+      if (!organizationId) {
         throw new Error('User organization not found');
       }
 
@@ -76,16 +72,17 @@ export function useCases(initialPageSize = 10) {
           `,
           { count: 'exact' } // Retained count: 'exact' from the main branch
         )
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
       return { cases: data as any[], count: count || 0 };
     },
-    placeholderData: (previousData) => previousData,
+    enabled: !!organizationId,
     staleTime: 30 * 1000, // 30 seconds for faster updates
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 2 * 60 * 1000, // 2 minutes
+    placeholderData: (previousData) => previousData,
   });
 
   return {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserOrganization } from './useUserOrganization';
 
 export interface Client {
   id: string;
@@ -34,12 +35,19 @@ export interface UpdateClientData extends Partial<CreateClientData> {
 }
 
 export function useClients() {
+  const { data: organizationId } = useUserOrganization();
+
   return useQuery({
-    queryKey: ['clients'],
+    queryKey: ['clients', organizationId],
     queryFn: async () => {
+      if (!organizationId) {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('clients')
         .select('*, cases:cases!left(count), contracts:contracts!left(count)')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -49,8 +57,9 @@ export function useClients() {
         contracts: client.contracts ?? [],
       })) as Client[];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !!organizationId,
+    staleTime: 2 * 60 * 1000, // 2 minutes for faster updates
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
