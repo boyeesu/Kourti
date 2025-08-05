@@ -56,8 +56,11 @@ export function useCases(initialPageSize = 10) {
     queryKey: ['cases', page, pageSize, organizationId],
     queryFn: async () => {
       if (!organizationId) {
+        console.log('⚠️ No organization ID for cases query');
         throw new Error('User organization not found');
       }
+
+      console.log('🔍 Fetching cases for org:', organizationId);
 
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -76,7 +79,12 @@ export function useCases(initialPageSize = 10) {
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching cases:', error);
+        throw error;
+      }
+      
+      console.log('✅ Cases found:', data?.length || 0, 'Total count:', count);
       return { cases: data as any[], count: count || 0 };
     },
     enabled: !!organizationId,
