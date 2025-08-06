@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserOrganization } from './useUserOrganization';
 
 export interface Contract {
   id: string;
@@ -34,17 +35,33 @@ export interface CreateContractData {
 }
 
 export function useContracts() {
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+
   return useQuery({
-    queryKey: ['contracts'],
+    queryKey: ['contracts', organizationId],
     queryFn: async () => {
+      if (!organizationId) {
+        console.log('⚠️ No organization ID for contracts query');
+        return [];
+      }
+
+      console.log('🔍 Fetching contracts for org:', organizationId);
+
       const { data, error } = await supabase
         .from('contracts')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching contracts:', error);
+        throw error;
+      }
+      
+      console.log('✅ Contracts found:', data?.length || 0);
       return data as Contract[];
     },
+    enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

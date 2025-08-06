@@ -50,14 +50,14 @@ export interface UpdateCaseData extends Partial<CreateCaseData> {
 export function useCases(initialPageSize = 10) {
   const [page, setPage] = useState(1);
   const pageSize = initialPageSize;
-  const { data: organizationId } = useUserOrganization();
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   const query = useQuery({
     queryKey: ['cases', page, pageSize, organizationId],
     queryFn: async () => {
       if (!organizationId) {
         console.log('⚠️ No organization ID for cases query');
-        throw new Error('User organization not found');
+        return { cases: [], count: 0 };
       }
 
       console.log('🔍 Fetching cases for org:', organizationId);
@@ -70,10 +70,10 @@ export function useCases(initialPageSize = 10) {
         .select(
           `
           *,
-          client:clients!cases_client_id_fkey(id, name),
-          assigned_user:profiles!cases_assigned_to_fkey(id, first_name, last_name)
+          client:clients!left(id, name),
+          assigned_user:profiles!left(id, first_name, last_name)
           `,
-          { count: 'exact' } // Retained count: 'exact' from the main branch
+          { count: 'exact' }
         )
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
@@ -87,7 +87,7 @@ export function useCases(initialPageSize = 10) {
       console.log('✅ Cases found:', data?.length || 0, 'Total count:', count);
       return { cases: data as any[], count: count || 0 };
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 30 * 1000, // 30 seconds for faster updates
     gcTime: 2 * 60 * 1000, // 2 minutes
     placeholderData: (previousData) => previousData,

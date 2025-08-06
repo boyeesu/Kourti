@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserOrganization } from './useUserOrganization';
 
 export interface Document {
   id: string;
@@ -32,17 +33,33 @@ export interface CreateDocumentData {
 }
 
 export function useDocuments() {
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+
   return useQuery({
-    queryKey: ['documents'],
+    queryKey: ['documents', organizationId],
     queryFn: async () => {
+      if (!organizationId) {
+        console.log('⚠️ No organization ID for documents query');
+        return [];
+      }
+
+      console.log('🔍 Fetching documents for org:', organizationId);
+
       const { data, error } = await supabase
         .from('documents')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching documents:', error);
+        throw error;
+      }
+      
+      console.log('✅ Documents found:', data?.length || 0);
       return data as Document[];
     },
+    enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

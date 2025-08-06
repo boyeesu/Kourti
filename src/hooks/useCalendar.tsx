@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserOrganization } from './useUserOrganization';
 
 export interface CalendarEvent {
   id: string;
@@ -32,28 +33,33 @@ export interface CreateCalendarEventData {
 }
 
 export function useCalendarEvents() {
-  return useQuery({
-    queryKey: ['calendar-events'],
-    queryFn: async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
-      if (!profile?.organization_id) {
+  return useQuery({
+    queryKey: ['calendar-events', organizationId],
+    queryFn: async () => {
+      if (!organizationId) {
+        console.log('⚠️ No organization ID for calendar events');
         return [];
       }
+
+      console.log('🔍 Fetching calendar events for org:', organizationId);
 
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .order('start_date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching calendar events:', error);
+        throw error;
+      }
+      
+      console.log('✅ Calendar events found:', data?.length || 0);
       return data as CalendarEvent[];
     },
+    enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 5 * 60 * 1000,
   });
@@ -99,20 +105,19 @@ export function useCalendarEventsByDateRange(startDate: string, endDate: string)
 export function useCreateCalendarEvent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async (eventData: CreateCalendarEventData) => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+      if (!organizationId) {
+        throw new Error('Organization not found');
+      }
 
       const { data, error } = await supabase
         .from('calendar_events')
         .insert({
           ...eventData,
-          organization_id: profile?.organization_id,
+          organization_id: organizationId,
           created_by: (await supabase.auth.getUser()).data.user?.id,
         })
         .select()

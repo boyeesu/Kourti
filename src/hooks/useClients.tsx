@@ -35,7 +35,7 @@ export interface UpdateClientData extends Partial<CreateClientData> {
 }
 
 export function useClients() {
-  const { data: organizationId } = useUserOrganization();
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery({
     queryKey: ['clients', organizationId],
@@ -49,7 +49,11 @@ export function useClients() {
 
       const { data, error } = await supabase
         .from('clients')
-        .select('*, cases:cases!left(count), contracts:contracts!left(count)')
+        .select(`
+          *,
+          cases!left(count),
+          contracts!left(count)
+        `)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
@@ -65,7 +69,7 @@ export function useClients() {
         contracts: client.contracts ?? [],
       })) as Client[];
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000, // 2 minutes for faster updates
     gcTime: 5 * 60 * 1000, // 5 minutes
   });

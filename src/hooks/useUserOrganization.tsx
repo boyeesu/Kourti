@@ -11,7 +11,7 @@ export function useUserOrganization() {
       
       if (!user.user?.id) {
         console.error('❌ User not authenticated');
-        throw new Error('User not authenticated');
+        return null; // Return null instead of throwing error
       }
 
       console.log('👤 User ID:', user.user.id);
@@ -24,6 +24,10 @@ export function useUserOrganization() {
 
       if (error) {
         console.error('❌ Error fetching profile:', error);
+        if (error.code === 'PGRST116') {
+          // No profile found - user needs to complete setup
+          return null;
+        }
         throw error;
       }
       
@@ -32,7 +36,13 @@ export function useUserOrganization() {
     },
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes since org rarely changes
     gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
-    retry: 3,
+    retry: (failureCount, error: any) => {
+      // Don't retry on auth errors or missing profile
+      if (error?.message === 'User not authenticated' || error?.code === 'PGRST116') {
+        return false;
+      }
+      return failureCount < 3;
+    },
     retryDelay: 1000,
   });
 }

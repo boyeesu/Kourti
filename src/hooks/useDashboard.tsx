@@ -14,7 +14,7 @@ export interface DashboardStats {
 }
 
 export function useDashboardStats() {
-  const { data: organizationId } = useUserOrganization();
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery({
     queryKey: ['dashboard-stats', organizationId],
@@ -127,7 +127,7 @@ export function useDashboardStats() {
         upcomingCalendarEvents: upcomingCalendarEventsResult.data || [],
       };
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 30 * 1000, // 30 seconds for real-time feel
     gcTime: 2 * 60 * 1000, // 2 minutes
   });
