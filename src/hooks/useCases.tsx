@@ -70,8 +70,8 @@ export function useCases(initialPageSize = 10) {
         .select(
           `
           *,
-          client:clients!left(id, name),
-          assigned_user:profiles!left(id, first_name, last_name)
+          client:clients!cases_client_id_fkey(id, name),
+          assigned_user:profiles!cases_assigned_to_fkey(id, first_name, last_name)
           `,
           { count: 'exact' }
         )
