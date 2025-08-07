@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCases as useContextCases } from "@/context/CasesContext"; // Keep context for compatibility
 import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
 import { useSearch } from "@/hooks/use-search";
+import { CaseBulkUpload } from "@/components/CaseBulkUpload";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +70,7 @@ export default function App() { // Changed to App for React component export
     page,
     pageSize,
     setPage,
+    refetch: refetchCases,
   } = useCases();
 
   const cases = data?.cases || [];
@@ -226,10 +228,13 @@ export default function App() { // Changed to App for React component export
           <h1 className="text-3xl font-bold text-foreground">Cases</h1>
           <p className="text-muted-foreground">Manage and track all your legal cases</p>
         </div>
-        <Button className="shadow-md w-full sm:w-auto" onClick={() => navigate("/cases/create")}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Case
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <CaseBulkUpload onImportComplete={() => refetchCases()} />
+          <Button className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/cases/create")}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Case
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -296,7 +301,6 @@ export default function App() { // Changed to App for React component export
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[100px]">Case ID</TableHead>
                   <TableHead className="min-w-[150px]">Case Name</TableHead>
                   <TableHead className="min-w-[120px]">Client</TableHead>
                   <TableHead className="min-w-[100px]">Status</TableHead>
@@ -311,7 +315,6 @@ export default function App() { // Changed to App for React component export
                 {filteredCases.length > 0 ? (
                   filteredCases.map((case_item) => (
                     <TableRow key={case_item.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">{case_item.id}</TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium text-foreground">{case_item.name}</div>
@@ -409,7 +412,7 @@ export default function App() { // Changed to App for React component export
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                       No cases found matching your criteria.
                     </TableCell>
                   </TableRow>
