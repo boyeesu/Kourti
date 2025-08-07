@@ -67,11 +67,21 @@ export default function Auth() {
       }
 
       if (result.error) {
-        toast({
-          variant: "destructive",
-          title: "Authentication Error",
-          description: result.error.message,
-        });
+        // Handle specific signup errors
+        if (isSignUp && result.error.message?.includes("User already registered")) {
+          toast({
+            variant: "destructive",
+            title: "Account already exists",
+            description: "This email is already registered. Please sign in instead.",
+          });
+          setIsSignUp(false); // Switch to sign-in mode
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Authentication Error",
+            description: result.error.message,
+          });
+        }
       }
     } catch (error) {
       toast({
