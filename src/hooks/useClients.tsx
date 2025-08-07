@@ -51,8 +51,8 @@ export function useClients() {
         .from('clients')
         .select(`
           *,
-          cases!left(count),
-          contracts!left(count)
+          cases!cases_client_id_fkey(count),
+          contracts!fk_contracts_client_id(count)
         `)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
