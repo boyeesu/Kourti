@@ -224,10 +224,10 @@ export function CaseBulkUpload({ onImportComplete }: CaseBulkUploadProps) {
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Upload className="h-4 w-4" />
-          Bulk Upload
-        </Button>
+        <Button variant="outline" className="hover-scale" onClick={() => navigate("/bulk-import?type=clients")}>
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Import
+          </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
