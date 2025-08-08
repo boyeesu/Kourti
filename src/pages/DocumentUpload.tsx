@@ -255,29 +255,23 @@ export default function DocumentUpload() {
             </CardHeader>
             <CardContent>
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  dragActive
-                    ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/25 hover:border-primary/50"
-                }`}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
+                className="border-2 border-dashed rounded-lg p-8 text-center transition-colors border-muted-foreground/25 hover:border-primary/50 relative"
               >
                 <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <div className="space-y-2">
-                  <p className="text-lg font-medium">Drop files here</p>
-                  <p className="text-muted-foreground">
-                    or click to browse
-                  </p>
+                  <p className="text-lg font-medium">Select files to upload</p>
+                  <p className="text-muted-foreground">Click the button below to choose files from your device.</p>
                 </div>
                 <input
+                  id="file-upload"
                   type="file"
                   multiple
                   onChange={handleFileInput}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  className="hidden"
                 />
+                <Button type="button" htmlFor="file-upload" onClick={() => document.getElementById('file-upload')?.click()} className="mt-4">
+                  Browse Files
+                </Button>
                 <p className="text-xs text-muted-foreground mt-4">
                   Supports: PDF, DOC, DOCX, TXT, JPG, PNG (Max 10MB each)
                 </p>
