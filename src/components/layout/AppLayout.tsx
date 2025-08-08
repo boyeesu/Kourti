@@ -15,7 +15,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Outlet } from "react-router-dom";
 
-export function AppLayout() {
+import React, { ReactNode } from 'react';
+
+export function AppLayout({ children }: { children: ReactNode }) {
   const { term, setTerm } = useSearch();
   const { signOut } = useAuth();
   const navigate = useNavigate();

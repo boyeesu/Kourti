@@ -106,6 +106,10 @@ import {
 } from "lucide-react";
 import { summarizeContract, extractKeyClauses, redlineContract } from "@/lib/openaiService";
 
+function AppLayout(props) {
+  // ... using children somewhere ...
+}
+
 export default function ContractView() {
   const { id } = useParams();
   const contract = contractsData.find((c) => c.id === id);
