@@ -1,5 +1,3 @@
-}
-
 // --- AI Review Dialog Component ---
 function AIReviewDialog({ contractText }: { contractText: string }) {
   const [context, setContext] = useState("");
