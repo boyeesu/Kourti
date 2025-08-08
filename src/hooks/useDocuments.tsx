@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from './useUserOrganization';
 
 export interface Document {
@@ -107,10 +108,11 @@ export function useCreateDocument() {
 
   return useMutation({
     mutationFn: async (documentData: CreateDocumentData) => {
+      const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       const { data, error } = await supabase
@@ -118,7 +120,7 @@ export function useCreateDocument() {
         .insert({
           ...documentData,
           organization_id: profile?.organization_id,
-          uploaded_by: (await supabase.auth.getUser()).data.user?.id,
+          uploaded_by: userId,
         })
         .select()
         .single();
