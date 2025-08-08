@@ -31,6 +31,8 @@ export function useUserRoles() {
       if (error) throw error;
       return data as UserRole[];
     },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
