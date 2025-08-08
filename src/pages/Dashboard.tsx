@@ -17,7 +17,7 @@ import { useDashboardStats } from "@/hooks/useDashboard";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data: dashboardData, isLoading } = useDashboardStats();
+  const { data: dashboardData, isLoading, error } = useDashboardStats();
 
   if (isLoading) {
     return (
@@ -27,7 +27,16 @@ export default function Dashboard() {
     );
   }
 
-  const stats = [
+  if (error) {
+    return (
+      <div className="px-4 py-6 flex flex-col items-center justify-center space-y-4">
+        <p className="text-destructive text-lg">Failed to load dashboard data.</p>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
+      </div>
+    );
+  }
+
+  const stats = React.useMemo(() => [
     {
       title: "Active Cases",
       value: dashboardData?.totalCases.toString() || "0",
