@@ -78,6 +78,7 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
     </DialogContent>
   );
 }
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { contractsData } from "./contractsData";
