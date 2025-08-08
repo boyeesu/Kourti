@@ -33,12 +33,13 @@ export function useInviteUser() {
 
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['organization-members'] });
       toast({
         title: "User invited successfully",
         description: "The user invitation has been created.",
       });
+      return data; // Return role information
     },
     onError: (error: Error) => {
       toast({
