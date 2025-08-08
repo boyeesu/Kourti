@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,14 @@ export default function UserManagement() {
   const { data: members = [], isLoading } = useOrganizationMembers();
   const inviteUser = useInviteUser();
 
+  useEffect(() => {
+    if (!role && roles.length > 0) {
+      // Find the first non-superadmin role or the first role if user is superadmin
+      const defaultRole = roles.find(r => userRole?.role === 'superadmin' || r.role_name !== 'superadmin')?.id;
+      setRole(defaultRole || roles[0].id);
+    }
+  }, [roles, role, userRole]);
+
   const canInviteUsers = userRole?.role === 'superadmin' || userRole?.role === 'admin';
 
   const handleInviteUser = (e: React.FormEvent) => {
@@ -45,7 +53,9 @@ export default function UserManagement() {
     setEmail("");
     setFirstName("");
     setLastName("");
-    setRole("");
+    // Reset to the default role after successful invite
+    const defaultRole = roles.find(r => userRole?.role === 'superadmin' || r.role_name !== 'superadmin')?.id;
+    setRole(defaultRole || roles[0]?.id || "");
     setDepartment("");
   };
 

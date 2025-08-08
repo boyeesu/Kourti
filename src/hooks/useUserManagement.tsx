@@ -17,14 +17,16 @@ export function useInviteUser() {
 
   return useMutation({
     mutationFn: async (userData: InviteUserData) => {
-      const { data, error } = await supabase.rpc('invite_user_to_organization', {
+      const params: Record<string, any> = {
         p_email: userData.email,
         p_first_name: userData.firstName,
         p_last_name: userData.lastName,
+        p_department: userData.department || null,
         p_role: userData.role ?? null,
         p_role_id: userData.roleId ?? null,
-        p_department: userData.department || null,
-      });
+      };
+
+      const { data, error } = await supabase.rpc('invite_user_to_organization', params);
 
       if (error) throw error;
       
