@@ -51,13 +51,22 @@ export default function Contracts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { term: globalSearch } = useSearch();
-  const { data: contracts = [], isLoading } = useContracts();
+  const { data: contracts = [], isLoading, error } = useContracts();
   const clientFilter = searchParams.get("client")?.toLowerCase() || "";
 
   if (isLoading) {
     return (
       <div className="px-4 py-6 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 py-6 flex flex-col items-center justify-center space-y-4">
+        <p className="text-destructive text-lg">Failed to load contracts.</p>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
     );
   }
