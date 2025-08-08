@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Upload, File, X, Check, AlertCircle, User, Calendar } from "lucide-react";
 import { useCases } from "@/context/CasesContext";
+import { useOrganizationMembers } from "@/hooks/useOrganization";
 
 interface UploadedFile {
   id: string;
@@ -21,6 +22,7 @@ interface UploadedFile {
 
 export default function DocumentUpload() {
   const { cases } = useCases();
+  const { data: orgMembers = [] } = useOrganizationMembers();
   const [selectedFiles, setSelectedFiles] = useState<UploadedFile[]>([]);
   const [documentData, setDocumentData] = useState({
     linkedCase: "",
@@ -215,11 +217,11 @@ export default function DocumentUpload() {
                     <SelectValue placeholder="Select approver" />
                   </SelectTrigger>
                   <SelectContent>
-                    {approvers.map((approver) => (
-                      <SelectItem key={approver} value={approver}>
+                    {orgMembers.map((member) => (
+                      <SelectItem key={member.user_id} value={member.user_id}>
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4" />
-                          {approver}
+                          {member.first_name} {member.last_name} ({member.email})
                         </div>
                       </SelectItem>
                     ))}
