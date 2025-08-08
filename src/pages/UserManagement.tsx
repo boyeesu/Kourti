@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useInviteUser, useUserRole } from "@/hooks/useUserManagement";
+import { useUserRoles } from "@/hooks/useUserRoles";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
 import { UserPlus, Users, Shield, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +16,11 @@ export default function UserManagement() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [role, setRole] = useState<'admin' | 'user'>('user');
+  const [role, setRole] = useState<string>("");
   const [department, setDepartment] = useState("");
 
   const { data: userRole } = useUserRole();
+  const { data: roles = [] } = useUserRoles();
   const { data: members = [], isLoading } = useOrganizationMembers();
   const inviteUser = useInviteUser();
 
@@ -26,8 +28,8 @@ export default function UserManagement() {
 
   const handleInviteUser = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!email || !firstName || !lastName) {
+
+    if (!email || !firstName || !lastName || !role) {
       return;
     }
 
@@ -35,7 +37,7 @@ export default function UserManagement() {
       email,
       firstName,
       lastName,
-      role,
+      roleId: role,
       department: department || undefined,
     });
 
@@ -43,7 +45,7 @@ export default function UserManagement() {
     setEmail("");
     setFirstName("");
     setLastName("");
-    setRole('user');
+    setRole("");
     setDepartment("");
   };
 
@@ -137,16 +139,20 @@ export default function UserManagement() {
 
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select value={role} onValueChange={(value: 'admin' | 'user') => setRole(value)}>
+                  <Select value={role} onValueChange={setRole}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      {userRole?.role === 'superadmin' && (
-                        <SelectItem value="superadmin">Super Admin</SelectItem>
-                      )}
+                      {roles
+                        .filter((r) =>
+                          userRole?.role === 'superadmin' || r.role_name !== 'superadmin'
+                        )
+                        .map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.role_name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

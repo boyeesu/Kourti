@@ -6,7 +6,8 @@ export interface InviteUserData {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'admin' | 'user';
+  role?: string;
+  roleId?: string;
   department?: string;
 }
 
@@ -20,7 +21,8 @@ export function useInviteUser() {
         p_email: userData.email,
         p_first_name: userData.firstName,
         p_last_name: userData.lastName,
-        p_role: userData.role,
+        p_role: userData.role ?? null,
+        p_role_id: userData.roleId ?? null,
         p_department: userData.department || null,
       });
 
