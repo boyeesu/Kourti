@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from './useUserOrganization';
 
 export interface Case {
@@ -105,10 +106,11 @@ export function useCase(id: string) {
   return useQuery({
     queryKey: ['case', id],
     queryFn: async () => {
+      const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       if (!profile?.organization_id) {
@@ -138,10 +140,11 @@ export function useCasesByClient(clientId: string) {
   return useQuery({
     queryKey: ['cases', 'client', clientId],
     queryFn: async () => {
+      const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       const organizationId = profile?.organization_id;
@@ -174,10 +177,11 @@ export function useCreateCase() {
 
   return useMutation({
     mutationFn: async (caseData: CreateCaseData) => {
+      const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       // Generate case number if not provided
@@ -198,7 +202,7 @@ export function useCreateCase() {
           ...caseData,
           case_number: caseNumber,
           organization_id: profile?.organization_id,
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: userId,
         })
         .select()
         .single();

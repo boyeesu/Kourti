@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 
 // Optimized hook for getting user's organization ID with caching
 export function useUserOrganization() {
@@ -7,19 +8,19 @@ export function useUserOrganization() {
     queryKey: ['user-organization'],
     queryFn: async () => {
       console.log('🔍 Fetching user organization...');
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user.user?.id) {
+      const userId = await getCurrentUserId();
+
+      if (!userId) {
         console.error('❌ User not authenticated');
         return null; // Return null instead of throwing error
       }
 
-      console.log('👤 User ID:', user.user.id);
+      console.log('👤 User ID:', userId);
 
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', user.user.id)
+        .eq('user_id', userId)
         .single();
 
       if (error) {

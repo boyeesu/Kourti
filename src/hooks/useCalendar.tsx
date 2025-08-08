@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from './useUserOrganization';
 
 export interface CalendarEvent {
@@ -113,12 +114,13 @@ export function useCreateCalendarEvent() {
         throw new Error('Organization not found');
       }
 
+      const userId = await getCurrentUserId();
       const { data, error } = await supabase
         .from('calendar_events')
         .insert({
           ...eventData,
           organization_id: organizationId,
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: userId,
         })
         .select()
         .single();

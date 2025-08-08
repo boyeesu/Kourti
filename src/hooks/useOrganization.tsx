@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 
 export interface Organization {
   id: string;
@@ -21,10 +22,11 @@ export function useOrganization() {
     queryKey: ['organization'],
     queryFn: async () => {
       // First get the user's organization ID from their profile
+      const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       if (!profile?.organization_id) {
@@ -51,10 +53,11 @@ export function useOrganizationMembers() {
     queryKey: ['organization-members'],
     queryFn: async () => {
       // Get the user's organization ID first
+      const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       if (!profile?.organization_id) {
