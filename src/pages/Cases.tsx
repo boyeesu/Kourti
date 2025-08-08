@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCases as useContextCases } from "@/context/CasesContext"; // Keep context for compatibility
 import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
 import { useSearch } from "@/hooks/use-search";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -222,6 +223,7 @@ export default function App() { // Changed to App for React component export
 
   return (
     <div className="px-4 py-6 space-y-6 max-w-7xl mx-auto">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

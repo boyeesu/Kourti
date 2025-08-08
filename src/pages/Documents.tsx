@@ -43,6 +43,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
+
 export default function Documents() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -93,6 +95,7 @@ export default function Documents() {
 
   return (
     <div className="px-4 py-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useContracts } from "@/hooks/useContracts";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { 
   Table,
   TableBody,
@@ -105,6 +106,7 @@ export default function Contracts() {
 
   return (
     <div className="px-4 py-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

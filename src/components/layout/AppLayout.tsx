@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { User, Bell, Settings, Search, Plus } from "lucide-react";
+import { NotificationModal, useNotifications } from "@/components/ui/notifications";
 import { Input } from "@/components/ui/input";
 import { useSearch } from "@/hooks/use-search";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +22,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { term, setTerm } = useSearch();
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const { notifications } = useNotifications();
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const [notifOpen, setNotifOpen] = React.useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -62,12 +66,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Button variant="ghost" size="icon" className="hidden md:flex">
                 <Plus className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                onClick={() => setNotifOpen(true)}
+                aria-label="Show notifications"
+              >
                 <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full text-[10px] flex items-center justify-center text-destructive-foreground">
-                  3
-                </span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full text-[10px] flex items-center justify-center text-destructive-foreground">
+                    {unreadCount}
+                  </span>
+                )}
               </Button>
+              <NotificationModal open={notifOpen} onOpenChange={setNotifOpen} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
@@ -75,13 +88,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-popover border border-border shadow-lg">
-                  <DropdownMenuItem className="cursor-pointer">
-                    <User className="h-4 w-4 mr-2" />
-                    Profile
+                  <DropdownMenuItem className="cursor-pointer" asChild>
+                    <Link to="/profile">
+                      <User className="h-4 w-4 mr-2" /> Profile
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
+                  <DropdownMenuItem className="cursor-pointer" asChild>
+                    <Link to="/settings">
+                      <Settings className="h-4 w-4 mr-2" /> Settings
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 

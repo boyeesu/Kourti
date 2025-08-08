@@ -10,6 +10,8 @@ import { Progress } from "@/components/ui/progress";
 import { Upload, File, X, Check, AlertCircle, User, Calendar } from "lucide-react";
 import { useCases } from "@/context/CasesContext";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
+import { useNotifications } from "@/components/ui/notifications";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface UploadedFile {
   id: string;
@@ -26,11 +28,11 @@ export default function DocumentUpload() {
   const [selectedFiles, setSelectedFiles] = useState<UploadedFile[]>([]);
   const [documentData, setDocumentData] = useState({
     linkedCase: "",
-    category: "",
     description: "",
     approver: "",
     tags: "",
   });
+  const { addNotification } = useNotifications();
 
   const [dragActive, setDragActive] = useState(false);
 
@@ -134,6 +136,16 @@ export default function DocumentUpload() {
     e.preventDefault();
     // TODO: Submit document upload when backend is ready
     console.log("Document upload:", { documentData, files: selectedFiles });
+    // Notify approver
+    if (documentData.approver) {
+      const approverMember = orgMembers.find(m => m.user_id === documentData.approver);
+      const docName = selectedFiles.length ? selectedFiles[0].name : 'A document';
+      addNotification({
+        type: 'approval',
+        title: 'Document Sent for Your Review',
+        description: `The document "${docName}" has been assigned for your approval.${approverMember ? ' (' + approverMember.first_name + ' ' + approverMember.last_name + ')' : ''}`
+      });
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -166,6 +178,7 @@ export default function DocumentUpload() {
 
   return (
     <div className="p-6 space-y-6">
+      <Breadcrumbs />
       <div>
         <h1 className="text-2xl font-semibold">Upload Documents</h1>
         <p className="text-muted-foreground">Upload and manage documents for approval</p>
@@ -194,21 +207,7 @@ export default function DocumentUpload() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={documentData.category} onValueChange={(value) => setDocumentData({ ...documentData, category: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {documentCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Category field removed as requested */}
 
               <div className="space-y-2">
                 <Label>Approver</Label>

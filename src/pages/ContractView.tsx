@@ -1,4 +1,4 @@
-// --- AI Review Dialog Component ---
+ // --- AI Review Dialog Component ---
 function AIReviewDialog({ contractText }: { contractText: string }) {
   const [context, setContext] = useState("");
   const [loading, setLoading] = useState(false);
@@ -79,6 +79,7 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
   );
 }
 import { useState } from "react";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { contractsData } from "./contractsData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -185,6 +186,7 @@ export default function ContractView() {
 
   return (
     <div className="p-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">
