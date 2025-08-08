@@ -15,11 +15,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import logo from "@/assets/kouti-legal-logo.png";
 
-interface AppLayoutProps {
-  children: React.ReactNode;
-}
+import { Outlet } from "react-router-dom";
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout() {
   const { term, setTerm } = useSearch();
   const { signOut } = useAuth();
   const navigate = useNavigate();
