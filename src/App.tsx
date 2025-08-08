@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CasesProvider } from "@/context/CasesContext";
+import { OrganizationProvider } from "@/context/OrganizationContext";
 import { SearchProvider } from "@/hooks/use-search";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -55,10 +56,11 @@ const App = () => (
             
             <Route path="/*" element={
               <ProtectedRoute>
-                <SearchProvider>
-                  <CasesProvider>
-                    <AppLayout>
-                      <Routes>
+                <OrganizationProvider>
+                  <SearchProvider>
+                    <CasesProvider>
+                      <AppLayout>
+                        <Routes>
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/cases" element={<Cases />} />
@@ -86,7 +88,8 @@ const App = () => (
                     </AppLayout>
                   </CasesProvider>
                 </SearchProvider>
-              </ProtectedRoute>
+              </OrganizationProvider>
+            </ProtectedRoute>
             } />
           </Routes>
         </AuthProvider>

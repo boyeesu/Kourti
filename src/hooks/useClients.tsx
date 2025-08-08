@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useUserOrganization } from './useUserOrganization';
+import { useOrganizationContext } from '@/context/OrganizationContext';
 
 export interface Client {
   id: string;
@@ -35,7 +35,7 @@ export interface UpdateClientData extends Partial<CreateClientData> {
 }
 
 export function useClients() {
-  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+  const { organizationId, isLoading: orgLoading, error: orgError } = useOrganizationContext();
 
   return useQuery({
     queryKey: ['clients', organizationId],
@@ -76,32 +76,26 @@ export function useClients() {
 }
 
 export function useClient(id: string) {
-  return useQuery({
-    queryKey: ['client', id],
-    queryFn: async () => {
-      // First get the user's organization_id from their profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+  const { organizationId } = useOrganizationContext();
 
-      if (!profile?.organization_id) {
+  return useQuery({
+    queryKey: ['client', id, organizationId],
+    queryFn: async () => {
+      if (!organizationId) {
         throw new Error('User organization not found');
       }
 
-      // Then query the client with the organization filter
       const { data, error } = await supabase
         .from('clients')
         .select('*')
         .eq('id', id)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .single();
 
       if (error) throw error;
       return data as Client;
     },
-    enabled: !!id,
+    enabled: !!id && !!organizationId,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -109,20 +103,19 @@ export function useClient(id: string) {
 export function useCreateClient() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { organizationId } = useOrganizationContext();
 
   return useMutation({
     mutationFn: async (clientData: CreateClientData) => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+      if (!organizationId) {
+        throw new Error('Organization not found');
+      }
 
       const { data, error } = await supabase
         .from('clients')
         .insert({
           ...clientData,
-          organization_id: profile?.organization_id,
+          organization_id: organizationId,
           created_by: (await supabase.auth.getUser()).data.user?.id,
         })
         .select()

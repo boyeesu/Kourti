@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useUserOrganization } from './useUserOrganization';
+import { useOrganizationContext } from '@/context/OrganizationContext';
 
 export interface Contract {
   id: string;
@@ -35,7 +35,7 @@ export interface CreateContractData {
 }
 
 export function useContracts() {
-  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+  const { organizationId, isLoading: orgLoading, error: orgError } = useOrganizationContext();
 
   return useQuery({
     queryKey: ['contracts', organizationId],
@@ -106,20 +106,19 @@ export function useContractsByClient(clientId: string) {
 export function useCreateContract() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { organizationId } = useOrganizationContext();
 
   return useMutation({
     mutationFn: async (contractData: CreateContractData) => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+      if (!organizationId) {
+        throw new Error('Organization not found');
+      }
 
       const { data, error } = await supabase
         .from('contracts')
         .insert({
           ...contractData,
-          organization_id: profile?.organization_id,
+          organization_id: organizationId,
           created_by: (await supabase.auth.getUser()).data.user?.id,
         })
         .select()

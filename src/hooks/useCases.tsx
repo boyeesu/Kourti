@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { useUserOrganization } from './useUserOrganization';
+import { useOrganizationContext } from '@/context/OrganizationContext';
 
 export interface Case {
   id: string;
@@ -50,7 +50,7 @@ export interface UpdateCaseData extends Partial<CreateCaseData> {
 export function useCases(initialPageSize = 10) {
   const [page, setPage] = useState(1);
   const pageSize = initialPageSize;
-  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+  const { organizationId, isLoading: orgLoading, error: orgError } = useOrganizationContext();
 
   const query = useQuery({
     queryKey: ['cases', page, pageSize, organizationId],
@@ -102,16 +102,12 @@ export function useCases(initialPageSize = 10) {
 }
 
 export function useCase(id: string) {
-  return useQuery({
-    queryKey: ['case', id],
-    queryFn: async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+  const { organizationId } = useOrganizationContext();
 
-      if (!profile?.organization_id) {
+  return useQuery({
+    queryKey: ['case', id, organizationId],
+    queryFn: async () => {
+      if (!organizationId) {
         throw new Error('User organization not found');
       }
 
@@ -123,28 +119,23 @@ export function useCase(id: string) {
           assigned_user:profiles(id, first_name, last_name)
         `)
         .eq('id', id)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .single();
 
       if (error) throw error;
       return data as any;
     },
-    enabled: !!id,
+    enabled: !!id && !!organizationId,
     staleTime: 30 * 1000,
   });
 }
 
 export function useCasesByClient(clientId: string) {
-  return useQuery({
-    queryKey: ['cases', 'client', clientId],
-    queryFn: async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+  const { organizationId } = useOrganizationContext();
 
-      const organizationId = profile?.organization_id;
+  return useQuery({
+    queryKey: ['cases', 'client', clientId, organizationId],
+    queryFn: async () => {
       if (!organizationId) {
         throw new Error('User organization not found');
       }
@@ -163,7 +154,7 @@ export function useCasesByClient(clientId: string) {
       if (error) throw error;
       return data as any[];
     },
-    enabled: !!clientId,
+    enabled: !!clientId && !!organizationId,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -171,14 +162,13 @@ export function useCasesByClient(clientId: string) {
 export function useCreateCase() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { organizationId } = useOrganizationContext();
 
   return useMutation({
     mutationFn: async (caseData: CreateCaseData) => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+      if (!organizationId) {
+        throw new Error('Organization not found');
+      }
 
       // Generate case number if not provided
       let caseNumber = caseData.case_number;
@@ -187,8 +177,8 @@ export function useCreateCase() {
         const { count } = await supabase
           .from('cases')
           .select('*', { count: 'exact', head: true })
-          .eq('organization_id', profile?.organization_id);
-        
+          .eq('organization_id', organizationId);
+
         caseNumber = `${year}-${String((count || 0) + 1).padStart(4, '0')}`;
       }
 
@@ -197,7 +187,7 @@ export function useCreateCase() {
         .insert({
           ...caseData,
           case_number: caseNumber,
-          organization_id: profile?.organization_id,
+          organization_id: organizationId,
           created_by: (await supabase.auth.getUser()).data.user?.id,
         })
         .select()

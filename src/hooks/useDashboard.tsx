@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useUserOrganization } from './useUserOrganization';
+import { useOrganizationContext } from '@/context/OrganizationContext';
 
 export interface DashboardStats {
   totalCases: number;
@@ -14,7 +14,7 @@ export interface DashboardStats {
 }
 
 export function useDashboardStats() {
-  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+  const { organizationId, isLoading: orgLoading, error: orgError } = useOrganizationContext();
 
   return useQuery({
     queryKey: ['dashboard-stats', organizationId],

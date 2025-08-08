@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useUserOrganization } from './useUserOrganization';
+import { useOrganizationContext } from '@/context/OrganizationContext';
 
 export interface CalendarEvent {
   id: string;
@@ -33,7 +33,7 @@ export interface CreateCalendarEventData {
 }
 
 export function useCalendarEvents() {
-  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+  const { organizationId, isLoading: orgLoading, error: orgError } = useOrganizationContext();
 
   return useQuery({
     queryKey: ['calendar-events', organizationId],
@@ -105,7 +105,7 @@ export function useCalendarEventsByDateRange(startDate: string, endDate: string)
 export function useCreateCalendarEvent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: organizationId } = useUserOrganization();
+  const { organizationId } = useOrganizationContext();
 
   return useMutation({
     mutationFn: async (eventData: CreateCalendarEventData) => {

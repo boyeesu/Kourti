@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrganizationContext } from '@/context/OrganizationContext';
 
 export interface Organization {
   id: string;
@@ -17,60 +18,50 @@ export interface Organization {
 }
 
 export function useOrganization() {
-  return useQuery({
-    queryKey: ['organization'],
-    queryFn: async () => {
-      // First get the user's organization ID from their profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+  const { organizationId } = useOrganizationContext();
 
-      if (!profile?.organization_id) {
+  return useQuery({
+    queryKey: ['organization', organizationId],
+    queryFn: async () => {
+      if (!organizationId) {
         return null;
       }
 
-      // Then get the organization details
       const { data, error } = await supabase
         .from('organizations')
         .select('*')
-        .eq('id', profile.organization_id)
+        .eq('id', organizationId)
         .single();
 
       if (error) throw error;
       return data as Organization;
     },
+    enabled: !!organizationId,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
 }
 
 export function useOrganizationMembers() {
-  return useQuery({
-    queryKey: ['organization-members'],
-    queryFn: async () => {
-      // Get the user's organization ID first
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+  const { organizationId } = useOrganizationContext();
 
-      if (!profile?.organization_id) {
+  return useQuery({
+    queryKey: ['organization-members', organizationId],
+    queryFn: async () => {
+      if (!organizationId) {
         return [];
       }
 
-      // Get all members in the organization
       const { data, error } = await supabase
         .from('profiles')
         .select('id, user_id, first_name, last_name, email, role, department, created_at')
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    enabled: !!organizationId,
     staleTime: 5 * 60 * 1000,
   });
 }
