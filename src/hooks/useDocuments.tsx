@@ -39,11 +39,15 @@ export function useDocuments() {
     queryKey: ['documents', organizationId],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for documents query');
+        if (import.meta.env.DEV) {
+          console.log('⚠️ No organization ID for documents query');
+        }
         return [];
       }
 
-      console.log('🔍 Fetching documents for org:', organizationId);
+      if (import.meta.env.DEV) {
+        console.log('🔍 Fetching documents for org:', organizationId);
+      }
 
       const { data, error } = await supabase
         .from('documents')
@@ -56,7 +60,9 @@ export function useDocuments() {
         throw error;
       }
       
-      console.log('✅ Documents found:', data?.length || 0);
+      if (import.meta.env.DEV) {
+        console.log('✅ Documents found:', data?.length || 0);
+      }
       return data as Document[];
     },
     enabled: !!organizationId && !orgLoading && !orgError,

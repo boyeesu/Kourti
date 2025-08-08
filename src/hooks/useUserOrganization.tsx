@@ -6,7 +6,9 @@ export function useUserOrganization() {
   return useQuery({
     queryKey: ['user-organization'],
     queryFn: async () => {
-      console.log('🔍 Fetching user organization...');
+      if (import.meta.env.DEV) {
+        console.log('🔍 Fetching user organization...');
+      }
       const { data: user } = await supabase.auth.getUser();
       
       if (!user.user?.id) {
@@ -14,7 +16,9 @@ export function useUserOrganization() {
         return null; // Return null instead of throwing error
       }
 
-      console.log('👤 User ID:', user.user.id);
+      if (import.meta.env.DEV) {
+        console.log('👤 User ID:', user.user.id);
+      }
 
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -31,7 +35,9 @@ export function useUserOrganization() {
         throw error;
       }
       
-      console.log('🏢 Organization ID:', profile.organization_id);
+      if (import.meta.env.DEV) {
+        console.log('🏢 Organization ID:', profile.organization_id);
+      }
       return profile.organization_id;
     },
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes since org rarely changes

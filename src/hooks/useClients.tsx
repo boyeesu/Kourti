@@ -41,11 +41,15 @@ export function useClients() {
     queryKey: ['clients', organizationId],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for clients query');
+        if (import.meta.env.DEV) {
+          console.log('⚠️ No organization ID for clients query');
+        }
         return [];
       }
 
-      console.log('🔍 Fetching clients for org:', organizationId);
+      if (import.meta.env.DEV) {
+        console.log('🔍 Fetching clients for org:', organizationId);
+      }
 
       const { data, error } = await supabase
         .from('clients')
@@ -62,7 +66,9 @@ export function useClients() {
         throw error;
       }
       
-      console.log('✅ Clients found:', data?.length || 0);
+      if (import.meta.env.DEV) {
+        console.log('✅ Clients found:', data?.length || 0);
+      }
       return (data ?? []).map(client => ({
         ...client,
         cases: client.cases ?? [],

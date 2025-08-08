@@ -20,7 +20,9 @@ export function useDashboardStats() {
     queryKey: ['dashboard-stats', organizationId],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for dashboard stats');
+        if (import.meta.env.DEV) {
+          console.log('⚠️ No organization ID for dashboard stats');
+        }
         return {
           totalCases: 0,
           activeCases: 0,
@@ -33,7 +35,9 @@ export function useDashboardStats() {
         };
       }
 
-      console.log('🔍 Fetching dashboard stats for org:', organizationId);
+      if (import.meta.env.DEV) {
+        console.log('🔍 Fetching dashboard stats for org:', organizationId);
+      }
 
       // Fetch all stats in parallel
       const [
@@ -105,16 +109,18 @@ export function useDashboardStats() {
           .limit(5)
       ]);
 
-      console.log('📊 Dashboard stats results:', {
-        totalCases: casesResult.count,
-        activeCases: activeCasesResult.count,
-        totalClients: clientsResult.count,
-        totalDocuments: documentsResult.count,
-        upcomingEvents: upcomingEventsResult.count,
-        recentCases: recentCasesResult.data?.length,
-        recentClients: recentClientsResult.data?.length,
-        upcomingCalendarEvents: upcomingCalendarEventsResult.data?.length,
-      });
+      if (import.meta.env.DEV) {
+        console.log('📊 Dashboard stats results:', {
+          totalCases: casesResult.count,
+          activeCases: activeCasesResult.count,
+          totalClients: clientsResult.count,
+          totalDocuments: documentsResult.count,
+          upcomingEvents: upcomingEventsResult.count,
+          recentCases: recentCasesResult.data?.length,
+          recentClients: recentClientsResult.data?.length,
+          upcomingCalendarEvents: upcomingCalendarEventsResult.data?.length,
+        });
+      }
 
       return {
         totalCases: casesResult.count || 0,

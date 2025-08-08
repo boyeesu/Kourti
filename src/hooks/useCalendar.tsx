@@ -39,11 +39,15 @@ export function useCalendarEvents() {
     queryKey: ['calendar-events', organizationId],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for calendar events');
+        if (import.meta.env.DEV) {
+          console.log('⚠️ No organization ID for calendar events');
+        }
         return [];
       }
 
-      console.log('🔍 Fetching calendar events for org:', organizationId);
+      if (import.meta.env.DEV) {
+        console.log('🔍 Fetching calendar events for org:', organizationId);
+      }
 
       const { data, error } = await supabase
         .from('calendar_events')
@@ -56,7 +60,9 @@ export function useCalendarEvents() {
         throw error;
       }
       
-      console.log('✅ Calendar events found:', data?.length || 0);
+      if (import.meta.env.DEV) {
+        console.log('✅ Calendar events found:', data?.length || 0);
+      }
       return data as CalendarEvent[];
     },
     enabled: !!organizationId && !orgLoading && !orgError,
@@ -64,6 +70,7 @@ export function useCalendarEvents() {
     gcTime: 5 * 60 * 1000,
   });
 }
+
 
 export function useCalendarEvent(id: string) {
   return useQuery({

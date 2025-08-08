@@ -56,11 +56,15 @@ export function useCases(initialPageSize = 10) {
     queryKey: ['cases', page, pageSize, organizationId],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for cases query');
+        if (import.meta.env.DEV) {
+          console.log('⚠️ No organization ID for cases query');
+        }
         return { cases: [], count: 0 };
       }
 
-      console.log('🔍 Fetching cases for org:', organizationId);
+      if (import.meta.env.DEV) {
+        console.log('🔍 Fetching cases for org:', organizationId);
+      }
 
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -84,7 +88,9 @@ export function useCases(initialPageSize = 10) {
         throw error;
       }
       
-      console.log('✅ Cases found:', data?.length || 0, 'Total count:', count);
+      if (import.meta.env.DEV) {
+        console.log('✅ Cases found:', data?.length || 0, 'Total count:', count);
+      }
       return { cases: data as any[], count: count || 0 };
     },
     enabled: !!organizationId && !orgLoading && !orgError,

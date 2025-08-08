@@ -41,11 +41,15 @@ export function useContracts() {
     queryKey: ['contracts', organizationId],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for contracts query');
+        if (import.meta.env.DEV) {
+          console.log('⚠️ No organization ID for contracts query');
+        }
         return [];
       }
 
-      console.log('🔍 Fetching contracts for org:', organizationId);
+      if (import.meta.env.DEV) {
+        console.log('🔍 Fetching contracts for org:', organizationId);
+      }
 
       const { data, error } = await supabase
         .from('contracts')
@@ -58,7 +62,9 @@ export function useContracts() {
         throw error;
       }
       
-      console.log('✅ Contracts found:', data?.length || 0);
+      if (import.meta.env.DEV) {
+        console.log('✅ Contracts found:', data?.length || 0);
+      }
       return data as Contract[];
     },
     enabled: !!organizationId && !orgLoading && !orgError,
