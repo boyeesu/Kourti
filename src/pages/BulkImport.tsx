@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BulkImportForm } from "@/components/BulkImportForm";
@@ -112,6 +113,9 @@ const templateData = {
 };
 
 export default function BulkImport() {
+  const [searchParams] = useSearchParams();
+  const typeParam = searchParams.get("type") || "clients";
+
   const handleImportComplete = (entityType: string, data: any[]) => {
     console.log(`Imported ${data.length} ${entityType}:`, data);
     // In real app, this would update the global state/database
@@ -133,7 +137,7 @@ export default function BulkImport() {
       </div>
 
       {/* Import Tabs */}
-      <Tabs defaultValue="clients" className="space-y-6">
+      <Tabs value={typeParam} className="space-y-6">
         <TabsList className="grid grid-cols-4 w-full max-w-2xl">
           <TabsTrigger value="clients" className="flex items-center gap-2">
             <Users className="h-4 w-4" />

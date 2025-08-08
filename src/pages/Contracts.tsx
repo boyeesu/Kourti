@@ -121,7 +121,7 @@ export default function Contracts() {
             <Plus className="h-4 w-4 mr-2" />
             New Contract
           </Button>
-          <Button className="shadow-md" onClick={() => navigate("/bulk-import")}>
+          <Button variant="outline" className="shadow-md" onClick={() => navigate("/bulk-import?type=contracts")}>
             <Upload className="h-4 w-4 mr-2" />
             Bulk Import
           </Button>

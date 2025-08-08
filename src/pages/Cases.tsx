@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCases as useContextCases } from "@/context/CasesContext"; // Keep context for compatibility
 import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
 import { useSearch } from "@/hooks/use-search";
-import { CaseBulkUpload } from "@/components/CaseBulkUpload";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +32,8 @@ import {
   FileText,
   Calendar,
   User,
-  Trash2
+  Trash2,
+  Upload
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -229,7 +229,10 @@ export default function App() { // Changed to App for React component export
           <p className="text-muted-foreground">Manage and track all your legal cases</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <CaseBulkUpload onImportComplete={() => refetchCases()} />
+          <Button variant="outline" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=cases")}>
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Import
+          </Button>
           <Button className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/cases/create")}>
             <Plus className="h-4 w-4 mr-2" />
             New Case
