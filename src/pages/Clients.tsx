@@ -14,7 +14,12 @@ export default function Clients() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const { data: clients = [], isLoading } = useClients();
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const { data, isLoading } = useClients(page, pageSize);
+  const clients = data?.clients || [];
+  const totalCount = data?.count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   if (isLoading) {
     return (
@@ -266,6 +271,30 @@ export default function Clients() {
               <Button className="hover-scale" onClick={() => navigate("/clients/create")}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add First Client
+              </Button>
+            </div>
+          )}
+
+          {totalCount > 0 && (
+            <div className="flex items-center justify-between mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                disabled={page === 1}
+                className="shadow-sm"
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={page >= totalPages}
+                className="shadow-sm"
+              >
+                Next
               </Button>
             </div>
           )}

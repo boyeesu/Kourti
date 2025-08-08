@@ -19,7 +19,12 @@ export default function UserManagement() {
   const [department, setDepartment] = useState("");
 
   const { data: userRole } = useUserRole();
-  const { data: members = [], isLoading } = useOrganizationMembers();
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const { data: membersData, isLoading } = useOrganizationMembers(page, pageSize);
+  const members = membersData?.members || [];
+  const totalCount = membersData?.count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const inviteUser = useInviteUser();
 
   const canInviteUsers = userRole?.role === 'superadmin' || userRole?.role === 'admin';
@@ -240,6 +245,30 @@ export default function UserManagement() {
                 </div>
               )}
             </div>
+
+            {totalCount > 0 && (
+              <div className="flex items-center justify-between mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                  className="shadow-sm"
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={page >= totalPages}
+                  className="shadow-sm"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

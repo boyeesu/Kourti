@@ -34,40 +34,45 @@ export interface UpdateClientData extends Partial<CreateClientData> {
   id: string;
 }
 
-export function useClients() {
+export function useClients(page = 1, pageSize = 10) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery({
-    queryKey: ['clients', organizationId],
+    queryKey: ['clients', organizationId, page, pageSize],
     queryFn: async () => {
       if (!organizationId) {
         console.log('⚠️ No organization ID for clients query');
-        return [];
+        return { clients: [], count: 0 };
       }
 
       console.log('🔍 Fetching clients for org:', organizationId);
 
-      const { data, error } = await supabase
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await supabase
         .from('clients')
         .select(`
           *,
           cases!cases_client_id_fkey(count),
           contracts!fk_contracts_client_id(count)
-        `)
+        `, { count: 'exact' })
         .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) {
         console.error('❌ Error fetching clients:', error);
         throw error;
       }
-      
-      console.log('✅ Clients found:', data?.length || 0);
-      return (data ?? []).map(client => ({
+
+      console.log('✅ Clients found:', data?.length || 0, 'Total count:', count);
+      const clients = (data ?? []).map(client => ({
         ...client,
         cases: client.cases ?? [],
         contracts: client.contracts ?? [],
       })) as Client[];
+      return { clients, count: count || 0 };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000, // 2 minutes for faster updates

@@ -50,7 +50,12 @@ export default function Contracts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { term: globalSearch } = useSearch();
-  const { data: contracts = [], isLoading } = useContracts();
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const { data, isLoading } = useContracts(page, pageSize);
+  const contracts = data?.contracts || [];
+  const totalCount = data?.count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const clientFilter = searchParams.get("client")?.toLowerCase() || "";
 
   if (isLoading) {
@@ -335,6 +340,30 @@ export default function Contracts() {
           {filteredContracts.length === 0 && (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No contracts found matching your criteria.</p>
+            </div>
+          )}
+
+          {totalCount > 0 && (
+            <div className="flex items-center justify-between mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                disabled={page === 1}
+                className="shadow-sm"
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={page >= totalPages}
+                className="shadow-sm"
+              >
+                Next
+              </Button>
             </div>
           )}
         </CardContent>

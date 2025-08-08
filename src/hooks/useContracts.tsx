@@ -34,32 +34,36 @@ export interface CreateContractData {
   client_id?: string;
 }
 
-export function useContracts() {
+export function useContracts(page = 1, pageSize = 10) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery({
-    queryKey: ['contracts', organizationId],
+    queryKey: ['contracts', organizationId, page, pageSize],
     queryFn: async () => {
       if (!organizationId) {
         console.log('⚠️ No organization ID for contracts query');
-        return [];
+        return { contracts: [], count: 0 };
       }
 
       console.log('🔍 Fetching contracts for org:', organizationId);
 
-      const { data, error } = await supabase
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await supabase
         .from('contracts')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) {
         console.error('❌ Error fetching contracts:', error);
         throw error;
       }
-      
-      console.log('✅ Contracts found:', data?.length || 0);
-      return data as Contract[];
+
+      console.log('✅ Contracts found:', data?.length || 0, 'Total count:', count);
+      return { contracts: data as Contract[], count: count || 0 };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,

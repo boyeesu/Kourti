@@ -27,7 +27,8 @@ import { useOrganizationMembers } from "@/hooks/useOrganization";
 
 export default function Users() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: users = [], isLoading } = useOrganizationMembers();
+  const { data: usersData, isLoading } = useOrganizationMembers(1, 100);
+  const users = usersData?.members || [];
 
   if (isLoading) {
     return (

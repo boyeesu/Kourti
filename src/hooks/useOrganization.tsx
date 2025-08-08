@@ -46,9 +46,9 @@ export function useOrganization() {
   });
 }
 
-export function useOrganizationMembers() {
+export function useOrganizationMembers(page = 1, pageSize = 10) {
   return useQuery({
-    queryKey: ['organization-members'],
+    queryKey: ['organization-members', page, pageSize],
     queryFn: async () => {
       // Get the user's organization ID first
       const { data: profile } = await supabase
@@ -58,18 +58,22 @@ export function useOrganizationMembers() {
         .single();
 
       if (!profile?.organization_id) {
-        return [];
+        return { members: [], count: 0 };
       }
 
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       // Get all members in the organization
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('profiles')
-        .select('id, user_id, first_name, last_name, email, role, department, created_at')
+        .select('id, user_id, first_name, last_name, email, role, department, created_at', { count: 'exact' })
         .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
-      return data;
+      return { members: data || [], count: count || 0 };
     },
     staleTime: 5 * 60 * 1000,
   });

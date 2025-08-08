@@ -66,7 +66,8 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
   const [open, setOpen] = useState(false);
   const createEvent = useCreateCalendarEvent();
   const { data: casesData } = useCases();
-  const { data: clients } = useClients();
+  const { data: clientsData } = useClients();
+  const clients = clientsData?.clients || [];
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
