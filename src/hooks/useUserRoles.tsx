@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 
 export interface UserRole {
   id: string;
@@ -40,13 +41,13 @@ export function useCreateUserRole() {
 
   return useMutation({
     mutationFn: async (roleData: CreateUserRoleData) => {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('User not authenticated');
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error('User not authenticated');
 
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', user.user.id)
+        .eq('user_id', userId)
         .single();
 
       if (!profile) throw new Error('Profile not found');
@@ -56,7 +57,7 @@ export function useCreateUserRole() {
         .insert({
           ...roleData,
           organization_id: profile.organization_id,
-          created_by: user.user.id,
+          created_by: userId,
           permissions: roleData.permissions || [],
         })
         .select()

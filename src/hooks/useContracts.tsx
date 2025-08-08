@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from './useUserOrganization';
 
 export interface Contract {
@@ -109,10 +110,12 @@ export function useCreateContract() {
 
   return useMutation({
     mutationFn: async (contractData: CreateContractData) => {
+      const userId = await getCurrentUserId();
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       const { data, error } = await supabase
@@ -120,7 +123,7 @@ export function useCreateContract() {
         .insert({
           ...contractData,
           organization_id: profile?.organization_id,
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: userId,
         })
         .select()
         .single();

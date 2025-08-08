@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 
 export interface ProfileData {
   first_name?: string;
@@ -18,8 +19,8 @@ export function useProfile() {
   return useQuery({
     queryKey: ['user-profile'],
     queryFn: async () => {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('User not authenticated');
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error('User not authenticated');
 
       const { data, error } = await supabase
         .from('profiles')
@@ -36,7 +37,7 @@ export function useProfile() {
           created_at,
           updated_at
         `)
-        .eq('user_id', user.user.id)
+        .eq('user_id', userId)
         .single();
 
       if (error) throw error;
@@ -51,13 +52,13 @@ export function useUpdateProfile() {
 
   return useMutation({
     mutationFn: async (profileData: ProfileData) => {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('User not authenticated');
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error('User not authenticated');
 
       const { data, error } = await supabase
         .from('profiles')
         .update(profileData)
-        .eq('user_id', user.user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 

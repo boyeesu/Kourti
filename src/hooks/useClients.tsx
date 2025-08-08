@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from './useUserOrganization';
 
 export interface Client {
@@ -80,10 +81,11 @@ export function useClient(id: string) {
     queryKey: ['client', id],
     queryFn: async () => {
       // First get the user's organization_id from their profile
+      const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       if (!profile?.organization_id) {
@@ -112,10 +114,11 @@ export function useCreateClient() {
 
   return useMutation({
     mutationFn: async (clientData: CreateClientData) => {
+      const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .single();
 
       const { data, error } = await supabase
@@ -123,7 +126,7 @@ export function useCreateClient() {
         .insert({
           ...clientData,
           organization_id: profile?.organization_id,
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: userId,
         })
         .select()
         .single();
