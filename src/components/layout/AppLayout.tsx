@@ -13,8 +13,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import logo from "@/assets/kouti-legal-logo.png";
-
 import { Outlet } from "react-router-dom";
 
 export function AppLayout() {
