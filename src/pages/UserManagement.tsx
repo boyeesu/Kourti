@@ -26,16 +26,18 @@ export default function UserManagement() {
 
   useEffect(() => {
     if (!role && roles.length > 0) {
-      setRole(roles[0].id);
+      // Find the first non-superadmin role or the first role if user is superadmin
+      const defaultRole = roles.find(r => userRole?.role === 'superadmin' || r.role_name !== 'superadmin')?.id;
+      setRole(defaultRole || roles[0].id);
     }
-  }, [roles, role]);
+  }, [roles, role, userRole]);
 
   const canInviteUsers = userRole?.role === 'superadmin' || userRole?.role === 'admin';
 
   const handleInviteUser = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!email || !firstName || !lastName) {
+
+    if (!email || !firstName || !lastName || !role) {
       return;
     }
 
@@ -51,7 +53,9 @@ export default function UserManagement() {
     setEmail("");
     setFirstName("");
     setLastName("");
-    setRole(roles[0]?.id || "");
+    // Reset to the default role after successful invite
+    const defaultRole = roles.find(r => userRole?.role === 'superadmin' || r.role_name !== 'superadmin')?.id;
+    setRole(defaultRole || roles[0]?.id || "");
     setDepartment("");
   };
 
@@ -145,16 +149,20 @@ export default function UserManagement() {
 
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select value={role} onValueChange={(value: string) => setRole(value)}>
+                  <Select value={role} onValueChange={setRole}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a role" />
                     </SelectTrigger>
                     <SelectContent>
-                      {roles.map((r) => (
-                        <SelectItem key={r.id} value={r.id}>
-                          {r.role_name}
-                        </SelectItem>
-                      ))}
+                      {roles
+                        .filter((r) =>
+                          userRole?.role === 'superadmin' || r.role_name !== 'superadmin'
+                        )
+                        .map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.role_name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

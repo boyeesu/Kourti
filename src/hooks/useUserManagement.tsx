@@ -22,13 +22,9 @@ export function useInviteUser() {
         p_first_name: userData.firstName,
         p_last_name: userData.lastName,
         p_department: userData.department || null,
+        p_role: userData.role ?? null,
+        p_role_id: userData.roleId ?? null,
       };
-      if (userData.role) {
-        params.p_role = userData.role;
-      }
-      if (userData.roleId) {
-        params.p_role_id = userData.roleId;
-      }
 
       const { data, error } = await supabase.rpc('invite_user_to_organization', params);
 
