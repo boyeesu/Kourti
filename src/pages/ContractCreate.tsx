@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarIcon, Plus, X, FileText, Users, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { useProfile } from "@/hooks/useProfile";
+import { useOrganizationMembers } from "@/hooks/useOrganization";
 
 interface ContractParty {
   id: string;
@@ -44,6 +46,8 @@ export default function ContractCreate() {
     status: "draft",
     assignedTo: "",
   });
+  const { data: orgMembers = [] } = useOrganizationMembers();
+  const { data: profile } = useProfile();
 
   const [parties, setParties] = useState<ContractParty[]>([]);
   const [clauses, setClauses] = useState<ContractClause[]>([]);
@@ -286,9 +290,18 @@ export default function ContractCreate() {
                         <SelectValue placeholder="Select assignee" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sarah-wilson">Sarah Wilson</SelectItem>
-                        <SelectItem value="michael-chen">Michael Chen</SelectItem>
-                        <SelectItem value="jessica-thompson">Jessica Thompson</SelectItem>
+                        {profile && (
+                          <SelectItem value={profile.user_id}>
+                            Me ({profile.first_name || ''} {profile.last_name || ''})
+                          </SelectItem>
+                        )}
+                        {orgMembers
+                          .filter(({ user_id }) => !profile || user_id !== profile.user_id)
+                          .map(user => (
+                            <SelectItem key={user.user_id} value={user.user_id}>
+                              {user.first_name} {user.last_name} ({user.email})
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>

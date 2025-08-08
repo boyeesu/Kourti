@@ -21,6 +21,8 @@ import {
   History,
   Eye
 } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
+import { useOrganizationMembers } from "@/hooks/useOrganization";
 
 export default function ContractEdit() {
   const { id } = useParams();
@@ -301,9 +303,26 @@ export default function ContractEdit() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Sarah Wilson">Sarah Wilson</SelectItem>
-                      <SelectItem value="Michael Chen">Michael Chen</SelectItem>
-                      <SelectItem value="Jessica Thompson">Jessica Thompson</SelectItem>
+                      {(() => {
+                        const { data: orgMembers = [] } = useOrganizationMembers();
+                        const { data: profile } = useProfile();
+                        return (
+                          <>
+                            {profile && (
+                              <SelectItem value={profile.user_id}>
+                                Me ({profile.first_name || ''} {profile.last_name || ''})
+                              </SelectItem>
+                            )}
+                            {orgMembers
+                              .filter(({ user_id }) => !profile || user_id !== profile.user_id)
+                              .map(user => (
+                                <SelectItem key={user.user_id} value={user.user_id}>
+                                  {user.first_name} {user.last_name} ({user.email})
+                                </SelectItem>
+                              ))}
+                          </>
+                        );
+                      })()}
                     </SelectContent>
                   </Select>
                 </div>
