@@ -1,4 +1,85 @@
-import { useParams, Link } from "react-router-dom";
+}
+
+// --- AI Review Dialog Component ---
+function AIReviewDialog({ contractText }: { contractText: string }) {
+  const [context, setContext] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<null | {
+    summary: string;
+    clauses: string;
+    redlines: string;
+  }>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleReview() {
+    setLoading(true);
+    setError(null);
+    setResults(null);
+    try {
+      // combine the user's context into the review process by adding it to the prompts
+      const fullText = context.trim()
+        ? `${contractText}\n\nUser Instructions/Context: ${context}`
+        : contractText;
+      const [summary, clauses, redlines] = await Promise.all([
+        summarizeContract(fullText),
+        extractKeyClauses(fullText),
+        redlineContract(fullText),
+      ]);
+      setResults({ summary, clauses, redlines });
+    } catch (e) {
+      setError("There was an error with the AI review. Please try again or check your API key.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <DialogContent className="max-w-xl">
+      <DialogHeader>
+        <DialogTitle>AI Review for Contract</DialogTitle>
+        <DialogDescription>
+          The AI will read, summarize, identify key clauses, and redline critical issues/risk areas in this contract.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3 py-2">
+        <label className="font-medium text-sm">Review Context (optional)</label>
+        <Textarea
+          value={context}
+          onChange={e => setContext(e.target.value)}
+          placeholder="e.g. Focus on indemnity and limitation of liability. Flag missing non-compete or dubious payment schedule terms."
+          rows={3}
+        />
+        <div className="text-xs text-muted-foreground">
+          Tips: Be specific if you want the AI to pay attention to something ("Summarize for a junior associate." "Highlight jurisdictional risk." "Is there a change of control clause?")
+        </div>
+      </div>
+      <DialogFooter>
+        <Button onClick={handleReview} disabled={loading} className="w-full">
+          {loading ? "Running AI Review..." : "Run Review"}
+        </Button>
+      </DialogFooter>
+      <div className="py-2">
+        {error && <div className="text-red-600 text-sm">{error}</div>}
+        {results && (
+          <div className="space-y-4 mt-2">
+            <div>
+              <h4 className="font-semibold mb-1">Summary</h4>
+              <div className="bg-muted/60 border rounded p-2 text-sm whitespace-pre-wrap">{results.summary}</div>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-1">Key Clauses Extracted</h4>
+              <div className="bg-muted/60 border rounded p-2 text-sm whitespace-pre-wrap">{results.clauses}</div>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-1">Redlines & Review Comments</h4>
+              <div className="bg-muted/60 border rounded p-2 text-sm whitespace-pre-wrap">{results.redlines}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </DialogContent>
+  );
+}
 import { useState } from "react";
 import { contractsData } from "./contractsData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,20 +87,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Download, 
-  Edit, 
-  GitBranch, 
-  FileText, 
-  Calendar, 
-  User, 
-  Building, 
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Download,
+  Edit,
+  GitBranch,
+  FileText,
+  Calendar,
+  User,
+  Building,
   DollarSign,
   Clock,
   Eye,
   Share,
-  ArrowLeft
+  ArrowLeft,
+  Sparkles
 } from "lucide-react";
+import { summarizeContract, extractKeyClauses, redlineContract } from "@/lib/openaiService";
 
 export default function ContractView() {
   const { id } = useParams();
@@ -274,6 +361,14 @@ export default function ContractView() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Eye className="h-4 w-4" />
                   Read-only view
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="default" className="ml-4 flex gap-1 items-center">
+                        <Sparkles className="h-4 w-4" /> AI Review
+                      </Button>
+                    </DialogTrigger>
+                    <AIReviewDialog contractText={contract.content} />
+                  </Dialog>
                 </div>
               </div>
             </CardHeader>
