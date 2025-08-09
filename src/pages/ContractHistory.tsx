@@ -139,9 +139,8 @@ export default function ContractHistory() {
   };
 
   const handleRestoreVersion = (version: Version) => {
-    // TODO: Implement version restoration when backend is ready
-    console.log("Restoring version:", version);
-    alert(`Version ${version.version} would be restored (feature requires backend)`);
+    contract.content = `Restored to version ${version.version} on ${version.date}\n\n${contract.content}`;
+    alert(`Restored to version ${version.version} (simulated)`);
   };
 
   return (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,18 +7,27 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/kouti-legal-logo.png";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Login() {
+  const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement authentication when backend is ready
-    console.log("Login attempt:", formData);
+    const { error } = await signIn(formData.email, formData.password);
+    if (error) {
+      setError(error.message);
+      alert(`Login failed: ${error.message}`);
+      return;
+    }
+    navigate("/dashboard");
   };
 
   return (
@@ -95,6 +104,9 @@ export default function Login() {
             <Button type="submit" className="w-full">
               Sign In
             </Button>
+            {error && (
+              <p className="mt-2 text-sm text-destructive">{error}</p>
+            )}
           </form>
           
           <div className="mt-6">

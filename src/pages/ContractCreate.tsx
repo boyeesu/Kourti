@@ -176,15 +176,17 @@ export default function ContractCreate() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Submit contract creation when backend is ready
     const contractPayload = {
       ...contractData,
       parties,
       clauses,
       createdAt: new Date().toISOString(),
-      createdBy: "Current User", // TODO: Get from auth
+      createdBy: profile ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || "Unknown User" : "Unknown User",
     };
+    const stored = JSON.parse(localStorage.getItem("contracts") || "[]");
+    localStorage.setItem("contracts", JSON.stringify([...stored, contractPayload]));
     console.log("Creating contract:", contractPayload);
+    alert("Contract created (stored locally for development).");
     navigate("/contracts");
   };
 

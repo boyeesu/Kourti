@@ -137,8 +137,23 @@ export default function DocumentUpload() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Submit document upload when backend is ready
-    console.log("Document upload:", { documentData, files: selectedFiles });
+    const documentRecord = {
+      ...documentData,
+      files: selectedFiles,
+      tags: documentData.tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0),
+      createdAt: new Date().toISOString(),
+    };
+    const stored = JSON.parse(localStorage.getItem("uploadedDocuments") || "[]");
+    localStorage.setItem("uploadedDocuments", JSON.stringify([...stored, documentRecord]));
+    console.log("Document upload:", documentRecord);
+    addNotification({
+      type: "success",
+      title: "Upload complete",
+      description: "Document stored locally for development.",
+    });
     // Notify approver
     if (documentData.approver) {
       const docName = selectedFiles.length ? selectedFiles[0].name : 'A document';
