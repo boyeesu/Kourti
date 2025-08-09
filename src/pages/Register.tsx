@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,8 +8,11 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Lock, Eye, EyeOff, User, Building } from "lucide-react";
 import logo from "@/assets/kouti-legal-logo.png";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Register() {
+  const navigate = useNavigate();
+  const { signUp } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -22,14 +25,24 @@ export default function Register() {
     role: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       alert("Passwords do not match");
       return;
     }
-    // TODO: Implement registration when backend is ready
-    console.log("Register attempt:", formData);
+    const { error } = await signUp(formData.email, formData.password, {
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      organization: formData.organization,
+      role: formData.role,
+    });
+    if (error) {
+      alert(`Registration failed: ${error.message}`);
+      return;
+    }
+    alert("Registration successful. Please check your email to confirm your account.");
+    navigate("/login");
   };
 
   return (

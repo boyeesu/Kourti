@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Plus, Clock, User, Tag, Calendar as CalendarIcon } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
 
 interface Activity {
   id: string;
@@ -38,6 +39,7 @@ export default function CaseActivities() {
   const { caseId } = useParams();
   const { cases } = useCases();
   const caseItem = cases.find((c) => c.id === caseId);
+  const { data: profile } = useProfile();
   
   const [activities, setActivities] = useState<Activity[]>([
     {
@@ -131,7 +133,7 @@ export default function CaseActivities() {
       ...newActivity,
       status: "Pending",
       createdAt: new Date().toISOString().split('T')[0],
-      createdBy: "Current User", // TODO: Get from auth when available
+      createdBy: profile ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || "Unknown User" : "Unknown User",
     };
     
     setActivities([...activities, activity]);

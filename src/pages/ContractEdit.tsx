@@ -28,10 +28,11 @@ export default function ContractEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const contract = contractsData.find((c) => c.id === id);
-  
+  const { data: profile } = useProfile();
+  const { data: orgMembers = [] } = useOrganizationMembers();
   const [isModified, setIsModified] = useState(false);
   const [activeTab, setActiveTab] = useState("content");
-  
+
   // Enhanced contract state
   const [contractData, setContractData] = useState({
     name: contract?.name || "",
@@ -73,15 +74,14 @@ export default function ContractEdit() {
   }
 
   const handleSave = () => {
-    // TODO: Save to backend when available
     console.log("Saving contract:", contractData);
-    
+
     // Create new version entry
     const newVersion = {
       version: contract.versions.length + 1,
       date: new Date().toISOString().split('T')[0],
       description: "Contract updated",
-      editedBy: "Current User" // TODO: Get from auth
+      editedBy: profile ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || "Unknown User" : "Unknown User",
     };
     
     // Update contract data
@@ -90,6 +90,7 @@ export default function ContractEdit() {
     contract.versions.push(newVersion);
     
     setIsModified(false);
+    alert("Contract saved (simulated).");
     navigate(`/contracts/${contract.id}`);
   };
 
@@ -303,26 +304,18 @@ export default function ContractEdit() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(() => {
-                        const { data: orgMembers = [] } = useOrganizationMembers();
-                        const { data: profile } = useProfile();
-                        return (
-                          <>
-                            {profile && (
-                              <SelectItem value={profile.user_id}>
-                                Me ({profile.first_name || ''} {profile.last_name || ''})
-                              </SelectItem>
-                            )}
-                            {orgMembers
-                              .filter(({ user_id }) => !profile || user_id !== profile.user_id)
-                              .map(user => (
-                                <SelectItem key={user.user_id} value={user.user_id}>
-                                  {user.first_name} {user.last_name} ({user.email})
-                                </SelectItem>
-                              ))}
-                          </>
-                        );
-                      })()}
+                      {profile && (
+                        <SelectItem value={profile.user_id}>
+                          Me ({profile.first_name || ""} {profile.last_name || ""})
+                        </SelectItem>
+                      )}
+                      {orgMembers
+                        .filter(({ user_id }) => !profile || user_id !== profile.user_id)
+                        .map(user => (
+                          <SelectItem key={user.user_id} value={user.user_id}>
+                            {user.first_name} {user.last_name} ({user.email})
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
