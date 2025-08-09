@@ -1,14 +1,24 @@
+import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useCase } from "@/hooks/useCases";
+import { useCase, useUpdateCase } from "@/hooks/useCases";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, Building, Gavel } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { ArrowLeft, Calendar, Building, Gavel } from "lucide-react";
 
 export default function CaseDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: caseData, isLoading, error } = useCase(id!);
+  const updateCase = useUpdateCase();
+
+  // Define status stages and compute progress percentage
+  const STAGES = ["pending", "in_progress", "review", "completed"] as const;
+  const pct = caseData
+    ? (100 * STAGES.indexOf(caseData.current_status as any)) / (STAGES.length - 1)
+    : 0;
 
   if (isLoading) {
     return (
@@ -23,31 +33,40 @@ export default function CaseDetails() {
       <div className="px-4 py-6">
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold text-foreground mb-2">Case Not Found</h2>
-          <p className="text-muted-foreground mb-4">The case you're looking for doesn't exist or you don't have access to it.</p>
-          <Button onClick={() => navigate("/cases")}>
-            Back to Cases
-          </Button>
+          <p className="text-muted-foreground mb-4">
+            The case you're looking for doesn't exist or you don't have access to it.
+          </p>
+          <Button onClick={() => navigate("/cases")}>Back to Cases</Button>
         </div>
       </div>
     );
   }
 
   const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "active": return "bg-success text-success-foreground";
-      case "review": return "bg-warning text-warning-foreground";
-      case "open": return "bg-blue-500 text-blue-50";
-      case "closed": return "bg-destructive text-destructive-foreground";
-      default: return "bg-muted text-muted-foreground";
+    switch (status.toLowerCase()) {
+      case "in_progress":
+        return "bg-warning text-warning-foreground";
+      case "review":
+        return "bg-info text-info-foreground";
+      case "completed":
+        return "bg-success text-success-foreground";
+      case "pending":
+        return "bg-muted text-muted-foreground";
+      default:
+        return "bg-muted text-muted-foreground";
     }
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case "high": return "bg-destructive text-destructive-foreground";
-      case "medium": return "bg-warning text-warning-foreground";
-      case "low": return "bg-success text-success-foreground";
-      default: return "bg-muted text-muted-foreground";
+    switch (priority.toLowerCase()) {
+      case "high":
+        return "bg-destructive text-destructive-foreground";
+      case "medium":
+        return "bg-warning text-warning-foreground";
+      case "low":
+        return "bg-success text-success-foreground";
+      default:
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -55,16 +74,18 @@ export default function CaseDetails() {
     <div className="px-4 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}> 
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground">{caseData.title}</h1>
-          <p className="text-muted-foreground">Case #{caseData.case_number || caseData.id}</p>
+          <p className="text-muted-foreground">
+            Case #{caseData.case_number || caseData.id}
+          </p>
         </div>
         <div className="flex gap-2">
-          <Badge className={getStatusColor(caseData.status)} variant="secondary">
-            {caseData.status}
+          <Badge className={getStatusColor(caseData.current_status)}>
+            {caseData.current_status.replace('_', ' ')}
           </Badge>
           <Badge className={getPriorityColor(caseData.priority)} variant="outline">
             {caseData.priority} Priority
@@ -87,7 +108,6 @@ export default function CaseDetails() {
               </div>
             </div>
           )}
-
           {caseData.court && (
             <div className="flex items-center gap-3">
               <Gavel className="h-5 w-5 text-muted-foreground" />
@@ -97,7 +117,6 @@ export default function CaseDetails() {
               </div>
             </div>
           )}
-
           <div className="flex items-center gap-3">
             <Calendar className="h-5 w-5 text-muted-foreground" />
             <div>
@@ -107,7 +126,6 @@ export default function CaseDetails() {
               </p>
             </div>
           </div>
-
           {caseData.next_hearing_date && (
             <div className="flex items-center gap-3">
               <Calendar className="h-5 w-5 text-muted-foreground" />
@@ -129,12 +147,44 @@ export default function CaseDetails() {
             <CardTitle>Description</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-foreground whitespace-pre-wrap">{caseData.description}</p>
+            <p className="text-foreground whitespace-pre-wrap">
+              {caseData.description}
+            </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Actions */}
+      {/* Progress Tracking */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Progress</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Progress value={pct} className="h-3" />
+          <div className="flex items-center gap-4">
+            <span className="capitalize text-sm text-muted-foreground">
+              {caseData.current_status.replace('_', ' ')}
+            </span>
+            <Select
+              value={caseData.current_status}
+              onValueChange={(v) => updateCase.mutate({ id: caseData.id, current_status: v })}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STAGES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s.replace('_', ' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
