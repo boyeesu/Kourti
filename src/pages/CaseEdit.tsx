@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useCase, useUpdateCase } from "@/hooks/useCases";
+import { useCaseFields } from "@/features/cases/api/useCaseFields";
+import { DynamicForm, DynamicField } from "@/shared/components/DynamicForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,43 +16,55 @@ export default function CaseEdit() {
   const navigate = useNavigate();
   const { data: caseData, isLoading, error } = useCase(id!);
   const updateCase = useUpdateCase();
+
   const [form, setForm] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // case type & fields
+  const caseTypeId = caseData?.case_type_id || "";
+  const { data: caseFields = [] } = useCaseFields(caseTypeId);
+  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+
   // Bootstrap form once case is loaded
-  // Initialize form state when caseData becomes available
-  React.useEffect(() => {
+  useEffect(() => {
     if (caseData) {
       setForm({
         title: caseData.title,
         status: caseData.status,
         priority: caseData.priority,
-        description: caseData.description || '',
-        next_hearing_date: caseData.next_hearing_date ? caseData.next_hearing_date.split('T')[0] : '',
+        description: caseData.description || "",
+        next_hearing_date: caseData.next_hearing_date ? caseData.next_hearing_date.split("T")[0] : "",
       });
+      setDynamicValues(caseData.custom_fields || {});
     }
   }, [caseData]);
 
-  if (isLoading || !form) return (
-    <div className="p-6"><div className="animate-spin h-8 w-8 mr-2 border-b-2 border-primary rounded-full mx-auto my-12" /></div>
-  );
+  if (isLoading || !form) {
+    return (
+      <div className="p-6"><div className="animate-spin h-8 w-8 mr-2 border-b-2 border-primary rounded-full mx-auto my-12" /></div>
+    );
+  }
 
-  if (error || !caseData) return (
-    <div className="p-6 text-center text-destructive">Could not load case for editing.</div>
-  );
+  if (error || !caseData) {
+    return <div className="p-6 text-center text-destructive">Could not load case for editing.</div>;
+  }
 
   function handleChange(key: string, value: any) {
     setForm((prev: any) => ({ ...prev, [key]: value }));
   }
 
-  async function handleSubmit(e: any) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await updateCase.mutateAsync({ id: caseData.id, ...form });
+      await updateCase.mutateAsync({
+        id: caseData.id,
+        ...form,
+        custom_fields: dynamicValues,
+      } as any);
       navigate(`/cases/${caseData.id}`);
-    } catch (err) {
-      // error handled by hook
+    } catch {
+      /* handled in hook */
     }
     setSubmitting(false);
   }
@@ -66,44 +80,57 @@ export default function CaseEdit() {
         <h1 className="text-xl font-bold">Edit Case: {caseData.title}</h1>
       </div>
       <Card className="shadow-card">
-        <CardHeader><CardTitle>Edit Case Information</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Edit Case Information</CardTitle>
+        </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="font-medium">Case Title</label>
-              <Input value={form.title} onChange={e => handleChange('title', e.target.value)} required />
+              <Input value={form.title} onChange={(e) => handleChange("title", e.target.value)} required />
             </div>
             <div className="space-y-2">
               <label className="font-medium">Status</label>
-              <Select value={form.status} onValueChange={val => handleChange('status', val)}>
+              <Select value={form.status} onValueChange={(val) => handleChange("status", val)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Review">Review</SelectItem>
-                  <SelectItem value="Closed">Closed</SelectItem>
-                  <SelectItem value="Draft">Draft</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="review">Review</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <label className="font-medium">Priority</label>
-              <Select value={form.priority} onValueChange={val => handleChange('priority', val)}>
+              <Select value={form.priority} onValueChange={(val) => handleChange("priority", val)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="High">High</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Low">Low</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <label className="font-medium">Next Hearing Date</label>
-              <Input type="date" value={form.next_hearing_date} onChange={e => handleChange('next_hearing_date', e.target.value)} />
+              <Input type="date" value={form.next_hearing_date} onChange={(e) => handleChange("next_hearing_date", e.target.value)} />
             </div>
             <div className="space-y-2">
               <label className="font-medium">Description</label>
-              <Textarea value={form.description} onChange={e => handleChange('description', e.target.value)} rows={4} />
+              <Textarea value={form.description} onChange={(e) => handleChange("description", e.target.value)} rows={4} />
             </div>
+
+            {/* Dynamic Fields */}
+            {caseTypeId && caseFields.length > 0 && (
+              <DynamicForm
+                fields={caseFields as DynamicField[]}
+                initialValues={dynamicValues}
+                onSubmit={setDynamicValues}
+                hideSubmit
+              />
+            )}
+
             <div className="flex justify-end gap-4 pt-4">
               <Button type="button" variant="outline" onClick={() => navigate(`/cases/${caseData.id}`)}>Cancel</Button>
               <Button type="submit" disabled={submitting}>Save Changes</Button>

@@ -5,6 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useCreateCase } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
+import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
+import { useCaseFields } from "@/features/cases/api/useCaseFields";
+import { DynamicForm, DynamicField } from "@/shared/components/DynamicForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +51,12 @@ export default function CaseCreate() {
   const { data: clients = [] } = useClients();
   const createCase = useCreateCase();
 
+  // new hooks for case types & fields
+  const { data: caseTypes = [] } = useCaseTypes();
+  const [caseTypeId, setCaseTypeId] = useState<string>("");
+  const { data: caseFields = [] } = useCaseFields(caseTypeId);
+  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+
   const form = useForm<CaseFormData>({
     resolver: zodResolver(caseSchema),
     defaultValues: {
@@ -71,12 +80,14 @@ export default function CaseCreate() {
         client_id: data.client_id,
         court: data.court,
         next_hearing_date: data.next_hearing_date?.toISOString(),
-      };
-      
+        case_type_id: caseTypeId,
+        custom_fields: dynamicValues,
+      } as any;
+
       const newCase = await createCase.mutateAsync(caseData);
       navigate(`/cases/${newCase.id}`);
-    } catch (error) {
-      // Error is handled by the mutation
+    } catch {
+      /* error handled by mutation */
     }
   };
 
@@ -84,206 +95,124 @@ export default function CaseCreate() {
     <div className="px-4 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}> <ArrowLeft className="h-4 w-4" /> </Button>
         <div>
           <h1 className="text-3xl font-bold text-foreground">Create New Case</h1>
           <p className="text-muted-foreground">Add a new case to your organization</p>
         </div>
       </div>
 
-      {/* Form */}
       <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Case Details</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Case Details</CardTitle></CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Case Title *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter case title" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Static fields */}
+                <FormField control={form.control} name="title" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Case Title *</FormLabel>
+                    <FormControl><Input placeholder="Enter case title" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="case_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Case Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Auto-generated if empty" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="case_number" render={({ field }) => (
+                  <FormItem><FormLabel>Case Number</FormLabel><FormControl><Input placeholder="Auto-generated if empty" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="client_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Client</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a client" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {clients.map((client) => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="client_id" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Client</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="open">Open</SelectItem>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="review">Review</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="status" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="review">Review</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select priority" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="priority" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="court"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Court</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter court name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="court" render={({ field }) => (
+                  <FormItem><FormLabel>Court</FormLabel><FormControl><Input placeholder="Enter court name" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
               </div>
 
-              <FormField
-                control={form.control}
-                name="next_hearing_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Next Hearing Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-[240px] pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < new Date()
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Hearing date */}
+              <FormField control={form.control} name="next_hearing_date" render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Next Hearing Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button variant="outline" className={cn("w-[240px] pl-3 text-left font-normal", !field.value && "text-muted-foreground")}> {field.value ? format(field.value, "PPP") : <span>Pick a date</span>} <CalendarIcon className="ml-auto h-4 w-4 opacity-50" /> </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={d => d < new Date()} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )} />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter case description"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Enter case description" className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+
+              {/* Case Type selector */}
+              <FormItem>
+                <FormLabel>Case Type *</FormLabel>
+                <FormControl>
+                  <Select value={caseTypeId} onValueChange={setCaseTypeId} required>
+                    <SelectTrigger><SelectValue placeholder="Select case type" /></SelectTrigger>
+                    <SelectContent>
+                      {caseTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+              </FormItem>
+
+              {/* Dynamic Custom Fields */}
+              {caseTypeId && caseFields.length > 0 && (
+                <DynamicForm fields={caseFields as DynamicField[]} initialValues={{}} onSubmit={setDynamicValues} hideSubmit />
+              )}
 
               <div className="flex justify-end gap-4">
-                <Button type="button" variant="outline" onClick={() => navigate("/cases")}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createCase.isPending}>
-                  {createCase.isPending ? "Creating..." : "Create Case"}
-                </Button>
+                <Button type="button" variant="outline" onClick={() => navigate("/cases")}>Cancel</Button>
+                <Button type="submit" disabled={createCase.isPending}>{createCase.isPending ? "Creating..." : "Create Case"}</Button>
               </div>
             </form>
           </Form>
