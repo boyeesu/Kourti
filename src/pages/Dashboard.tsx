@@ -37,36 +37,36 @@ export default function Dashboard() {
     );
   }
 
-  const stats = useMemo(() => [
+  const stats = [
     {
       title: "Active Cases",
-      value: dashboardData?.totalCases.toString() || "0",
+      value: dashboardData?.totalCases?.toString() || "0",
       change: `${dashboardData?.activeCases || 0} active`,
       icon: Briefcase,
       color: "text-primary"
     },
     {
       title: "Upcoming Events",
-      value: dashboardData?.upcomingEvents.toString() || "0",
+      value: dashboardData?.upcomingEvents?.toString() || "0",
       change: "Next 7 days",
       icon: Calendar,
       color: "text-warning"
     },
     {
       title: "Documents",
-      value: dashboardData?.totalDocuments.toString() || "0",
+      value: dashboardData?.totalDocuments?.toString() || "0",
       change: "Total uploaded",
       icon: FileText,
       color: "text-success"
     },
     {
       title: "Total Clients",
-      value: dashboardData?.totalClients.toString() || "0",
+      value: dashboardData?.totalClients?.toString() || "0",
       change: "In your organization",
       icon: Users,
       color: "text-info"
     }
-  ], [dashboardData]);
+  ];
 
   const recentCases = dashboardData?.recentCases || [];
   const upcomingEvents = dashboardData?.upcomingCalendarEvents || [];
