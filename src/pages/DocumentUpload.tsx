@@ -270,7 +270,7 @@ export default function DocumentUpload() {
                   onChange={handleFileInput}
                   className="hidden"
                 />
-                <Button type="button" htmlFor="file-upload" onClick={() => document.getElementById('file-upload')?.click()} className="mt-4">
+                <Button type="button" onClick={() => document.getElementById('file-upload')?.click()} className="mt-4">
                   Browse Files
                 </Button>
                 <p className="text-xs text-muted-foreground mt-4">

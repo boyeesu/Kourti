@@ -27,7 +27,7 @@ export function useInviteUser() {
         p_role_id: userData.roleId ?? null,
       };
 
-      const { data, error } = await supabase.rpc('invite_user_to_organization', params);
+      const { data, error } = await supabase.rpc('invite_user_to_organization', params as any);
 
       if (error) throw error;
       

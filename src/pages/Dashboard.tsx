@@ -14,6 +14,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboard";
+import { useMemo } from "react";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ export default function Dashboard() {
     );
   }
 
-  const stats = React.useMemo(() => [
+  const stats = useMemo(() => [
     {
       title: "Active Cases",
       value: dashboardData?.totalCases.toString() || "0",
@@ -65,7 +66,7 @@ export default function Dashboard() {
       icon: Users,
       color: "text-info"
     }
-  ];
+  ], [dashboardData]);
 
   const recentCases = dashboardData?.recentCases || [];
   const upcomingEvents = dashboardData?.upcomingCalendarEvents || [];

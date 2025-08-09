@@ -1,4 +1,4 @@
- yes// --- AI Review Dialog Component ---
+ // --- AI Review Dialog Component ---
 function AIReviewDialog({ contractText }: { contractText: string }) {
   const [context, setContext] = useState("");
   const [loading, setLoading] = useState(false);
@@ -78,10 +78,10 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
     </DialogContent>
   );
 }
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useState } from "react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { useGetContractQuery } from "./contractsData";
+import { contractsData } from "./contractsData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

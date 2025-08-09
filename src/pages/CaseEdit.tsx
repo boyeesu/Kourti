@@ -103,7 +103,7 @@ export default function CaseEdit() {
             </div>
             <div className="flex justify-end gap-4 pt-4">
               <Button type="button" variant="outline" onClick={() => navigate(`/cases/${caseData.id}`)}>Cancel</Button>
-              <Button type="submit" loading={submitting}>Save Changes</Button>
+              <Button type="submit" disabled={submitting}>Save Changes</Button>
             </div>
           </form>
         </CardContent>
