@@ -34,6 +34,9 @@ export default function DocumentUpload() {
   });
   const { addNotification } = useNotifications();
 
+  // Find approver member outside of conditional logic
+  const approverMember = orgMembers.find(m => m.user_id === documentData.approver);
+
   const [dragActive, setDragActive] = useState(false);
 
   const documentCategories = [
@@ -138,7 +141,6 @@ export default function DocumentUpload() {
     console.log("Document upload:", { documentData, files: selectedFiles });
     // Notify approver
     if (documentData.approver) {
-      const approverMember = orgMembers.find(m => m.user_id === documentData.approver);
       const docName = selectedFiles.length ? selectedFiles[0].name : 'A document';
       addNotification({
         type: 'approval',
