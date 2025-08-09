@@ -1,89 +1,106 @@
-# Welcome to your Lovable project
+Welcome to your **Lovable** project\!
 
-## Project info
+-----
 
-**URL**: https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12
+## Project Info
 
-## How can I edit this code?
+**URL**: [https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12)
 
-There are several ways of editing your application.
+-----
 
-**Use Lovable**
+## How to Edit the Code
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12) and start prompting.
+You can edit your application in a few ways:
 
-Changes made via Lovable will be committed automatically to this repo.
+### Use Lovable
 
-**Use your preferred IDE**
+To get started quickly, simply visit your [Lovable Project](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12) and begin prompting. Any changes you make in Lovable will be committed automatically to this repository.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Use Your Preferred IDE
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating). This project expects **Node.js 18 or newer**.
-If you need to run on an older Node version, install a fetch polyfill such as [`cross-fetch`](https://www.npmjs.com/package/cross-fetch).
+To work on the project locally, you can clone the repository and push your changes. Any changes you push will also be reflected in Lovable.
 
-Follow these steps:
+This project requires **Node.js 18 or newer** and uses npm for package management. You can [install Node.js and npm with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Follow these steps to get started:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1.  **Clone the repository:**
 
-# Step 3: Install the necessary dependencies.
-npm i
+    ```sh
+    git clone <YOUR_GIT_URL>
+    ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+2.  **Navigate to the project directory:**
 
-**Edit a file directly in GitHub**
+    ```sh
+    cd <YOUR_PROJECT_NAME>
+    ```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+3.  **Install dependencies:**
 
-**Use GitHub Codespaces**
+    ```sh
+    npm i
+    ```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+4.  **Start the development server:**
 
-## What technologies are used for this project?
+    ```sh
+    npm run dev
+    ```
+
+### Edit Directly on GitHub
+
+You can also make quick changes by editing files directly on GitHub.
+
+1.  Navigate to the file you want to edit.
+2.  Click the "Edit" (pencil) icon.
+3.  Make your changes and commit them.
+
+### Use GitHub Codespaces
+
+If you prefer an online IDE, you can use GitHub Codespaces.
+
+1.  On the main repository page, click the **Code** button.
+2.  Select the **Codespaces** tab.
+3.  Click **New codespace** to launch a new environment.
+4.  Edit files directly in Codespaces and then commit and push your changes.
+
+-----
+
+## What Technologies Are Used?
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+  - **Vite**
+  - **TypeScript**
+  - **React**
+  - **shadcn-ui**
+  - **Tailwind CSS**
 
-## Searching and filtering your data
+-----
 
-The app provides a global search bar in the header of every page. Use it to quickly
-find cases, documents or contracts no matter where you are in the interface.
+## Searching and Filtering Your Data
 
-Each major page also includes its own filters:
+The app has a global search bar in the header of every page, so you can quickly find cases, documents, or contracts from anywhere.
 
-- **Cases** – search by case name, client or ID and filter by case status.
-- **Documents** – search by document or case name and filter by file type.
-- **Contracts** – search across contracts and filter by contract status.
+Additionally, each major page has its own filters:
 
-### Keyboard shortcut
+  - **Cases**: Search by name, client, or ID, and filter by status.
+  - **Documents**: Search by document or case name, and filter by file type.
+  - **Contracts**: Search across contracts and filter by status.
 
-Press **Ctrl&nbsp;+&nbsp;B** (or **⌘&nbsp;+&nbsp;B** on macOS) to toggle the sidebar at any time.
+You can also use the keyboard shortcut **Ctrl + B** (or **⌘ + B** on macOS) to toggle the sidebar.
 
-## How can I deploy this project?
+-----
 
-Simply open [Lovable](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12) and click on Share -> Publish.
+## How to Deploy Your Project
 
-## Can I connect a custom domain to my Lovable project?
+To deploy your project, open [Lovable](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12) and click on **Share -\> Publish**.
 
-Yes, you can!
+-----
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Connecting a Custom Domain
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Yes, you can\! To connect a custom domain, go to **Project \> Settings \> Domains** and click **Connect Domain**.
+
+For a detailed guide, check out [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide).
