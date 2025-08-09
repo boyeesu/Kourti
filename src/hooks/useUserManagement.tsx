@@ -22,9 +22,8 @@ export function useInviteUser() {
         p_email: userData.email,
         p_first_name: userData.firstName,
         p_last_name: userData.lastName,
+        p_role: userData.role ?? 'user',
         p_department: userData.department || null,
-        p_role: userData.role ?? null,
-        p_role_id: userData.roleId ?? null,
       };
 
       const { data, error } = await supabase.rpc('invite_user_to_organization', params as any);
