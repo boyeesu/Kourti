@@ -1,5 +1,5 @@
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
 import { useCase, useUpdateCase } from "@/hooks/useCases";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,15 +18,18 @@ export default function CaseEdit() {
   const [submitting, setSubmitting] = useState(false);
 
   // Bootstrap form once case is loaded
-  if (!form && caseData) {
-    setForm({
-      title: caseData.title,
-      status: caseData.status,
-      priority: caseData.priority,
-      description: caseData.description || '',
-      next_hearing_date: caseData.next_hearing_date ? caseData.next_hearing_date.split('T')[0] : '',
-    });
-  }
+  // Initialize form state when caseData becomes available
+  React.useEffect(() => {
+    if (caseData) {
+      setForm({
+        title: caseData.title,
+        status: caseData.status,
+        priority: caseData.priority,
+        description: caseData.description || '',
+        next_hearing_date: caseData.next_hearing_date ? caseData.next_hearing_date.split('T')[0] : '',
+      });
+    }
+  }, [caseData]);
 
   if (isLoading || !form) return (
     <div className="p-6"><div className="animate-spin h-8 w-8 mr-2 border-b-2 border-primary rounded-full mx-auto my-12" /></div>

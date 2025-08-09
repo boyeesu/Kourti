@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -84,7 +84,7 @@ export default function Settings() {
   });
 
   // Initialize profile data when loaded
-  useState(() => {
+  useEffect(() => {
     if (profile) {
       setProfileData({
         first_name: profile.first_name || "",
@@ -93,7 +93,7 @@ export default function Settings() {
         department: profile.department || "",
       });
     }
-  });
+  }, [profile]);
 
   const isSuperAdmin = userRole?.role === 'superadmin';
 
