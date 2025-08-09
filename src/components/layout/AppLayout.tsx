@@ -1,3 +1,4 @@
+import React, { ReactNode } from 'react';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Link } from "react-router-dom";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -15,9 +16,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Outlet } from "react-router-dom";
-
-import React, { ReactNode } from 'react';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { term, setTerm } = useSearch();
@@ -51,7 +49,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <header className="h-16 flex items-center justify-between border-b bg-card/50 backdrop-blur-sm shadow-sm px-4 md:px-6 flex-shrink-0">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="md:mr-2" />
-                    </div>
+            </div>
             <div className="hidden md:flex flex-1 max-w-md mx-8">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
