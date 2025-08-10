@@ -52,7 +52,7 @@ export default function CaseFields() {
               <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Field label" />
             </div>
             <div>
-              <Label>Type</n              ></Label>
+              <Label>Type</Label>
               <Select value={newDataType} onValueChange={(v) => setNewDataType(v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
