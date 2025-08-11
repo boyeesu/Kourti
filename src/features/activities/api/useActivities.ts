@@ -1,7 +1,7 @@
 // src/features/activities/api/useActivities.ts
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { CaseActivity } from '@/features/activities/types';
+import type { CaseActivity } from '@/features/activities/types.js';
 
 /**
  * Fetch all activities for a given case
