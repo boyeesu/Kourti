@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
-import { useUserOrganization } from './useUserOrganization';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export interface Case {
   id: string;

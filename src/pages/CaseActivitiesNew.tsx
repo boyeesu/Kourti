@@ -88,7 +88,7 @@ export default function CaseActivities() {
       await createActivity.mutateAsync({
         ...newActivity,
         status: newActivity.status || "pending",
-      } as Partial<CaseActivity>);
+      } as any);
       setNewActivity({
         title: "",
         description: "",

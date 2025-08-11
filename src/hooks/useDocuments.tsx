@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
-import { useUserOrganization } from './useUserOrganization';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export interface Document {
   id: string;

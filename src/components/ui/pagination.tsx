@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
-import type { ButtonProps } from "@/components/ui/button"
+// removed ButtonProps type import to avoid TS namespace issue
 
 const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
   <nav
@@ -37,8 +37,8 @@ PaginationItem.displayName = "PaginationItem"
 
 type PaginationLinkProps = {
   isActive?: boolean
-} & Pick<ButtonProps, "size"> &
-  React.ComponentProps<"a">
+  size?: 'default' | 'sm' | 'lg' | 'icon'
+} & React.ComponentProps<"a">
 
 const PaginationLink = ({
   className,

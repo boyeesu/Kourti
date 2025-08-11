@@ -1,7 +1,7 @@
 // src/features/activities/api/useActivities.ts
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { CaseActivity } from '../types';
+import type { CaseActivity } from '@/features/activities/types';
 
 /**
  * Fetch all activities for a given case
@@ -11,7 +11,7 @@ export function useActivities(caseId: string) {
     queryKey: ['activities', caseId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from<CaseActivity>('case_activities')
+        .from('case_activities')
         .select('*')
         .eq('case_id', caseId)
         .order('created_at', { ascending: false });

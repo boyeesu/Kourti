@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { CaseField } from '../types';
+import type { CaseField } from '@/features/cases/types';
 
 export function useCaseFields(caseTypeId: string) {
   return useQuery<CaseField[], Error>({
@@ -8,7 +8,7 @@ export function useCaseFields(caseTypeId: string) {
     queryFn: async () => {
       if (!caseTypeId) return [] as CaseField[];
       const { data, error } = await supabase
-        .from<CaseField>('case_fields')
+        .from('case_fields')
         .select('*')
         .eq('case_type_id', caseTypeId)
         .order('field_order', { ascending: true });
