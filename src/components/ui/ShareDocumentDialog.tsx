@@ -45,7 +45,7 @@ export function ShareDocumentDialog({ documentId, children }: ShareDocumentProps
             <Input id="email" type="email" {...register('email', { required: true })} />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="message">Message (optional)</n}{</Label>
+            <Label htmlFor="message">Message (optional)</Label>
             <Input id="message" {...register('message')} />
           </div>
           <div className="flex justify-end space-x-2">
