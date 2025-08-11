@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { DocTemplate } from '../types';
+import type { DocTemplate } from '@/features/documents/types';
 
 export function useUpdateTemplate() {
   const qc = useQueryClient();

@@ -18,7 +18,14 @@
     "noFallthroughCasesInSwitch": false,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/pages/*": ["./src/pages/*"],
+      "@/hooks/*": ["./src/hooks/*"],
+      "@/context/*": ["./src/context/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/features/*": ["./src/features/*"],
+      "@/integrations/*": ["./src/integrations/*"]
     }
   },
   "include": ["src"]

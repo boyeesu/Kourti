@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { CaseField } from '../types';
+import type { CaseField } from '@/features/cases/types';
 
 /**
  * Update an existing case field
