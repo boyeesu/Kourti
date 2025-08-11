@@ -17,7 +17,9 @@ interface UploadedFile {
   id: string;
   name: string;
   size: string;
+  sizeBytes: number;
   type: string;
+  file: File;
   status: 'uploading' | 'uploaded' | 'approved' | 'rejected';
   progress: number;
 }
@@ -92,7 +94,9 @@ export default function DocumentUpload() {
       id: `file-${Date.now()}-${index}`,
       name: file.name,
       size: formatFileSize(file.size),
+      sizeBytes: file.size,
       type: file.name.split('.').pop()?.toUpperCase() || 'Unknown',
+      file,
       status: 'uploading',
       progress: 0,
     }));
@@ -104,6 +108,69 @@ export default function DocumentUpload() {
       simulateUpload(file.id, index * 500);
     });
   };
+
+  // Add document creation hook
+  const createDocument = useCreateDocument();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+-    const documentRecord = {
+-      ...documentData,
+-      files: selectedFiles,
+-      tags: documentData.tags
+-        .split(",")
+-        .map((t) => t.trim())
+-        .filter((t) => t.length > 0),
+-      createdAt: new Date().toISOString(),
+-    };
+-    const stored = JSON.parse(localStorage.getItem("uploadedDocuments") || "[]");
+-    localStorage.setItem("uploadedDocuments", JSON.stringify([...stored, documentRecord]));
+-    console.log("Document upload:", documentRecord);
+-    addNotification({
+-      type: "success",
+-      title: "Upload complete",
+-      description: "Document stored locally for development.",
+-    });
+-    // Notify approver
+-    if (documentData.approver) {
+-      const docName = selectedFiles.length ? selectedFiles[0].name : 'A document';
+-      addNotification({
+-        type: 'approval',
+-        title: 'Document Sent for Your Review',
+-        description: `The document "${docName}" has been assigned for your approval.${approverMember ? ' (' + approverMember.first_name + ' ' + approverMember.last_name + ')' : ''}`
+-      });
+-    }
++    if (selectedFiles.length === 0) return;
++    try {
++      await Promise.all(
++        selectedFiles.map((file) =>
++          createDocument.mutateAsync({
++            title: file.name,
++            description: documentData.description,
++            file_path: file.name,
++            file_type: file.type.toLowerCase(),
++            file_size: file.sizeBytes,
++            case_id: documentData.linkedCase || undefined,
++            tags: documentData.tags
++              .split(",")
++              .map((t) => t.trim())
++              .filter((t) => t.length > 0),
++          })
++        )
++      );
++      addNotification({
++        type: "success",
++        title: "Upload complete",
++        description: "Document(s) uploaded successfully.",
++      });
++    } catch (err: any) {
++      addNotification({
++        type: "error",
++        title: "Upload failed",
++        description: err.message || "Could not upload documents.",
++      });
++    }
+   };
 
   const simulateUpload = (fileId: string, delay: number) => {
     setTimeout(() => {

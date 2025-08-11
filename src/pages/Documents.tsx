@@ -280,10 +280,19 @@ export default function Documents() {
                              <Download className="h-4 w-4 mr-2" />
                              Download
                            </DropdownMenuItem>
-                           <DropdownMenuItem>
-                             <Share className="h-4 w-4 mr-2" />
-                             Share
-                           </DropdownMenuItem>
+                           {/* Share via dialog */}
+-                          <DropdownMenuItem>
+-                            <Share className="h-4 w-4 mr-2" />
+-                            Share
+-                          </DropdownMenuItem>
++                          <ShareDocumentDialog documentId={doc.id}>
++                            <DropdownMenuItem asChild>
++                              <button className="flex items-center">
++                                <Share className="h-4 w-4 mr-2" />
++                                Share
++                              </button>
++                            </DropdownMenuItem>
++                          </ShareDocumentDialog>
                          </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
