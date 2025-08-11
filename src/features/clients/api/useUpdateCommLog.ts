@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { CommunicationLog } from '../types';
+import type { CommunicationLog } from '@/features/clients/types';
 
 export function useUpdateCommLog(clientId: string) {
   const qc = useQueryClient();

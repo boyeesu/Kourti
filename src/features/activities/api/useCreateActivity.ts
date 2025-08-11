@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { CaseActivity } from '@/features/activities/types.js';
+import type { CaseActivity } from '@/features/activities/types';
 
 /**
  * Create a new activity for a given case
