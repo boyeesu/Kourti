@@ -104,3 +104,14 @@ To deploy your project, open [Lovable](https://lovable.dev/projects/005e5c79-c16
 Yes, you can\! To connect a custom domain, go to **Project \> Settings \> Domains** and click **Connect Domain**.
 
 For a detailed guide, check out [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide).
+
+-----
+
+## Viewing Logs
+
+This project includes a simple in-browser logging utility located in `src/lib/logger.ts`.
+
+1. Start the development server with `npm run dev` and open the app in your browser.
+2. Open your browser's developer tools and check the **Console** for log messages.
+3. All log entries are also stored in memory and exposed on `window.__APP_LOGS__`.
+4. In the console, run `window.__APP_LOGS__` to view the full log history. Each entry includes a timestamp, log level, message and any captured error details from the error boundary.
