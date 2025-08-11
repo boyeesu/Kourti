@@ -101,14 +101,164 @@ export type Database = {
           },
         ]
       }
+      case_activities: {
+        Row: {
+          activity_type: string
+          assigned_to: string | null
+          case_id: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          status: string | null
+          title: string
+        }
+        Insert: {
+          activity_type: string
+          assigned_to?: string | null
+          case_id: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          status?: string | null
+          title: string
+        }
+        Update: {
+          activity_type?: string
+          assigned_to?: string | null
+          case_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_activities_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "case_activities_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_activities_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      case_fields: {
+        Row: {
+          case_type_id: string
+          created_at: string | null
+          data_type: string
+          field_key: string
+          field_order: number | null
+          id: string
+          label: string
+          options: Json | null
+          required: boolean | null
+        }
+        Insert: {
+          case_type_id: string
+          created_at?: string | null
+          data_type: string
+          field_key: string
+          field_order?: number | null
+          id?: string
+          label: string
+          options?: Json | null
+          required?: boolean | null
+        }
+        Update: {
+          case_type_id?: string
+          created_at?: string | null
+          data_type?: string
+          field_key?: string
+          field_order?: number | null
+          id?: string
+          label?: string
+          options?: Json | null
+          required?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_fields_case_type_id_fkey"
+            columns: ["case_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_types: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_types_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "case_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cases: {
         Row: {
           assigned_to: string | null
           case_number: string | null
+          case_type_id: string | null
           client_id: string | null
           court: string | null
           created_at: string
           created_by: string | null
+          current_status: string | null
+          custom_fields: Json | null
           description: string | null
           id: string
           next_hearing_date: string | null
@@ -121,10 +271,13 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           case_number?: string | null
+          case_type_id?: string | null
           client_id?: string | null
           court?: string | null
           created_at?: string
           created_by?: string | null
+          current_status?: string | null
+          custom_fields?: Json | null
           description?: string | null
           id?: string
           next_hearing_date?: string | null
@@ -137,10 +290,13 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           case_number?: string | null
+          case_type_id?: string | null
           client_id?: string | null
           court?: string | null
           created_at?: string
           created_by?: string | null
+          current_status?: string | null
+          custom_fields?: Json | null
           description?: string | null
           id?: string
           next_hearing_date?: string | null
@@ -151,6 +307,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cases_case_type_id_fkey"
+            columns: ["case_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cases_client_id_fkey"
             columns: ["client_id"]
@@ -234,6 +397,48 @@ export type Database = {
           },
         ]
       }
+      communication_logs: {
+        Row: {
+          client_id: string
+          content: string
+          created_at: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           client_id: string | null
@@ -310,6 +515,57 @@ export type Database = {
           },
         ]
       }
+      doc_templates: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string | null
+          variables: string[] | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string | null
+          variables?: string[] | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string | null
+          variables?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doc_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "doc_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           case_id: string | null
@@ -322,10 +578,13 @@ export type Database = {
           file_type: string | null
           id: string
           organization_id: string | null
+          previous_version_id: string | null
           tags: string[] | null
+          template_id: string | null
           title: string
           updated_at: string
           uploaded_by: string | null
+          version: number | null
         }
         Insert: {
           case_id?: string | null
@@ -338,10 +597,13 @@ export type Database = {
           file_type?: string | null
           id?: string
           organization_id?: string | null
+          previous_version_id?: string | null
           tags?: string[] | null
+          template_id?: string | null
           title: string
           updated_at?: string
           uploaded_by?: string | null
+          version?: number | null
         }
         Update: {
           case_id?: string | null
@@ -354,10 +616,13 @@ export type Database = {
           file_type?: string | null
           id?: string
           organization_id?: string | null
+          previous_version_id?: string | null
           tags?: string[] | null
+          template_id?: string | null
           title?: string
           updated_at?: string
           uploaded_by?: string | null
+          version?: number | null
         }
         Relationships: [
           {
@@ -379,6 +644,20 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "doc_templates"
             referencedColumns: ["id"]
           },
           {
@@ -539,6 +818,48 @@ export type Database = {
           },
         ]
       }
+      time_entries: {
+        Row: {
+          activity_id: string
+          created_at: string | null
+          id: string
+          minutes: number
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string | null
+          id?: string
+          minutes: number
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string | null
+          id?: string
+          minutes?: number
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "case_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -577,6 +898,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_document_from_template: {
+        Args: { p_template_id: string; p_context: Json }
+        Returns: {
+          case_id: string | null
+          category: string | null
+          client_id: string | null
+          created_at: string
+          description: string | null
+          file_path: string | null
+          file_size: number | null
+          file_type: string | null
+          id: string
+          organization_id: string | null
+          previous_version_id: string | null
+          tags: string[] | null
+          template_id: string | null
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+          version: number | null
+        }
+      }
       get_user_organization_id: {
         Args: Record<PropertyKey, never>
         Returns: string
