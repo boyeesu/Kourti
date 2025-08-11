@@ -7,13 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Upload, File, X, Check, AlertCircle, User, Calendar } from "lucide-react";
+import { Upload, File, X, Check, AlertCircle, User } from "lucide-react";
 import { useCases } from "@/context/CasesContext";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
 import { useNotifications } from "@/components/ui/notifications";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { useCreateDocument } from "@/hooks/useDocuments";
->>>>>>> FIX
 
 interface UploadedFile {
   id: string;
@@ -38,31 +37,7 @@ export default function DocumentUpload() {
   });
   const { addNotification } = useNotifications();
 
-  // Find approver member outside of conditional logic
-  const approverMember = orgMembers.find(m => m.user_id === documentData.approver);
-
   const [dragActive, setDragActive] = useState(false);
-
-  const documentCategories = [
-    "Contract",
-    "Legal Brief",
-    "Evidence",
-    "Correspondence",
-    "Court Filing",
-    "Research",
-    "Client Document",
-    "Internal Memo",
-    "Financial Record",
-    "Other"
-  ];
-
-  const approvers = [
-    "Sarah Wilson",
-    "Michael Chen",
-    "Jessica Thompson",
-    "David Rodriguez",
-    "Emily Parker"
-  ];
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -116,62 +91,36 @@ export default function DocumentUpload() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
--    const documentRecord = {
--      ...documentData,
--      files: selectedFiles,
--      tags: documentData.tags
--        .split(",")
--        .map((t) => t.trim())
--        .filter((t) => t.length > 0),
--      createdAt: new Date().toISOString(),
--    };
--    const stored = JSON.parse(localStorage.getItem("uploadedDocuments") || "[]");
--    localStorage.setItem("uploadedDocuments", JSON.stringify([...stored, documentRecord]));
--    console.log("Document upload:", documentRecord);
--    addNotification({
--      type: "success",
--      title: "Upload complete",
--      description: "Document stored locally for development.",
--    });
--    // Notify approver
--    if (documentData.approver) {
--      const docName = selectedFiles.length ? selectedFiles[0].name : 'A document';
--      addNotification({
--        type: 'approval',
--        title: 'Document Sent for Your Review',
--        description: `The document "${docName}" has been assigned for your approval.${approverMember ? ' (' + approverMember.first_name + ' ' + approverMember.last_name + ')' : ''}`
--      });
--    }
-+    if (selectedFiles.length === 0) return;
-+    try {
-+      await Promise.all(
-+        selectedFiles.map((file) =>
-+          createDocument.mutateAsync({
-+            title: file.name,
-+            description: documentData.description,
-+            file_path: file.name,
-+            file_type: file.type.toLowerCase(),
-+            file_size: file.sizeBytes,
-+            case_id: documentData.linkedCase || undefined,
-+            tags: documentData.tags
-+              .split(",")
-+              .map((t) => t.trim())
-+              .filter((t) => t.length > 0),
-+          })
-+        )
-+      );
-+      addNotification({
-+        type: "success",
-+        title: "Upload complete",
-+        description: "Document(s) uploaded successfully.",
-+      });
-+    } catch (err: any) {
-+      addNotification({
-+        type: "error",
-+        title: "Upload failed",
-+        description: err.message || "Could not upload documents.",
-+      });
-+    }
+    if (selectedFiles.length === 0) return;
+    try {
+      await Promise.all(
+        selectedFiles.map((file) =>
+          createDocument.mutateAsync({
+            title: file.name,
+            description: documentData.description,
+            file_path: file.name,
+            file_type: file.type.toLowerCase(),
+            file_size: file.sizeBytes,
+            case_id: documentData.linkedCase || undefined,
+            tags: documentData.tags
+              .split(",")
+              .map((t) => t.trim())
+              .filter((t) => t.length > 0),
+          })
+        )
+      );
+      addNotification({
+        type: "success",
+        title: "Upload complete",
+        description: "Document(s) uploaded successfully.",
+      });
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Upload failed",
+        description: err.message || "Could not upload documents.",
+      });
+    }
    };
 
   const simulateUpload = (fileId: string, delay: number) => {
@@ -204,35 +153,6 @@ export default function DocumentUpload() {
     setSelectedFiles(prev => prev.filter(file => file.id !== fileId));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const documentRecord = {
-      ...documentData,
-      files: selectedFiles,
-      tags: documentData.tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0),
-      createdAt: new Date().toISOString(),
-    };
-    const stored = JSON.parse(localStorage.getItem("uploadedDocuments") || "[]");
-    localStorage.setItem("uploadedDocuments", JSON.stringify([...stored, documentRecord]));
-    console.log("Document upload:", documentRecord);
-    addNotification({
-      type: "success",
-      title: "Upload complete",
-      description: "Document stored locally for development.",
-    });
-    // Notify approver
-    if (documentData.approver) {
-      const docName = selectedFiles.length ? selectedFiles[0].name : 'A document';
-      addNotification({
-        type: 'approval',
-        title: 'Document Sent for Your Review',
-        description: `The document "${docName}" has been assigned for your approval.${approverMember ? ' (' + approverMember.first_name + ' ' + approverMember.last_name + ')' : ''}`
-      });
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
