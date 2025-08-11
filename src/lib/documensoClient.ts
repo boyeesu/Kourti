@@ -22,7 +22,7 @@ export async function uploadDocument(file: File): Promise<UploadResponse> {
   const formData = new FormData()
   formData.append('file', file)
 
-  const res = await fetch(`${BASE_URL}/api/documents`, {
+  const res = await fetch(`${BASE_URL}/documents`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${API_KEY}`,
@@ -43,7 +43,7 @@ export async function addSigner(
   documentId: string,
   recipient: { name: string; email: string }
 ): Promise<AddSignerResponse> {
-  const res = await fetch(`${BASE_URL}/api/documents/${documentId}/signers`, {
+  const res = await fetch(`${BASE_URL}/documents/${documentId}/signers`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -66,7 +66,7 @@ export async function getSigningUrl(
   recipientId: string
 ): Promise<SigningUrlResponse> {
   const res = await fetch(
-    `${BASE_URL}/api/documents/${documentId}/signers/${recipientId}/sign-url`,
+    `${BASE_URL}/documents/${documentId}/signers/${recipientId}/sign-url`,
     {
       method: 'GET',
       headers: {

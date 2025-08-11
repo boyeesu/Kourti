@@ -12,6 +12,7 @@ import { useCases } from "@/context/CasesContext";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
 import { useNotifications } from "@/components/ui/notifications";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
++import { useCreateDocument } from "@/hooks/useDocuments";
 
 interface UploadedFile {
   id: string;

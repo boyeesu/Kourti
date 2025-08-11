@@ -44,6 +44,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
++import { ShareDocumentDialog } from "@/components/ui/ShareDocumentDialog";
++import { ESignDialog } from "@/components/ui/ESignDialog";
++import { FileCheck } from "lucide-react";
 
 export default function Documents() {
   const navigate = useNavigate();
