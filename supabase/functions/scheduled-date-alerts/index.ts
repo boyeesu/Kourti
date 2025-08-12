@@ -17,9 +17,17 @@ serve(async () => {
   }
 
   const now = new Date();
-  const cutoff = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days
 
   for (const c of contracts || []) {
+    // Read user's reminder window from dashboard_prefs
+    const { data: pref } = await supabase
+      .from('dashboard_prefs')
+      .select('reminder_window_days')
+      .eq('organisation_id', c.org_id)
+      .single();
+    const windowDays = pref?.reminder_window_days ?? 90;
+    const cutoff = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
+
     // Extract dates if missing
     let { effective_date, renewal_date, termination_date } = c;
     if (!effective_date || !renewal_date || !termination_date) {
