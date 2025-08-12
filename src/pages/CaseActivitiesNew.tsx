@@ -154,8 +154,8 @@ export default function CaseActivities() {
                   <Input type="date" value={newActivity.due_date} onChange={(e) => setNewActivity({ ...newActivity, due_date: e.target.value })} />
                 </div>
               </div>
-              <Button onClick={handleCreateActivity} disabled={createActivity.isLoading}>
-                {createActivity.isLoading ? "Creating..." : "Create"}
+              <Button onClick={handleCreateActivity} disabled={createActivity.isPending}>
+                {createActivity.isPending ? "Creating..." : "Create"}
               </Button>
             </div>
           </DialogContent>

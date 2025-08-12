@@ -15,10 +15,9 @@ export default function CaseDetails() {
   const updateCase = useUpdateCase();
 
   // Define status stages and compute progress percentage
-  const STAGES = ["pending", "in_progress", "review", "completed"] as const;
-  const pct = caseData
-    ? (100 * STAGES.indexOf(caseData.current_status as any)) / (STAGES.length - 1)
-    : 0;
+  const STAGES = ["open", "active", "review", "closed"] as const;
+  const idx = caseData ? STAGES.indexOf(caseData.status as any) : -1;
+  const pct = idx >= 0 ? (100 * idx) / (STAGES.length - 1) : 0;
 
   if (isLoading) {
     return (
@@ -84,8 +83,8 @@ export default function CaseDetails() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Badge className={getStatusColor(caseData.current_status)}>
-            {caseData.current_status.replace('_', ' ')}
+          <Badge className={getStatusColor(caseData.status)}>
+            {caseData.status.replace('_', ' ')}
           </Badge>
           <Badge className={getPriorityColor(caseData.priority)} variant="outline">
             {caseData.priority} Priority
@@ -163,11 +162,11 @@ export default function CaseDetails() {
           <Progress value={pct} className="h-3" />
           <div className="flex items-center gap-4">
             <span className="capitalize text-sm text-muted-foreground">
-              {caseData.current_status.replace('_', ' ')}
+              {caseData.status.replace('_', ' ')}
             </span>
             <Select
-              value={caseData.current_status}
-              onValueChange={(v) => updateCase.mutate({ id: caseData.id, current_status: v })}
+              value={caseData.status}
+              onValueChange={(v) => updateCase.mutate({ id: caseData.id, status: v })}
             >
               <SelectTrigger className="w-[160px]">
                 <SelectValue />

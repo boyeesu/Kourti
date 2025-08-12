@@ -7,8 +7,8 @@ import type { CaseField } from '@/features/cases/types';
  */
 export function useCreateCaseField() {
   const queryClient = useQueryClient();
-  return useMutation<CaseField, Error, Partial<CaseField>>(
-    async (newField) => {
+  return useMutation({
+    mutationFn: async (newField: Partial<CaseField>) => {
       const { data, error } = await supabase
         .from('case_fields')
         .insert(newField)
@@ -17,12 +17,10 @@ export function useCreateCaseField() {
       if (error) throw error;
       return data;
     },
-    {
-      onSuccess: (_, newField) => {
-        if (newField.case_type_id) {
-          queryClient.invalidateQueries({ queryKey: ['case-fields', newField.case_type_id] });
-        }
-      },
-    }
-  );
+    onSuccess: (_data, newField) => {
+      if ((newField as Partial<CaseField>).case_type_id) {
+        queryClient.invalidateQueries({ queryKey: ['case-fields', (newField as Partial<CaseField>).case_type_id!] });
+      }
+    },
+  });
 }

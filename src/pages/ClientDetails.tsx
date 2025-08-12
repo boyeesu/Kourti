@@ -222,7 +222,7 @@ export default function ClientDetails() {
             <Button
               size="sm"
               className="col-span-1"
-              disabled={createLog.isLoading}
+              disabled={createLog.isPending}
               onClick={async () => {
                 if (!logContent.trim()) return;
                 const userId = (await getCurrentUserId())!;

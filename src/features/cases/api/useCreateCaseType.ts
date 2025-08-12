@@ -7,20 +7,18 @@ import type { CaseType } from '@/features/cases/types';
  */
 export function useCreateCaseType() {
   const queryClient = useQueryClient();
-  return useMutation<CaseType, Error, Partial<CaseType>>(
-    async (newType) => {
+  return useMutation({
+    mutationFn: async (newType: Partial<CaseType>) => {
       const { data, error } = await supabase
-        .from<CaseType>('case_types')
+        .from('case_types')
         .insert(newType)
         .select()
         .single();
       if (error) throw error;
       return data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['case-types'] });
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case-types'] });
+    },
+  });
 }

@@ -7,10 +7,10 @@ import type { CaseField } from '@/features/cases/types';
  */
 export function useUpdateCaseField() {
   const queryClient = useQueryClient();
-  return useMutation<CaseField, Error, CaseField>(
-    async (field) => {
+  return useMutation({
+    mutationFn: async (field: CaseField) => {
       const { data, error } = await supabase
-        .from<CaseField>('case_fields')
+        .from('case_fields')
         .update({
           label: field.label,
           data_type: field.data_type,
@@ -25,10 +25,8 @@ export function useUpdateCaseField() {
       if (error) throw error;
       return data;
     },
-    {
-      onSuccess: (_, field) => {
-        queryClient.invalidateQueries({ queryKey: ['case-fields', field.case_type_id] });
-      },
-    }
-  );
+    onSuccess: (_data, field) => {
+      queryClient.invalidateQueries({ queryKey: ['case-fields', field.case_type_id] });
+    },
+  });
 }

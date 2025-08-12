@@ -19,6 +19,7 @@ export interface DynamicFormProps {
   initialValues?: Record<string, any>;
   onSubmit: (values: Record<string, any>) => void;
   submitLabel?: string;
+  hideSubmit?: boolean;
 }
 
 export function DynamicForm({
@@ -26,6 +27,7 @@ export function DynamicForm({
   initialValues = {},
   onSubmit,
   submitLabel = 'Submit',
+  hideSubmit = false,
 }: DynamicFormProps) {
   const [values, setValues] = useState<Record<string, any>>({});
 
@@ -119,7 +121,7 @@ export function DynamicForm({
           )}
         </div>
       ))}
-      <Button type="submit">{submitLabel}</Button>
+      {!hideSubmit && <Button type="submit">{submitLabel}</Button>}
     </form>
   );
 }

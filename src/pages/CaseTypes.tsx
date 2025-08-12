@@ -56,8 +56,8 @@ export default function CaseTypes() {
                 placeholder="Something about this type"
               />
             </div>
-            <Button type="submit" disabled={createMutation.isLoading}>
-              {createMutation.isLoading ? 'Creating...' : 'Create'}
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating...' : 'Create'}
             </Button>
           </form>
         </CardContent>

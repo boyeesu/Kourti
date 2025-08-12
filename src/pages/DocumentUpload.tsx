@@ -110,13 +110,13 @@ export default function DocumentUpload() {
         )
       );
       addNotification({
-        type: "success",
+        type: "approval",
         title: "Upload complete",
         description: "Document(s) uploaded successfully.",
       });
     } catch (err: any) {
       addNotification({
-        type: "error",
+        type: "update",
         title: "Upload failed",
         description: err.message || "Could not upload documents.",
       });
