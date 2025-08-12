@@ -676,6 +676,62 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          created_at: string
+          department: string | null
+          email: string
+          expires_at: string
+          first_name: string | null
+          id: string
+          invited_by: string
+          last_name: string | null
+          organization_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          email: string
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          invited_by: string
+          last_name?: string | null
+          organization_id: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          email?: string
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          invited_by?: string
+          last_name?: string | null
+          organization_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           address: string | null
@@ -898,6 +954,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      current_user_is_org_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       generate_document_from_template: {
         Args: { p_template_id: string; p_context: Json }
         Returns: {
