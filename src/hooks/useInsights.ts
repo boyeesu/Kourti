@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useCases } from './useCases';
 import { useContracts } from './useContracts';
+import { Contract } from '@/types';
 
 type Insight = {
   id: string;
@@ -35,7 +36,7 @@ export function useInsights(windowDays = DEFAULT_WINDOW_DAYS) {
 
   const upcomingContracts = useMemo(
     () =>
-      (contracts as any[])
+      (contracts as Contract[])
         .filter((c) => c.endDate || c.end_date)
         .map((c) => ({
           ...c,
