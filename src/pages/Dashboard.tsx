@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,21 +6,19 @@ import { Badge } from '@/components/ui/badge';
 import { Briefcase, Calendar as CalIcon, FileText, FileCheck, Users, Plus, TrendingUp, Clock } from 'lucide-react';
 import { useDashboardStats } from '@/hooks/useDashboard';
 import { useInsights } from '@/hooks/useInsights';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { useDashboardPrefs } from '@/hooks/useDashboardPrefs';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  // Get current organization
+  const { data: orgId } = useUserOrganization();
+  // Load dashboard stats
   const { data: dashboardData } = useDashboardStats();
+  // Insights for next 7 days
   const { upcomingCases, upcomingContracts } = useInsights(7);
-
-  // Widget preferences
-  const widgets = useMemo(
-    () =>
-      (JSON.parse(localStorage.getItem('dashboardWidgets') || '{}') as {
-        showUpcomingCases?: boolean;
-        showUpcomingContracts?: boolean;
-      }),
-    []
-  );
+  // Load user widget preferences
+  const { data: widgets = { show_upcoming_cases: true, show_upcoming_contracts: true } } = useDashboardPrefs(orgId!);
 
   // Stats cards
   const stats = [
@@ -69,19 +67,19 @@ export default function Dashboard() {
   return (
     <div className="px-4 py-6 space-y-6">
       {/* Actionable Insights */}
-      {widgets.showUpcomingCases !== false && upcomingCases.length > 0 && (
+      {widgets.show_upcoming_cases && upcomingCases.length > 0 && (
         <Card className="shadow-card">
           <CardHeader><CardTitle>Upcoming Hearings</CardTitle></CardHeader>
           <CardContent>
             <ul className="space-y-2">
-              {upcomingCases.map(c => (
+              {upcomingCases.map((c) => (
                 <li key={c.id}>{c.title} on {new Date(c.next_hearing_date!).toLocaleDateString()}</li>
               ))}
             </ul>
           </CardContent>
         </Card>
       )}
-      {widgets.showUpcomingContracts !== false && upcomingContracts.length > 0 && (
+      {widgets.show_upcoming_contracts && upcomingContracts.length > 0 && (
         <Card className="shadow-card">
           <CardHeader><CardTitle>Contracts Expiring Soon</CardTitle></CardHeader>
           <CardContent>
@@ -107,7 +105,7 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map(stat => (
+        {stats.map((stat) => (
           <Card key={stat.title} className="shadow-card hover:shadow-elegant transition-shadow">
             <CardHeader className="flex items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
@@ -131,15 +129,13 @@ export default function Dashboard() {
             <CardDescription>Your most recently updated cases</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentCases.map(item => (
+            {recentCases.map((item) => (
               <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                 <div className="flex-1 space-y-1">
                   <h4 className="font-medium text-foreground">{item.title}</h4>
                   <Badge className={getStatusColor(item.status)}>{item.status}</Badge>
                 </div>
-                <div className="flex items-center text-sm text-muted-foreground gap-1">
-                  <Clock className="h-3 w-3" /> {new Date(item.created_at).toLocaleDateString()}
-                </div>
+                <div className="flex items-center text-sm text-muted-foreground gap-1"><Clock className="h-3 w-3" /> {new Date(item.created_at).toLocaleDateString()}</div>
               </div>
             ))}
             <Button variant="outline" onClick={() => navigate('/cases')}>View All Cases</Button>
@@ -151,7 +147,7 @@ export default function Dashboard() {
             <CardDescription>Your schedule for the next few days</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {upcomingEvents.map(ev => (
+            {upcomingEvents.map((ev) => (
               <div key={ev.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                 <div>
                   <h4 className="font-medium text-foreground">{ev.title}</h4>
