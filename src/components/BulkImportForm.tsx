@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Upload, FileText, AlertCircle, CheckCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useCreateClient } from "@/hooks/useClients";
+import { parseCSV } from "@/lib/csv";
+import * as z from "zod";
 
 interface BulkImportFormProps {
   entityType: "clients" | "cases" | "contracts" | "documents";
@@ -27,6 +29,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const createClient = useCreateClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -64,53 +67,31 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
     }
   };
 
-  const parseCSV = (csvText: string): any[] => {
-    const lines = csvText.split("\n").filter(line => line.trim());
-    if (lines.length < 2) return [];
-
-    const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ""));
-    const data = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(",").map(v => v.trim().replace(/"/g, ""));
-      const row: any = {};
-      
-      headers.forEach((header, index) => {
-        row[header] = values[index] || "";
-      });
-      
-      data.push(row);
-    }
-
-    return data;
-  };
-
-  const validateData = (data: any[]): { valid: any[]; errors: string[] } => {
-    const valid = [];
-    const errors = [];
-
-    // Define required fields for each entity type
-    const requiredFields: Record<string, string[]> = {
-      clients: ["name"],
-      cases: ["name", "client", "status"],
-      contracts: ["name", "client", "type"],
-      documents: ["name", "type", "linkedCase"]
-    };
-
-    const required = requiredFields[entityType] || [];
-
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
-      const missingFields = required.filter(field => !row[field] || row[field].trim() === "");
-      
-      if (missingFields.length > 0) {
-        errors.push(`Row ${i + 2}: Missing required fields: ${missingFields.join(", ")}`);
-      } else {
-        valid.push(row);
-      }
-    }
-
-    return { valid, errors };
+  const schemas: Record<BulkImportFormProps["entityType"], z.ZodSchema<any>> = {
+    clients: z.object({
+      name: z.string().min(1),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      address: z.string().optional(),
+      company: z.string().optional(),
+      notes: z.string().optional(),
+      status: z.string().optional(),
+    }),
+    cases: z.object({
+      name: z.string().min(1),
+      client: z.string().min(1),
+      status: z.string().min(1),
+    }),
+    contracts: z.object({
+      name: z.string().min(1),
+      client: z.string().min(1),
+      type: z.string().min(1),
+    }),
+    documents: z.object({
+      name: z.string().min(1),
+      type: z.string().min(1),
+      linkedCase: z.string().min(1),
+    }),
   };
 
   const processImport = async (data: any[]): Promise<ImportResult> => {
@@ -164,34 +145,25 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
 
     try {
       const csvText = await selectedFile.text();
-      const parsedData = parseCSV(csvText);
-      
-      if (parsedData.length === 0) {
-        throw new Error("No valid data found in CSV file");
-      }
+      const { data: valid, errors } = parseCSV(csvText, schemas[entityType]);
 
-      const { valid, errors } = validateData(parsedData);
-      
-      if (errors.length > 0 && valid.length === 0) {
-        setImportResult({
-          total: parsedData.length,
-          successful: 0,
-          failed: parsedData.length,
-          errors
-        });
-        setIsUploading(false);
-        return;
+      if (valid.length === 0) {
+        throw new Error("No valid data found in CSV file");
       }
 
       const result = await processImport(valid);
       setImportResult({
         ...result,
-        errors: [...errors, ...result.errors]
+        errors: [...errors, ...result.errors],
       });
 
       if (result.successful > 0) {
         toast.success(`Successfully imported ${result.successful} ${entityType}`);
         onImportComplete?.(valid);
+      }
+
+      if (errors.length > 0) {
+        toast.error("Some rows failed validation");
       }
 
     } catch (error) {
@@ -271,11 +243,11 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
                   accept=".csv"
                   onChange={handleFileInput}
                   className="hidden"
-                  id="csv-upload"
+                  ref={fileInputRef}
                 />
                 <Button
                   variant="outline"
-                  onClick={() => document.getElementById("csv-upload")?.click()}
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   Select CSV File
                 </Button>
