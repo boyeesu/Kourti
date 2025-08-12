@@ -4,6 +4,8 @@ import { Button } from './button'
 import { Input } from './input'
 import { Label } from './label'
 import { useForm } from 'react-hook-form'
+import { shareDocument } from '@/lib/documensoClient'
+import { useToast } from '@/hooks/use-toast'
 
 interface ShareDocumentProps {
   documentId: string
@@ -17,13 +19,27 @@ interface FormData {
 
 export function ShareDocumentDialog({ documentId, children }: ShareDocumentProps) {
   const [open, setOpen] = React.useState(false)
-  const { register, handleSubmit, reset } = useForm<FormData>()
+  const { toast } = useToast()
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>()
 
-  function onSubmit(data: FormData) {
-    // TODO: call share API
-    console.log('Share', documentId, data)
-    setOpen(false)
-    reset()
+  async function onSubmit(data: FormData) {
+    try {
+      await shareDocument(documentId, data.email, data.message)
+      toast({ title: 'Document shared', description: 'Email sent successfully.' })
+      setOpen(false)
+      reset()
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to share document.',
+      })
+    }
   }
 
   return (
@@ -42,15 +58,40 @@ export function ShareDocumentDialog({ documentId, children }: ShareDocumentProps
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
           <div className="grid gap-1">
             <Label htmlFor="email">Recipient’s Email</Label>
-            <Input id="email" type="email" {...register('email', { required: true })} />
+            <Input
+              id="email"
+              type="email"
+              {...register('email', {
+                required: 'Email is required',
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: 'Invalid email address',
+                },
+              })}
+            />
+            {errors.email && (
+              <p className="text-sm text-red-500">{errors.email.message}</p>
+            )}
           </div>
           <div className="grid gap-1">
             <Label htmlFor="message">Message (optional)</Label>
-            <Input id="message" {...register('message')} />
+            <Input
+              id="message"
+              {...register('message', {
+                maxLength: { value: 500, message: 'Message is too long' },
+              })}
+            />
+            {errors.message && (
+              <p className="text-sm text-red-500">{errors.message.message}</p>
+            )}
           </div>
           <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit">Send</Button>
+            <Button variant="outline" onClick={() => setOpen(false)} type="button">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              Send
+            </Button>
           </div>
         </form>
       </DialogContent>
