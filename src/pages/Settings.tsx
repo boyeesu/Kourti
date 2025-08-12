@@ -83,6 +83,16 @@ export default function Settings() {
     confirmPassword: "",
   });
 
+  // Widget preferences for dashboard
+  const [widgets, setWidgets] = useState(() =>
+    JSON.parse(localStorage.getItem('dashboardWidgets') || '{}')
+  );
+  const toggleWidget = (key: string) => {
+    const next = { ...widgets, [key]: !widgets[key] };
+    setWidgets(next);
+    localStorage.setItem('dashboardWidgets', JSON.stringify(next));
+  };
+
   // Initialize profile data when loaded
   useEffect(() => {
     if (profile) {
@@ -217,43 +227,33 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Account Preferences */}
+          {/* Dashboard Widgets Preferences */}
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Account Preferences</CardTitle>
-              <CardDescription>Manage your account notifications and settings</CardDescription>
+              <CardTitle>Dashboard Widgets</CardTitle>
+              <CardDescription>Toggle widgets on your Dashboard</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="email-notifications">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive updates about activity
-                  </p>
-                </div>
-                <Switch
-                  id="email-notifications"
-                  checked={emailNotifications}
-                  onCheckedChange={setEmailNotifications}
+            <CardContent className="space-y-4">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={widgets.showUpcomingCases ?? true}
+                  onChange={() => toggleWidget('showUpcomingCases')}
                 />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="two-factor">Two-Factor Authentication</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Extra security on sign in
-                  </p>
-                </div>
-                <Switch
-                  id="two-factor"
-                  checked={twoFactor}
-                  onCheckedChange={setTwoFactor}
+                <span>Show upcoming hearings</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={widgets.showUpcomingContracts ?? true}
+                  onChange={() => toggleWidget('showUpcomingContracts')}
                 />
-              </div>
+                <span>Show expiring contracts</span>
+              </label>
             </CardContent>
           </Card>
 
-          {/* Case Statuses */}
+          {/* Account Preferences */}
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle>Case Statuses</CardTitle>

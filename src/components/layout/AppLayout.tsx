@@ -5,6 +5,37 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { User, Bell, Settings, Search, Plus } from "lucide-react";
 import { NotificationModal, useNotifications } from "@/components/ui/notifications";
+import { useInsights } from "@/hooks/useInsights";
+import { useEffect } from "react";
+
+// Fires notification reminders for upcoming cases/contracts
+function DeadlineReminders() {
+  const { upcomingCases, upcomingContracts } = useInsights(7);
+  const { addNotification } = useNotifications();
+
+  useEffect(() => {
+    upcomingCases.forEach(c =>
+      addNotification({
+        type: "event",
+        title: "Upcoming hearing",
+        description: `${c.title} scheduled on ${new Date(
+          c.next_hearing_date!
+        ).toLocaleDateString()}`,
+      })
+    );
+    upcomingContracts.forEach(c =>
+      addNotification({
+        type: "event",
+        title: "Contract expiring soon",
+        description: `${c.name} expires on ${new Date(
+          c._insight_date
+        ).toLocaleDateString()}`,
+      })
+    );
+  }, [upcomingCases, upcomingContracts]);
+
+  return null;
+}
 import { Input } from "@/components/ui/input";
 import { useSearch } from "@/hooks/use-search";
 import { useAuth } from "@/hooks/useAuth";
@@ -79,7 +110,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </span>
                 )}
               </Button>
-              <NotificationModal open={notifOpen} onOpenChange={setNotifOpen} />
+      <NotificationModal open={notifOpen} onOpenChange={setNotifOpen} />
++     <DeadlineReminders />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
