@@ -5,7 +5,7 @@ export default function Breadcrumbs() {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter(Boolean);
 
-  let crumbs = [
+  const crumbs = [
     <Link key="home" to="/" className="text-muted-foreground hover:underline flex items-center gap-1">
       <Home className="h-4 w-4 inline-block" /> Home
     </Link>
