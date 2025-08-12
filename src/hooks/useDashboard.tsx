@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { Case, Client, CalendarEvent } from '@/types';
 
 export interface DashboardStats {
   totalCases: number;
@@ -8,9 +9,9 @@ export interface DashboardStats {
   totalClients: number;
   totalDocuments: number;
   upcomingEvents: number;
-  recentCases: any[];
-  recentClients: any[];
-  upcomingCalendarEvents: any[];
+  recentCases: Partial<Case>[];
+  recentClients: Partial<Client>[];
+  upcomingCalendarEvents: Partial<CalendarEvent>[];
 }
 
 export function useDashboardStats() {
@@ -27,9 +28,9 @@ export function useDashboardStats() {
           totalClients: 0,
           totalDocuments: 0,
           upcomingEvents: 0,
-          recentCases: [],
-          recentClients: [],
-          upcomingCalendarEvents: [],
+          recentCases: [] as Partial<Case>[],
+          recentClients: [] as Partial<Client>[],
+          upcomingCalendarEvents: [] as Partial<CalendarEvent>[],
         };
       }
 
@@ -122,9 +123,9 @@ export function useDashboardStats() {
         totalClients: clientsResult.count || 0,
         totalDocuments: documentsResult.count || 0,
         upcomingEvents: upcomingEventsResult.count || 0,
-        recentCases: recentCasesResult.data || [],
-        recentClients: recentClientsResult.data || [],
-        upcomingCalendarEvents: upcomingCalendarEventsResult.data || [],
+        recentCases: (recentCasesResult.data || []) as Partial<Case>[],
+        recentClients: (recentClientsResult.data || []) as Partial<Client>[],
+        upcomingCalendarEvents: (upcomingCalendarEventsResult.data || []) as Partial<CalendarEvent>[],
       };
     },
     enabled: !!organizationId && !orgLoading && !orgError,

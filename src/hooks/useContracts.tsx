@@ -3,24 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-
-export interface Contract {
-  id: string;
-  organization_id: string;
-  client_id?: string;
-  title: string;
-  description?: string;
-  contract_type?: string;
-  status: string;
-  value?: number;
-  currency: string;
-  start_date?: string;
-  end_date?: string;
-  terms?: string;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Contract } from '@/types';
 
 export interface CreateContractData {
   title: string;

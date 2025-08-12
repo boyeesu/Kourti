@@ -3,23 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-
-export interface CalendarEvent {
-  id: string;
-  organization_id: string;
-  case_id?: string;
-  client_id?: string;
-  title: string;
-  description?: string;
-  start_date: string;
-  end_date: string;
-  location?: string;
-  attendees?: string[];
-  event_type: string;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { CalendarEvent } from '@/types';
 
 export interface CreateCalendarEventData {
   title: string;

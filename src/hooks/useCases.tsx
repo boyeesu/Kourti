@@ -4,33 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-
-export interface Case {
-  id: string;
-  organization_id: string;
-  client_id?: string;
-  title: string;
-  description?: string;
-  case_number?: string;
-  status: string;
-  priority: string;
-  assigned_to?: string;
-  court?: string;
-  next_hearing_date?: string;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  client?: {
-    id: string;
-    name: string;
-  };
-  assigned_user?: {
-    id: string;
-    first_name?: string;
-    last_name?: string;
-  } | null;
-}
+import { Case } from '@/types';
 
 export interface CreateCaseData {
   title: string;
@@ -86,7 +60,7 @@ export function useCases(initialPageSize = 10) {
       }
       
       console.log('✅ Cases found:', data?.length || 0, 'Total count:', count);
-      return { cases: data as any[], count: count || 0 };
+      return { cases: data as Case[], count: count || 0 };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 30 * 1000, // 30 seconds for faster updates
@@ -129,7 +103,7 @@ export function useCase(id: string) {
         .single();
 
       if (error) throw error;
-      return data as any;
+      return data as Case;
     },
     enabled: !!id,
     staleTime: 30 * 1000,
@@ -164,7 +138,7 @@ export function useCasesByClient(clientId: string) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as any[];
+      return data as Case[];
     },
     enabled: !!clientId,
     staleTime: 5 * 60 * 1000,
