@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export type DashboardPrefs = {
   show_upcoming_cases: boolean;
   show_upcoming_contracts: boolean;
+  reminder_window_days: number;
 };
 
 export function useDashboardPrefs(orgId: string) {
@@ -24,6 +25,7 @@ export function useDashboardPrefs(orgId: string) {
         data ?? {
           show_upcoming_cases: true,
           show_upcoming_contracts: true,
+          reminder_window_days: 90,
         }
       );
     },

@@ -86,13 +86,14 @@ export default function Settings() {
   });
 
   // Widget preferences for dashboard
-  const [widgets, setWidgets] = useState(() =>
-    JSON.parse(localStorage.getItem('dashboardWidgets') || '{}')
-  );
-  const toggleWidget = (key: string) => {
-    const next = { ...widgets, [key]: !widgets[key] };
-    setWidgets(next);
-    localStorage.setItem('dashboardWidgets', JSON.stringify(next));
+  const { data: orgId } = useUserOrganization();
+  const { data: widgets = { show_upcoming_cases: true, show_upcoming_contracts: true, reminder_window_days: 90 } } = useDashboardPrefs(orgId!);
+  const savePrefs = useSaveDashboardPrefs(orgId!);
+  const toggleWidget = (k: keyof DashboardPrefs) => {
+    savePrefs.mutate({ ...widgets, [k]: !widgets[k] });
+  };
+  const updateWindow = (days: number) => {
+    savePrefs.mutate({ ...widgets, reminder_window_days: days });
   };
 
   // Initialize profile data when loaded
