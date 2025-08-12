@@ -15,6 +15,10 @@ interface SigningUrlResponse {
   url: string
 }
 
+interface ShareDocumentResponse {
+  success: boolean
+}
+
 /**
  * Upload a File to Documenso and create a document record
  */
@@ -82,5 +86,29 @@ export async function getSigningUrl(
     throw new Error(`Documenso get signing URL failed: ${error.message}`);
   }
   
+  return data;
+}
+
+/**
+ * Share a document via email with an optional message
+ */
+export async function shareDocument(
+  documentId: string,
+  email: string,
+  message: string
+): Promise<ShareDocumentResponse> {
+  const { data, error } = await supabase.functions.invoke('documenso-api', {
+    body: {
+      action: 'shareDocument',
+      documentId,
+      email,
+      message,
+    },
+  });
+
+  if (error) {
+    throw new Error(`Documenso share document failed: ${error.message}`);
+  }
+
   return data;
 }

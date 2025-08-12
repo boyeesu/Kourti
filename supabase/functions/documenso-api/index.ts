@@ -20,7 +20,7 @@ serve(async (req) => {
       throw new Error('Documenso configuration not found');
     }
 
-    const { action, documentId, recipient, recipientId, file } = await req.json();
+    const { action, documentId, recipient, recipientId, file, email, message } = await req.json();
 
     console.log(`Processing Documenso action: ${action}`);
 
@@ -102,6 +102,31 @@ serve(async (req) => {
         const urlResult = await urlResponse.json();
         return new Response(
           JSON.stringify(urlResult),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+
+      case 'shareDocument':
+        if (!documentId || !email) {
+          throw new Error('Document ID and email are required');
+        }
+
+        const shareResponse = await fetch(`${documensoUrl}/documents/${documentId}/share`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${documensoApiKey}`,
+          },
+          body: JSON.stringify({ email, message }),
+        });
+
+        if (!shareResponse.ok) {
+          const error = await shareResponse.text();
+          throw new Error(`Documenso share document failed: ${error}`);
+        }
+
+        const shareResult = await shareResponse.json();
+        return new Response(
+          JSON.stringify(shareResult),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
 
