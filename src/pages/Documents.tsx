@@ -46,6 +46,11 @@ import {
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { useCreateDocument } from "@/hooks/useDocuments";
 import { ShareDocumentDialog } from "@/components/ui/ShareDocumentDialog";
++import { useAnalyzeDocument } from '@/hooks/useAnalyzeDocument';
++import { useQueryClient } from '@tanstack/react-query';
++import { useMutation, useQueryClient } from '@tanstack/react-query';
++import { supabase } from '@/integrations/supabase/client';
++import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export default function Documents() {
   const navigate = useNavigate();
