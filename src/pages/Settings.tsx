@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { useDashboardPrefs, useSaveDashboardPrefs, DashboardPrefs } from '@/hooks/useDashboardPrefs';
 import {
   Card,
   CardContent,
