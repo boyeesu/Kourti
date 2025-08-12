@@ -1,7 +1,7 @@
 // src/lib/documensoClient.ts
+// Secure Documenso client that calls Edge Functions instead of exposing API keys
 
-const BASE_URL = import.meta.env.VITE_DOCUMENSO_URL || ''
-const API_KEY = import.meta.env.VITE_DOCUMENSO_API_KEY || ''
+import { supabase } from '@/integrations/supabase/client';
 
 interface UploadResponse {
   id: string
@@ -19,21 +19,26 @@ interface SigningUrlResponse {
  * Upload a File to Documenso and create a document record
  */
 export async function uploadDocument(file: File): Promise<UploadResponse> {
-  const formData = new FormData()
-  formData.append('file', file)
+  // Convert file to base64 for transmission to edge function
+  const arrayBuffer = await file.arrayBuffer();
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  
+  const { data, error } = await supabase.functions.invoke('documenso-api', {
+    body: {
+      action: 'upload',
+      file: {
+        data: base64,
+        name: file.name,
+        type: file.type
+      }
+    }
+  });
 
-  const res = await fetch(`${BASE_URL}/documents`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-    },
-    body: formData,
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Documenso upload failed: ${text}`)
+  if (error) {
+    throw new Error(`Documenso upload failed: ${error.message}`);
   }
-  return res.json()
+  
+  return data;
 }
 
 /**
@@ -43,19 +48,19 @@ export async function addSigner(
   documentId: string,
   recipient: { name: string; email: string }
 ): Promise<AddSignerResponse> {
-  const res = await fetch(`${BASE_URL}/documents/${documentId}/signers`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
-    },
-    body: JSON.stringify(recipient),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Documenso add signer failed: ${text}`)
+  const { data, error } = await supabase.functions.invoke('documenso-api', {
+    body: {
+      action: 'addSigner',
+      documentId,
+      recipient
+    }
+  });
+
+  if (error) {
+    throw new Error(`Documenso add signer failed: ${error.message}`);
   }
-  return res.json()
+  
+  return data;
 }
 
 /**
@@ -65,18 +70,17 @@ export async function getSigningUrl(
   documentId: string,
   recipientId: string
 ): Promise<SigningUrlResponse> {
-  const res = await fetch(
-    `${BASE_URL}/documents/${documentId}/signers/${recipientId}/sign-url`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-      },
+  const { data, error } = await supabase.functions.invoke('documenso-api', {
+    body: {
+      action: 'getSigningUrl',
+      documentId,
+      recipientId
     }
-  )
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Documenso get signing URL failed: ${text}`)
+  });
+
+  if (error) {
+    throw new Error(`Documenso get signing URL failed: ${error.message}`);
   }
-  return res.json()
+  
+  return data;
 }
