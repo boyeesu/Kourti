@@ -45,9 +45,7 @@ import {
 
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { useCreateDocument } from "@/hooks/useDocuments";
-+import { ShareDocumentDialog } from "@/components/ui/ShareDocumentDialog";
-+import { ESignDialog } from "@/components/ui/ESignDialog";
-+import { FileCheck } from "lucide-react";
+import { ShareDocumentDialog } from "@/components/ui/ShareDocumentDialog";
 
 export default function Documents() {
   const navigate = useNavigate();
@@ -285,18 +283,14 @@ export default function Documents() {
                              Download
                            </DropdownMenuItem>
                            {/* Share via dialog */}
--                          <DropdownMenuItem>
--                            <Share className="h-4 w-4 mr-2" />
--                            Share
--                          </DropdownMenuItem>
-+                          <ShareDocumentDialog documentId={doc.id}>
-+                            <DropdownMenuItem asChild>
-+                              <button className="flex items-center">
-+                                <Share className="h-4 w-4 mr-2" />
-+                                Share
-+                              </button>
-+                            </DropdownMenuItem>
-+                          </ShareDocumentDialog>
+                          <ShareDocumentDialog documentId={doc.id}>
+                            <DropdownMenuItem asChild>
+                              <button className="flex items-center">
+                                <Share className="h-4 w-4 mr-2" />
+                                Share
+                              </button>
+                            </DropdownMenuItem>
+                          </ShareDocumentDialog>
                          </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
