@@ -19,44 +19,48 @@ export interface UpdateClientData extends Partial<CreateClientData> {
   id: string;
 }
 
-export function useClients() {
+/**
+ * Paginated clients hook: fetches clients page-by-page to improve performance.
+ * Returns an object with `items` and `total` count.
+ */
+export function useClients(page = 1, pageSize = 10) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
-  return useQuery({
-    queryKey: ['clients', organizationId],
+  return useQuery<{ items: Client[]; total: number }, Error>({
+    queryKey: ['clients', organizationId, page, pageSize],
     queryFn: async () => {
-      if (!organizationId) {
-        console.log('⚠️ No organization ID for clients query');
-        return [];
-      }
+      if (!organizationId) throw new Error('Organization ID missing');
 
-      console.log('🔍 Fetching clients for org:', organizationId);
+      const from = (page - 1) * pageSize;
+      const to = page * pageSize - 1;
+      console.log(`🔍 Fetching clients page ${page} size ${pageSize} for org:`, organizationId);
 
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('clients')
-        .select(`
-          *,
-          cases!fk_cases_client_id(count),
-          contracts!fk_contracts_client_id(count)
-        `)
+        .select(
+          `*, cases!fk_cases_client_id(count), contracts!fk_contracts_client_id(count)`
+        , { count: 'exact' })
         .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) {
         console.error('❌ Error fetching clients:', error);
         throw error;
       }
-      
-      console.log('✅ Clients found:', data?.length || 0);
-      return (data ?? []).map(client => ({
+
+      const items = (data ?? []).map(client => ({
         ...client,
         cases: client.cases ?? [],
         contracts: client.contracts ?? [],
       })) as Client[];
+
+      console.log('✅ Clients page loaded:', items.length, 'of total', count ?? 0);
+      return { items, total: count ?? 0 };
     },
-    enabled: !!organizationId && !orgLoading && !orgError,
-    staleTime: 2 * 60 * 1000, // 2 minutes for faster updates
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    enabled: Boolean(organizationId) && !orgLoading && !orgError,
+    staleTime: 2 * 60 * 1000,
+    cacheTime: 5 * 60 * 1000,
   });
 }
 

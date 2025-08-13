@@ -46,7 +46,7 @@ export function useCalendarEvents() {
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000,
+    cacheTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

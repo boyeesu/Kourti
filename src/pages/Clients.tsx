@@ -15,7 +15,10 @@ export default function Clients() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const { data: clients = [], isLoading } = useClients();
+  // Paginated clients: default to page 1, size 10
+  const { data, isLoading } = useClients();
+  const clients = data?.items ?? [];
+  const totalClients = data?.total ?? 0;
 
   if (isLoading) {
     return (
