@@ -1,17 +1,12 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Plus,
-  Calendar,
-  User,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -29,12 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useActivities } from "@/features/activities/api/useActivities";
 import { useCreateActivity } from "@/features/activities/api/useCreateActivity";
-import type { CaseActivity } from "@/features/activities/types";
+
 
 const activityTypes = [
   "Meeting",

@@ -22,7 +22,7 @@ export function ESignDialog({ documentId }: ESignDialogProps) {
   const [open, setOpen] = React.useState(false)
   const [signUrl, setSignUrl] = React.useState<string>()
   const { data: doc, isLoading } = useDocument(documentId)
-  const { register, handleSubmit, reset } = useForm<FormData>()
+  const { register, handleSubmit } = useForm<FormData>()
 
   async function onSubmit(values: FormData) {
     if (!doc || !doc.file_path) return

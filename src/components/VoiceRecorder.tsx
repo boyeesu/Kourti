@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, Square, Play, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -85,7 +85,7 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
     }
   };
 
-  const transcribeAudio = async (audioBlob: Blob) => {
+  const transcribeAudio = async (_audioBlob: Blob) => {
     setIsTranscribing(true);
     
     try {
@@ -100,9 +100,6 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
         recognition.lang = 'en-US';
         
         // Convert blob to audio element for recognition
-        const audio = new Audio(URL.createObjectURL(audioBlob));
-        
-        recognition.onresult = (event: any) => {
           const transcript = event.results[0][0].transcript;
           onTranscription(transcript);
           toast.success("Audio transcribed successfully");
