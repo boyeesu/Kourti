@@ -27,6 +27,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useActivities } from "@/features/activities/api/useActivities";
 import { useCreateActivity } from "@/features/activities/api/useCreateActivity";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 
 const activityTypes = [
@@ -106,6 +107,7 @@ export default function CaseActivities() {
 
   return (
     <div className="px-4 py-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
