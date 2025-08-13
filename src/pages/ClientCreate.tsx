@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Client name is required"),
@@ -84,6 +85,7 @@ export default function ClientCreate({ onSuccess, showHeader = true }: ClientCre
 
   return (
     <div className="px-4 py-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       {showHeader && (
         <div className="flex items-center gap-4">

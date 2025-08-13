@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ArrowLeft, Calendar, Building, Gavel } from "lucide-react";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 export default function CaseDetails() {
   const { id } = useParams<{ id: string }>();
@@ -71,10 +72,11 @@ export default function CaseDetails() {
 
   return (
     <div className="px-4 py-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}> 
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" /> 
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground">{caseData.title}</h1>

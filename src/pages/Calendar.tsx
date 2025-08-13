@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
+import {
+  ChevronLeft,
+  ChevronRight,
   Calendar as CalendarIcon,
   Clock,
   MapPin,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendar";
 import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -88,6 +89,7 @@ export default function Calendar() {
 
   return (
     <div className="px-4 py-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
