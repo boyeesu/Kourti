@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { useActivities } from "@/features/activities/api/useActivities";
 import { useCreateActivity } from "@/features/activities/api/useCreateActivity";
 
@@ -42,6 +42,7 @@ const activityTypes = [
 export default function CaseActivities() {
   const { caseId = "" } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const { data: activities = [], isLoading } = useActivities(caseId);
   const createActivity = useCreateActivity(caseId);
@@ -74,7 +75,7 @@ export default function CaseActivities() {
 
   const handleCreateActivity = async () => {
     if (!newActivity.title || !newActivity.description) {
-      toast.error("Please fill in title and description");
+      toast({ title: "Missing info", description: "Please fill in title and description", variant: "destructive" });
       return;
     }
     try {
@@ -91,9 +92,9 @@ export default function CaseActivities() {
         status: "pending",
       });
       setDialogOpen(false);
-      toast.success("Activity created");
+      toast({ title: "Activity created" });
     } catch (err: any) {
-      toast.error(err.message || "Failed to create activity");
+      toast({ title: (err?.message || "Failed to create activity"), variant: "destructive" });
     }
   };
 
