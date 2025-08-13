@@ -36,8 +36,7 @@ export function useClients() {
         .from('clients')
         .select(`
           *,
-          cases!cases_client_id_fkey(count),
-          contracts!fk_contracts_client_id(count)
+          cases!cases_client_id_fkey(count)
         `)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
@@ -51,7 +50,6 @@ export function useClients() {
       return (data ?? []).map(client => ({
         ...client,
         cases: client.cases ?? [],
-        contracts: client.contracts ?? [],
       })) as Client[];
     },
     enabled: !!organizationId && !orgLoading && !orgError,
