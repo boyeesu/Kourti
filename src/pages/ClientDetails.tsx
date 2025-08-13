@@ -33,6 +33,7 @@ import {
   useCreateCommLog,
 } from "@/features/clients/api/useCommLogs";
 import { getCurrentUserId } from "@/hooks/useCurrentUser";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 export default function ClientDetails() {
   const { clientId } = useParams();
@@ -76,6 +77,7 @@ export default function ClientDetails() {
 
   return (
     <div className="px-4 py-6 space-y-6 animate-fade-in">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
