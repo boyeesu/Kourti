@@ -167,6 +167,16 @@ export default function Clients() {
       </Card>
 
       {/* Clients Table */}
+      {/* Bulk actions toolbar */}
+      <Card className="shadow-card">
+        <CardContent className="p-0">
+          <BulkToolbar count={selected.length} onAction={action => {
+            bulk.mutate({ ids: selected, action });
+            clear();
+          }} />
+        </CardContent>
+      </Card>
+
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>Client Directory</CardTitle>
@@ -175,6 +185,12 @@ export default function Clients() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[38px]">
+                  <Checkbox
+                    checked={selected.length === clients.length}
+                    onCheckedChange={toggleAll}
+                  />
+                </TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Type</TableHead>
@@ -188,6 +204,9 @@ export default function Clients() {
             <TableBody>
               {filteredClients.map((client) => (
                 <TableRow key={client.id} className="hover:bg-muted/50 transition-colors">
+                  <TableCell className="w-[38px]">
+                    <Checkbox checked={isSelected(client.id)} onCheckedChange={() => toggle(client.id)} />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
