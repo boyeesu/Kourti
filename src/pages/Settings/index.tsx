@@ -3,6 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import GeneralTab from "./GeneralTab";
 import ProfileTab from "./ProfileTab";
 import OrgTab from "./OrgTab";
+import RolesTab from "./RolesTab";
 
 export default function Settings() {
   const [tab, setTab] = useState<string>("general");
@@ -15,10 +16,11 @@ export default function Settings() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="organization">Organization</TabsTrigger>
+          <TabsTrigger value="roles">Roles</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -29,6 +31,9 @@ export default function Settings() {
         </TabsContent>
         <TabsContent value="organization">
           <OrgTab />
+        </TabsContent>
+        <TabsContent value="roles">
+          <RolesTab />
         </TabsContent>
       </Tabs>
     </div>
