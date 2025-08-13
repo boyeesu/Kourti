@@ -23,10 +23,12 @@ export interface UpdateClientData extends Partial<CreateClientData> {
  * Paginated clients hook: fetches clients page-by-page to improve performance.
  * Returns an object with `items` and `total` count.
  */
-export function useClients(page = 1, pageSize = 10) {
+import type { UseQueryResult } from '@tanstack/react-query';
+
+export function useClients(page = 1, pageSize = 10): UseQueryResult<{ items: Client[]; total: number }, Error> {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
-  return useQuery<{ items: Client[]; total: number }, Error>({
+  return useQuery<{ items: Client[]; total: number }, Error, { items: Client[]; total: number }>({
     queryKey: ['clients', organizationId, page, pageSize],
     queryFn: async () => {
       if (!organizationId) throw new Error('Organization ID missing');

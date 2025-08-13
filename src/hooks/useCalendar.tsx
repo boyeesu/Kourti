@@ -65,6 +65,7 @@ export function useCalendarEvents() {
       console.log('✅ Calendar events found:', data?.length || 0);
       return data as CalendarEvent[];
     },
+    // The query is only enabled if all necessary dependencies are met.
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000, // 2 minutes
     cacheTime: 5 * 60 * 1000, // 5 minutes
@@ -124,7 +125,7 @@ export function useCalendarEventsByDateRange(startDate: string, endDate: string)
 
 /**
  * Creates a new calendar event.
- * Invalidates all calendar-events queries on success.
+ * Invalidates the relevant calendar-events queries on success.
  */
 export function useCreateCalendarEvent() {
   const queryClient = useQueryClient();
@@ -152,7 +153,11 @@ export function useCreateCalendarEvent() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      // Invalidate all queries that start with 'calendar-events' and include the organizationId.
+      // This is a more precise approach than invalidating all 'calendar-events' queries.
+      queryClient.invalidateQueries({
+        queryKey: ['calendar-events', { organizationId }],
+      });
       toast({
         title: 'Success',
         description: 'Calendar event created successfully.',
@@ -170,11 +175,12 @@ export function useCreateCalendarEvent() {
 
 /**
  * Updates an existing calendar event.
- * Invalidates the specific event and all calendar-events queries on success.
+ * Invalidates the specific event and relevant calendar-events queries on success.
  */
 export function useUpdateCalendarEvent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: organizationId } = useUserOrganization(); // Get organizationId here to use in invalidation
 
   return useMutation({
     mutationFn: async ({ id, ...updateData }: { id: string } & Partial<CreateCalendarEventData>) => {
@@ -189,8 +195,14 @@ export function useUpdateCalendarEvent() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-      queryClient.invalidateQueries({ queryKey: ['calendar-event', { id: data.id }] });
+      // Invalidate the specific event query first.
+      queryClient.invalidateQueries({
+        queryKey: ['calendar-event', { id: data.id }],
+      });
+      // Then, invalidate the more general list query, scoped by organizationId.
+      queryClient.invalidateQueries({
+        queryKey: ['calendar-events', { organizationId }],
+      });
       toast({
         title: 'Success',
         description: 'Calendar event updated successfully.',
@@ -208,11 +220,12 @@ export function useUpdateCalendarEvent() {
 
 /**
  * Deletes a calendar event.
- * Invalidates all calendar-events queries on success.
+ * Invalidates relevant calendar-events queries on success.
  */
 export function useDeleteCalendarEvent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: organizationId } = useUserOrganization(); // Get organizationId here to use in invalidation
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -224,7 +237,10 @@ export function useDeleteCalendarEvent() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      // Invalidate all queries that start with 'calendar-events' and include the organizationId.
+      queryClient.invalidateQueries({
+        queryKey: ['calendar-events', { organizationId }],
+      });
       toast({
         title: 'Success',
         description: 'Calendar event deleted successfully.',
