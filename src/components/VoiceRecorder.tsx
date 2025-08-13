@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, Square, Play, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface VoiceRecorderProps {
   onTranscription: (transcription: string) => void;
@@ -18,6 +18,7 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  const { toast } = useToast();
   useEffect(() => {
     checkMicrophonePermission();
   }, []);
@@ -38,7 +39,7 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
       if (!hasPermission) {
         await checkMicrophonePermission();
         if (!hasPermission) {
-          toast.error("Microphone permission is required for voice recording");
+          toast({ title: "Permission required", description: "Microphone permission is required for voice recording", variant: "destructive" });
           return;
         }
       }
@@ -69,10 +70,10 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
       mediaRecorder.start();
       setIsRecording(true);
       onRecordingChange?.(true);
-      toast.success("Recording started");
+      toast({ title: "Recording started" });
     } catch (error) {
       console.error("Error starting recording:", error);
-      toast.error("Failed to start recording");
+      toast({ title: "Failed to start recording", variant: "destructive" });
     }
   };
 
@@ -81,11 +82,11 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       onRecordingChange?.(false);
-      toast.success("Recording stopped");
+      toast({ title: "Recording stopped" });
     }
   };
 
-  const transcribeAudio = async (audioBlob: Blob) => {
+  const transcribeAudio = async (_audioBlob: Blob) => {
     setIsTranscribing(true);
     
     try {
@@ -99,13 +100,11 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
         recognition.interimResults = false;
         recognition.lang = 'en-US';
         
-        // Convert blob to audio element for recognition
-        const audio = new Audio(URL.createObjectURL(audioBlob));
-        
+        // Handle recognition result
         recognition.onresult = (event: any) => {
           const transcript = event.results[0][0].transcript;
           onTranscription(transcript);
-          toast.success("Audio transcribed successfully");
+          toast({ title: "Transcribed", description: "Audio transcribed successfully" });
         };
         
         recognition.onerror = (event: any) => {
@@ -133,9 +132,9 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
     const transcript = prompt("Please enter the transcription manually (automatic transcription not available):");
     if (transcript) {
       onTranscription(transcript);
-      toast.success("Transcription added manually");
+      toast({ title: "Transcription added" });
     } else {
-      toast.error("No transcription provided");
+      toast({ title: "No transcription provided", variant: "destructive" });
     }
   };
 

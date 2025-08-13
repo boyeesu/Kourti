@@ -56,18 +56,18 @@ function DeadlineReminders() {
   const { addNotification } = useNotifications();
 
   useEffect(() => {
-    upcomingCases.forEach((c) =>
+    upcomingCases.forEach((c: any) =>
       addNotification({
         type: 'event',
         title: 'Upcoming hearing',
         description: `${c.title} on ${new Date(c.next_hearing_date!).toLocaleDateString()}`,
       })
     );
-    upcomingContracts.forEach((c) =>
+    upcomingContracts.forEach((c: any) =>
       addNotification({
         type: 'event',
         title: 'Contract expiring soon',
-        description: `${c.name} on ${new Date(c._insight_date).toLocaleDateString()}`,
+        description: `${c.title} on ${new Date(c._insight_date).toLocaleDateString()}`,
       })
     );
   }, [upcomingCases, upcomingContracts, addNotification]);

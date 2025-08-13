@@ -47,18 +47,6 @@ export default function Users() {
     );
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "bg-success text-success-foreground";
-      case "Invited":
-        return "bg-warning text-warning-foreground";
-      case "Disabled":
-        return "bg-muted text-muted-foreground";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
-  };
 
   return (
     <div className="p-6 space-y-6">

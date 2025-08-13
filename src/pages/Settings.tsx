@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -58,8 +58,6 @@ export default function Settings() {
   const changePasswordMutation = useChangePassword();
 
   // State for notifications
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [twoFactor, setTwoFactor] = useState(false);
 
   // State for case statuses
   const { statuses, addStatus } = useCases();
@@ -91,9 +89,6 @@ export default function Settings() {
   const savePrefs = useSaveDashboardPrefs(orgId!);
   const toggleWidget = (k: keyof DashboardPrefs) => {
     savePrefs.mutate({ ...widgets, [k]: !widgets[k] });
-  };
-  const updateWindow = (days: number) => {
-    savePrefs.mutate({ ...widgets, reminder_window_days: days });
   };
 
   // Initialize profile data when loaded
@@ -248,8 +243,8 @@ export default function Settings() {
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={widgets.showUpcomingContracts ?? true}
-                  onChange={() => toggleWidget('showUpcomingContracts')}
+                  checked={widgets.show_upcoming_contracts ?? true}
+                  onChange={() => toggleWidget('show_upcoming_contracts')}
                 />
                 <span>Show expiring contracts</span>
               </label>

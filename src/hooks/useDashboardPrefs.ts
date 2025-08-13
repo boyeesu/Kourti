@@ -8,19 +8,21 @@ export type DashboardPrefs = {
 };
 
 export function useDashboardPrefs(orgId: string) {
-  const user = supabase.auth.getUser();
-  const userId = user.data?.user?.id;
-
   return useQuery({
     queryKey: ['dashboardPrefs', orgId],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
       if (!userId) throw new Error('Not authenticated');
-      const { data } = await supabase
-        .from<DashboardPrefs & { user_id: string }>('dashboard_prefs')
+
+      const { data, error } = await supabase
+        .from('dashboard_prefs')
         .select('*')
         .eq('user_id', userId)
-        .eq('organisation_id', orgId)
-        .single();
+        .eq('organization_id', orgId)
+        .maybeSingle();
+
+      if (error) throw error;
       return (
         data ?? {
           show_upcoming_cases: true,
@@ -29,21 +31,23 @@ export function useDashboardPrefs(orgId: string) {
         }
       );
     },
-    enabled: !!orgId && !!userId,
+    enabled: !!orgId,
   });
 }
 
 export function useSaveDashboardPrefs(orgId: string) {
   const qc = useQueryClient();
-  const user = supabase.auth.getUser();
-  const userId = user.data?.user?.id;
 
   return useMutation({
     mutationFn: async (prefs: DashboardPrefs) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
       if (!userId) throw new Error('Not authenticated');
-      await supabase
+
+      const { error } = await supabase
         .from('dashboard_prefs')
-        .upsert({ user_id: userId, organisation_id: orgId, ...prefs });
+        .upsert({ user_id: userId, organization_id: orgId, ...prefs });
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['dashboardPrefs', orgId] });

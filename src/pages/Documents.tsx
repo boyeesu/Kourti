@@ -44,10 +44,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
-import { useCreateDocument } from '@/hooks/useDocuments';
-import { ShareDocumentDialog } from '@/components/ui/ShareDocumentDialog';
-import { useAnalyzeDocument } from '@/hooks/useAnalyzeDocument';
-import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export default function Documents() {
   const navigate = useNavigate();
@@ -76,15 +72,6 @@ export default function Documents() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Approved": return "bg-success text-success-foreground";
-      case "Under Review": return "bg-warning text-warning-foreground";
-      case "Draft": return "bg-muted text-muted-foreground";
-      case "Final": return "bg-primary text-primary-foreground";
-      default: return "bg-muted text-muted-foreground";
-    }
-  };
 
 
   const filteredDocuments = documents.filter(doc => {

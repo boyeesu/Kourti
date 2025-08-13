@@ -71,7 +71,6 @@ export default function App() { // Changed to App for React component export
     page,
     pageSize,
     setPage,
-    refetch: refetchCases,
   } = useCases();
 
   const cases = data?.cases || [];
@@ -101,25 +100,37 @@ export default function App() { // Changed to App for React component export
     setTerm("");
   }, [error, toast, setTerm]); // Added setTerm to dependencies
 
-  // Map raw case data to a more usable format for the table
-  const caseRows = cases.map(c => ({
-    id: c.id || c.case_number,
-    name: c.title || c.name,
-    client: c.client?.name || c.client || "Unknown Client",
+  type CaseRow = {
+    id: string;
+    name: string;
+    client: string;
+    clientId?: string;
+    status: string;
+    priority: string;
+    assignedTo: string;
+    startDate: string;
+    dueDate: string;
+    documentsCount: number;
+  };
+
+  const caseRows: CaseRow[] = cases.map((c: any) => ({
+    id: String(c.id || c.case_number || ''),
+    name: (c.title || c.name) as string,
+    client: String(c.client?.name || c.client || 'Unknown Client'),
     clientId: c.client_id || c.client?.id,
-    status: c.status,
-    priority: c.priority,
+    status: c.status as string,
+    priority: c.priority as string,
     assignedTo:
       c.assigned_user
         ? [c.assigned_user.first_name, c.assigned_user.last_name].filter(Boolean).join(" ")
         : "Unassigned",
     startDate: c.created_at
       ? new Date(c.created_at).toLocaleDateString()
-      : c.startDate,
+      : '',
     dueDate: c.next_hearing_date
       ? new Date(c.next_hearing_date).toLocaleDateString()
-      : c.dueDate || "No date set",
-    documentsCount: c.documents?.length || 0,
+      : 'No date set',
+    documentsCount: 0,
   }));
 
   // Determine the client name if a client query parameter is present
@@ -195,30 +206,33 @@ export default function App() { // Changed to App for React component export
     }
   };
 
-  // Combine all filtering logic
-  const filteredCases = caseRows.filter(case_item => {
-    // Local search term filter
-    const matchesLocalSearch = searchTerm === "" ||
-                               case_item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                               case_item.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                               case_item.id.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredCases = caseRows.filter((case_item) => {
+    const matchesLocalSearch =
+      searchTerm === "" ||
+      case_item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      case_item.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      case_item.id.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Global search term (from useSearch hook) filter
-    const matchesGlobalSearch = globalSearch === "" ||
-                                case_item.name.toLowerCase().includes(globalSearch.toLowerCase()) ||
-                                case_item.client.toLowerCase().includes(globalSearch.toLowerCase()) ||
-                                case_item.id.toLowerCase().includes(globalSearch.toLowerCase());
+    const matchesGlobalSearch =
+      globalSearch === "" ||
+      case_item.name.toLowerCase().includes(globalSearch.toLowerCase()) ||
+      case_item.client.toLowerCase().includes(globalSearch.toLowerCase()) ||
+      case_item.id.toLowerCase().includes(globalSearch.toLowerCase());
 
-    // Status filter
-    const matchesStatus = statusFilter === "all" || case_item.status.toLowerCase() === statusFilter;
+    const matchesStatus =
+      statusFilter === "all" || case_item.status.toLowerCase() === statusFilter;
 
-    // Client query filter
     const matchesClient =
       !clientQuery ||
       case_item.clientId === clientQuery ||
       case_item.client.toLowerCase() === clientQuery.toLowerCase();
 
-    return matchesLocalSearch && matchesGlobalSearch && matchesStatus && matchesClient;
+    return (
+      matchesLocalSearch &&
+      matchesGlobalSearch &&
+      matchesStatus &&
+      matchesClient
+    );
   });
 
   return (

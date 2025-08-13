@@ -21,7 +21,7 @@ export default function CaseEdit() {
   const [submitting, setSubmitting] = useState(false);
 
   // case type & fields
-  const caseTypeId = caseData?.case_type_id || "";
+  const caseTypeId = (caseData as any)?.case_type_id || "";
   const { data: caseFields = [] } = useCaseFields(caseTypeId);
   const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
 
@@ -35,7 +35,7 @@ export default function CaseEdit() {
         description: caseData.description || "",
         next_hearing_date: caseData.next_hearing_date ? caseData.next_hearing_date.split("T")[0] : "",
       });
-      setDynamicValues(caseData.custom_fields || {});
+      setDynamicValues((caseData as any).custom_fields || {});
     }
   }, [caseData]);
 
@@ -58,11 +58,11 @@ export default function CaseEdit() {
     setSubmitting(true);
     try {
       await updateCase.mutateAsync({
-        id: caseData.id,
+        id: caseData!.id,
         ...form,
         custom_fields: dynamicValues,
       } as any);
-      navigate(`/cases/${caseData.id}`);
+      navigate(`/cases/${caseData!.id}`);
     } catch {
       /* handled in hook */
     }

@@ -1,34 +1,18 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  Mail,
-  Phone,
-  MapPin,
-  Building,
-  Calendar,
-  FileText,
-  Briefcase,
   Edit,
   MoreHorizontal,
-  Plus,
   StickyNote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import {
   Avatar,
   AvatarFallback,
 } from "@/components/ui/avatar";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,8 +28,6 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useClient } from "@/hooks/useClients";
-import { useCasesByClient } from "@/hooks/useCases";
-import { useContractsByClient } from "@/hooks/useContracts";
 import {
   useCommLogs,
   useCreateCommLog,
@@ -57,9 +39,6 @@ export default function ClientDetails() {
   const navigate = useNavigate();
 
   const { data: client, isLoading: clientLoading } = useClient(clientId!);
-  const { data: cases = [], isLoading: casesLoading } = useCasesByClient(clientId!);
-  const { data: contracts = [], isLoading: contractsLoading } =
-    useContractsByClient(clientId!);
 
   // communication logs
   const { data: commLogs = [] } = useCommLogs(clientId!);
@@ -67,38 +46,7 @@ export default function ClientDetails() {
   const [logContent, setLogContent] = useState("");
   const [logType, setLogType] = useState<'email' | 'phone' | 'note'>("note");
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "active":
-        return "bg-success/10 text-success";
-      case "inactive":
-        return "bg-muted/50 text-muted-foreground";
-      case "under review":
-      case "review":
-        return "bg-warning/10 text-warning";
-      case "open":
-        return "bg-info/10 text-info";
-      case "closed":
-        return "bg-muted/50 text-muted-foreground";
-      case "draft":
-        return "bg-warning/10 text-warning";
-      default:
-        return "bg-muted/50 text-muted-foreground";
-    }
-  };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case "high":
-        return "bg-destructive/10 text-destructive";
-      case "medium":
-        return "bg-warning/10 text-warning";
-      case "low":
-        return "bg-success/10 text-success";
-      default:
-        return "bg-muted/10 text-muted-foreground";
-    }
-  };
 
   const getInitials = (name: string) =>
     name
@@ -108,16 +56,6 @@ export default function ClientDetails() {
       .slice(0, 2)
       .toUpperCase();
 
-  const formatCurrency = (value: number, currency: string = "USD") =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-
-  const calculateTotalValue = () =>
-    contracts.reduce((total, contract) => total + (contract.value || 0), 0);
 
   if (clientLoading) {
     return (

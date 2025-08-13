@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCaseFields } from '@/features/cases/api/useCaseFields';
 import { useCreateCaseField } from '@/features/cases/api/useCreateCaseField';
-import { useUpdateCaseField } from '@/features/cases/api/useUpdateCaseField';
 import { useDeleteCaseField } from '@/features/cases/api/useDeleteCaseField';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -15,7 +14,6 @@ export default function CaseFields() {
   const { caseTypeId } = useParams<{ caseTypeId: string }>();
   const { data: fields = [], isLoading } = useCaseFields(caseTypeId!);
   const createField = useCreateCaseField();
-  const updateField = useUpdateCaseField();
   const deleteField = useDeleteCaseField(caseTypeId!);
 
   const [newLabel, setNewLabel] = useState('');

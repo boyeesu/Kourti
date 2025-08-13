@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, FileText, AlertCircle, CheckCircle, Eye, Download, Zap } from "lucide-react";
+import { Upload, FileText, AlertCircle, Eye, Download, Zap } from "lucide-react";
 
 interface ComparisonResult {
   differences: {
@@ -195,18 +195,6 @@ export default function ContractCompare() {
     }
   };
 
-  const getRiskColor = (risk: string) => {
-    switch (risk) {
-      case 'high':
-        return 'text-red-600';
-      case 'medium':
-        return 'text-yellow-600';
-      case 'low':
-        return 'text-green-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
 
   return (
     <div className="p-6 space-y-6">

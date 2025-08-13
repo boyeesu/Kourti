@@ -82,12 +82,6 @@ export default function Contracts() {
     }
   };
 
-  const getExpiryStatus = (daysToExpiry: number) => {
-    if (daysToExpiry < 0) return { color: "text-destructive", text: "Expired" };
-    if (daysToExpiry <= 30) return { color: "text-destructive", text: "Expires Soon" };
-    if (daysToExpiry <= 90) return { color: "text-warning", text: "Expires in 3 months" };
-    return { color: "text-success", text: "Active" };
-  };
 
   const filteredContracts = contracts.filter(contract => {
     const termMatches = (t: string) =>

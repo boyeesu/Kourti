@@ -1,23 +1,14 @@
 import { useMemo } from 'react';
 import { useCases } from './useCases';
 import { useContracts } from './useContracts';
-import { Contract } from '@/types';
-
-type Insight = {
-  id: string;
-  title: string;
-  date: string;
-  type: 'case' | 'contract';
-};
 
 const DEFAULT_WINDOW_DAYS = 7;
 
-/**
- * Returns upcoming case hearings and contract expirations within the next `windowDays` days.
- */
 export function useInsights(windowDays = DEFAULT_WINDOW_DAYS) {
-  const { cases = [] } = useCases();
+  const { data: casesData } = useCases();
   const { data: contracts = [] } = useContracts();
+
+  const cases = casesData?.cases || [];
   const now = new Date();
   const cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() + windowDays);
@@ -31,22 +22,19 @@ export function useInsights(windowDays = DEFAULT_WINDOW_DAYS) {
           const d = new Date(c.next_hearing_date);
           return d >= now && d <= cutoff;
         }),
-    [cases, now, cutoff]
+    [cases, windowDays]
   );
 
   const upcomingContracts = useMemo(
     () =>
-      (contracts as Contract[])
-        .filter((c) => c.endDate || c.end_date)
-        .map((c) => ({
-          ...c,
-          _insight_date: new Date(c.endDate || c.end_date).toISOString(),
-        }))
+      contracts
+        .filter((c) => c.end_date)
+        .map((c) => ({ ...c, _insight_date: new Date(c.end_date!).toISOString() }))
         .filter((c) => {
           const d = new Date(c._insight_date);
           return d >= now && d <= cutoff;
         }),
-    [contracts, now, cutoff]
+    [contracts, windowDays]
   );
 
   return { upcomingCases, upcomingContracts };
