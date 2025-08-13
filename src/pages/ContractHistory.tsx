@@ -9,9 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  ArrowLeft, 
-  Clock, 
+import {
+  ArrowLeft,
+  Clock,
   User, 
   FileText, 
   Download, 
@@ -22,6 +22,7 @@ import {
   Search
 } from "lucide-react";
 import { format } from "date-fns";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface Version {
   version: number;
@@ -86,6 +87,7 @@ export default function ContractHistory() {
   if (!contract) {
     return (
       <div className="p-6">
+        <Breadcrumbs />
         <Card className="shadow-card">
           <CardContent className="p-12 text-center">
             <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -145,6 +147,7 @@ export default function ContractHistory() {
 
   return (
     <div className="p-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">

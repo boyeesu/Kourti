@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, FileText, AlertCircle, Eye, Download, Zap } from "lucide-react";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface ComparisonResult {
   differences: {
@@ -198,6 +199,7 @@ export default function ContractCompare() {
 
   return (
     <div className="p-6 space-y-6">
+      <Breadcrumbs />
       <div>
         <h1 className="text-2xl font-semibold">Contract Comparison</h1>
         <p className="text-muted-foreground">
