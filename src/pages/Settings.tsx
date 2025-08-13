@@ -236,7 +236,7 @@ export default function Settings() {
                 <input
                   type="checkbox"
                   checked={widgets.showUpcomingCases ?? true}
-                  onChange={() => toggleWidget('showUpcomingCases')}
+                  onChange={() => toggleWidget('show_upcoming_cases')}
                 />
                 <span>Show upcoming hearings</span>
               </label>

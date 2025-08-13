@@ -133,9 +133,9 @@ export default function Dashboard() {
               <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                 <div className="flex-1 space-y-1">
                   <h4 className="font-medium text-foreground">{item.title}</h4>
-                  <Badge className={getStatusColor(item.status)}>{item.status}</Badge>
+                  <Badge className={getStatusColor(item.status || 'pending')}>{item.status}</Badge>
                 </div>
-                <div className="flex items-center text-sm text-muted-foreground gap-1"><Clock className="h-3 w-3" /> {new Date(item.created_at).toLocaleDateString()}</div>
+                <div className="flex items-center text-sm text-muted-foreground gap-1"><Clock className="h-3 w-3" /> {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}</div>
               </div>
             ))}
             <Button variant="outline" onClick={() => navigate('/cases')}>View All Cases</Button>
