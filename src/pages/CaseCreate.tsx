@@ -32,6 +32,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 const caseSchema = z.object({
   title: z.string().min(1, "Case title is required"),
@@ -93,6 +94,7 @@ export default function CaseCreate() {
 
   return (
     <div className="px-4 py-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}> <ArrowLeft className="h-4 w-4" /> </Button>
