@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 export default function ContractEdit() {
   const { id } = useParams();
@@ -54,6 +55,7 @@ export default function ContractEdit() {
   if (!contract) {
     return (
       <div className="p-6">
+        <Breadcrumbs />
         <Card className="shadow-card">
           <CardContent className="p-12 text-center">
             <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -136,6 +138,7 @@ export default function ContractEdit() {
 
   return (
     <div className="p-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useClients } from "@/hooks/useClients";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -49,6 +50,7 @@ export default function Clients() {
 
   return (
     <div className="px-4 py-6 space-y-6 animate-fade-in">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

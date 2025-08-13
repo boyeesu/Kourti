@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { useEffect } from "react";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Client name is required"),
@@ -130,6 +131,7 @@ export default function ClientEdit() {
 
   return (
     <div className="px-4 py-6 space-y-6">
+      <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

@@ -14,6 +14,7 @@ import { CalendarIcon, Plus, X, FileText, Users, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface ContractParty {
   id: string;
@@ -192,6 +193,7 @@ export default function ContractCreate() {
 
   return (
     <div className="p-6 space-y-6">
+      <Breadcrumbs />
       <div>
         <h1 className="text-2xl font-semibold">Create New Contract</h1>
         <p className="text-muted-foreground">Set up a new contract with parties, terms, and clauses</p>
