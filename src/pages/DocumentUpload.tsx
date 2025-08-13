@@ -26,7 +26,8 @@ interface UploadedFile {
 }
 
 export default function DocumentUpload() {
-  const { cases } = useCases();
+  const { cases: casePages } = useCases();
+  const cases = casePages.items;
   const { data: orgMembers = [] } = useOrganizationMembers();
   const [selectedFiles, setSelectedFiles] = useState<UploadedFile[]>([]);
   const [documentData, setDocumentData] = useState({
@@ -183,11 +184,11 @@ export default function DocumentUpload() {
                     <SelectValue placeholder="Select a case" />
                   </SelectTrigger>
                   <SelectContent>
-                    {cases.map((case_) => (
-                      <SelectItem key={case_.id} value={case_.id}>
-                        {case_.name}
-                      </SelectItem>
-                    ))}
+                {(cases || []).map((case_) => (
+                  <SelectItem key={case_.id} value={case_.id}>
+                    {case_.name}
+                  </SelectItem>
+                ))}
                   </SelectContent>
                 </Select>
               </div>
