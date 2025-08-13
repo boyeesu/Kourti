@@ -15,6 +15,7 @@ import Onboarding from "./pages/Onboarding.js";
 import Cases from "./pages/Cases.js";
 import CaseDetails from "./pages/CaseDetails.js";
 import CaseCreate from "./pages/CaseCreate.js";
+import CaseEdit from "./pages/CaseEdit.js";
 import ClientCreate from "./pages/ClientCreate.js";
 import ClientEdit from "./pages/ClientEdit.js";
 import CaseActivities from "./pages/CaseActivitiesNew.js";
@@ -66,6 +67,7 @@ const App = () => (
                           <Route path="/cases" element={<Cases />} />
                           <Route path="/cases/create" element={<CaseCreate />} />
                           <Route path="/cases/:id" element={<CaseDetails />} />
+                          <Route path="/cases/:id/edit" element={<CaseEdit />} />
                           <Route path="/cases/:id/activities" element={<CaseActivities />} />
                           <Route path="/clients" element={<Clients />} />
                           <Route path="/clients/create" element={<ClientCreate />} />
