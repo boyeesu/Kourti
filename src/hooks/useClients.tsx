@@ -36,7 +36,7 @@ export function useClients() {
         .from('clients')
         .select(`
           *,
-          cases!cases_client_id_fkey(count),
+          cases!fk_cases_client_id(count),
           contracts!fk_contracts_client_id(count)
         `)
         .eq('organization_id', organizationId)
