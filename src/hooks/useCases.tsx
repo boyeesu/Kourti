@@ -46,7 +46,7 @@ export function useCases(initialPageSize = 10) {
           `
           *,
           client:clients!cases_client_id_fkey(id, name),
-          assigned_user:profiles(id, first_name, last_name)
+          assigned_user:profiles!fk_cases_assigned_to(id, first_name, last_name)
           `,
           { count: 'exact' }
         )
@@ -96,7 +96,7 @@ export function useCase(id: string) {
         .select(`
           *,
           client:clients!cases_client_id_fkey(id, name),
-          assigned_user:profiles(id, first_name, last_name)
+          assigned_user:profiles!fk_cases_assigned_to(id, first_name, last_name)
         `)
         .eq('id', id)
         .eq('organization_id', profile.organization_id)
@@ -131,7 +131,7 @@ export function useCasesByClient(clientId: string) {
         .select(`
           *,
           client:clients!cases_client_id_fkey(id, name),
-          assigned_user:profiles(id, first_name, last_name)
+          assigned_user:profiles!fk_cases_assigned_to(id, first_name, last_name)
         `)
         .eq('client_id', clientId)
         .eq('organization_id', organizationId)
