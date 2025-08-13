@@ -143,6 +143,7 @@ export default function Onboarding() {
         title: "Error",
         description: error.message || "Failed to complete onboarding. Please try again.",
       });
+    }
   };
 
   const addEmailField = () => {
