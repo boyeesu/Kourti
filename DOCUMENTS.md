@@ -45,6 +45,64 @@ kouti-legal-hub-41/
 
 RLS: each table has `auth.uid() = user_id` or `organisation_id` policy.
 
+## 2.3 Other Domain Tables
+| table | purpose |
+|-------|---------|
+| **profiles**          | stores user profiles (first/last name, email, phone, department, organization_id) |
+| **organizations**     | tenant organizations (name, created_at) |
+| **clients**           | client entities linked to orgs (id, name, contact info) |
+| **cases**             | case records (title, description, status, priority, assigned_to, organization_id) |
+| **case_types**        | definitions of case types (e.g. Litigation, IP) |
+| **case_fields**       | custom fields per case type (label, data_type, required) |
+| **case_activities**   | activity logs on cases (case_id, title, description, date) |
+
+---
+## 9. Module Reference
+
+Below is a summary of the key code modules and their responsibilities.
+
+### 9.1 Pages (`src/pages`)
+- **Dashboard.tsx**: main landing page; shows stats, recent cases, upcoming events, and actionable insights.
+- **Documents.tsx**: lists documents; supports upload, AI summarization, filtering.
+- **DocumentUpload.tsx**: UI for uploading and annotating new documents.
+- **Contracts.tsx** / **ContractView.tsx** / **ContractEdit.tsx** / **ContractHistory.tsx**: contract CRUD, viewing, editing, version history, AI reviews.
+- **Cases.tsx** / **CaseCreate.tsx** / **CaseDetails.tsx** / **CaseActivities.tsx**: case management and activities.
+- **Clients.tsx** / **ClientCreate.tsx** / **ClientDetails.tsx** / **ClientEdit.tsx**: client profiles and communication logs.
+- **Calendar.tsx**: interactive calendar of case hearings and events.
+- **Settings.tsx** / **UserManagement.tsx** / **Profile.tsx**: user, role, and application settings.
+- **Auth.tsx**, **Login.tsx**, **Register.tsx**, **Onboarding.tsx**: authentication flows.
+- **BulkImport.tsx**: CSV/Excel import for clients, cases, documents.
+
+### 9.2 Hooks (`src/hooks`)
+- **useAuth**: authentication state and helpers (signIn, signOut).
+- **useCurrentUser**: get current user's profile.
+- **useUserOrganization**: fetch user's org ID (RLS context).
+- **useDashboardStats**: aggregates counts and recent items for Dashboard.
+- **useInsights**: computes upcoming cases and contracts within window.
+- **useDashboardPrefs** / **useSaveDashboardPrefs**: read/write dashboard widget settings.
+- **useNotificationsDb**: fetch notifications from Supabase.
+- **useAnalyzeDocument**: mutation for AI-powered document summarization.
+- **useAnalyzeContract**: mutation for AI-driven risk analysis.
+- **useCases**, **useCase**, **useCreateCase**, **useUpdateCase**, **useDeleteCase**: case data hooks.
+- **useCaseTypes** / **useCaseFields**: dynamic case-type field hooks.
+- **useClients**, **useClient**, **useCreateClient**: client data hooks.
+- **useDocuments**, **useDocument**, **useCreateDocument**, **useUpdateDocument**, **useDeleteDocument**: document data hooks.
+- **useContracts**, **useContract**, **useCreateContract**, etc.: contract data hooks.
+
+### 9.3 Components (`src/components`)
+- **ui/**: design primitives (Button, Input, Select, Tabs, Dialog, Popover, Sidebar, etc.)
+- **layout/**: application layout (AppLayout, AppSidebar, ProtectedRoute).
+- **shared/components/**: reusable low-level components.
+
+### 9.4 Lib (`src/lib`)
+- **openaiService.ts**: wrapper around Supabase Edge Functions for AI tasks.
+- **openaiWorkflows.ts**: high-level functions orchestrating AI calls + DB writes.
+- **utils.ts** / **csv.ts**: utility functions for CSV parsing, logging, etc.
+
+---
+Hope this detailed map helps you get oriented. Happy coding!
+
+
 ---
 ## 3. Edge Functions (supabase/functions)
 | function | description |
