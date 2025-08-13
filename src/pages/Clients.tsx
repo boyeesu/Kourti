@@ -1,24 +1,62 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Building, Mail, Phone, MoreHorizontal, Upload } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Building,
+  Mail,
+  Phone,
+  MoreHorizontal,
+  Upload,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useClients } from "@/hooks/useClients";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { Checkbox } from "@/components/ui/checkbox";
+import BulkToolbar, { BulkAction } from "@/components/table/BulkToolbar";
+import { useBulkSelect } from "@/hooks/useBulkSelect";
+import { useBulkClientActions } from "@/hooks/useBulkClientActions";
 
 export default function Clients() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  // Paginated clients: default to page 1, size 10
+
   const { data, isLoading } = useClients();
   const clients = data?.items ?? [];
-  const totalClients = data?.total ?? 0;
+
+  // bulk select handling
+  const {
+    selected,
+    isSelected,
+    toggle,
+    toggleAll,
+    clear,
+  } = useBulkSelect(clients);
+  const bulk = useBulkClientActions();
 
   if (isLoading) {
     return (
@@ -29,27 +67,43 @@ export default function Clients() {
   }
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active": return "bg-success/10 text-success";
-      case "Inactive": return "bg-muted/50 text-muted-foreground";
-      default: return "bg-muted/50 text-muted-foreground";
+    switch (status.toLowerCase()) {
+      case "active":
+        return "bg-success/10 text-success";
+      case "inactive":
+        return "bg-muted/50 text-muted-foreground";
+      default:
+        return "bg-muted/50 text-muted-foreground";
     }
   };
 
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === "all" || client.status.toLowerCase() === statusFilter;
+  const filteredClients = clients.filter((client) => {
+    const matchesSearch =
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.email &&
+        client.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus =
+      statusFilter === "all" || client.status.toLowerCase() === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
 
-  const totalCases = clients.reduce((sum, client) => sum + (client.cases?.[0]?.count || 0), 0);
-  const totalContracts = clients.reduce((sum, client) => sum + (client.contracts?.[0]?.count || 0), 0);
+  const totalCases = clients.reduce(
+    (sum, c) => sum + (c.cases?.[0]?.count ?? 0),
+    0
+  );
+  const totalContracts = clients.reduce(
+    (sum, c) => sum + (c.contracts?.[0]?.count ?? 0),
+    0
+  );
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase();
-  };
+  const getInitials = (name: string) =>
+    name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
 
   return (
     <div className="px-4 py-6 space-y-6 animate-fade-in">
@@ -58,79 +112,38 @@ export default function Clients() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Clients</h1>
-          <p className="text-muted-foreground">Manage your client database and relationships</p>
+          <p className="text-muted-foreground">
+            Manage your client database and relationships
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button className="shadow-md hover-scale" onClick={() => navigate("/clients/create")}>
+          <Button
+            className="shadow-md hover-scale"
+            onClick={() => navigate("/clients/create")}
+          >
             <Plus className="h-4 w-4 mr-2" />
             New Client
           </Button>
-          <Button variant="outline" className="hover-scale" onClick={() => navigate("/bulk-import?type=clients")}>
+          <Button
+            variant="outline"
+            className="hover-scale"
+            onClick={() => navigate("/bulk-import?type=clients")}
+          >
             <Upload className="h-4 w-4 mr-2" />
             Bulk Import
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Building className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{clients.length}</p>
-                <p className="text-sm text-muted-foreground">Total Clients</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-success/10 rounded-lg">
-                <Building className="h-6 w-6 text-success" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {clients.filter(c => c.status === "active").length}
-                </p>
-                <p className="text-sm text-muted-foreground">Active Clients</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-warning/10 rounded-lg">
-                <Building className="h-6 w-6 text-warning" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{totalCases}</p>
-                <p className="text-sm text-muted-foreground">Total Cases</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-info/10 rounded-lg">
-                <Building className="h-6 w-6 text-info" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{totalContracts}</p>
-                <p className="text-sm text-muted-foreground">Total Contracts</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard label="Total Clients" value={clients.length} />
+        <StatCard
+          label="Active Clients"
+          value={clients.filter((c) => c.status === "active").length}
+        />
+        <StatCard label="Total Cases" value={totalCases} />
+        <StatCard label="Total Contracts" value={totalContracts} />
       </div>
 
       {/* Filters */}
@@ -140,16 +153,14 @@ export default function Clients() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search clients, contacts, or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search clients, contacts, or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
             <div className="md:w-48">
               <select
@@ -166,17 +177,16 @@ export default function Clients() {
         </CardContent>
       </Card>
 
-      {/* Clients Table */}
-      {/* Bulk actions toolbar */}
-      <Card className="shadow-card">
-        <CardContent className="p-0">
-          <BulkToolbar count={selected.length} onAction={action => {
-            bulk.mutate({ ids: selected, action });
-            clear();
-          }} />
-        </CardContent>
-      </Card>
+      {/* Bulk toolbar */}
+      <BulkToolbar
+        count={selected.length}
+        onAction={(action: BulkAction) => {
+          bulk.mutate({ ids: selected, action });
+          clear();
+        }}
+      />
 
+      {/* Table */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>Client Directory</CardTitle>
@@ -187,7 +197,7 @@ export default function Clients() {
               <TableRow>
                 <TableHead className="w-[38px]">
                   <Checkbox
-                    checked={selected.length === clients.length}
+                    checked={selected.length === clients.length && clients.length > 0}
                     onCheckedChange={toggleAll}
                   />
                 </TableHead>
@@ -203,9 +213,15 @@ export default function Clients() {
             </TableHeader>
             <TableBody>
               {filteredClients.map((client) => (
-                <TableRow key={client.id} className="hover:bg-muted/50 transition-colors">
+                <TableRow
+                  key={client.id}
+                  className="hover:bg-muted/50 transition-colors"
+                >
                   <TableCell className="w-[38px]">
-                    <Checkbox checked={isSelected(client.id)} onCheckedChange={() => toggle(client.id)} />
+                    <Checkbox
+                      checked={isSelected(client.id)}
+                      onCheckedChange={() => toggle(client.id)}
+                    />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -229,11 +245,11 @@ export default function Clients() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-sm">
                         <Mail className="h-3 w-3 text-muted-foreground" />
-                        <span>{client.email || 'No email'}</span>
+                        <span>{client.email || "No email"}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Phone className="h-3 w-3 text-muted-foreground" />
-                        <span>{client.phone || 'No phone'}</span>
+                        <span>{client.phone || "No phone"}</span>
                       </div>
                     </div>
                   </TableCell>
@@ -241,7 +257,10 @@ export default function Clients() {
                     <Badge variant="outline">Individual</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(client.status)} variant="outline">
+                    <Badge
+                      className={getStatusColor(client.status)}
+                      variant="outline"
+                    >
                       {client.status}
                     </Badge>
                   </TableCell>
@@ -252,7 +271,9 @@ export default function Clients() {
                     <span className="font-medium">{client.contracts?.[0]?.count ?? 0}</span>
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm text-muted-foreground">{new Date(client.created_at).toLocaleDateString()}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(client.created_at).toLocaleDateString()}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -262,14 +283,24 @@ export default function Clients() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}`)}>
+                        <DropdownMenuItem
+                          onClick={() => navigate(`/clients/${client.id}`)}
+                        >
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>Edit Client</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/cases?client=${client.id}`)}>
+                        <DropdownMenuItem
+                          onClick={() => navigate(`/clients/${client.id}/edit`)}
+                        >
+                          Edit Client
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => navigate(`/cases?client=${client.id}`)}
+                        >
                           View Cases
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/contracts?client=${client.id}`)}>
+                        <DropdownMenuItem
+                          onClick={() => navigate(`/contracts?client=${client.id}`)}
+                        >
                           View Contracts
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -285,7 +316,9 @@ export default function Clients() {
               <Building className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No clients found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchTerm ? "Try adjusting your search criteria" : "Get started by adding your first client"}
+                {searchTerm
+                  ? "Try adjusting your search criteria"
+                  : "Get started by adding your first client"}
               </p>
               <Button className="hover-scale" onClick={() => navigate("/clients/create")}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -296,5 +329,23 @@ export default function Clients() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Card className="shadow-card">
+      <CardContent className="p-6">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-primary/10 rounded-lg">
+            <Building className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-foreground">{value}</p>
+            <p className="text-sm text-muted-foreground">{label}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
