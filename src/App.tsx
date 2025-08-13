@@ -32,6 +32,7 @@ import ContractEdit from "./pages/ContractEdit.js";
 import ContractHistory from "./pages/ContractHistory.js";
 import UserManagement from "./pages/UserManagement.js";
 import Settings from "./pages/Settings.js";
+import Profile from "./pages/Profile.js";
 import NotFound from "./pages/NotFound.js";
 
 const queryClient = new QueryClient();
@@ -83,6 +84,7 @@ const App = () => (
                           <Route path="/contracts/:id/history" element={<ContractHistory />} />
                           <Route path="/users" element={<UserManagement />} />
                           <Route path="/settings" element={<Settings />} />
+                          <Route path="/profile" element={<Profile />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </AppLayout>
