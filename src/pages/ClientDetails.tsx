@@ -191,7 +191,87 @@ export default function ClientDetails() {
         </CardContent>
       </Card>
 
-      {/* existing Notes, Cases, Contracts sections stay here (omitted for brevity) */}
+      {/* Cases Section */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Cases</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Next Hearing</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cases?.map((c) => (
+                <TableRow key={c.id} className="hover:bg-muted/50">
+                  <TableCell>
+                    <Button variant="link" onClick={() => navigate(`/cases/${c.id}`)}>
+                      {c.title}
+                    </Button>
+                  </TableCell>
+                  <TableCell>{c.status}</TableCell>
+                  <TableCell>{c.priority}</TableCell>
+                  <TableCell>{c.next_hearing_date ? new Date(c.next_hearing_date).toLocaleDateString() : '-'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Calendar Events Section */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Calendar Events</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {calEvents?.filter(e => e.client_id === clientId).map(ev => (
+            <div key={ev.id} className="p-2 border rounded">
+              <p className="font-medium">{ev.title}</p>
+              <p className="text-sm text-muted-foreground">{new Date(ev.start_date).toLocaleString()}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Documents Section */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Documents</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {documents?.map((d) => (
+            <div key={d.id} className="flex items-center justify-between p-2 border rounded">
+              <a href={d.url || '#'} target="_blank" className="text-primary hover:underline">
+                {d.name}
+              </a>
+              <span className="text-sm text-muted-foreground">{d.status}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Contracts Section */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Contracts</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {contracts?.map((ct) => (
+            <div key={ct.id} className="flex items-center justify-between p-2 border rounded">
+              <Button variant="link" onClick={() => navigate(`/contracts/${ct.id}`)}>
+                {ct.title}
+              </Button>
+              <span className="text-sm text-muted-foreground">{ct.status}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }
