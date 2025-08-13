@@ -49,7 +49,8 @@ type CaseFormData = z.infer<typeof caseSchema>;
 
 export default function CaseCreate() {
   const navigate = useNavigate();
-  const { data: clients = [] } = useClients();
+  const { data } = useClients();
+  const clients = data?.items ?? [];
   const createCase = useCreateCase();
 
   // new hooks for case types & fields
