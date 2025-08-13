@@ -58,7 +58,7 @@ export default function CaseEdit() {
     setSubmitting(true);
     try {
       await updateCase.mutateAsync({
-        id: caseData.id,
+        id: caseData!.id,
         ...form,
         custom_fields: dynamicValues,
       } as any);

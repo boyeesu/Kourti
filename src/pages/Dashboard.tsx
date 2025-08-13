@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ export default function Dashboard() {
   // Insights for next 7 days
   const { upcomingCases, upcomingContracts } = useInsights(7);
   // Load user widget preferences
-  const { data: widgets = { show_upcoming_cases: true, show_upcoming_contracts: true } } = useDashboardPrefs(orgId!);
+  const { data: widgets = { show_upcoming_cases: true, show_upcoming_contracts: true } } = useDashboardPrefs(orgId || "");
 
   // Stats cards
   const stats = [
@@ -72,9 +72,9 @@ export default function Dashboard() {
           <CardHeader><CardTitle>Upcoming Hearings</CardTitle></CardHeader>
           <CardContent>
             <ul className="space-y-2">
-              {upcomingCases.map((c) => (
-                <li key={c.id}>{c.title} on {new Date(c.next_hearing_date!).toLocaleDateString()}</li>
-              ))}
+               {upcomingCases.map((c) => (
+                 <li key={c.id}>{c.title} on {new Date(c.next_hearing_date || Date.now()).toLocaleDateString()}</li>
+               ))}
             </ul>
           </CardContent>
         </Card>
@@ -85,7 +85,7 @@ export default function Dashboard() {
           <CardContent>
             <ul className="space-y-2">
               {upcomingContracts.map((c: any) => (
-                <li key={c.id}>{c.name} expires {new Date(c._insight_date).toLocaleDateString()}</li>
+                <li key={c.id}>{c.name} expires {new Date(c._insight_date || Date.now()).toLocaleDateString()}</li>
               ))}
             </ul>
           </CardContent>
@@ -151,7 +151,7 @@ export default function Dashboard() {
               <div key={ev.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                 <div>
                   <h4 className="font-medium text-foreground">{ev.title}</h4>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{new Date(ev.start_date).toLocaleTimeString()} • {new Date(ev.start_date).toLocaleDateString()}</p>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{new Date(ev.start_date || Date.now()).toLocaleTimeString()} • {new Date(ev.start_date || Date.now()).toLocaleDateString()}</p>
                 </div>
                 <Badge>{ev.event_type}</Badge>
               </div>

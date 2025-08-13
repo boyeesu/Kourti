@@ -43,7 +43,7 @@ const steps = [
 
 export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     organization: {
       name: "",
@@ -58,9 +58,9 @@ export default function Onboarding() {
     },
     team: {
       inviteEmails: [""],
-      defaultRoles: [],
+      defaultRoles: [] as string[],
     },
-    practiceAreas: [],
+    practiceAreas: [] as string[],
   });
 
   const { user } = useAuth();
@@ -101,7 +101,7 @@ export default function Onboarding() {
   };
 
   const handleFinish = async () => {
-    setLoading(true);
+    
     try {
       // Create organization with all collected data
       const { data: orgData, error: orgError } = await supabase
@@ -143,9 +143,6 @@ export default function Onboarding() {
         title: "Error",
         description: error.message || "Failed to complete onboarding. Please try again.",
       });
-    } finally {
-      setLoading(false);
-    }
   };
 
   const addEmailField = () => {
