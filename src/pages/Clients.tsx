@@ -39,6 +39,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import BulkToolbar, { BulkAction } from "@/components/table/BulkToolbar";
 import { useBulkSelect } from "@/hooks/useBulkSelect";
 import { useBulkClientActions } from "@/hooks/useBulkClientActions";
+import type { Client } from "@/types";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export default function Clients() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const { data, isLoading } = useClients();
-  const clients = data?.items ?? [];
+  const clients: Client[] = data?.items ?? [];
 
   // bulk select handling
   const {
@@ -77,7 +78,7 @@ export default function Clients() {
     }
   };
 
-  const filteredClients = clients.filter((client) => {
+  const filteredClients = clients.filter((client: Client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.email &&
@@ -88,12 +89,12 @@ export default function Clients() {
     return matchesSearch && matchesStatus;
   });
 
-  const totalCases = clients.reduce(
-    (sum, c) => sum + (c.cases?.[0]?.count ?? 0),
+  const totalCases: number = clients.reduce(
+    (sum: number, c: Client) => sum + (c.cases?.[0]?.count ?? 0),
     0
   );
-  const totalContracts = clients.reduce(
-    (sum, c) => sum + (c.contracts?.[0]?.count ?? 0),
+  const totalContracts: number = clients.reduce(
+    (sum: number, c: Client) => sum + (c.contracts?.[0]?.count ?? 0),
     0
   );
 
@@ -212,7 +213,7 @@ export default function Clients() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredClients.map((client) => (
+              {filteredClients.map((client: Client) => (
                 <TableRow
                   key={client.id}
                   className="hover:bg-muted/50 transition-colors"
@@ -349,3 +350,4 @@ function StatCard({ label, value }: { label: string; value: number }) {
     </Card>
   );
 }
+ 
