@@ -5,6 +5,24 @@ import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { CalendarEvent } from '@/types';
 
+// Assuming CalendarEvent type is defined elsewhere and matches your database schema.
+// Example:
+// export interface CalendarEvent {
+//   id: string;
+//   title: string;
+//   description?: string;
+//   start_date: string;
+//   end_date: string;
+//   location?: string;
+//   attendees?: string[];
+//   event_type?: string;
+//   case_id?: string;
+//   client_id?: string;
+//   organization_id: string;
+//   created_by: string;
+//   created_at: string;
+// }
+
 export interface CreateCalendarEventData {
   title: string;
   description?: string;
@@ -17,14 +35,17 @@ export interface CreateCalendarEventData {
   client_id?: string;
 }
 
+/**
+ * Fetches all calendar events for the current user's organization.
+ */
 export function useCalendarEvents() {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery({
-    queryKey: ['calendar-events', organizationId],
+    queryKey: ['calendar-events', { organizationId }],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for calendar events');
+        console.warn('⚠️ No organization ID found. Skipping calendar events fetch.');
         return [];
       }
 
@@ -40,7 +61,7 @@ export function useCalendarEvents() {
         console.error('❌ Error fetching calendar events:', error);
         throw error;
       }
-      
+
       console.log('✅ Calendar events found:', data?.length || 0);
       return data as CalendarEvent[];
     },
@@ -50,9 +71,12 @@ export function useCalendarEvents() {
   });
 }
 
+/**
+ * Fetches a single calendar event by its ID.
+ */
 export function useCalendarEvent(id: string) {
   return useQuery({
-    queryKey: ['calendar-event', id],
+    queryKey: ['calendar-event', { id }],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('calendar_events')
@@ -68,13 +92,24 @@ export function useCalendarEvent(id: string) {
   });
 }
 
+/**
+ * Fetches all calendar events within a specified date range for the current organization.
+ */
 export function useCalendarEventsByDateRange(startDate: string, endDate: string) {
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+
   return useQuery({
-    queryKey: ['calendar-events', 'range', startDate, endDate],
+    queryKey: ['calendar-events', 'range', { startDate, endDate, organizationId }],
     queryFn: async () => {
+      if (!organizationId) {
+        console.warn('⚠️ No organization ID found. Skipping date range calendar events fetch.');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
+        .eq('organization_id', organizationId)
         .gte('start_date', startDate)
         .lte('end_date', endDate)
         .order('start_date', { ascending: true });
@@ -82,11 +117,15 @@ export function useCalendarEventsByDateRange(startDate: string, endDate: string)
       if (error) throw error;
       return data as CalendarEvent[];
     },
-    enabled: !!startDate && !!endDate,
+    enabled: !!startDate && !!endDate && !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
   });
 }
 
+/**
+ * Creates a new calendar event.
+ * Invalidates all calendar-events queries on success.
+ */
 export function useCreateCalendarEvent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -95,7 +134,7 @@ export function useCreateCalendarEvent() {
   return useMutation({
     mutationFn: async (eventData: CreateCalendarEventData) => {
       if (!organizationId) {
-        throw new Error('Organization not found');
+        throw new Error('Organization not found. Cannot create calendar event.');
       }
 
       const userId = await getCurrentUserId();
@@ -115,20 +154,24 @@ export function useCreateCalendarEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       toast({
-        title: "Success",
-        description: "Calendar event created successfully.",
+        title: 'Success',
+        description: 'Calendar event created successfully.',
       });
     },
     onError: (error: any) => {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create calendar event.",
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to create calendar event.',
       });
     },
   });
 }
 
+/**
+ * Updates an existing calendar event.
+ * Invalidates the specific event and all calendar-events queries on success.
+ */
 export function useUpdateCalendarEvent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -147,22 +190,26 @@ export function useUpdateCalendarEvent() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-      queryClient.invalidateQueries({ queryKey: ['calendar-event', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-event', { id: data.id }] });
       toast({
-        title: "Success",
-        description: "Calendar event updated successfully.",
+        title: 'Success',
+        description: 'Calendar event updated successfully.',
       });
     },
     onError: (error: any) => {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to update calendar event.",
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to update calendar event.',
       });
     },
   });
 }
 
+/**
+ * Deletes a calendar event.
+ * Invalidates all calendar-events queries on success.
+ */
 export function useDeleteCalendarEvent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -179,15 +226,15 @@ export function useDeleteCalendarEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       toast({
-        title: "Success",
-        description: "Calendar event deleted successfully.",
+        title: 'Success',
+        description: 'Calendar event deleted successfully.',
       });
     },
     onError: (error: any) => {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to delete calendar event.",
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to delete calendar event.',
       });
     },
   });
