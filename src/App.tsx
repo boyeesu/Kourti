@@ -9,13 +9,13 @@ import { CasesProvider } from "@/context/CasesContext";
 import { SearchProvider } from "@/hooks/use-search";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-// Import page components without explicit extensions so Vite/TypeScript can resolve .tsx files
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import Cases from "./pages/Cases";
 import CaseDetails from "./pages/CaseDetails";
 import CaseCreate from "./pages/CaseCreate";
+import CaseEdit from "./pages/CaseEdit";
 import ClientCreate from "./pages/ClientCreate";
 import ClientEdit from "./pages/ClientEdit";
 import CaseActivities from "./pages/CaseActivitiesNew";
@@ -67,6 +67,7 @@ const App = () => (
                           <Route path="/cases" element={<Cases />} />
                           <Route path="/cases/create" element={<CaseCreate />} />
                           <Route path="/cases/:id" element={<CaseDetails />} />
+                          <Route path="/cases/:id/edit" element={<CaseEdit />} />
                           <Route path="/cases/:id/activities" element={<CaseActivities />} />
                           <Route path="/clients" element={<Clients />} />
                           <Route path="/clients/create" element={<ClientCreate />} />
