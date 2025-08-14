@@ -14,7 +14,7 @@ export interface DashboardStats {
   upcomingCalendarEvents: Partial<CalendarEvent>[];
 }
 
-export function useDashboardStats() {
+export function useDashboard() {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery({
@@ -133,3 +133,6 @@ export function useDashboardStats() {
     gcTime: 2 * 60 * 1000, // 2 minutes
   });
 }
+
+// Keep the existing useDashboardStats function for backward compatibility
+export const useDashboardStats = useDashboard;

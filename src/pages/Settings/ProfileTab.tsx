@@ -1,26 +1,36 @@
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   last_name: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
-  title: z.string().optional(),
   department: z.string().optional(),
+  title: z.string().optional(),
 });
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string().min(1, "Please confirm your password"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
@@ -31,8 +41,8 @@ type ProfileData = z.infer<typeof profileSchema>;
 type PasswordChangeData = z.infer<typeof passwordSchema>;
 
 export default function ProfileTab() {
-  const { data: profile, isLoading } = useProfile();
-  const { toast } = useToast();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { updateProfile, changePassword } = useProfile();
 
   const profileForm = useForm<ProfileData>({
     resolver: zodResolver(profileSchema),
@@ -41,8 +51,8 @@ export default function ProfileTab() {
       last_name: profile?.last_name || "",
       email: profile?.email || "",
       phone: profile?.phone || "",
-      title: profile?.title || "",
       department: profile?.department || "",
+      title: profile?.title || "",
     },
   });
 
@@ -50,59 +60,26 @@ export default function ProfileTab() {
     resolver: zodResolver(passwordSchema),
   });
 
-  // Mock mutations - replace with actual hooks
-  const updateProfile = {
-    mutateAsync: async (data: ProfileData) => {
-      // Mock API call
-      console.log("Updating profile:", data);
-      return Promise.resolve();
-    },
-    isPending: false,
-  };
-
-  const changePassword = {
-    mutateAsync: async (data: PasswordChangeData) => {
-      // Mock API call
-      console.log("Changing password");
-      return Promise.resolve();
-    },
-    isPending: false,
-  };
-
-  const onUpdateProfile = async (data: ProfileData) => {
+  const onProfileSubmit = async (data: ProfileData) => {
     try {
       await updateProfile.mutateAsync(data);
-      toast({
-        title: "Success",
-        description: "Profile updated successfully",
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to update profile",
-      });
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      toast.error("Failed to update profile");
     }
   };
 
-  const onChangePassword = async (data: PasswordChangeData) => {
+  const onPasswordSubmit = async (passwordData: PasswordChangeData) => {
     try {
-      await changePassword.mutateAsync(data);
-      toast({
-        title: "Success",
-        description: "Password changed successfully",
-      });
+      await changePassword.mutateAsync(passwordData);
+      toast.success("Password changed successfully!");
       passwordForm.reset();
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to change password",
-      });
+    } catch (error) {
+      toast.error("Failed to change password");
     }
   };
 
-  if (isLoading) {
+  if (profileLoading) {
     return <div>Loading...</div>;
   }
 
@@ -113,91 +90,120 @@ export default function ProfileTab() {
         <CardHeader>
           <CardTitle>Profile Information</CardTitle>
           <CardDescription>
-            Update your personal information and contact details
+            Update your personal information and contact details.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={profileForm.handleSubmit(onUpdateProfile)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first_name">First Name</Label>
-                <Input
-                  id="first_name"
-                  {...profileForm.register("first_name")}
-                  placeholder="Enter your first name"
+          <div className="flex items-center gap-6 mb-6">
+            <Avatar className="h-20 w-20">
+              <AvatarImage src={profile?.avatar_url} />
+              <AvatarFallback>
+                {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="text-lg font-medium">
+                {profile?.first_name} {profile?.last_name}
+              </h3>
+              <p className="text-sm text-muted-foreground">{profile?.title || profile?.role}</p>
+            </div>
+          </div>
+
+          <Form {...profileForm}>
+            <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={profileForm.control}
+                  name="first_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your first name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {profileForm.formState.errors.first_name && (
-                  <p className="text-sm text-destructive">
-                    {profileForm.formState.errors.first_name.message}
-                  </p>
+
+                <FormField
+                  control={profileForm.control}
+                  name="last_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your last name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={profileForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your email" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="last_name">Last Name</Label>
-                <Input
-                  id="last_name"
-                  {...profileForm.register("last_name")}
-                  placeholder="Enter your last name"
-                />
-                {profileForm.formState.errors.last_name && (
-                  <p className="text-sm text-destructive">
-                    {profileForm.formState.errors.last_name.message}
-                  </p>
+              />
+
+              <FormField
+                control={profileForm.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your phone number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                {...profileForm.register("email")}
-                placeholder="Enter your email"
               />
-              {profileForm.formState.errors.email && (
-                <p className="text-sm text-destructive">
-                  {profileForm.formState.errors.email.message}
-                </p>
-              )}
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  {...profileForm.register("phone")}
-                  placeholder="Enter your phone number"
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={profileForm.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your department" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={profileForm.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your job title" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="title">Job Title</Label>
-                <Input
-                  id="title"
-                  {...profileForm.register("title")}
-                  placeholder="Enter your job title"
-                />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                {...profileForm.register("department")}
-                placeholder="Enter your department"
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              disabled={updateProfile.isPending}
-              className="w-full"
-            >
-              {updateProfile.isPending ? "Updating..." : "Update Profile"}
-            </Button>
-          </form>
+              <Button type="submit" disabled={updateProfile.isPending}>
+                {updateProfile.isPending ? "Updating..." : "Update Profile"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
@@ -206,64 +212,62 @@ export default function ProfileTab() {
         <CardHeader>
           <CardTitle>Change Password</CardTitle>
           <CardDescription>
-            Update your password to keep your account secure
+            Update your password to keep your account secure.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={passwordForm.handleSubmit(onChangePassword)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                {...passwordForm.register("currentPassword")}
-                placeholder="Enter your current password"
+          <Form {...passwordForm}>
+            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+              <FormField
+                control={passwordForm.control}
+                name="currentPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Enter current password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {passwordForm.formState.errors.currentPassword && (
-                <p className="text-sm text-destructive">
-                  {passwordForm.formState.errors.currentPassword.message}
-                </p>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                {...passwordForm.register("newPassword")}
-                placeholder="Enter your new password"
+              <FormField
+                control={passwordForm.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Enter new password" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Password must be at least 8 characters long.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {passwordForm.formState.errors.newPassword && (
-                <p className="text-sm text-destructive">
-                  {passwordForm.formState.errors.newPassword.message}
-                </p>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                {...passwordForm.register("confirmPassword")}
-                placeholder="Confirm your new password"
+              <FormField
+                control={passwordForm.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm New Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Confirm new password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {passwordForm.formState.errors.confirmPassword && (
-                <p className="text-sm text-destructive">
-                  {passwordForm.formState.errors.confirmPassword.message}
-                </p>
-              )}
-            </div>
 
-            <Button 
-              type="submit" 
-              disabled={changePassword.isPending}
-              className="w-full"
-            >
-              {changePassword.isPending ? "Changing Password..." : "Change Password"}
-            </Button>
-          </form>
+              <Button type="submit" disabled={changePassword.isPending}>
+                {changePassword.isPending ? "Changing..." : "Change Password"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>

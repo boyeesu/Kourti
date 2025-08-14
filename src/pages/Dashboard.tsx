@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -11,24 +10,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
   LineChart,
-  Line
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip
 } from "recharts";
 import { 
   FileText, 
   Users, 
-  Briefcase, 
-  Calendar,
+  Briefcase,
   TrendingUp,
   AlertTriangle,
   Clock,
@@ -36,7 +32,7 @@ import {
 } from "lucide-react";
 import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";
-import { Case } from "@/types";
+import { Case, Contract } from "@/types";
 
 export default function Dashboard() {
   const [windowDays] = useState(7);
@@ -230,7 +226,7 @@ export default function Dashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {upcomingContracts.map((contract) => (
+                  {upcomingContracts.map((contract: Contract) => (
                     <TableRow key={contract.id}>
                       <TableCell className="font-medium">{contract.title}</TableCell>
                       <TableCell>{contract.end_date ? new Date(contract.end_date).toLocaleDateString() : 'N/A'}</TableCell>

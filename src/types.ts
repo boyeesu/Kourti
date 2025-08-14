@@ -1,128 +1,170 @@
-
 export interface Case {
   id: string;
-  organization_id: string;
-  client_id?: string;
-  title: string;
-  description?: string;
-  case_number?: string;
-  status: string;
-  priority: string;
-  assigned_to?: string;
-  court?: string;
-  next_hearing_date?: string;
-  created_by?: string;
   created_at: string;
   updated_at: string;
-  client?: {
-    id: string;
-    name: string;
-  };
-  assigned_user?: {
-    id: string;
-    first_name?: string;
-    last_name?: string;
-  } | null;
+  created_by: string;
+  organization_id: string;
+  title: string;
+  description?: string;
+  status: 'open' | 'closed' | 'pending';
+  priority?: 'high' | 'medium' | 'low';
+  category?: string;
+  case_number?: string;
+  court?: string;
+  judge?: string;
+   opposing_counsel?: string;
+  next_hearing_date?: string;
+  trial_date?: string;
+  resolution_date?: string;
+  notes?: string;
+  documents?: Document[];
+  tasks?: Task[];
+  events?: CalendarEvent[];
+  client_id?: string;
 }
 
 export interface Client {
   id: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
   organization_id: string;
   name: string;
-  email?: string;
+  email: string;
   phone?: string;
   address?: string;
-  company?: string;
   notes?: string;
-  status: string;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-  cases?: { count: number }[];
-  contracts?: { count: number }[];
-}
-
-export interface Contract {
-  id: string;
-  organization_id: string;
-  client_id?: string;
-  title: string;
-  description?: string;
-  contract_type?: string;
-  status: string;
-  value?: number;
-  currency: string;
-  start_date?: string;
-  end_date?: string;
-  terms?: string;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
+  cases?: Case[];
+  documents?: Document[];
 }
 
 export interface CalendarEvent {
   id: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
   organization_id: string;
-  case_id?: string;
-  client_id?: string;
   title: string;
   description?: string;
   start_date: string;
   end_date: string;
   location?: string;
-  attendees?: string[];
-  event_type: string;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
+  event_type: 'meeting' | 'hearing' | 'deadline' | 'deposition' | 'review' | 'consultation';
+  case_id?: string;
+  client_id?: string;
 }
 
-export interface CommunicationLog {
+export interface Task {
   id: string;
-  client_id: string;
-  user_id: string;
-  type: 'email' | 'phone' | 'note';
-  content: string;
   created_at: string;
+  updated_at: string;
+  created_by: string;
+  organization_id: string;
+  title: string;
+  description?: string;
+  due_date?: string;
+  status: 'open' | 'completed' | 'pending';
+  priority?: 'high' | 'medium' | 'low';
+  case_id?: string;
+  client_id?: string;
+  assigned_to?: string;
 }
 
 export interface Document {
   id: string;
-  organization_id: string;
-  name: string;
   title: string;
-  content: string;
-  summary?: string;
-  metadata?: any;
-  effective_date?: string;
-  renewal_date?: string;
-  termination_date?: string;
-  value?: number;
-  contract_type?: string;
-  currency?: string;
-  terms?: string;
-  status?: string;
-  file_type?: string;
-  file_size?: number;
+  name: string;
+  file_path: string;
+  file_url?: string;
   case_id?: string;
   client_id?: string;
   created_at: string;
   updated_at: string;
-  created_by?: string;
+  created_by: string;
+  organization_id: string;
+  size?: number;
+  content_type?: string;
+  status: 'active' | 'archived' | 'pending';
+  tags?: string[];
+  version?: number;
+}
+
+export interface Invoice {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  organization_id: string;
+  client_id: string;
+  case_id?: string;
+  invoice_number: string;
+  issue_date: string;
+  due_date: string;
+  amount_due: number;
+  amount_paid: number;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  notes?: string;
+  line_items?: InvoiceLineItem[];
+}
+
+export interface InvoiceLineItem {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  invoice_id: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}
+
+export interface Contract {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  organization_id: string;
+  title: string;
+  description?: string;
+  start_date: string;
+  end_date: string;
+  value: number;
+  status: 'active' | 'expired' | 'terminated';
+  client_id?: string;
+  case_id?: string;
+  terms?: string;
 }
 
 export interface Organization {
   id: string;
   name: string;
   industry?: string;
-  description?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  logo_url?: string;
-  country?: string;
-  state?: string;
   created_at: string;
   updated_at: string;
+  settings?: Record<string, any>;
+}
+
+export interface User {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  email: string;
+  role: 'admin' | 'user';
+  organization_id: string;
+  profile?: Profile;
+}
+
+export interface Profile {
+  id: any;
+  user_id: any;
+  first_name: any;
+  last_name: any;
+  email: any;
+  phone: any;
+  department: any;
+  role: any;
+  title?: string;
+  avatar_url: any;
+  created_at: any;
+  updated_at: any;
 }

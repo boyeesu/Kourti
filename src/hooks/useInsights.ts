@@ -1,44 +1,37 @@
 
-import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useCases } from './useCases';
 import { useContracts } from './useContracts';
-import type { Case, Contract } from '@/types';
+import { useUserOrganization } from './useUserOrganization';
+import { Case, Contract } from '@/types';
 
-const DEFAULT_WINDOW_DAYS = 7;
+export function useInsights(windowDays: number = 7) {
+  const { data: organizationId } = useUserOrganization();
+  const { data: casesData } = useCases();
+  const { data: contractsData } = useContracts();
 
-export function useInsights(windowDays = DEFAULT_WINDOW_DAYS) {
-  const { data: casesData = { cases: [], count: 0 } } = useCases();
-  const { data: contractsData = [] } = useContracts();
+  // Filter upcoming cases with hearings in the next windowDays
+  const upcomingCases = casesData?.cases?.filter((c: Case) => {
+    if (!c.next_hearing_date) return false;
+    const hearingDate = new Date(c.next_hearing_date);
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
+    return hearingDate >= now && hearingDate <= windowEnd;
+  }) || [];
 
-  const now = new Date();
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() + windowDays);
+  // Filter contracts expiring in the next windowDays
+  const upcomingContracts = (Array.isArray(contractsData) ? contractsData : contractsData?.items || [])
+    .filter((contract: Contract) => {
+      if (!contract.end_date) return false;
+      const endDate = new Date(contract.end_date);
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
+      return endDate >= now && endDate <= windowEnd;
+    });
 
-  const upcomingCases = useMemo(
-    () =>
-      casesData.cases
-        .filter((c: Case) => c.next_hearing_date)
-        .map((c: Case) => ({ ...c, next_hearing_date: c.next_hearing_date! }))
-        .filter((c: Case & { next_hearing_date: string }) => {
-          const d = new Date(c.next_hearing_date);
-          return d >= now && d <= cutoff;
-        }),
-    [casesData.cases, windowDays]
-  );
-
-  const upcomingContracts = useMemo(
-    () => {
-      const contracts = Array.isArray(contractsData) ? contractsData : contractsData.items || [];
-      return contracts
-        .filter((c: Contract) => c.end_date)
-        .map((c: Contract) => ({ ...c, _insight_date: new Date(c.end_date!).toISOString() }))
-        .filter((c: Contract & { _insight_date: string }) => {
-          const d = new Date(c._insight_date);
-          return d >= now && d <= cutoff;
-        });
-    },
-    [contractsData, windowDays]
-  );
-
-  return { upcomingCases, upcomingContracts };
+  return {
+    upcomingCases,
+    upcomingContracts,
+  };
 }
