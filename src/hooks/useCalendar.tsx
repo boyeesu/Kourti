@@ -124,6 +124,27 @@ export function useCalendarEventsByDateRange(startDate: string, endDate: string)
 }
 
 /**
+ * Fetches all calendar events within a specified date range for the current organization.
+ */
+export function useCalendarEventsByClient(clientId: string) {
+  return useQuery({
+    queryKey: ['calendar-events', 'client', clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('start_date', { ascending: true });
+
+      if (error) throw error;
+      return data as CalendarEvent[];
+    },
+    enabled: !!clientId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
  * Creates a new calendar event.
  * Invalidates the relevant calendar-events queries on success.
  */

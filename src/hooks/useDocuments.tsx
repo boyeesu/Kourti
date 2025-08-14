@@ -102,6 +102,24 @@ export function useDocumentsByCase(caseId: string) {
   });
 }
 
+export function useDocumentsByClient(clientId: string) {
+  return useQuery({
+    queryKey: ['documents', 'client', clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Document[];
+    },
+    enabled: !!clientId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useCreateDocument() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

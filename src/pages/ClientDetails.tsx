@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -5,14 +6,19 @@ import {
   Edit,
   MoreHorizontal,
   StickyNote,
+  Phone,
+  Mail,
+  MapPin,
+  Building,
+  User,
+  Calendar,
+  FileText,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,26 +34,36 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useClient } from "@/hooks/useClients";
-import {
-  useCommLogs,
-  useCreateCommLog,
-} from "@/features/clients/api/useCommLogs";
+import { useClientLogs, useCreateClientLog } from "@/hooks/useClientLogs";
+import { useCasesByClient } from "@/hooks/useCases";
+import { useContractsByClient } from "@/hooks/useContracts";
+import { useCalendarEventsByClient } from "@/hooks/useCalendar";
+import { useDocumentsByClient } from "@/hooks/useDocuments";
 import { getCurrentUserId } from "@/hooks/useCurrentUser";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function ClientDetails() {
   const { clientId } = useParams();
   const navigate = useNavigate();
 
   const { data: client, isLoading: clientLoading } = useClient(clientId!);
+  const { data: commLogs = [] } = useClientLogs(clientId!);
+  const { data: cases = [] } = useCasesByClient(clientId!);
+  const { data: contracts = [] } = useContractsByClient(clientId!);
+  const { data: calEvents = [] } = useCalendarEventsByClient(clientId!);
+  const { data: documents = [] } = useDocumentsByClient(clientId!);
 
-  // communication logs
-  const { data: commLogs = [] } = useCommLogs(clientId!);
-  const createLog = useCreateCommLog(clientId!);
+  const createLog = useCreateClientLog();
   const [logContent, setLogContent] = useState("");
   const [logType, setLogType] = useState<'email' | 'phone' | 'note'>("note");
-
-
 
   const getInitials = (name: string) =>
     name
@@ -57,18 +73,34 @@ export default function ClientDetails() {
       .slice(0, 2)
       .toUpperCase();
 
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+      case 'open':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'closed':
+      case 'completed':
+        return 'bg-gray-100 text-gray-800';
+      case 'draft':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   if (clientLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="px-6 py-8 flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (!client) {
     return (
-      <div className="px-4 py-6 text-center">
+      <div className="px-6 py-8 text-center">
         <h1 className="text-2xl font-bold mb-4">Client not found</h1>
         <Button onClick={() => navigate("/clients")}>Back to Clients</Button>
       </div>
@@ -76,11 +108,12 @@ export default function ClientDetails() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6 animate-fade-in">
+    <div className="px-6 py-8 space-y-8 max-w-7xl mx-auto animate-fade-in">
       <Breadcrumbs />
+      
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <Button
             variant="outline"
             size="icon"
@@ -90,20 +123,28 @@ export default function ClientDetails() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-4">
-            <Avatar className="h-12 w-12">
-              <AvatarFallback className="bg-primary/10 text-primary font-medium text-lg">
+            <Avatar className="h-16 w-16 border-2 border-primary/20">
+              <AvatarFallback className="bg-primary/10 text-primary font-medium text-xl">
                 {getInitials(client.name)}
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">{client.name}</h1>
-              <p className="text-muted-foreground">
-                {client.company ? `${client.company} • ` : ""}Individual Client
-              </p>
+              <h1 className="text-4xl font-bold text-foreground">{client.name}</h1>
+              <div className="flex items-center gap-4 mt-2">
+                {client.company && (
+                  <p className="text-muted-foreground flex items-center gap-1">
+                    <Building className="h-4 w-4" />
+                    {client.company}
+                  </p>
+                )}
+                <Badge className={getStatusColor(client.status)}>
+                  {client.status}
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button
             variant="outline"
             className="hover-scale"
@@ -132,19 +173,94 @@ export default function ClientDetails() {
         </div>
       </div>
 
-      {/* Info cards ... (unchanged) */}
+      {/* Contact Information */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Contact Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {client.email && (
+              <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-medium">{client.email}</p>
+                </div>
+              </div>
+            )}
+            {client.phone && (
+              <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Phone</p>
+                  <p className="font-medium">{client.phone}</p>
+                </div>
+              </div>
+            )}
+            {client.address && (
+              <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Address</p>
+                  <p className="font-medium">{client.address}</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle>Overview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <p className="text-2xl font-bold text-blue-600">{cases.length}</p>
+                <p className="text-sm text-muted-foreground">Cases</p>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-600">{contracts.length}</p>
+                <p className="text-sm text-muted-foreground">Contracts</p>
+              </div>
+            </div>
+            <div className="text-center p-3 bg-muted/30 rounded-lg">
+              <p className="text-sm text-muted-foreground">Client since</p>
+              <p className="font-medium">{new Date(client.created_at).toLocaleDateString()}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle>Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {client.notes ? (
+              <p className="text-sm text-muted-foreground">{client.notes}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No notes available</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Communication Log */}
-      <Card className="shadow-card">
+      <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <StickyNote className="h-5 w-5" /> Communication Log ({commLogs.length})
+            <StickyNote className="h-5 w-5" /> 
+            Communication Log ({commLogs.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-4 gap-2 items-end">
+          <div className="grid grid-cols-4 gap-3 items-end">
             <Select value={logType} onValueChange={(v) => setLogType(v as any)}>
-              <SelectTrigger className="col-span-1">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -155,121 +271,198 @@ export default function ClientDetails() {
             </Select>
             <Input
               className="col-span-2"
-              placeholder="Enter note"
+              placeholder="Enter communication details..."
               value={logContent}
               onChange={(e) => setLogContent(e.target.value)}
             />
             <Button
-              size="sm"
-              className="col-span-1"
-              disabled={createLog.isPending}
+              disabled={createLog.isPending || !logContent.trim()}
               onClick={async () => {
-                if (!logContent.trim()) return;
                 const userId = (await getCurrentUserId())!;
-                createLog.mutate({ type: logType, content: logContent, user_id: userId });
+                createLog.mutate({ 
+                  type: logType, 
+                  content: logContent, 
+                  user_id: userId,
+                  client_id: clientId!
+                });
                 setLogContent("");
               }}
             >
-              Add
+              Add Log
             </Button>
           </div>
+          
           {commLogs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No communications yet.</p>
+            <p className="text-center py-8 text-muted-foreground">No communications logged yet.</p>
           ) : (
-            <ul className="space-y-2 max-h-52 overflow-auto pr-2">
-              {commLogs.map((l) => (
-                <li key={l.id} className="text-sm">
-                  <span className="font-medium capitalize mr-2">[{l.type}]</span>
-                  {l.content}
-                  <span className="text-muted-foreground ml-2 text-xs">
-                    {new Date(l.created_at).toLocaleDateString()}
-                  </span>
-                </li>
+            <div className="space-y-3 max-h-64 overflow-auto">
+              {commLogs.map((log) => (
+                <div key={log.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                  <Badge variant="outline" className="capitalize mt-1">
+                    {log.type}
+                  </Badge>
+                  <div className="flex-1">
+                    <p className="text-sm">{log.content}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(log.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Cases Section */}
-      <Card className="shadow-card">
+      <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Cases</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5" />
+            Cases ({cases.length})
+          </CardTitle>
         </CardHeader>
-        <CardContent className="overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Next Hearing</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {cases?.map((c) => (
-                <TableRow key={c.id} className="hover:bg-muted/50">
-                  <TableCell>
-                    <Button variant="link" onClick={() => navigate(`/cases/${c.id}`)}>
-                      {c.title}
-                    </Button>
-                  </TableCell>
-                  <TableCell>{c.status}</TableCell>
-                  <TableCell>{c.priority}</TableCell>
-                  <TableCell>{c.next_hearing_date ? new Date(c.next_hearing_date).toLocaleDateString() : '-'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Calendar Events Section */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Calendar Events</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {calEvents?.filter(e => e.client_id === clientId).map(ev => (
-            <div key={ev.id} className="p-2 border rounded">
-              <p className="font-medium">{ev.title}</p>
-              <p className="text-sm text-muted-foreground">{new Date(ev.start_date).toLocaleString()}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Documents Section */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Documents</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {documents?.map((d) => (
-            <div key={d.id} className="flex items-center justify-between p-2 border rounded">
-              <a href={d.url || '#'} target="_blank" className="text-primary hover:underline">
-                {d.name}
-              </a>
-              <span className="text-sm text-muted-foreground">{d.status}</span>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Contracts Section */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Contracts</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {contracts?.map((ct) => (
-            <div key={ct.id} className="flex items-center justify-between p-2 border rounded">
-              <Button variant="link" onClick={() => navigate(`/contracts/${ct.id}`)}>
-                {ct.title}
+        <CardContent>
+          {cases.length === 0 ? (
+            <div className="text-center py-8">
+              <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-muted-foreground mb-4">No cases for this client</p>
+              <Button onClick={() => navigate(`/cases/create?client=${clientId}`)}>
+                Create First Case
               </Button>
-              <span className="text-sm text-muted-foreground">{ct.status}</span>
             </div>
-          ))}
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Next Hearing</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cases.map((c) => (
+                  <TableRow key={c.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <Button variant="link" onClick={() => navigate(`/cases/${c.id}`)}>
+                        {c.title}
+                      </Button>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(c.status)}>
+                        {c.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{c.priority}</TableCell>
+                    <TableCell>
+                      {c.next_hearing_date ? new Date(c.next_hearing_date).toLocaleDateString() : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Additional sections with similar improvements... */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Calendar Events */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Calendar Events ({calEvents.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {calEvents.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No events scheduled</p>
+            ) : (
+              <div className="space-y-3">
+                {calEvents.slice(0, 5).map(ev => (
+                  <div key={ev.id} className="p-3 border rounded-lg hover:bg-muted/30">
+                    <p className="font-medium">{ev.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(ev.start_date).toLocaleString()}
+                    </p>
+                    <Badge variant="outline" className="mt-1">{ev.event_type}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Documents */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Documents ({documents.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {documents.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No documents uploaded</p>
+            ) : (
+              <div className="space-y-3">
+                {documents.slice(0, 5).map((d) => (
+                  <div key={d.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
+                    <div>
+                      <p className="font-medium">{d.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(d.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="outline">{d.status || 'Active'}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Contracts */}
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Contracts ({contracts.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {contracts.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-muted-foreground mb-4">No contracts for this client</p>
+              <Button onClick={() => navigate(`/contracts/create?client=${clientId}`)}>
+                Create First Contract
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {contracts.map((ct) => (
+                <div key={ct.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
+                  <div>
+                    <Button variant="link" onClick={() => navigate(`/contracts/${ct.id}`)}>
+                      {ct.title}
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      {ct.start_date && ct.end_date && 
+                        `${new Date(ct.start_date).toLocaleDateString()} - ${new Date(ct.end_date).toLocaleDateString()}`
+                      }
+                    </p>
+                  </div>
+                  <Badge className={getStatusColor(ct.status)}>
+                    {ct.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

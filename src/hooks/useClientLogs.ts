@@ -1,8 +1,8 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { CommunicationLog } from '@/types';
 
-// Fetch logs for a given client
 export function useClientLogs(clientId: string) {
   return useQuery<CommunicationLog[], Error>({
     queryKey: ['client-logs', clientId],
@@ -19,11 +19,10 @@ export function useClientLogs(clientId: string) {
   });
 }
 
-// Create a new log entry
 export function useCreateClientLog() {
   const qc = useQueryClient();
-  return useMutation<CommunicationLog, Error, Omit<CommunicationLog, 'id' | 'created_at'>>(
-    async (log) => {
+  return useMutation({
+    mutationFn: async (log: Omit<CommunicationLog, 'id' | 'created_at'>) => {
       const { data, error } = await supabase
         .from('communication_logs')
         .insert([log])
@@ -32,10 +31,8 @@ export function useCreateClientLog() {
       if (error) throw error;
       return data as CommunicationLog;
     },
-    {
-      onSuccess: (_, vars) => {
-        qc.invalidateQueries(['client-logs', vars.client_id]);
-      },
-    }
-  );
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['client-logs', vars.client_id] });
+    },
+  });
 }

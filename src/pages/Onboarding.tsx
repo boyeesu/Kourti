@@ -41,6 +41,37 @@ const steps = [
   },
 ];
 
+const countries = [
+  { value: 'US', label: 'United States' },
+  { value: 'CA', label: 'Canada' },
+  { value: 'GB', label: 'United Kingdom' },
+  { value: 'AU', label: 'Australia' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'FR', label: 'France' },
+  { value: 'IT', label: 'Italy' },
+  { value: 'ES', label: 'Spain' },
+  { value: 'NL', label: 'Netherlands' },
+  { value: 'SE', label: 'Sweden' },
+  { value: 'NO', label: 'Norway' },
+  { value: 'DK', label: 'Denmark' },
+  { value: 'FI', label: 'Finland' },
+  { value: 'CH', label: 'Switzerland' },
+  { value: 'AT', label: 'Austria' },
+  { value: 'BE', label: 'Belgium' },
+  { value: 'IE', label: 'Ireland' },
+  { value: 'PT', label: 'Portugal' },
+  { value: 'NZ', label: 'New Zealand' },
+  { value: 'SG', label: 'Singapore' },
+  { value: 'JP', label: 'Japan' },
+  { value: 'KR', label: 'South Korea' },
+  { value: 'IN', label: 'India' },
+  { value: 'BR', label: 'Brazil' },
+  { value: 'MX', label: 'Mexico' },
+  { value: 'AR', label: 'Argentina' },
+  { value: 'CL', label: 'Chile' },
+  { value: 'ZA', label: 'South Africa' },
+];
+
 export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState(1);
   
@@ -84,6 +115,11 @@ export default function Onboarding() {
     "Tax Law",
     "Immigration Law",
     "Environmental Law",
+    "Banking & Finance",
+    "Healthcare Law",
+    "Insurance Law",
+    "International Law",
+    "Contract Law",
   ];
 
   const progress = (currentStep / steps.length) * 100;
@@ -270,17 +306,25 @@ export default function Onboarding() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="orgCountry">Country *</Label>
-                <Input
-                  id="orgCountry"
-                  placeholder="Enter country"
+                <Label>Country *</Label>
+                <Select 
                   value={formData.organization.country}
-                  onChange={(e) => setFormData({
+                  onValueChange={(value) => setFormData({
                     ...formData,
-                    organization: { ...formData.organization, country: e.target.value }
+                    organization: { ...formData.organization, country: value }
                   })}
-                  required
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    {countries.map((country) => (
+                      <SelectItem key={country.value} value={country.value}>
+                        {country.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

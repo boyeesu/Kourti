@@ -1,3 +1,4 @@
+
 export interface Case {
   id: string;
   organization_id: string;
@@ -72,6 +73,26 @@ export interface CalendarEvent {
   attendees?: string[];
   event_type: string;
   created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommunicationLog {
+  id: string;
+  client_id: string;
+  user_id: string;
+  type: 'email' | 'phone' | 'note';
+  content: string;
+  created_at: string;
+}
+
+export interface Document {
+  id: string;
+  organization_id: string;
+  name: string;
+  content: string;
+  status?: string;
+  url?: string;
   created_at: string;
   updated_at: string;
 }
