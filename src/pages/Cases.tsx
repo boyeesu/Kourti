@@ -235,6 +235,9 @@ export default function App() { // Changed to App for React component export
     );
   });
 
+  const handlePreviousPage = () => setPage((prev: number) => Math.max(1, prev - 1));
+  const handleNextPage = () => setPage((prev: number) => Math.min(totalPages, prev + 1));
+
   return (
     <div className="px-4 py-6 space-y-6 max-w-7xl mx-auto">
       <Breadcrumbs />
@@ -456,11 +459,11 @@ export default function App() { // Changed to App for React component export
           )}
 
           {/* Pagination controls */}
-          {totalCount > 0 && ( // Only show pagination if there are cases
+          {totalCount > 0 && (
             <div className="flex items-center justify-between mt-6">
               <Button
                 variant="outline"
-                onClick={() => setPage(prev => Math.max(1, prev - 1))} // Ensure page doesn't go below 1
+                onClick={handlePreviousPage}
                 disabled={page === 1}
                 className="shadow-sm"
               >
@@ -471,7 +474,7 @@ export default function App() { // Changed to App for React component export
               </span>
               <Button
                 variant="outline"
-                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))} // Ensure page doesn't exceed totalPages
+                onClick={handleNextPage}
                 disabled={page >= totalPages}
                 className="shadow-sm"
               >

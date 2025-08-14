@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardHeader,
@@ -114,8 +114,8 @@ export default function ProfileTab() {
               onChange={e => setProfileData({ ...profileData, department: e.target.value })}
             />
           </div>
-          <Button onClick={handleProfileUpdate} disabled={updateProfile.isLoading}>
-            {updateProfile.isLoading ? 'Saving...' : 'Save Changes'}
+          <Button onClick={handleProfileUpdate} disabled={updateProfile.isPending}>
+            {updateProfile.isPending ? 'Saving...' : 'Save Changes'}
           </Button>
         </CardContent>
       </Card>
@@ -160,13 +160,13 @@ export default function ProfileTab() {
           <Button
             onClick={handleChangePassword}
             disabled={
-              changePassword.isLoading ||
+              changePassword.isPending ||
               !passwordData.currentPassword ||
               !passwordData.newPassword ||
               passwordData.newPassword !== passwordData.confirmPassword
             }
           >
-            {changePassword.isLoading ? 'Changing...' : 'Change Password'}
+            {changePassword.isPending ? 'Changing...' : 'Change Password'}
           </Button>
         </CardContent>
       </Card>

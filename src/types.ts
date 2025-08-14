@@ -101,7 +101,7 @@ export interface Document {
   contract_type?: string;
   currency?: string;
   terms?: string;
+  status?: string; // Added missing status property
   created_at: string;
   updated_at: string;
 }
-

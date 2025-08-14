@@ -1,4 +1,6 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
@@ -21,37 +23,49 @@ export interface UpdateCaseData extends Partial<CreateCaseData> {
   id: string;
 }
 
-export function useCases() {
+export function useCases(page = 1, pageSize = 20) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+  const [currentPage, setCurrentPage] = useState(page);
 
-  return useQuery({
-    queryKey: ['cases', organizationId],
+  const query = useQuery({
+    queryKey: ['cases', organizationId, currentPage, pageSize],
     queryFn: async () => {
       if (!organizationId) {
         console.log('⚠️ No organization ID for cases query');
-        return [];
+        return { cases: [], count: 0 };
       }
 
-      console.log('🔍 Fetching cases for org:', organizationId);
+      console.log('🔍 Fetching cases for org:', organizationId, 'page:', currentPage);
 
-      const { data, error } = await supabase
+      const from = (currentPage - 1) * pageSize;
+      const to = currentPage * pageSize - 1;
+
+      const { data, error, count } = await supabase
         .from('cases')
-        .select('*, client:client_id(id, name)')
+        .select('*, client:client_id(id, name), assigned_user:assigned_to(id, first_name, last_name)', { count: 'exact' })
         .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) {
         console.error('❌ Error fetching cases:', error);
         throw error;
       }
       
-      console.log('✅ Cases found:', data?.length || 0);
-      return data as Case[];
+      console.log('✅ Cases found:', data?.length || 0, 'of total', count || 0);
+      return { cases: data as Case[], count: count || 0 };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
+
+  return {
+    ...query,
+    page: currentPage,
+    pageSize,
+    setPage: setCurrentPage,
+  };
 }
 
 export function useCase(id: string) {
