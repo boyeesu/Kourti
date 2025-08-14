@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { useCreateCalendarEvent } from "@/hooks/useCalendar";
 import { useCases } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
+import { Case, Client } from "@/types";
 
 const eventSchema = z.object({
   title: z.string().min(1, "Title is required"),

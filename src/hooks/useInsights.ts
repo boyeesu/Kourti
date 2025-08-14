@@ -8,7 +8,7 @@ const DEFAULT_WINDOW_DAYS = 7;
 
 export function useInsights(windowDays = DEFAULT_WINDOW_DAYS) {
   const { data: casesData = { cases: [], count: 0 } } = useCases();
-  const { data: contractsData = { items: [], total: 0 } } = useContracts();
+  const { data: contractsData = [] } = useContracts();
 
   const now = new Date();
   const cutoff = new Date(now);
@@ -27,15 +27,17 @@ export function useInsights(windowDays = DEFAULT_WINDOW_DAYS) {
   );
 
   const upcomingContracts = useMemo(
-    () =>
-      contractsData.items
+    () => {
+      const contracts = Array.isArray(contractsData) ? contractsData : contractsData.items || [];
+      return contracts
         .filter((c: Contract) => c.end_date)
         .map((c: Contract) => ({ ...c, _insight_date: new Date(c.end_date!).toISOString() }))
         .filter((c: Contract & { _insight_date: string }) => {
           const d = new Date(c._insight_date);
           return d >= now && d <= cutoff;
-        }),
-    [contractsData.items, windowDays]
+        });
+    },
+    [contractsData, windowDays]
   );
 
   return { upcomingCases, upcomingContracts };

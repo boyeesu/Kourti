@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearch } from "@/hooks/use-search";
@@ -42,6 +43,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Document } from "@/types";
 
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { ShareDocumentDialog } from '@/components/ui/ShareDocumentDialog';
@@ -73,11 +75,9 @@ export default function Documents() {
     }
   };
 
-
-
-  const filteredDocuments = documents.filter(doc => {
+  const filteredDocuments = documents.filter((doc: Document) => {
     const termMatches = (t: string) =>
-      doc.title.toLowerCase().includes(t.toLowerCase());
+      (doc.title || doc.name).toLowerCase().includes(t.toLowerCase());
 
     const matchesLocal = searchTerm === "" || termMatches(searchTerm);
     const matchesGlobal = globalSearch === "" || termMatches(globalSearch);
@@ -208,13 +208,13 @@ export default function Documents() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDocuments.map((doc) => (
+                {filteredDocuments.map((doc: Document) => (
                   <TableRow key={doc.id}>
                      <TableCell>
                        <div className="flex items-center gap-3">
                          {getFileIcon(doc.file_type || 'file')}
                          <div>
-                           <div className="font-medium">{doc.title}</div>
+                           <div className="font-medium">{doc.title || doc.name}</div>
                            <div className="text-sm text-muted-foreground">ID: {doc.id}</div>
                          </div>
                        </div>
@@ -228,7 +228,7 @@ export default function Documents() {
                      </TableCell>
                      <TableCell>
                        <Badge className="bg-muted text-muted-foreground" variant="secondary">
-                         Uploaded
+                         {doc.status || 'Uploaded'}
                        </Badge>
                      </TableCell>
                      <TableCell>

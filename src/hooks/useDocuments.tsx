@@ -1,7 +1,9 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { Document } from '@/types';
 
 export interface CreateDocumentData {
   name: string;
@@ -15,6 +17,59 @@ export interface CreateDocumentData {
   contract_type?: string;
   currency?: string;
   terms?: string;
+}
+
+export function useDocuments() {
+  return useQuery({
+    queryKey: ['documents'],
+    queryFn: async () => {
+      const userId = await getCurrentUserId();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .single();
+
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('organization_id', profile?.organization_id);
+
+      if (error) throw error;
+      return data as Document[];
+    },
+  });
+}
+
+export function useDocument(id: string) {
+  return useQuery({
+    queryKey: ['document', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return data as Document;
+    },
+  });
+}
+
+export function useDocumentsByClient(clientId: string) {
+  return useQuery({
+    queryKey: ['documents', 'client', clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('client_id', clientId);
+
+      if (error) throw error;
+      return data as Document[];
+    },
+  });
 }
 
 export function useCreateDocument() {

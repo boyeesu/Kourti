@@ -1,5 +1,4 @@
 
-
 export interface Case {
   id: string;
   organization_id: string;
@@ -91,6 +90,7 @@ export interface Document {
   id: string;
   organization_id: string;
   name: string;
+  title: string;
   content: string;
   summary?: string;
   metadata?: any;
@@ -102,8 +102,13 @@ export interface Document {
   currency?: string;
   terms?: string;
   status?: string;
+  file_type?: string;
+  file_size?: number;
+  case_id?: string;
+  client_id?: string;
   created_at: string;
   updated_at: string;
+  created_by?: string;
 }
 
 export interface Organization {
