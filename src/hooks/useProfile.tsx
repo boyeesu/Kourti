@@ -33,6 +33,7 @@ export function useProfile() {
           phone,
           department,
           role,
+          title,
           avatar_url,
           created_at,
           updated_at

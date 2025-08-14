@@ -1,7 +1,6 @@
 
-import { useState } from "react";
+
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,7 +41,8 @@ type PasswordChangeData = z.infer<typeof passwordSchema>;
 
 export default function ProfileTab() {
   const { data: profile, isLoading: profileLoading } = useProfile();
-  const { updateProfile, changePassword } = useProfile();
+  const updateProfile = useUpdateProfile();
+  const changePassword = useChangePassword();
 
   const profileForm = useForm<ProfileData>({
     resolver: zodResolver(profileSchema),

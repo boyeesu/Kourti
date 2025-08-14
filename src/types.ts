@@ -1,4 +1,9 @@
 export interface Case {
+  /**
+   * Aggregated count when fetched with Supabase `select('count')`.
+   * Optional so it does not impact normal case records.
+   */
+  count?: number;
   id: string;
   created_at: string;
   updated_at: string;
@@ -126,6 +131,9 @@ export interface InvoiceLineItem {
 }
 
 export interface Contract {
+  /** Supabase aggregate count helper */
+  count?: number;
+
   id: string;
   created_at: string;
   updated_at: string;

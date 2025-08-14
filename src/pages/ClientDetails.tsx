@@ -73,7 +73,7 @@ export default function ClientDetails() {
       .slice(0, 2)
       .toUpperCase();
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
     switch (status?.toLowerCase()) {
       case 'active':
       case 'open':
@@ -280,10 +280,14 @@ export default function ClientDetails() {
               onClick={async () => {
                 const userId = (await getCurrentUserId())!;
                 createLog.mutate({ 
-                  type: logType, 
-                  content: logContent, 
+                  type: logType,
+                  content: logContent,
                   user_id: userId,
-                  client_id: clientId!
+                  client_id: clientId!,
+                  organization_id: '', // will be filled by database trigger
+                  created_by: userId,
+                  updated_at: new Date().toISOString(),
+                  date: new Date().toISOString()
                 });
                 setLogContent("");
               }}
