@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -66,8 +65,8 @@ interface EventCreateDialogProps {
 export function EventCreateDialog({ children }: EventCreateDialogProps) {
   const [open, setOpen] = useState(false);
   const createEvent = useCreateCalendarEvent();
-  const { data: cases = [] } = useCases();
-  const { data: clientsData } = useClients();
+  const { data: casesData = { cases: [], count: 0 } } = useCases();
+  const { data: clientsData = { items: [], total: 0 } } = useClients();
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
@@ -290,7 +289,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {cases?.map((caseItem: any) => (
+                        {casesData.cases?.map((caseItem: Case) => (
                           <SelectItem key={caseItem.id} value={caseItem.id}>
                             {caseItem.title} ({caseItem.case_number})
                           </SelectItem>
@@ -315,7 +314,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {clientsData?.items?.map((client: any) => (
+                        {clientsData.items?.map((client: Client) => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.name}
                           </SelectItem>

@@ -28,6 +28,7 @@ import {
 import { UploadCloud } from "lucide-react";
 import { useCases } from "@/hooks/useCases";
 import { useCreateDocument } from "@/hooks/useDocuments";
+import { Case } from "@/types";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -52,8 +53,7 @@ export default function DocumentUpload() {
   const { toast } = useToast();
   const createDocument = useCreateDocument();
 
-  const { data: casesData } = useCases();
-  const cases = casesData?.cases || []; // Extract cases from the data structure
+  const { data: casesData = { cases: [], count: 0 } } = useCases();
 
   const {
     register,
@@ -77,25 +77,9 @@ export default function DocumentUpload() {
     const fileName = `${fileId}-${file.name}`;
 
     try {
-      // Upload the file to Supabase storage (replace with your actual storage upload logic)
-      // const { data, error } = await supabase.storage
-      //   .from('documents')
-      //   .upload(fileName, file);
-
-      // if (error) {
-      //   console.error("Error uploading file:", error);
-      //   toast({
-      //     variant: "destructive",
-      //     title: "Error",
-      //     description: "Failed to upload file to storage.",
-      //   });
-      //   return;
-      // }
-
       // Create the document in the database
       await createDocument.mutateAsync({
         ...values,
-        name: file.name, // Use the original file name
         content: fileName, // Store the file name in the content field
       });
 
@@ -116,7 +100,7 @@ export default function DocumentUpload() {
   };
 
   const { getRootProps, getInputProps } = useDropzone({
-    onDrop: (acceptedFiles) => {
+    onDrop: (acceptedFiles: File[]) => {
       if (acceptedFiles && acceptedFiles.length > 0) {
         setFile(acceptedFiles[0]);
       }
@@ -134,7 +118,6 @@ export default function DocumentUpload() {
         </div>
       </div>
 
-      {/* Upload Form */}
       <Card className="shadow-lg rounded-lg">
         <CardHeader>
           <CardTitle className="text-xl font-semibold">Document Details</CardTitle>
@@ -190,7 +173,7 @@ export default function DocumentUpload() {
                   <SelectValue placeholder="Select a case..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {cases.map((case_: any) => (
+                  {casesData.cases.map((case_: Case) => (
                     <SelectItem key={case_.id} value={case_.id}>
                       {case_.title}
                     </SelectItem>

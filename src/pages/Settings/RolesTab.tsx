@@ -1,5 +1,4 @@
 
-import { useState } from 'react';
 import {
   Card,
   CardHeader,
@@ -12,10 +11,10 @@ export default function RolesTab() {
     <div className="space-y-6">
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>User Roles & Permissions</CardTitle>
+          <CardTitle>User Roles</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Role management features coming soon.</p>
+          <p className="text-sm text-muted-foreground">User roles management will be available here.</p>
         </CardContent>
       </Card>
     </div>

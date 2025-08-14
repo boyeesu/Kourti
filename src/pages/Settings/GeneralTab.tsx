@@ -1,4 +1,4 @@
-import { useState } from 'react';
+
 import {
   Card,
   CardHeader,
@@ -13,10 +13,10 @@ export default function GeneralTab() {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>General Settings</CardTitle>
-          <CardDescription>Manage your general account settings</CardDescription>
+          <CardDescription>Manage your general application settings</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">General settings content coming soon.</p>
+          <p className="text-sm text-muted-foreground">General settings will be available here.</p>
         </CardContent>
       </Card>
     </div>

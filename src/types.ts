@@ -101,7 +101,23 @@ export interface Document {
   contract_type?: string;
   currency?: string;
   terms?: string;
-  status?: string; // Added missing status property
+  status?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  industry?: string;
+  description?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logo_url?: string;
+  country?: string;
+  state?: string;
   created_at: string;
   updated_at: string;
 }
