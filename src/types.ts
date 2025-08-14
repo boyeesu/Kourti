@@ -12,11 +12,12 @@ export interface Case {
   case_number?: string;
   court?: string;
   judge?: string;
-   opposing_counsel?: string;
+  opposing_counsel?: string;
   next_hearing_date?: string;
   trial_date?: string;
   resolution_date?: string;
   notes?: string;
+  client?: Client;
   documents?: Document[];
   tasks?: Task[];
   events?: CalendarEvent[];
@@ -34,7 +35,10 @@ export interface Client {
   phone?: string;
   address?: string;
   notes?: string;
+  company?: string;
+  status?: 'active' | 'inactive' | 'pending';
   cases?: Case[];
+  contracts?: Contract[];
   documents?: Document[];
 }
 
@@ -49,6 +53,7 @@ export interface CalendarEvent {
   start_date: string;
   end_date: string;
   location?: string;
+  attendees?: string[];
   event_type: 'meeting' | 'hearing' | 'deadline' | 'deposition' | 'review' | 'consultation';
   case_id?: string;
   client_id?: string;
@@ -76,6 +81,8 @@ export interface Document {
   name: string;
   file_path: string;
   file_url?: string;
+  file_type?: string;
+  file_size?: number;
   case_id?: string;
   client_id?: string;
   created_at: string;
@@ -129,6 +136,7 @@ export interface Contract {
   start_date: string;
   end_date: string;
   value: number;
+  currency?: string;
   status: 'active' | 'expired' | 'terminated';
   client_id?: string;
   case_id?: string;
@@ -138,6 +146,7 @@ export interface Contract {
 export interface Organization {
   id: string;
   name: string;
+  email?: string;
   industry?: string;
   created_at: string;
   updated_at: string;
@@ -167,4 +176,20 @@ export interface Profile {
   avatar_url: any;
   created_at: any;
   updated_at: any;
+}
+
+export interface CommunicationLog {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  user_id?: string;
+  organization_id: string;
+  client_id: string;
+  case_id?: string;
+  type: 'email' | 'phone' | 'meeting' | 'letter' | 'note';
+  subject?: string;
+  content: string;
+  date: string;
+  notes?: string;
 }

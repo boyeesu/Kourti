@@ -1,13 +1,8 @@
-
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useCases } from './useCases';
 import { useContracts } from './useContracts';
-import { useUserOrganization } from './useUserOrganization';
 import { Case, Contract } from '@/types';
 
 export function useInsights(windowDays: number = 7) {
-  const { data: organizationId } = useUserOrganization();
   const { data: casesData } = useCases();
   const { data: contractsData } = useContracts();
 
@@ -21,7 +16,7 @@ export function useInsights(windowDays: number = 7) {
   }) || [];
 
   // Filter contracts expiring in the next windowDays
-  const upcomingContracts = (Array.isArray(contractsData) ? contractsData : contractsData?.items || [])
+  const upcomingContracts = (contractsData || [])
     .filter((contract: Contract) => {
       if (!contract.end_date) return false;
       const endDate = new Date(contract.end_date);

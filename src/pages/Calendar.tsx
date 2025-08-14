@@ -12,10 +12,14 @@ import {
 } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendar";
 import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
+import { EventViewDialog } from "@/components/calendar/EventViewDialog";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { CalendarEvent } from "@/types";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [showEventDialog, setShowEventDialog] = useState(false);
   const { data: events = [], isLoading } = useCalendarEvents();
 
   if (isLoading) {
@@ -28,13 +32,19 @@ export default function Calendar() {
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
-      case "Meeting": return "bg-primary text-primary-foreground";
-      case "Hearing": return "bg-destructive text-destructive-foreground";
-      case "Deadline": return "bg-warning text-warning-foreground";
-      case "Deposition": return "bg-success text-success-foreground";
-      case "Review": return "bg-muted text-muted-foreground";
+      case "meeting": return "bg-primary text-primary-foreground";
+      case "hearing": return "bg-destructive text-destructive-foreground";
+      case "deadline": return "bg-warning text-warning-foreground";
+      case "deposition": return "bg-success text-success-foreground";
+      case "review": return "bg-muted text-muted-foreground";
+      case "consultation": return "bg-secondary text-secondary-foreground";
       default: return "bg-muted text-muted-foreground";
     }
+  };
+
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setShowEventDialog(true);
   };
 
   const monthNames = [
@@ -152,7 +162,8 @@ export default function Calendar() {
                         {dayEvents.slice(0, 2).map(event => (
                           <div
                             key={event.id}
-                            className={`text-xs p-1 rounded truncate ${getEventTypeColor(event.event_type)}`}
+                            className={`text-xs p-1 rounded truncate cursor-pointer transition-opacity hover:opacity-80 ${getEventTypeColor(event.event_type)}`}
+                            onClick={() => handleEventClick(event)}
                           >
                             {event.title}
                           </div>
@@ -183,36 +194,41 @@ export default function Calendar() {
             </CardHeader>
             <CardContent>
               {todayEvents.length > 0 ? (
-                <div className="space-y-3">
-                  {todayEvents.map(event => (
-                     <div key={event.id} className="p-3 rounded-lg border bg-muted/30">
-                       <div className="flex items-start justify-between mb-2">
-                         <h4 className="font-medium text-sm">{event.title}</h4>
-                         <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
-                           {event.event_type}
-                         </Badge>
-                       </div>
-                       <div className="space-y-1 text-xs text-muted-foreground">
-                         <div className="flex items-center gap-1">
-                           <Clock className="h-3 w-3" />
-                           {new Date(event.start_date).toLocaleTimeString()}
-                         </div>
-                         {event.location && (
-                           <div className="flex items-center gap-1">
-                             <MapPin className="h-3 w-3" />
-                             {event.location}
-                           </div>
-                         )}
-                         {event.attendees && event.attendees.length > 0 && (
-                           <div className="flex items-center gap-1">
-                             <Users className="h-3 w-3" />
-                             {event.attendees.join(", ")}
-                           </div>
-                         )}
-                       </div>
-                     </div>
-                  ))}
-                </div>
+                 <div className="space-y-3">
+                   {todayEvents.map(event => (
+                      <div 
+                        key={event.id} 
+                        className="p-3 rounded-lg border bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50"
+                        onClick={() => handleEventClick(event)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-medium text-sm">{event.title}</h4>
+                          <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
+                            {event.event_type}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(event.start_date).toLocaleTimeString()}
+                          </div>
+                          {event.location && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {event.location}
+                            </div>
+                          )}
+                          {event.attendees && event.attendees.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {event.attendees.slice(0, 2).join(", ")}
+                              {event.attendees.length > 2 && ` +${event.attendees.length - 2} more`}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                   ))}
+                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm">No events scheduled for today</p>
               )}
@@ -227,27 +243,31 @@ export default function Calendar() {
             </CardHeader>
             <CardContent>
               {upcomingEvents.length > 0 ? (
-                <div className="space-y-3">
-                  {upcomingEvents.slice(0, 5).map(event => (
-                     <div key={event.id} className="p-3 rounded-lg border bg-muted/30">
-                       <div className="flex items-start justify-between mb-2">
-                         <h4 className="font-medium text-sm">{event.title}</h4>
-                         <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
-                           {event.event_type}
-                         </Badge>
-                       </div>
-                       <div className="space-y-1 text-xs text-muted-foreground">
-                         <div>{new Date(event.start_date).toLocaleDateString()}</div>
-                         <div>{new Date(event.start_date).toLocaleTimeString()}</div>
-                       </div>
-                     </div>
-                  ))}
-                  {upcomingEvents.length > 5 && (
-                    <Button variant="outline" size="sm" className="w-full">
-                      View {upcomingEvents.length - 5} more
-                    </Button>
-                  )}
-                </div>
+                 <div className="space-y-3">
+                   {upcomingEvents.slice(0, 5).map(event => (
+                      <div 
+                        key={event.id} 
+                        className="p-3 rounded-lg border bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50"
+                        onClick={() => handleEventClick(event)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-medium text-sm">{event.title}</h4>
+                          <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
+                            {event.event_type}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div>{new Date(event.start_date).toLocaleDateString()}</div>
+                          <div>{new Date(event.start_date).toLocaleTimeString()}</div>
+                        </div>
+                      </div>
+                   ))}
+                   {upcomingEvents.length > 5 && (
+                     <Button variant="outline" size="sm" className="w-full">
+                       View {upcomingEvents.length - 5} more
+                     </Button>
+                   )}
+                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm">No upcoming events</p>
               )}
@@ -255,6 +275,12 @@ export default function Calendar() {
           </Card>
         </div>
       </div>
+
+      <EventViewDialog 
+        event={selectedEvent}
+        open={showEventDialog}
+        onOpenChange={setShowEventDialog}
+      />
     </div>
   );
 }

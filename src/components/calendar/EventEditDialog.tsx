@@ -1,15 +1,16 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -25,14 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Plus, X } from "lucide-react";
-import { useCreateCalendarEvent } from "@/hooks/useCalendar";
+import { CalendarEvent } from "@/types";
+import { useUpdateCalendarEvent } from "@/hooks/useCalendar";
 import { useCases } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
+import { format } from "date-fns";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 
 const eventSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -48,39 +49,42 @@ const eventSchema = z.object({
 
 type EventFormValues = z.infer<typeof eventSchema>;
 
-interface EventCreateDialogProps {
-  children?: React.ReactNode;
+interface EventEditDialogProps {
+  event: CalendarEvent;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function EventCreateDialog({ children }: EventCreateDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [newAttendee, setNewAttendee] = useState("");
-  const createEvent = useCreateCalendarEvent();
+export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogProps) {
+  const updateEvent = useUpdateCalendarEvent();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
+  const [newAttendee, setNewAttendee] = useState("");
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
-      title: "",
-      description: "",
-      start_date: "",
-      end_date: "",
-      location: "",
-      event_type: "meeting",
-      case_id: "",
-      client_id: "",
-      attendees: [],
+      title: event.title,
+      description: event.description || "",
+      start_date: format(new Date(event.start_date), "yyyy-MM-dd'T'HH:mm"),
+      end_date: format(new Date(event.end_date), "yyyy-MM-dd'T'HH:mm"),
+      location: event.location || "",
+      event_type: event.event_type,
+      case_id: event.case_id || "",
+      client_id: event.client_id || "",
+      attendees: event.attendees || [],
     },
   });
 
   const onSubmit = async (data: EventFormValues) => {
     try {
-      await createEvent.mutateAsync(data);
-      form.reset();
-      setOpen(false);
+      await updateEvent.mutateAsync({
+        id: event.id,
+        ...data,
+      });
+      onOpenChange(false);
     } catch (error) {
-      console.error("Failed to create event:", error);
+      console.error("Failed to update event:", error);
     }
   };
 
@@ -101,20 +105,12 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
   const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children || (
-          <Button className="shadow-md">
-            <Plus className="h-4 w-4 mr-2" />
-            New Event
-          </Button>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Event</DialogTitle>
+          <DialogTitle>Edit Event</DialogTitle>
           <DialogDescription>
-            Schedule a new calendar event and optionally link it to a case or client.
+            Update the event details below.
           </DialogDescription>
         </DialogHeader>
 
@@ -308,12 +304,12 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createEvent.isPending}>
-                {createEvent.isPending ? "Creating..." : "Create Event"}
+              <Button type="submit" disabled={updateEvent.isPending}>
+                {updateEvent.isPending ? "Updating..." : "Update Event"}
               </Button>
             </div>
           </form>
