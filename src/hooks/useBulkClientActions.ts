@@ -1,11 +1,12 @@
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { BulkAction } from "@/components/table/BulkToolbar";
 
 export function useBulkClientActions() {
   const qc = useQueryClient();
-  return useMutation<void, Error, { ids: string[]; action: BulkAction }>(
-    async ({ ids, action }) => {
+  return useMutation({
+    mutationFn: async ({ ids, action }: { ids: string[]; action: BulkAction }) => {
       if (action.type === "delete") {
         const { error } = await supabase.from("clients").delete().in("id", ids);
         if (error) throw error;
@@ -17,6 +18,6 @@ export function useBulkClientActions() {
         if (error) throw error;
       }
     },
-    { onSuccess: () => qc.invalidateQueries(["clients"]) }
-  );
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["clients"] })
+  });
 }

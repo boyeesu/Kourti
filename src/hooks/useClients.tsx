@@ -62,7 +62,7 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<{ items: Cli
     },
     enabled: Boolean(organizationId) && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
-    cacheTime: 5 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 
@@ -70,7 +70,6 @@ export function useClient(id: string) {
   return useQuery({
     queryKey: ['client', id],
     queryFn: async () => {
-      // First get the user's organization_id from their profile
       const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
@@ -82,7 +81,6 @@ export function useClient(id: string) {
         throw new Error('User organization not found');
       }
 
-      // Then query the client with the organization filter
       const { data, error } = await supabase
         .from('clients')
         .select('*')

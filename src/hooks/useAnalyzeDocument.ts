@@ -1,12 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 export function useAnalyzeDocument() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

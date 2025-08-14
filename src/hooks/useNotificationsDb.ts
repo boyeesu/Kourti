@@ -1,9 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import type { Notification } from '@/components/ui/notifications';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { Notification } from '@/components/ui/notifications';
 
 export function useNotificationsDb(orgId: string) {
   const queryClient = useQueryClient();
@@ -19,7 +18,7 @@ export function useNotificationsDb(orgId: string) {
     },
     enabled: !!orgId,
     staleTime: 5 * 1000, // 5 seconds
-    cacheTime: 60 * 1000, // 1 minute
+    gcTime: 60 * 1000, // 1 minute
   });
 
   // Subscribe to real-time inserts
@@ -28,7 +27,7 @@ export function useNotificationsDb(orgId: string) {
     // Categorize priority
     const categorize = (notif: Notification) => ({
       ...notif,
-      priority: notif.urgent ? 'high' : 'medium',
+      priority: (notif as any).urgent ? 'high' : 'medium',
     });
     const channel = supabase
       .channel('public:notifications')
