@@ -6,8 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ArrowLeft, Calendar, Building, Gavel } from "lucide-react";
+import { ArrowLeft, Calendar, Building, Gavel, Plus, Check, Trash, Edit2, X } from "lucide-react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from "@/hooks/useTasks";
+import { useOrganizationMembers } from "@/hooks/useOrganization";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useState } from "react";
 
 export default function CaseDetails() {
   const { id } = useParams<{ id: string }>();
@@ -185,6 +190,19 @@ export default function CaseDetails() {
         </CardContent>
       </Card>
 
+      {/* Tasks Section - replaces "Activities" */}
+      <Card className="shadow-card">
+        <CardHeader className="flex gap-4 items-center">
+          <CardTitle className="flex-1">Tasks</CardTitle>
+          <Button size="sm" onClick={() => setShowTaskDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Add Task
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <TasksSection caseId={caseData.id} />
+        </CardContent>
+      </Card>
+
       {/* Quick Actions */}
       <Card className="shadow-card">
         <CardHeader>
@@ -195,15 +213,154 @@ export default function CaseDetails() {
             <Button onClick={() => navigate(`/cases/${caseData.id}/edit`)}>
               Edit Case
             </Button>
-            <Button variant="outline" onClick={() => navigate("/documents")}>
+            <Button variant="outline" onClick={() => navigate("/documents")}> 
               View Documents
             </Button>
-            <Button variant="outline" onClick={() => navigate("/calendar")}>
+            <Button variant="outline" onClick={() => navigate("/calendar")}> 
               Schedule Event
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <NewTaskDialog
+        open={showTaskDialog}
+        onOpenChange={setShowTaskDialog}
+        caseId={caseData.id}
+      />
     </div>
+  );
+}
+
+// --- Tasks Section ---
+function TasksSection({ caseId }: { caseId: string }) {
+  const { data: tasks = [], isLoading } = useTasks(caseId);
+  const total = tasks.length;
+  const done = tasks.filter(t => t.completed).length;
+  const pct = total === 0 ? 0 : Math.round((100 * done) / total);
+  const [editTask, setEditTask] = useState<any>(null);
+  const createTask = useCreateTask();
+  const updateTask = useUpdateTask();
+  const deleteTask = useDeleteTask();
+  const { data: users = [] } = useOrganizationMembers();
+
+  if (isLoading) return <div>Loading tasks…</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 mb-2">
+        <Progress value={pct} className="h-3 flex-1" />
+        <span className="text-xs text-muted-foreground whitespace-nowrap">{done} of {total} complete</span>
+      </div>
+      <table className="min-w-full text-sm">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left py-2">Task</th>
+            <th className="text-left py-2">Due</th>
+            <th className="text-left py-2">Assignee</th>
+            <th className="text-left py-2">Priority</th>
+            <th className="text-left py-2">Status</th>
+            <th className="text-left py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map(task => (
+            <tr key={task.id} className={task.completed ? "opacity-60" : ""}>
+              <td>{task.title}</td>
+              <td>{task.due_date ? new Date(task.due_date).toLocaleDateString() : "-"}</td>
+              <td>{task.assignee ? `${task.assignee.first_name} ${task.assignee.last_name}` : "Unassigned"}</td>
+              <td className="capitalize">{task.priority || "-"}</td>
+              <td>
+                <Button size="sm" variant={task.completed ? "success" : "outline"} onClick={() => updateTask.mutate({ id: task.id, completed: !task.completed })}>
+                  {task.completed ? <Check className="h-4 w-4" /> : "Mark Done"}
+                </Button>
+              </td>
+              <td>
+                <Button size="icon" variant="ghost" onClick={() => setEditTask(task)}><Edit2 className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => deleteTask.mutate({ id: task.id, case_id: caseId })}><Trash className="h-4 w-4" /></Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {/* Edit Task Dialog */}
+      {editTask && (
+        <NewTaskDialog
+          open={!!editTask}
+          onOpenChange={() => setEditTask(null)}
+          caseId={caseId}
+          existing={editTask}
+        />
+      )}
+    </div>
+  );
+}
+
+// --- Create/Edit Task Dialog ---
+function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean, onOpenChange: (b: boolean) => void, caseId: string, existing?: any }) {
+  const isEdit = !!existing;
+  const { data: users = [] } = useUserManagement();
+  const createTask = useCreateTask();
+  const updateTask = useUpdateTask();
+  const [form, setForm] = useState(() => existing ? { ...existing } : { title: "", description: "", due_date: "", priority: "medium", assigned_to: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  function handleChange(e: any) {
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  }
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    setSubmitting(true);
+    if (isEdit) {
+      updateTask.mutate({ ...form, case_id: caseId, id: existing.id }, {
+        onSuccess: () => {
+          setSubmitting(false);
+          onOpenChange(false);
+        },
+        onError: () => setSubmitting(false)
+      });
+    } else {
+      createTask.mutate({ ...form, case_id: caseId }, {
+        onSuccess: () => {
+          setSubmitting(false);
+          onOpenChange(false);
+        },
+        onError: () => setSubmitting(false)
+      });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit Task" : "New Task"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input name="title" value={form.title} onChange={handleChange} placeholder="Title" required />
+          <Input name="description" value={form.description} onChange={handleChange} placeholder="Description" />
+          <Input name="due_date" type="date" value={form.due_date ? form.due_date.substring(0, 10) : ""} onChange={handleChange} />
+          <select name="priority" value={form.priority} onChange={handleChange} className="w-full border rounded p-2">
+            <option value="high">High Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="low">Low Priority</option>
+          </select>
+          <select name="assigned_to" value={form.assigned_to} onChange={handleChange} className="w-full border rounded p-2">
+            <option value="">Unassigned</option>
+            {users.map((u: any) => (
+              <option key={u.user_id} value={u.user_id}>
+                {u.first_name} {u.last_name} ({u.email})
+              </option>
+            ))}
+          </select>
+        </form>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)} variant="ghost"><X className="h-4 w-4" /> Cancel</Button>
+          <Button type="submit" form="task-form" disabled={submitting}>
+            {submitting ? "Saving…" : isEdit ? "Save Changes" : "Create Task"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

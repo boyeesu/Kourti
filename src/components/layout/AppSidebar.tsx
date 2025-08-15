@@ -31,6 +31,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/kouti-legal-logo.png";
 
+// Added "Ream AI" to nav, using the "Bot" icon from lucide-react
+import { Bot } from "lucide-react";
+
 const navigationItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Cases", url: "/cases", icon: Briefcase },
@@ -38,6 +41,7 @@ const navigationItems = [
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Documents", url: "/documents", icon: FileText },
   { title: "Contracts", url: "/contracts", icon: FileCheck },
+  { title: "Ream AI", url: "/ream-ai", icon: Bot },
 ];
 
 const managementItems = [

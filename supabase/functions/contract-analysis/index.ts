@@ -32,19 +32,45 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Unknown analysisType' }), { status: 400 });
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: promptSystem },
-        { role: 'user', content: promptUser }
-      ],
-      temperature: 0.2
-    });
-
-    const analysis = completion.choices[0].message?.content || '';
-    return new Response(JSON.stringify({ analysis }), { status: 200 });
+    let analysis = '';
+    let completion: any = null;
+    let usedModel = 'gpt-4o';
+    try {
+      completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: promptSystem },
+          { role: 'user', content: promptUser }
+        ],
+        temperature: 0.2
+      });
+      analysis = completion.choices[0].message?.content || '';
+    } catch (err) {
+      // Try fallback GPT-3.5 if GPT-4o failed
+      try {
+        usedModel = 'gpt-3.5-turbo';
+        completion = await openai.chat.completions.create({
+          model: usedModel,
+          messages: [
+            { role: 'system', content: promptSystem },
+            { role: 'user', content: promptUser }
+          ],
+          temperature: 0.2
+        });
+        analysis = completion.choices[0].message?.content || '';
+      } catch (fallbackErr) {
+        // Compose a detailed error for the frontend
+        const openAiErr = (err as Error)?.message || String(err);
+        const fallbackAiErr = (fallbackErr as Error)?.message || String(fallbackErr);
+        const fullError = `OpenAI error (GPT-4o): ${openAiErr}\nFallback error (GPT-3.5): ${fallbackAiErr}`;
+        console.error('Function contract-analysis error:', fullError);
+        return new Response(JSON.stringify({ error: fullError }), { status: 500 });
+      }
+    }
+    return new Response(JSON.stringify({ analysis, model: usedModel }), { status: 200 });
   } catch (err) {
     console.error('Function contract-analysis error:', err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500 });
+    // More user-friendly error
+    return new Response(JSON.stringify({ error: `AI Service error: ${(err as Error)?.message || err}` }), { status: 500 });
   }
 });

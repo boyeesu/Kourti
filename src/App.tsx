@@ -35,6 +35,7 @@ import ContractReview from "./pages/ContractReview";
 import DocumentReview from "./pages/DocumentReview";
 import UserManagement from "./pages/UserManagement";
 import Settings from "./pages/Settings";
+import ReamAI from "./pages/ReamAI";
 
 import NotFound from "./pages/NotFound";
 
@@ -88,6 +89,7 @@ const App = () => (
                           <Route path="/contracts/:id/history" element={<ContractHistory />} />
                           <Route path="/contracts/review" element={<ContractReview />} />
                           <Route path="/documents/review" element={<DocumentReview />} />
+                          <Route path="/ream-ai" element={<ReamAI />} />
                           <Route path="/users" element={<UserManagement />} />
                           <Route path="/settings" element={<Settings />} />
                           {/* /profile route removed; merged into Settings */}

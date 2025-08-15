@@ -122,13 +122,17 @@ export default function Contracts() {
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/contracts/create")}>
+          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/contracts/create")}> 
             <Plus className="h-4 w-4 mr-2" />
             New Contract
           </Button>
-          <Button variant="outline" className="shadow-md" onClick={() => navigate("/bulk-import?type=contracts")}>
+          <Button variant="outline" className="shadow-md" onClick={() => navigate("/bulk-import?type=contracts")}> 
             <Upload className="h-4 w-4 mr-2" />
             Bulk Import
+          </Button>
+          <Button variant="default" className="shadow-md" onClick={() => navigate("/contracts/compare")}> 
+            <GitBranch className="h-4 w-4 mr-2" />
+            Compare Contracts
           </Button>
         </div>
       </div>
