@@ -58,7 +58,7 @@ export default function CaseDetails() {
   };
 
   const getPriorityColor = (priority?: string) => {
-    switch (priority.toLowerCase()) {
+    switch (priority?.toLowerCase()) {
       case "high":
         return "bg-destructive text-destructive-foreground";
       case "medium":
