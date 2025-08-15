@@ -31,6 +31,8 @@ import ContractCompare from "./pages/ContractCompare";
 import ContractView from "./pages/ContractView";
 import ContractEdit from "./pages/ContractEdit";
 import ContractHistory from "./pages/ContractHistory";
+import ContractReview from "./pages/ContractReview";
+import DocumentReview from "./pages/DocumentReview";
 import UserManagement from "./pages/UserManagement";
 import Settings from "./pages/Settings";
 
@@ -84,6 +86,8 @@ const App = () => (
                           <Route path="/contracts/:id" element={<ContractView />} />
                           <Route path="/contracts/:id/edit" element={<ContractEdit />} />
                           <Route path="/contracts/:id/history" element={<ContractHistory />} />
+                          <Route path="/contracts/review" element={<ContractReview />} />
+                          <Route path="/documents/review" element={<DocumentReview />} />
                           <Route path="/users" element={<UserManagement />} />
                           <Route path="/settings" element={<Settings />} />
                           {/* /profile route removed; merged into Settings */}

@@ -1,26 +1,22 @@
-
-
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useProfile } from "@/hooks/useProfile";
-import { toast } from "sonner";
+import { useProfile, useUpdateProfile, useChangePassword } from "@/hooks/useProfile";
 
 const profileSchema = z.object({
-  first_name: z.string().min(1, "First name is required"),
-  last_name: z.string().min(1, "Last name is required"),
+  first_name: z.string().min(2, "First name must be at least 2 characters"),
+  last_name: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
   department: z.string().optional(),
@@ -28,9 +24,9 @@ const profileSchema = z.object({
 });
 
 const passwordSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(8, "Password must be at least 8 characters"),
-  confirmPassword: z.string().min(1, "Please confirm your password"),
+  currentPassword: z.string().min(6, "Current password is required"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Confirm password is required"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -63,19 +59,17 @@ export default function ProfileTab() {
   const onProfileSubmit = async (data: ProfileData) => {
     try {
       await updateProfile.mutateAsync(data);
-      toast.success("Profile updated successfully!");
     } catch (error) {
-      toast.error("Failed to update profile");
+      console.error("Failed to update profile:", error);
     }
   };
 
-  const onPasswordSubmit = async (passwordData: PasswordChangeData) => {
+  const onPasswordSubmit = async (data: PasswordChangeData) => {
     try {
-      await changePassword.mutateAsync(passwordData);
-      toast.success("Password changed successfully!");
+      await changePassword.mutateAsync(data);
       passwordForm.reset();
     } catch (error) {
-      toast.error("Failed to change password");
+      console.error("Failed to change password:", error);
     }
   };
 
@@ -85,30 +79,21 @@ export default function ProfileTab() {
 
   return (
     <div className="space-y-6">
-      {/* Profile Information */}
+      <div>
+        <h3 className="text-lg font-medium">Profile</h3>
+        <p className="text-sm text-muted-foreground">
+          Update your profile information and preferences.
+        </p>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Profile Information</CardTitle>
+          <CardTitle>Personal Information</CardTitle>
           <CardDescription>
-            Update your personal information and contact details.
+            Update your personal details and contact information.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-6 mb-6">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={profile?.avatar_url} />
-              <AvatarFallback>
-                {profile?.first_name?.[0]}{profile?.last_name?.[0]}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="text-lg font-medium">
-                {profile?.first_name} {profile?.last_name}
-              </h3>
-              <p className="text-sm text-muted-foreground">{profile?.title || profile?.role}</p>
-            </div>
-          </div>
-
           <Form {...profileForm}>
             <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -119,13 +104,12 @@ export default function ProfileTab() {
                     <FormItem>
                       <FormLabel>First Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your first name" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={profileForm.control}
                   name="last_name"
@@ -133,14 +117,13 @@ export default function ProfileTab() {
                     <FormItem>
                       <FormLabel>Last Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your last name" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-
               <FormField
                 control={profileForm.control}
                 name="email"
@@ -148,13 +131,12 @@ export default function ProfileTab() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your email" {...field} />
+                      <Input {...field} type="email" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={profileForm.control}
                 name="phone"
@@ -162,13 +144,12 @@ export default function ProfileTab() {
                   <FormItem>
                     <FormLabel>Phone</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your phone number" {...field} />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={profileForm.control}
@@ -177,13 +158,12 @@ export default function ProfileTab() {
                     <FormItem>
                       <FormLabel>Department</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your department" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={profileForm.control}
                   name="title"
@@ -191,15 +171,17 @@ export default function ProfileTab() {
                     <FormItem>
                       <FormLabel>Title</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your job title" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-
-              <Button type="submit" disabled={updateProfile.isPending}>
+              <Button 
+                type="submit" 
+                disabled={updateProfile.isPending}
+              >
                 {updateProfile.isPending ? "Updating..." : "Update Profile"}
               </Button>
             </form>
@@ -207,7 +189,6 @@ export default function ProfileTab() {
         </CardContent>
       </Card>
 
-      {/* Change Password */}
       <Card>
         <CardHeader>
           <CardTitle>Change Password</CardTitle>
@@ -225,13 +206,12 @@ export default function ProfileTab() {
                   <FormItem>
                     <FormLabel>Current Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Enter current password" {...field} />
+                      <Input {...field} type="password" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={passwordForm.control}
                 name="newPassword"
@@ -239,31 +219,29 @@ export default function ProfileTab() {
                   <FormItem>
                     <FormLabel>New Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Enter new password" {...field} />
+                      <Input {...field} type="password" />
                     </FormControl>
-                    <FormDescription>
-                      Password must be at least 8 characters long.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={passwordForm.control}
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Confirm New Password</FormLabel>
+                    <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Confirm new password" {...field} />
+                      <Input {...field} type="password" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <Button type="submit" disabled={changePassword.isPending}>
+              <Button 
+                type="submit" 
+                disabled={changePassword.isPending}
+              >
                 {changePassword.isPending ? "Changing..." : "Change Password"}
               </Button>
             </form>
