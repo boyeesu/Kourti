@@ -13,6 +13,11 @@ export interface Organization {
   email?: string;
   website?: string;
   logo_url?: string;
+  /**
+   * Industry/sector that the organization operates in – surfaced in the Org
+   * settings tab.
+   */
+  industry?: string;
   created_at: string;
   updated_at: string;
 }

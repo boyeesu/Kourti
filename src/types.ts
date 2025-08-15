@@ -22,6 +22,12 @@ export interface Case {
   documents?: Document[];
   tasks?: Task[];
   events?: CalendarEvent[];
+  /**
+   * Convenience property that may be included by API calls that aggregate the
+   * number of related entities (e.g. total cases for a client). Optional so it
+   * does not affect regular CRUD operations.
+   */
+  count?: number;
 }
 
 export interface Organization {
@@ -35,8 +41,20 @@ export interface Organization {
 export interface CommunicationLog {
   id: string;
   client_id: string;
-  type: 'call' | 'email' | 'meeting' | 'other';
+  /**
+   * The medium of communication. As the UI currently differentiates between
+   * phone calls and general calls and supports note-only entries, we include
+   * both here to avoid type-errors.
+   */
+  type: 'call' | 'phone' | 'email' | 'meeting' | 'note' | 'other';
   subject?: string;
+  /**
+   * Rich/free-text body of the log entry.
+   */
+  content?: string;
+  /**
+   * Short notes or summary – kept for backwards compatibility.
+   */
   notes?: string;
   created_at: string;
   created_by: string;
@@ -95,10 +113,29 @@ export interface CalendarEvent {
 
 export interface Document {
   id: string;
-  name: string;
-  content: string;
+  /**
+   * Human-readable title of the document (e.g. “NDA – ACME Corp”).  This field
+   * is accessed by several UI components and therefore provided in addition to
+   * the legacy `name` property.
+   */
+  title?: string;
+  /**
+   * Original filename or stored path of the uploaded file.  This is required
+   * by the e-sign workflow dialog.
+   */
+  file_path?: string;
+  /**
+   * Some components (e.g. list & preview) still rely on the `name` field.
+   */
+  name?: string;
+  content?: string;
   summary?: string;
   metadata?: any;
+  /**
+   * Workflow/status tracking (e.g. draft → signed).  Optional to keep
+   * backwards compatibility.
+   */
+  status?: 'draft' | 'pending' | 'signed' | 'review' | 'archived';
   effective_date?: string;
   renewal_date?: string;
   termination_date?: string;
@@ -137,6 +174,10 @@ export interface Contract {
   contract_type?: string;
   terms?: string;
   metadata?: any;
+  /**
+   * Aggregated count convenience field (e.g. number of contracts for a client).
+   */
+  count?: number;
 }
 
 export interface ActivityLog {
