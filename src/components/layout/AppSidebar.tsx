@@ -10,7 +10,8 @@ import {
   Settings,
   ChevronRight,
   Menu,
-  LogOut
+  LogOut,
+  FileInvoice
 } from "lucide-react";
 
 import {
@@ -25,6 +26,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useUserRole } from "@/hooks/useUserManagement";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,7 +36,7 @@ import logo from "@/assets/kouti-legal-logo.png";
 // Added "Ream AI" to nav, using the "Bot" icon from lucide-react
 import { Bot } from "lucide-react";
 
-const navigationItems = [
+const baseNavigationItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Cases", url: "/cases", icon: Briefcase },
   { title: "Clients", url: "/clients", icon: UserCheck },
@@ -42,6 +44,9 @@ const navigationItems = [
   { title: "Documents", url: "/documents", icon: FileText },
   { title: "Contracts", url: "/contracts", icon: FileCheck },
   { title: "Ream AI", url: "/ream-ai", icon: Bot },
+];
+const superAdminItems = [
+  { title: "Invoicing & Billing", url: "/invoices", icon: FileInvoice },
 ];
 
 const managementItems = [
@@ -84,6 +89,12 @@ export function AppSidebar() {
     isActive 
       ? "bg-primary text-primary-foreground font-medium shadow-sm hover:bg-primary hover:text-primary-foreground" 
       : "hover:bg-accent hover:text-accent-foreground transition-colors";
+
+  const { data: userRoleData } = useUserRole();
+  const role = userRoleData?.role;
+  const navigationItems = role === "super_admin"
+    ? [...baseNavigationItems.slice(0, 6), ...superAdminItems, ...baseNavigationItems.slice(6)]
+    : baseNavigationItems;
 
   return (
     <Sidebar variant="sidebar" collapsible="icon" className="border-r border-border">

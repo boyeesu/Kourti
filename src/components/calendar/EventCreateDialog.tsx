@@ -75,8 +75,14 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
   });
 
   const onSubmit = async (data: EventFormValues) => {
+    // Convert 'none' to undefined/null for case_id and client_id
+    const payload = {
+      ...data,
+      case_id: data.case_id === 'none' ? undefined : data.case_id,
+      client_id: data.client_id === 'none' ? undefined : data.client_id,
+    };
     try {
-      await createEvent.mutateAsync(data);
+      await createEvent.mutateAsync(payload);
       form.reset();
       setOpen(false);
     } catch (error) {
@@ -232,7 +238,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">No case</SelectItem>
+                        <SelectItem value="none">No case</SelectItem>
                         {cases.map((case_) => (
                           <SelectItem key={case_.id} value={case_.id}>
                             {case_.title}
@@ -258,7 +264,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">No client</SelectItem>
+                        <SelectItem value="none">No client</SelectItem>
                         {clients.map((client) => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.name}

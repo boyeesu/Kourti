@@ -40,7 +40,7 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<{ items: Cli
       const { data, error, count } = await supabase
         .from('clients')
         .select(
-          `*, cases!fk_cases_client_id(count), contracts!fk_contracts_client_id(count)`
+          `*, cases!cases_client_id_fkey(count), contracts!fk_contracts_client_id(count)`
         , { count: 'exact' })
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
