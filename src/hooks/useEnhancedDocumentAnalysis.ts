@@ -13,6 +13,7 @@ const DOCUMENT_ANALYSIS_FUNCTION = 'analyze-document';
  */
 export function useEnhancedDocumentAnalysis() {
   const { toast } = useToast();
+
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [abortController, setAbortController] = useState<AbortController | null>(null);
