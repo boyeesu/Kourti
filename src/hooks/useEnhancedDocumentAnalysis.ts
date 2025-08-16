@@ -39,20 +39,46 @@ export function useEnhancedDocumentAnalysis() {
           .eq('user_id', user?.id)
           .single();
           
-        // Use Supabase Edge Function
-        const { data, error } = await supabase.functions.invoke(DOCUMENT_ANALYSIS_FUNCTION, {
-          body: {
-            documentId: docId,
-            content,
-            documentType,
-            analysisType,
-            userId: user?.id,
-            organizationId: profile?.organization_id
-          }
+        // Use database function directly
+        const { data, error } = await supabase.rpc('analyze_document', {
+          p_document_id: docId,
+          p_content: content,
+          p_document_type: documentType,
+          p_analysis_type: analysisType
         });
 
         if (error) throw error;
-        return data;
+
+        // Poll for results since analysis is async
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds timeout
+        
+        while (attempts < maxAttempts) {
+          const { data: result, error: resultError } = await supabase.rpc('get_document_analysis', {
+            p_document_id: docId,
+            p_analysis_type: analysisType
+          });
+          
+          if (resultError) throw resultError;
+          
+          if (result && result.length > 0) {
+            const analysis = result[0];
+            
+            if (analysis.status === 'completed') {
+              return { analysis: analysis.content };
+            }
+            
+            if (analysis.status === 'failed') {
+              throw new Error(analysis.error || 'Analysis failed');
+            }
+          }
+          
+          // Wait 1 second before next attempt
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
+        
+        throw new Error('Analysis timed out');
       } catch (error) {
         logError('Document analysis failed', error);
         throw error;
