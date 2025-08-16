@@ -7,13 +7,34 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
   public: {
     Tables: {
+      best_practices: {
+        Row: {
+          clause: string
+          embedding: string
+          id: string
+          name: string
+        }
+        Insert: {
+          clause: string
+          embedding: string
+          id?: string
+          name: string
+        }
+        Update: {
+          clause?: string
+          embedding?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       calendar_events: {
         Row: {
           attendees: string[] | null
@@ -79,24 +100,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "calendar_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "calendar_events_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_calendar_events_case_id"
-            columns: ["case_id"]
-            isOneToOne: false
-            referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_calendar_events_client_id"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -162,97 +176,13 @@ export type Database = {
           },
         ]
       }
-      case_fields: {
-        Row: {
-          case_type_id: string
-          created_at: string | null
-          data_type: string
-          field_key: string
-          field_order: number | null
-          id: string
-          label: string
-          options: Json | null
-          required: boolean | null
-        }
-        Insert: {
-          case_type_id: string
-          created_at?: string | null
-          data_type: string
-          field_key: string
-          field_order?: number | null
-          id?: string
-          label: string
-          options?: Json | null
-          required?: boolean | null
-        }
-        Update: {
-          case_type_id?: string
-          created_at?: string | null
-          data_type?: string
-          field_key?: string
-          field_order?: number | null
-          id?: string
-          label?: string
-          options?: Json | null
-          required?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "case_fields_case_type_id_fkey"
-            columns: ["case_type_id"]
-            isOneToOne: false
-            referencedRelation: "case_types"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      case_types: {
-        Row: {
-          created_at: string | null
-          created_by: string
-          description: string | null
-          id: string
-          name: string
-          organization_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          created_by: string
-          description?: string | null
-          id?: string
-          name: string
-          organization_id: string
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string
-          description?: string | null
-          id?: string
-          name?: string
-          organization_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "case_types_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "case_types_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       cases: {
         Row: {
           assigned_to: string | null
           case_number: string | null
+          case_type_description: string | null
           case_type_id: string | null
+          case_type_name: string | null
           client_id: string | null
           court: string | null
           created_at: string
@@ -271,7 +201,9 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           case_number?: string | null
+          case_type_description?: string | null
           case_type_id?: string | null
+          case_type_name?: string | null
           client_id?: string | null
           court?: string | null
           created_at?: string
@@ -290,7 +222,9 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           case_number?: string | null
+          case_type_description?: string | null
           case_type_id?: string | null
+          case_type_name?: string | null
           client_id?: string | null
           court?: string | null
           created_at?: string
@@ -307,13 +241,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "cases_case_type_id_fkey"
-            columns: ["case_type_id"]
-            isOneToOne: false
-            referencedRelation: "case_types"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "cases_client_id_fkey"
             columns: ["client_id"]
@@ -334,13 +261,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "fk_cases_client_id"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -493,13 +413,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "contracts_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "contracts_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -511,6 +424,44 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dashboard_prefs: {
+        Row: {
+          id: string
+          organization_id: string
+          reminder_window_days: number | null
+          show_upcoming_cases: boolean | null
+          show_upcoming_contracts: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          reminder_window_days?: number | null
+          show_upcoming_cases?: boolean | null
+          show_upcoming_contracts?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          reminder_window_days?: number | null
+          show_upcoming_cases?: boolean | null
+          show_upcoming_contracts?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_prefs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -568,110 +519,75 @@ export type Database = {
       }
       documents: {
         Row: {
-          case_id: string | null
-          category: string | null
-          client_id: string | null
-          created_at: string
-          description: string | null
-          file_path: string | null
-          file_size: number | null
-          file_type: string | null
+          content: string
+          contract_type: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          effective_date: string | null
+          embedding: string | null
           id: string
+          metadata: Json | null
+          name: string
           organization_id: string | null
-          previous_version_id: string | null
-          tags: string[] | null
-          template_id: string | null
-          title: string
-          updated_at: string
-          uploaded_by: string | null
-          version: number | null
+          renewal_date: string | null
+          summary: string | null
+          termination_date: string | null
+          terms: string | null
+          updated_at: string | null
+          value: number | null
         }
         Insert: {
-          case_id?: string | null
-          category?: string | null
-          client_id?: string | null
-          created_at?: string
-          description?: string | null
-          file_path?: string | null
-          file_size?: number | null
-          file_type?: string | null
+          content: string
+          contract_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          effective_date?: string | null
+          embedding?: string | null
           id?: string
+          metadata?: Json | null
+          name: string
           organization_id?: string | null
-          previous_version_id?: string | null
-          tags?: string[] | null
-          template_id?: string | null
-          title: string
-          updated_at?: string
-          uploaded_by?: string | null
-          version?: number | null
+          renewal_date?: string | null
+          summary?: string | null
+          termination_date?: string | null
+          terms?: string | null
+          updated_at?: string | null
+          value?: number | null
         }
         Update: {
-          case_id?: string | null
-          category?: string | null
-          client_id?: string | null
-          created_at?: string
-          description?: string | null
-          file_path?: string | null
-          file_size?: number | null
-          file_type?: string | null
+          content?: string
+          contract_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          effective_date?: string | null
+          embedding?: string | null
           id?: string
+          metadata?: Json | null
+          name?: string
           organization_id?: string | null
-          previous_version_id?: string | null
-          tags?: string[] | null
-          template_id?: string | null
-          title?: string
-          updated_at?: string
-          uploaded_by?: string | null
-          version?: number | null
+          renewal_date?: string | null
+          summary?: string | null
+          termination_date?: string | null
+          terms?: string | null
+          updated_at?: string | null
+          value?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "documents_case_id_fkey"
-            columns: ["case_id"]
+            foreignKeyName: "documents_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "documents_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_previous_version_id_fkey"
-            columns: ["previous_version_id"]
-            isOneToOne: false
-            referencedRelation: "documents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "doc_templates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_documents_case_id"
-            columns: ["case_id"]
-            isOneToOne: false
-            referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_documents_client_id"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -732,6 +648,229 @@ export type Database = {
           },
         ]
       }
+      invoice_items: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+          quantity: number
+          rate: number
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+          quantity?: number
+          rate?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+          quantity?: number
+          rate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          default_notes: string | null
+          default_tax_rate: number | null
+          default_terms: string | null
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          default_notes?: string | null
+          default_tax_rate?: number | null
+          default_terms?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          default_notes?: string | null
+          default_tax_rate?: number | null
+          default_terms?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          case_id: string | null
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          due_date: string
+          id: string
+          invoice_number: string
+          issue_date: string
+          notes: string | null
+          organization_id: string
+          status: string | null
+          subtotal: number
+          tax_amount: number | null
+          tax_rate: number | null
+          terms_conditions: string | null
+          title: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          case_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          due_date: string
+          id?: string
+          invoice_number: string
+          issue_date?: string
+          notes?: string | null
+          organization_id: string
+          status?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          tax_rate?: number | null
+          terms_conditions?: string | null
+          title: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          invoice_number?: string
+          issue_date?: string
+          notes?: string | null
+          organization_id?: string
+          status?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          tax_rate?: number | null
+          terms_conditions?: string | null
+          title?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          organization_id: string | null
+          status: string | null
+          title: string | null
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: string | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: string | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           address: string | null
@@ -782,14 +921,21 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           department: string | null
+          disabled_at: string | null
+          disabled_by: string | null
           email: string | null
           first_name: string | null
           id: string
           is_organization_creator: boolean | null
+          last_login_at: string | null
           last_name: string | null
           organization_id: string
+          password_reset_required: boolean | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
+          role_id: string | null
+          settings: Json | null
+          status: string | null
           updated_at: string
           user_id: string
         }
@@ -797,14 +943,21 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           department?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
           email?: string | null
           first_name?: string | null
           id?: string
           is_organization_creator?: boolean | null
+          last_login_at?: string | null
           last_name?: string | null
           organization_id: string
+          password_reset_required?: boolean | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          role_id?: string | null
+          settings?: Json | null
+          status?: string | null
           updated_at?: string
           user_id: string
         }
@@ -812,14 +965,21 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           department?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
           email?: string | null
           first_name?: string | null
           id?: string
           is_organization_creator?: boolean | null
+          last_login_at?: string | null
           last_name?: string | null
           organization_id?: string
+          password_reset_required?: boolean | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          role_id?: string | null
+          settings?: Json | null
+          status?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -829,6 +989,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
             referencedColumns: ["id"]
           },
         ]
@@ -871,6 +1038,70 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          case_id: string | null
+          completed: boolean | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          case_id?: string | null
+          completed?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          case_id?: string | null
+          completed?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -947,7 +1178,15 @@ export type Database = {
           role_name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Views: {
@@ -958,27 +1197,17 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
-      generate_document_from_template: {
-        Args: { p_template_id: string; p_context: Json }
-        Returns: {
-          case_id: string | null
-          category: string | null
-          client_id: string | null
-          created_at: string
-          description: string | null
-          file_path: string | null
-          file_size: number | null
-          file_type: string | null
-          id: string
-          organization_id: string | null
-          previous_version_id: string | null
-          tags: string[] | null
-          template_id: string | null
-          title: string
-          updated_at: string
-          uploaded_by: string | null
-          version: number | null
-        }
+      disable_user: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
+      enable_user: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
+      generate_invoice_number: {
+        Args: { org_id: string }
+        Returns: string
       }
       get_user_organization_id: {
         Args: Record<PropertyKey, never>
@@ -986,13 +1215,21 @@ export type Database = {
       }
       invite_user_to_organization: {
         Args: {
+          p_department?: string
           p_email: string
           p_first_name: string
           p_last_name: string
           p_role: string
-          p_department?: string
         }
         Returns: Json
+      }
+      match_best_practices: {
+        Args: { query: string }
+        Returns: {
+          clause: string
+          id: string
+          similarity: number
+        }[]
       }
     }
     Enums: {
