@@ -76,8 +76,9 @@ export default function Documents() {
   };
 
   const filteredDocuments = documents.filter((doc: Document) => {
+    const docTitle = doc.title || doc.name || '';
     const termMatches = (t: string) =>
-      (doc.title || doc.name).toLowerCase().includes(t.toLowerCase());
+      docTitle.toLowerCase().includes(t.toLowerCase());
 
     const matchesLocal = searchTerm === "" || termMatches(searchTerm);
     const matchesGlobal = globalSearch === "" || termMatches(globalSearch);

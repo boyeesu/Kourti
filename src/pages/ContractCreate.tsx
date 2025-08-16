@@ -10,7 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarIcon, Plus, X, FileText, Users, Clock } from "lucide-react";
+import { CalendarIcon, Plus, X, FileText, Users, Clock, Upload, Bot } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
@@ -191,12 +191,33 @@ export default function ContractCreate() {
     navigate("/contracts");
   };
 
+  const handleUploadContract = () => {
+    // Placeholder for contract upload functionality
+    alert("Contract upload functionality coming soon!");
+  };
+
+  const handleUseReamAI = () => {
+    navigate("/contracts/review");
+  };
+
   return (
     <div className="p-6 space-y-6">
       <Breadcrumbs />
-      <div>
-        <h1 className="text-2xl font-semibold">Create New Contract</h1>
-        <p className="text-muted-foreground">Set up a new contract with parties, terms, and clauses</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Create New Contract</h1>
+          <p className="text-muted-foreground">Set up a new contract with parties, terms, and clauses</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleUploadContract}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Contract
+          </Button>
+          <Button variant="outline" onClick={handleUseReamAI}>
+            <Bot className="h-4 w-4 mr-2" />
+            Use Ream AI
+          </Button>
+        </div>
       </div>
 
       <Card className="shadow-card">

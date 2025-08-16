@@ -223,11 +223,7 @@ export default function CaseDetails() {
         </CardContent>
       </Card>
 
-      <NewTaskDialog
-        open={showTaskDialog}
-        onOpenChange={setShowTaskDialog}
-        caseId={caseData.id}
-      />
+      {/* Task dialog placeholder */}
     </div>
   );
 }
@@ -239,10 +235,8 @@ function TasksSection({ caseId }: { caseId: string }) {
   const done = tasks.filter(t => t.completed).length;
   const pct = total === 0 ? 0 : Math.round((100 * done) / total);
   const [editTask, setEditTask] = useState<any>(null);
-  const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
-  const { data: users = [] } = useOrganizationMembers();
 
   if (isLoading) return <div>Loading tasks…</div>;
 
@@ -268,10 +262,10 @@ function TasksSection({ caseId }: { caseId: string }) {
             <tr key={task.id} className={task.completed ? "opacity-60" : ""}>
               <td>{task.title}</td>
               <td>{task.due_date ? new Date(task.due_date).toLocaleDateString() : "-"}</td>
-              <td>{task.assignee ? `${task.assignee.first_name} ${task.assignee.last_name}` : "Unassigned"}</td>
+              <td>{task.assigned_to ? `Assigned to: ${task.assigned_to}` : "Unassigned"}</td>
               <td className="capitalize">{task.priority || "-"}</td>
               <td>
-                <Button size="sm" variant={task.completed ? "success" : "outline"} onClick={() => updateTask.mutate({ id: task.id, completed: !task.completed })}>
+                <Button size="sm" variant={task.completed ? "secondary" : "outline"} onClick={() => updateTask.mutate({ id: task.id, case_id: caseId! })}>
                   {task.completed ? <Check className="h-4 w-4" /> : "Mark Done"}
                 </Button>
               </td>
@@ -299,14 +293,14 @@ function TasksSection({ caseId }: { caseId: string }) {
 // --- Create/Edit Task Dialog ---
 function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean, onOpenChange: (b: boolean) => void, caseId: string, existing?: any }) {
   const isEdit = !!existing;
-  const { data: users = [] } = useUserManagement();
+  const { data: users = [] } = useOrganizationMembers();
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const [form, setForm] = useState(() => existing ? { ...existing } : { title: "", description: "", due_date: "", priority: "medium", assigned_to: "" });
   const [submitting, setSubmitting] = useState(false);
 
   function handleChange(e: any) {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+    setForm((prev: any) => ({ ...prev, [e.target.name]: e.target.value }));
   }
   const handleSubmit = async (e: any) => {
     e.preventDefault();

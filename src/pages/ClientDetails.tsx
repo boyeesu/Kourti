@@ -282,12 +282,8 @@ export default function ClientDetails() {
                 createLog.mutate({ 
                   type: logType,
                   content: logContent,
-                  user_id: userId,
-                  client_id: clientId!,
-                  organization_id: '', // will be filled by database trigger
                   created_by: userId,
-                  updated_at: new Date().toISOString(),
-                  date: new Date().toISOString()
+                  client_id: clientId!,
                 });
                 setLogContent("");
               }}

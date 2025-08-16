@@ -38,7 +38,7 @@ import Settings from "./pages/Settings";
 import ReamAI from "./pages/ReamAI";
 
 import NotFound from "./pages/NotFound";
-import React, { Suspense, lazy } from "react";
+import { Suspense, lazy } from "react";
 const Invoices = lazy(() => import('./pages/Invoices'));
 
 const queryClient = new QueryClient();
