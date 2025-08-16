@@ -156,12 +156,12 @@ export default function Onboarding() {
 
       if (orgError) throw orgError;
 
-      // Update user profile with organization
+      // Update user profile with organization (default to superadmin for onboarding)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           organization_id: orgData.id,
-          role: 'admin',
+          role: 'superadmin',
         })
         .eq('user_id', user?.id);
 

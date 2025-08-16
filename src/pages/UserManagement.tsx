@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useInviteUser, useUserRole } from "@/hooks/useUserManagement";
-import { useUserRoles } from "@/hooks/useUserRoles";
+import { useAllRoles } from "@/hooks/useAllRoles";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
 import { UserPlus, Users, Shield, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -20,15 +20,18 @@ export default function UserManagement() {
   const [department, setDepartment] = useState("");
 
   const { data: userRole } = useUserRole();
-  const { data: roles = [] } = useUserRoles();
+  const { data: roles = [] } = useAllRoles();
   const { data: members = [], isLoading } = useOrganizationMembers();
   const inviteUser = useInviteUser();
 
   useEffect(() => {
     if (!role && roles.length > 0) {
-      // Find the first non-superadmin role or the first role if user is superadmin
-      const defaultRole = roles.find(r => userRole?.role === 'superadmin' || r.role_name !== 'superadmin')?.id;
-      setRole(defaultRole || roles[0].id);
+      // Find first assignable role (not superadmin unless you are one)
+      const defaultRole = roles.find(r =>
+        userRole?.role === 'superadmin' ||
+        (r.role !== 'superadmin' && r.role_name !== 'superadmin')
+      );
+      setRole(defaultRole?.role || defaultRole?.role_name || roles[0].role || roles[0].role_name);
     }
   }, [roles, role, userRole]);
 
@@ -45,7 +48,7 @@ export default function UserManagement() {
       email,
       firstName,
       lastName,
-      roleId: role,
+      role: role,
       department: department || undefined,
     });
 
@@ -54,15 +57,21 @@ export default function UserManagement() {
     setFirstName("");
     setLastName("");
     // Reset to the default role after successful invite
-    const defaultRole = roles.find(r => userRole?.role === 'superadmin' || r.role_name !== 'superadmin')?.id;
-    setRole(defaultRole || roles[0]?.id || "");
+    const defaultRole = roles.find(r =>
+      userRole?.role === 'superadmin' ||
+      (r.role !== 'superadmin' && r.role_name !== 'superadmin')
+    );
+    setRole(defaultRole?.role || defaultRole?.role_name || roles[0]?.role || roles[0]?.role_name || "");
     setDepartment("");
   };
 
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'superadmin': return <Shield className="h-4 w-4 text-purple-600" />;
-      case 'admin': return <Users className="h-4 w-4 text-blue-600" />;
+      case 'admin':
+      case 'administrator': return <Users className="h-4 w-4 text-blue-600" />;
+      case 'finance': return <Users className="h-4 w-4 text-green-700"/>;
+      case 'legal': return <Users className="h-4 w-4 text-red-600"/>;
       default: return <User className="h-4 w-4 text-gray-600" />;
     }
   };
@@ -70,7 +79,10 @@ export default function UserManagement() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'superadmin': return "bg-purple-100 text-purple-800";
-      case 'admin': return "bg-blue-100 text-blue-800";
+      case 'admin':
+      case 'administrator': return "bg-blue-100 text-blue-800";
+      case 'finance': return "bg-green-100 text-green-800";
+      case 'legal': return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -155,12 +167,11 @@ export default function UserManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       {roles
-                        .filter((r) =>
-                          userRole?.role === 'superadmin' || r.role_name !== 'superadmin'
-                        )
+                        .filter((r) => userRole?.role === 'superadmin' || (r.role !== 'superadmin' && r.role_name !== 'superadmin'))
                         .map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.role_name}
+                          <SelectItem key={r.role || r.role_name} value={r.role || r.role_name}>
+                            {r.display_name || r.role_name || r.role}
+                            {r.source === 'custom' && ' (Custom)'}
                           </SelectItem>
                         ))}
                     </SelectContent>

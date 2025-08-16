@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAllRoles } from '@/hooks/useAllRoles';
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,9 @@ export default function Register() {
     organization: "",
     role: "",
   });
+
+  // Fetch all roles but only display those appropriate for user sign up
+  const { data: allRoles = [] } = useAllRoles();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,10 +132,17 @@ export default function Register() {
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="partner">Partner</SelectItem>
-                  <SelectItem value="associate">Associate</SelectItem>
-                  <SelectItem value="paralegal">Paralegal</SelectItem>
-                  <SelectItem value="admin">Administrator</SelectItem>
+                  {allRoles
+                    .filter(r => r.role && r.role !== 'superadmin') // Remove superadmin from public signup
+                    .map(r => (
+                      <SelectItem
+                        key={r.role || r.role_name}
+                        value={r.role || r.role_name}
+                      >
+                        {r.display_name || r.role_name || r.role}
+                        {r.source === 'custom' && ' (Custom)'}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
