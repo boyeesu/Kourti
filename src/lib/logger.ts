@@ -1,4 +1,4 @@
-import { sanitizeErrorForLogging } from '@/lib/utils';
+import { sanitizeErrorForLogging } from '@/lib/error';
 import { addCSRFToRequest } from '@/lib/csrf';
 import { supabase } from '@/integrations/supabase/client';
 

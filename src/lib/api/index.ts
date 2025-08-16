@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, QueryKey } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { sanitizeErrorForLogging } from '@/lib/utils';
+import { sanitizeErrorForLogging, APIError, ERROR_MESSAGES } from '@/lib/error';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
