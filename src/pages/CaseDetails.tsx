@@ -194,7 +194,7 @@ export default function CaseDetails() {
       <Card className="shadow-card">
         <CardHeader className="flex gap-4 items-center">
           <CardTitle className="flex-1">Tasks</CardTitle>
-          <Button size="sm" onClick={() => setShowTaskDialog(true)}>
+          <Button size="sm" onClick={() => {}}>
             <Plus className="h-4 w-4 mr-1" /> Add Task
           </Button>
         </CardHeader>
