@@ -93,9 +93,11 @@ export function AppSidebar() {
   const { data: userRoleData } = useUserRole();
   const role = userRoleData?.role;
   console.log("Sidebar user role:", role, userRoleData);
-  const navigationItems = role === "super_admin"
-    ? [...baseNavigationItems.slice(0, 6), ...superAdminItems, ...baseNavigationItems.slice(6)]
-    : baseNavigationItems;
+  // DEVELOPMENT OVERRIDE: Always show invoicing
+  const navigationItems = [...baseNavigationItems.slice(0, 6), ...superAdminItems, ...baseNavigationItems.slice(6)];
+  // const navigationItems = role === "super_admin"
+  //   ? [...baseNavigationItems.slice(0, 6), ...superAdminItems, ...baseNavigationItems.slice(6)]
+  //   : baseNavigationItems;
 
   return (
     <Sidebar variant="sidebar" collapsible="icon" className="border-r border-border">
