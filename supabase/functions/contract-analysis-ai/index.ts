@@ -1,21 +1,35 @@
 import { serve } from 'https://deno.land/std@0.192.0/http/server.ts';
-import OpenAI from 'https://deno.land/x/openai@1.4.2/mod.ts';
+import {
+  corsHeaders,
+  handleOptions,
+  verifyRequest,
+  enforceRateLimit,
+  getOpenAI,
+  logOpenAIUsage,
+} from '../_shared/utils.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const openai = new OpenAI();
+const openai = getOpenAI();
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
+  // Auth
+  const { user, errorResponse } = await verifyRequest(req);
+  if (errorResponse) return errorResponse;
+
+  // Rate-limit
   try {
-    const { text, goal, analysisType = 'review' } = await req.json();
+    await enforceRateLimit(user!.id);
+  } catch (rlErr) {
+    return new Response(JSON.stringify({ error: (rlErr as Error).message }), {
+      status: 429,
+      headers: corsHeaders,
+    });
+  }
+  // Business logic
+  try {
+    const { text, goal, analysisType = 'review' } = await req.json().catch(() => ({}));
 
     if (!text) {
       return new Response(JSON.stringify({ error: 'Missing text content' }), { 
@@ -85,24 +99,53 @@ Document text:
 ${text}`;
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1-2025-04-14',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      max_completion_tokens: 2000,
-    });
+    let analysis = '';
+    let usedModel = 'gpt-4o';
+    let completion: any = null;
+    try {
+      completion = await openai.chat.completions.create({
+        model: usedModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 2000,
+      });
+      analysis = completion.choices[0].message?.content ?? '';
+    } catch (err) {
+      // fallback to GPT-3.5
+      try {
+        usedModel = 'gpt-3.5-turbo';
+        completion = await openai.chat.completions.create({
+          model: usedModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.2,
+          max_tokens: 2000,
+        });
+        analysis = completion.choices[0].message?.content ?? '';
+      } catch (fallbackErr) {
+        const errorMessage = `OpenAI error (GPT-4o): ${(err as Error).message}\nFallback error (GPT-3.5): ${(fallbackErr as Error).message}`;
+        console.error('Contract analysis AI error:', errorMessage);
+        return new Response(
+          JSON.stringify({ error: errorMessage }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+    // log usage
+    await logOpenAIUsage(user!.id, analysisType, usedModel, completion?.usage);
 
-    const analysis = completion.choices[0].message?.content || '';
-
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       analysis,
       persona: 'REAM AI',
-      analysisType 
+      analysisType,
     }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {

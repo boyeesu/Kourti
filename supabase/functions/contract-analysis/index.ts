@@ -1,14 +1,41 @@
 import { serve } from 'https://deno.land/std@0.192.0/http/server.ts';
-import OpenAI from 'https://deno.land/x/openai@1.4.2/mod.ts';
+import {
+  corsHeaders,
+  handleOptions,
+  verifyRequest,
+  enforceRateLimit,
+  getOpenAI,
+  logOpenAIUsage,
+} from '../_shared/utils.ts';
 
-const openai = new OpenAI();
+const openai = getOpenAI();
 
 serve(async (req) => {
+  // CORS pre-flight
+  const opt = handleOptions(req);
+  if (opt) return opt;
+
+  // Auth
+  const { user, errorResponse } = await verifyRequest(req);
+  if (errorResponse) return errorResponse;
+
+  // Rate-limit
   try {
-    const { text, analysisType } = await req.json();
+    await enforceRateLimit(user!.id);
+  } catch (rlErr) {
+    return new Response(JSON.stringify({ error: (rlErr as Error).message }), {
+      status: 429,
+      headers: corsHeaders,
+    });
+  }
+  try {
+    const { text, analysisType } = await req.json().catch(() => ({}));
 
     if (!text || !analysisType) {
-      return new Response(JSON.stringify({ error: 'Missing text or analysisType' }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Missing text or analysisType' }),
+        { status: 400, headers: corsHeaders },
+      );
     }
 
     let promptSystem = '';
@@ -29,7 +56,10 @@ serve(async (req) => {
         promptUser = `Compare this contract against best practice standards and flag any risky or unusual clauses. Explain each risk and suggest better wording:\n\n${text}`;
         break;
       default:
-        return new Response(JSON.stringify({ error: 'Unknown analysisType' }), { status: 400 });
+        return new Response(
+          JSON.stringify({ error: 'Unknown analysisType' }),
+          { status: 400, headers: corsHeaders },
+        );
     }
 
     let analysis = '';
@@ -67,7 +97,13 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: fullError }), { status: 500 });
       }
     }
-    return new Response(JSON.stringify({ analysis, model: usedModel }), { status: 200 });
+    // log usage
+    await logOpenAIUsage(user!.id, analysisType, usedModel, completion?.usage);
+
+    return new Response(JSON.stringify({ analysis, model: usedModel }), {
+      status: 200,
+      headers: corsHeaders,
+    });
   } catch (err) {
     console.error('Function contract-analysis error:', err);
     // More user-friendly error
