@@ -32,12 +32,15 @@ import {
 } from "lucide-react";
 import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";
+import { useUserRole } from "@/hooks/useUserManagement";
 import { Case, Contract } from "@/types";
 
 export default function Dashboard() {
   const [windowDays] = useState(7);
   const { upcomingCases, upcomingContracts } = useInsights(windowDays);
   const { data: dashboardData } = useDashboard();
+  const { data: userRoleData } = useUserRole();
+  const role = userRoleData?.role;
 
   const casesByStatus = [
     { name: 'Active', value: 45, color: '#3b82f6' },
@@ -62,7 +65,7 @@ export default function Dashboard() {
         <p className="text-muted-foreground">Overview of your legal practice</p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards (Live Data) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="shadow-card">
           <CardContent className="p-4">
@@ -72,7 +75,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Active Cases</p>
-                <p className="text-2xl font-bold">{dashboardData?.activeCases || 45}</p>
+                <p className="text-2xl font-bold">{dashboardData?.activeCases ?? "—"}</p>
               </div>
             </div>
           </CardContent>
@@ -86,7 +89,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Clients</p>
-                <p className="text-2xl font-bold">{dashboardData?.totalClients || 128}</p>
+                <p className="text-2xl font-bold">{dashboardData?.totalClients ?? "—"}</p>
               </div>
             </div>
           </CardContent>
@@ -100,25 +103,27 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Documents</p>
-                <p className="text-2xl font-bold">{dashboardData?.totalDocuments || 342}</p>
+                <p className="text-2xl font-bold">{dashboardData?.totalDocuments ?? "—"}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-destructive/10 rounded-lg">
-                <DollarSign className="h-5 w-5 text-destructive" />
+        {role === "super_admin" && (
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-destructive/10 rounded-lg">
+                  <DollarSign className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Revenue</p>
+                  <p className="text-2xl font-bold">—</p> {/* Placeholder for now */}
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Revenue</p>
-                <p className="text-2xl font-bold">$2.4M</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Charts */}

@@ -38,6 +38,8 @@ import Settings from "./pages/Settings";
 import ReamAI from "./pages/ReamAI";
 
 import NotFound from "./pages/NotFound";
+import React, { Suspense, lazy } from "react";
+const Invoices = lazy(() => import('./pages/Invoices'));
 
 const queryClient = new QueryClient();
 
@@ -90,6 +92,11 @@ const App = () => (
                           <Route path="/contracts/review" element={<ContractReview />} />
                           <Route path="/documents/review" element={<DocumentReview />} />
                           <Route path="/ream-ai" element={<ReamAI />} />
+                          <Route path="/invoices" element={
+                            <Suspense fallback={<div>Loading...</div>}>
+                              <Invoices />
+                            </Suspense>
+                          } />
                           <Route path="/users" element={<UserManagement />} />
                           <Route path="/settings" element={<Settings />} />
                           {/* /profile route removed; merged into Settings */}

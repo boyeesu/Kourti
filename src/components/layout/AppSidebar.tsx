@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Menu,
   LogOut,
-  FileInvoice
+  Receipt
 } from "lucide-react";
 
 import {
@@ -46,7 +46,7 @@ const baseNavigationItems = [
   { title: "Ream AI", url: "/ream-ai", icon: Bot },
 ];
 const superAdminItems = [
-  { title: "Invoicing & Billing", url: "/invoices", icon: FileInvoice },
+  { title: "Invoicing & Billing", url: "/invoices", icon: Receipt },
 ];
 
 const managementItems = [
@@ -92,6 +92,7 @@ export function AppSidebar() {
 
   const { data: userRoleData } = useUserRole();
   const role = userRoleData?.role;
+  console.log("Sidebar user role:", role, userRoleData);
   const navigationItems = role === "super_admin"
     ? [...baseNavigationItems.slice(0, 6), ...superAdminItems, ...baseNavigationItems.slice(6)]
     : baseNavigationItems;
