@@ -1,219 +1,553 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Send, FileText, FileCheck } from "lucide-react";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useContracts } from "@/hooks/useContracts";
-import { useAnalyzeDocument } from "@/hooks/useAnalyzeDocument";
+import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
+import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatDate } from "@/lib/utils";
+import {
+  Plus,
+  Send,
+  FileText,
+  FileCheck,
+  Search,
+  Loader2,
+  StopCircle,
+  FileQuestion,
+  Database,
+  SquareTerminal,
+  ChevronRight,
+  RefreshCw
+} from "lucide-react";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
+  isStreaming?: boolean;
+  timestamp?: Date;
 }
 
+// Example prompts to help users
+const EXAMPLE_PROMPTS = [
+  "Summarize this document in 3 paragraphs",
+  "What are the key provisions in this contract?",
+  "Identify potential risks in this agreement",
+  "Extract all dates and deadlines from this document",
+  "Is there anything unusual about this contract?"
+];
+
 export default function ReamAI() {
+  // State for chat and document selection
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Welcome to Ream AI! Select or upload a document/contract, or ask me anything legal." },
+    { 
+      role: "system", 
+      content: "Welcome to Ream AI! Select or upload a document/contract, or ask me anything legal. I'm here to help analyze your documents and answer legal questions.",
+      timestamp: new Date()
+    },
   ]);
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const [search, setSearch] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("documents");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch documents and contracts
   const { data: documents = [], isLoading: docsLoading } = useDocuments();
   const { data: contracts = [], isLoading: contractsLoading } = useContracts();
-  const analyzeDocument = useAnalyzeDocument();
+  
+  // Get document analysis functionality
+  const { 
+    streamAnalysis, 
+    cancelStreaming, 
+    isStreaming,
+  } = useEnhancedDocumentAnalysis();
 
-  // Upload logic
+  // Scroll to bottom of messages when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Handle file uploads
   const onDrop = (acceptedFiles: File[]) => {
     if (acceptedFiles.length) {
-      setSelectedFile(acceptedFiles[0]);
+      const file = acceptedFiles[0];
+      setSelectedFile(file);
+      setSelectedDoc(null); // Clear any selected document
+      
+      // Add message about the upload
       setMessages((msgs) => [
         ...msgs,
-        { role: "user", content: `Uploaded file: ${acceptedFiles[0].name}` },
-        { role: "assistant", content: `Got it! Would you like me to analyze \"${acceptedFiles[0].name}\"?` },
-      ]);
-      // NOTE: You can use a separate upload mutation here if you want full support
-      // For now, we just simulate review, as in the mock sample
-    }
-  };
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
-
-  async function sendMessage(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (!input.trim()) return;
-    setMessages((msgs) => [
-      ...msgs,
-      { role: "user", content: input },
-    ]);
-    
-    // If a document or contract is selected, analyze it
-    if (selectedDoc?.id && selectedDoc?.type) {
-      setMessages((msgs) => [
-        ...msgs,
-        { role: "assistant", content: "Analyzing..." },
-      ]);
-      analyzeDocument.mutate(
-        {
-          docId: selectedDoc.id,
-          content: selectedDoc.content || selectedDoc.terms || selectedDoc.title || selectedDoc.name || "",
-        }, {
-          onSuccess: ({ analysis }) => {
-            setMessages((msgs) => [
-              ...msgs,
-              { role: "assistant", content: analysis || "No analysis returned." },
-            ]);
-          },
-          onError: (error: any) => {
-            setMessages((msgs) => [
-              ...msgs,
-              { role: "assistant", content: `Error: ${error.message || 'Could not process analysis.'}` },
-            ]);
-          }
-        });
-    } else if (selectedFile) {
-      // If a file is uploaded, analyze it
-      setMessages((msgs) => [
-        ...msgs,
-        { role: "assistant", content: `Analyzing uploaded file: ${selectedFile.name}...` },
+        { 
+          role: "user", 
+          content: `I've uploaded "${file.name}" for analysis.`, 
+          timestamp: new Date() 
+        }
       ]);
       
-      try {
-        // Read file content as text
-        const fileContent = await selectedFile.text();
-        analyzeDocument.mutate(
-          {
-            docId: `uploaded-${selectedFile.name}`,
-            content: fileContent || selectedFile.name,
-          }, {
-            onSuccess: ({ analysis }) => {
-              setMessages((msgs) => [
-                ...msgs,
-                { role: "assistant", content: analysis || "No analysis returned." },
-              ]);
-            },
-            onError: (error: any) => {
-              setMessages((msgs) => [
-                ...msgs,
-                { role: "assistant", content: `Error analyzing file: ${error.message || 'Could not process analysis.'}` },
-              ]);
-            }
-          });
-      } catch (error) {
-        setMessages((msgs) => [
-          ...msgs,
-          { role: "assistant", content: `Error reading file: ${error instanceof Error ? error.message : 'Could not read file content.'}` },
-        ]);
-      }
-    } else {
+      // Add assistant response
       setMessages((msgs) => [
         ...msgs,
-        { role: "assistant", content: '[Ream AI simulation] For a real legal review, select a document or contract to analyze!' },
+        { 
+          role: "assistant", 
+          content: `I've received your file "${file.name}". You can now ask me to analyze it or ask specific questions about its content.`, 
+          timestamp: new Date() 
+        }
       ]);
     }
-    setInput("");
-  }
+  };
+  
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt'],
+    }
+  });
 
+  // Handle document/contract selection
   function handleSelectDoc(doc: any, isContract: boolean) {
     setSelectedDoc({ ...doc, type: isContract ? "contract" : "document" });
+    setSelectedFile(null); // Clear any uploaded file
+    
+    // Add messages about the selection
     setMessages((msgs) => [
       ...msgs,
-      { role: "user", content: `Review this ${isContract ? "contract" : "document"}: ${doc.title || doc.name || doc.id}` },
-      { role: "assistant", content: `Loaded \"${doc.title || doc.name}\" into context. You can now ask questions or request analysis.` },
+      { 
+        role: "user", 
+        content: `I'd like to analyze this ${isContract ? "contract" : "document"}: ${doc.title || doc.name}`, 
+        timestamp: new Date() 
+      }
+    ]);
+    
+    setMessages((msgs) => [
+      ...msgs,
+      { 
+        role: "assistant", 
+        content: `I've loaded "${doc.title || doc.name}" for analysis. What would you like to know about it?`, 
+        timestamp: new Date() 
+      }
     ]);
   }
 
+  // Handle sending a message
+  async function sendMessage(e?: React.FormEvent) {
+    e?.preventDefault();
+    
+    if (!input.trim() && !selectedDoc && !selectedFile) {
+      return;
+    }
+    
+    const userMessage = input.trim();
+    setInput("");
+    
+    // Add user message to chat
+    if (userMessage) {
+      setMessages((msgs) => [
+        ...msgs,
+        { role: "user", content: userMessage, timestamp: new Date() }
+      ]);
+    }
+    
+    // Show typing indicator
+    setMessages((msgs) => [
+      ...msgs,
+      { role: "assistant", content: "", isStreaming: true, timestamp: new Date() }
+    ]);
+    
+    try {
+      // Handle document analysis if a document is selected or uploaded
+      if (selectedDoc || selectedFile) {
+        let docId: string;
+        let content: string;
+        let docType: 'document' | 'contract';
+        
+        if (selectedDoc) {
+          docId = selectedDoc.id;
+          content = selectedDoc.content || selectedDoc.terms || selectedDoc.title || "";
+          docType = selectedDoc.type as 'document' | 'contract';
+        } else if (selectedFile) {
+          docId = `uploaded-${selectedFile.name}`;
+          content = await selectedFile.text();
+          docType = 'document';
+        } else {
+          throw new Error("No document selected");
+        }
+        
+        // Stream the AI analysis
+        await streamAnalysis({
+          docId,
+          content,
+          documentType: docType,
+          analysisType: "general",
+          onProgress: (content, done) => {
+            setMessages((msgs) => 
+              msgs.map((msg, i) => 
+                i === msgs.length - 1 ? 
+                  { ...msg, content, isStreaming: !done } : 
+                  msg
+              )
+            );
+            
+            if (done) {
+              setIsTyping(false);
+            }
+          }
+        });
+      } else {
+        // Simulate an AI response (for general queries without document context)
+        setIsTyping(true);
+        
+        // In a real app, this would call an API endpoint for general legal queries
+        simulateTypingResponse(
+          "I don't have a document to analyze. Please upload or select a document first, or ask me a general legal question.",
+          50
+        );
+      }
+    } catch (error) {
+      console.error("Error processing request:", error);
+      
+      // Show error message
+      setMessages((msgs) => 
+        msgs.map((msg, i) => 
+          i === msgs.length - 1 ? 
+            { 
+              ...msg, 
+              content: "Sorry, I encountered an error processing your request. Please try again.", 
+              isStreaming: false 
+            } : 
+            msg
+        )
+      );
+      
+      setIsTyping(false);
+    }
+  }
+  
+  // Simulate typing for demo purposes (would be replaced by actual streaming in production)
+  function simulateTypingResponse(text: string, speed: number = 30) {
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i <= text.length) {
+        setMessages((msgs) => 
+          msgs.map((msg, idx) => 
+            idx === msgs.length - 1 ? 
+              { ...msg, content: text.substring(0, i), isStreaming: i < text.length } : 
+              msg
+          )
+        );
+        i++;
+      } else {
+        clearInterval(interval);
+        setIsTyping(false);
+      }
+    }, speed);
+  }
+  
+  // Function to handle adding an example prompt
+  function useExamplePrompt(prompt: string) {
+    setInput(prompt);
+  }
+
+  // Filter documents based on search term
+  const filteredDocuments = documents.filter(doc => 
+    (doc.title || doc.name || '').toLowerCase().includes(search.toLowerCase())
+  );
+  
+  const filteredContracts = contracts.filter(contract => 
+    (contract.title || '').toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="flex h-full">
+    <div className="flex h-[calc(100vh-100px)] overflow-hidden">
       {/* Left: doc/contract & upload */}
-      <aside className="w-72 min-w-[15rem] border-r bg-accent/40 p-4 flex flex-col">
-        <h2 className="font-semibold mb-2">Your Documents</h2>
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search documents/contracts…"
-          className="mb-2"
-        />
-        <ScrollArea className="flex-1">
-          <div className="mb-4">
-            <div className="text-xs text-muted-foreground mb-1">Documents</div>
-            {docsLoading ? (
-              <div className="text-sm text-muted-foreground">Loading…</div>
+      <ModuleErrorBoundary name="Document Selector">
+        <aside className="w-72 min-w-[18rem] border-r bg-accent/40 p-4 flex flex-col h-full">
+          <h2 className="font-semibold mb-2">Knowledge Base</h2>
+          <div className="relative mb-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search documents/contracts…"
+              className="pl-10"
+            />
+          </div>
+          
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-2 mb-2">
+              <TabsTrigger value="documents" className="text-xs">
+                <FileText className="h-3.5 w-3.5 mr-1" />
+                Documents
+              </TabsTrigger>
+              <TabsTrigger value="contracts" className="text-xs">
+                <FileCheck className="h-3.5 w-3.5 mr-1" />
+                Contracts
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="documents" className="mt-0">
+              <ScrollArea className="h-[calc(100vh-260px)]">
+                {docsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
+                  </div>
+                ) : filteredDocuments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    {search ? "No matching documents" : "No documents found"}
+                  </div>
+                ) : (
+                  <ul className="space-y-1">
+                    {filteredDocuments.map((doc) => (
+                      <li key={doc.id}>
+                        <button
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center hover:bg-accent transition-colors ${
+                            selectedDoc?.id === doc.id ? "bg-accent" : ""
+                          }`}
+                          onClick={() => handleSelectDoc(doc, false)}
+                        >
+                          <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                          <span className="truncate">{doc.title || doc.name}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </ScrollArea>
+            </TabsContent>
+            
+            <TabsContent value="contracts" className="mt-0">
+              <ScrollArea className="h-[calc(100vh-260px)]">
+                {contractsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
+                  </div>
+                ) : filteredContracts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    {search ? "No matching contracts" : "No contracts found"}
+                  </div>
+                ) : (
+                  <ul className="space-y-1">
+                    {filteredContracts.map((contract) => (
+                      <li key={contract.id}>
+                        <button
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center hover:bg-accent transition-colors ${
+                            selectedDoc?.id === contract.id ? "bg-accent" : ""
+                          }`}
+                          onClick={() => handleSelectDoc(contract, true)}
+                        >
+                          <FileCheck className="h-4 w-4 mr-2 flex-shrink-0" />
+                          <span className="truncate">{contract.title}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+          
+          <div {...getRootProps()} className={`mt-2 p-3 border-2 border-dashed rounded-md cursor-pointer text-center transition-colors ${
+            isDragActive ? "border-primary bg-primary/10" : "border-muted-foreground/30 hover:bg-accent"
+          }`}>
+            <input {...getInputProps()} />
+            <Plus className="inline-block mr-2 h-4 w-4 text-muted-foreground" />
+            {isDragActive ? (
+              <span className="text-sm">Drop file here...</span>
             ) : (
-              <ul className="space-y-2">
-                {documents
-                  .filter(doc => `${doc.title ?? doc.name ?? ''}`.toLowerCase().includes(search.toLowerCase()))
-                  .map((doc) => (
-                    <li key={doc.id}>
-                      <Button variant={selectedDoc?.id === doc.id ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => handleSelectDoc(doc, false)}>
-                        <FileText className="mr-2 h-4 w-4 inline" />
-                        {doc.title || doc.name}
-                      </Button>
-                    </li>
-                  ))}
-              </ul>
+              <span className="text-sm">Upload Document</span>
             )}
-            <div className="text-xs text-muted-foreground mt-4 mb-1">Contracts</div>
-            {contractsLoading ? (
-              <div className="text-sm text-muted-foreground">Loading…</div>
-            ) : (
-              <ul className="space-y-2">
-                {contracts
-                  .filter(contract => `${contract.title ?? ''}`.toLowerCase().includes(search.toLowerCase()))
-                  .map((contract) => (
-                    <li key={contract.id}>
-                      <Button variant={selectedDoc?.id === contract.id ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => handleSelectDoc(contract, true)}>
-                        <FileCheck className="mr-2 h-4 w-4 inline" />
-                        {contract.title}
-                      </Button>
-                    </li>
-                  ))}
-              </ul>
+            {selectedFile && (
+              <div className="mt-1 text-xs text-muted-foreground truncate">
+                Selected: {selectedFile.name}
+              </div>
             )}
           </div>
-        </ScrollArea>
-        <div {...getRootProps()} className={`mt-1 p-3 border-2 border-dashed rounded cursor-pointer text-center bg-background/80 ${isDragActive ? "border-primary ring-2 ring-primary" : "border-muted-foreground/30"}`}>
-          <input {...getInputProps()} />
-          <Plus className="inline mr-2 text-muted-foreground" />
-          {isDragActive ? "Drop file here…" : "Upload Document or Contract"}
-          {selectedFile && (
-            <div className="mt-1 text-xs text-muted-foreground">Selected: {selectedFile.name}</div>
+          
+          {(selectedDoc || selectedFile) && (
+            <Card className="mt-4 bg-accent">
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm font-medium flex items-center">
+                  {selectedDoc ? (
+                    <>
+                      {selectedDoc.type === "contract" ? (
+                        <FileCheck className="h-4 w-4 mr-2" />
+                      ) : (
+                        <FileText className="h-4 w-4 mr-2" />
+                      )}
+                      <span className="truncate">{selectedDoc.title || selectedDoc.name}</span>
+                    </>
+                  ) : selectedFile ? (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      <span className="truncate">{selectedFile.name}</span>
+                    </>
+                  ) : null}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-0 px-3 pb-3">
+                <div className="text-xs text-muted-foreground space-y-1">
+                  {selectedDoc && (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Type:</span>
+                        <Badge variant="outline" className="h-5 text-[10px]">
+                          {selectedDoc.type === "contract" ? "Contract" : "Document"}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Created:</span>
+                        <span>{formatDate(selectedDoc.created_at)}</span>
+                      </div>
+                    </>
+                  )}
+                  {selectedFile && (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Type:</span>
+                        <Badge variant="outline" className="h-5 text-[10px]">
+                          {selectedFile.type.split('/')[1].toUpperCase()}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Size:</span>
+                        <span>{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </div>
-      </aside>
+        </aside>
+      </ModuleErrorBoundary>
 
       {/* Right: Chat UI */}
-      <main className="flex-1 flex flex-col h-full">
-        <Card className="flex-1 flex flex-col w-full h-full rounded-none">
-          <CardHeader className="border-b">
-            <CardTitle>Ream AI</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col flex-1 p-4 space-y-2 overflow-y-auto">
-            {messages.map((msg, i) => (
-              <div key={i} className={`max-w-2xl px-4 py-2 rounded-lg my-1 ${msg.role === "user" ? "bg-primary text-primary-foreground ml-auto" : "bg-muted text-foreground mr-auto"}`}>
-                {msg.content}
+      <main className="flex-1 flex flex-col h-full overflow-hidden">
+        <ModuleErrorBoundary name="Ream AI Chat">
+          <Card className="flex-1 flex flex-col w-full h-full rounded-none border-0 border-l-0 border-r-0 border-t-0">
+            <CardHeader className="border-b py-3">
+              <CardTitle className="flex items-center">
+                <span className="bg-gradient-to-r from-primary to-blue-500 text-transparent bg-clip-text font-bold mr-2">
+                  Ream AI
+                </span>
+                <Badge variant="outline" className="ml-2 font-normal">
+                  Beta
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent className="flex-1 p-0 overflow-y-auto">
+              <ScrollArea className="h-full">
+                <div className="flex flex-col p-4 space-y-4">
+                  {messages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} ${
+                        msg.role === "system" ? "justify-center" : ""
+                      }`}
+                    >
+                      {msg.role === "system" ? (
+                        <Card className="max-w-3xl w-full bg-accent/50">
+                          <CardContent className="p-4">
+                            <p className="text-sm">{msg.content}</p>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div
+                          className={`max-w-[80%] px-4 py-3 rounded-xl ${
+                            msg.role === "user"
+                              ? "bg-primary text-primary-foreground ml-auto"
+                              : "bg-muted mr-auto"
+                          }`}
+                        >
+                          {msg.content || (msg.isStreaming && <span className="animate-pulse">▋</span>)}
+                          
+                          {/* Add timestamp if available */}
+                          {msg.timestamp && (
+                            <div className="text-[10px] opacity-70 mt-1 text-right">
+                              {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {/* For auto-scrolling */}
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
+            </CardContent>
+            
+            {/* Example prompts */}
+            {messages.length <= 2 && (
+              <div className="px-4 py-2 border-t">
+                <p className="text-sm text-muted-foreground mb-2">Try asking:</p>
+                <div className="flex flex-wrap gap-2">
+                  {EXAMPLE_PROMPTS.map((prompt, i) => (
+                    <Button
+                      key={i}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => useExamplePrompt(prompt)}
+                    >
+                      {prompt}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            ))}
-          </CardContent>
-          <form className="flex gap-2 p-4 border-t" onSubmit={sendMessage}>
-            <Input
-              className="flex-1"
-              placeholder="Ask a legal question, or direct Ream AI to analyze…"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              autoFocus
-            />
-            <Button type="submit" variant="default" disabled={analyzeDocument.isPending}>
-              {analyzeDocument.isPending ? <span className="animate-spin">⌛</span> : <Send className="h-4 w-4" />}
-            </Button>
-          </form>
-        </Card>
+            )}
+            
+            {/* Input form */}
+            <form 
+              className="flex gap-2 p-4 border-t"
+              onSubmit={sendMessage}
+            >
+              <Input
+                className="flex-1"
+                placeholder={
+                  selectedDoc || selectedFile
+                    ? "Ask about this document or request analysis..."
+                    : "Select a document first or ask a general legal question..."
+                }
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                disabled={isStreaming || isTyping}
+              />
+              
+              {isStreaming ? (
+                <Button 
+                  type="button" 
+                  variant="destructive"
+                  onClick={cancelStreaming}
+                >
+                  <StopCircle className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button type="submit" disabled={isTyping}>
+                  {isTyping ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+            </form>
+          </Card>
+        </ModuleErrorBoundary>
       </main>
     </div>
   );
