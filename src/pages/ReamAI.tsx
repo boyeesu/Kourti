@@ -174,8 +174,8 @@ export default function ReamAI() {
               onChange={e => setInput(e.target.value)}
               autoFocus
             />
-            <Button type="submit" variant="default" disabled={analyzeDocument.isLoading}>
-              {analyzeDocument.isLoading ? <span className="animate-spin">⌛</span> : <Send className="h-4 w-4" />}
+            <Button type="submit" variant="default" disabled={analyzeDocument.isPending}>
+              {analyzeDocument.isPending ? <span className="animate-spin">⌛</span> : <Send className="h-4 w-4" />}
             </Button>
           </form>
         </Card>
