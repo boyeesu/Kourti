@@ -41,13 +41,14 @@ export default function ReamAI() {
   };
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
-  function sendMessage(e?: React.FormEvent) {
+  async function sendMessage(e?: React.FormEvent) {
     e?.preventDefault();
     if (!input.trim()) return;
     setMessages((msgs) => [
       ...msgs,
       { role: "user", content: input },
     ]);
+    
     // If a document or contract is selected, analyze it
     if (selectedDoc?.id && selectedDoc?.type) {
       setMessages((msgs) => [
@@ -72,6 +73,40 @@ export default function ReamAI() {
             ]);
           }
         });
+    } else if (selectedFile) {
+      // If a file is uploaded, analyze it
+      setMessages((msgs) => [
+        ...msgs,
+        { role: "assistant", content: `Analyzing uploaded file: ${selectedFile.name}...` },
+      ]);
+      
+      try {
+        // Read file content as text
+        const fileContent = await selectedFile.text();
+        analyzeDocument.mutate(
+          {
+            docId: `uploaded-${selectedFile.name}`,
+            content: fileContent || selectedFile.name,
+          }, {
+            onSuccess: ({ analysis }) => {
+              setMessages((msgs) => [
+                ...msgs,
+                { role: "assistant", content: analysis || "No analysis returned." },
+              ]);
+            },
+            onError: (error: any) => {
+              setMessages((msgs) => [
+                ...msgs,
+                { role: "assistant", content: `Error analyzing file: ${error.message || 'Could not process analysis.'}` },
+              ]);
+            }
+          });
+      } catch (error) {
+        setMessages((msgs) => [
+          ...msgs,
+          { role: "assistant", content: `Error reading file: ${error instanceof Error ? error.message : 'Could not read file content.'}` },
+        ]);
+      }
     } else {
       setMessages((msgs) => [
         ...msgs,
