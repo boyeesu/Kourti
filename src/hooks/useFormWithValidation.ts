@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm, UseFormProps, UseFormReturn, FieldValues, SubmitHandler, SubmitErrorHandler } from 'react-hook-form';
+import { useForm, UseFormProps, UseFormReturn, FieldValues, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,7 @@ export function useFormWithValidation<
   schema: TSchema;
   defaultValues?: UseFormProps<TFormValues, TContext>['defaultValues'];
   onSubmit?: SubmitHandler<z.infer<TSchema>>;
-  onError?: SubmitErrorHandler<TFormValues>;
+  onError?: (errors: any, event?: any) => void;
   successMessage?: string;
   errorMessage?: string;
 } & Omit<UseFormProps<TFormValues, TContext>, 'resolver'>): UseFormReturn<z.infer<TSchema>, TContext> & {

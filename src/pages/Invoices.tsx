@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { 
   Card, 
   CardHeader, 
@@ -23,10 +23,8 @@ import {
   Download, 
   MoreVertical,
   Calendar,
-  User,
-  ArrowUpDown,
   Check,
-  ChevronRight
+  Eye
 } from "lucide-react";
 import { formatDate, formatCurrency, getStatusColor } from "@/lib/utils";
 import { 
@@ -69,7 +67,7 @@ export default function Invoices() {
   const navigate = useNavigate();
 
   // Fetch invoices with pagination
-  const { data, isLoading, error, refetch } = useFetchData({
+  const { data: apiResponse, isLoading, error, refetch } = useFetchData<any[]>({
     table: 'invoices',
     queryKey: ['invoices', page, statusFilter],
     select: '*, client:client_id(id, name), case:case_id(id, title), created_by_user:created_by(id, first_name, last_name)',
@@ -130,8 +128,11 @@ export default function Invoices() {
     await deleteInvoice.mutateAsync(id);
   };
 
+  // Type assertion for TypeScript
+  const invoiceData = apiResponse as unknown as { data: any[]; count: number };
+  
   // Filter invoices by search term
-  const filteredInvoices = data?.data ? data.data.filter((invoice: any) => {
+  const filteredInvoices = invoiceData?.data ? invoiceData.data.filter((invoice: any) => {
     const searchLower = searchTerm.toLowerCase();
     return (
       (invoice.title && invoice.title.toLowerCase().includes(searchLower)) ||
@@ -165,7 +166,7 @@ export default function Invoices() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Invoices</p>
-                <p className="text-2xl font-bold">{isLoading ? "—" : data?.count || 0}</p>
+                <p className="text-2xl font-bold">{isLoading ? "—" : invoiceData?.count || 0}</p>
               </div>
             </div>
           </CardContent>
@@ -180,7 +181,7 @@ export default function Invoices() {
               <div>
                 <p className="text-sm text-muted-foreground">Paid</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : 
-                  data?.data?.filter((inv: any) => inv.status === 'paid').length || 0}
+                  invoiceData?.data?.filter((inv: any) => inv.status === 'paid').length || 0}
                 </p>
               </div>
             </div>
@@ -196,7 +197,7 @@ export default function Invoices() {
               <div>
                 <p className="text-sm text-muted-foreground">Pending</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : 
-                  data?.data?.filter((inv: any) => ['draft', 'sent'].includes(inv.status)).length || 0}
+                  invoiceData?.data?.filter((inv: any) => ['draft', 'sent'].includes(inv.status)).length || 0}
                 </p>
               </div>
             </div>
@@ -212,7 +213,7 @@ export default function Invoices() {
               <div>
                 <p className="text-sm text-muted-foreground">Overdue</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : 
-                  data?.data?.filter((inv: any) => inv.status === 'overdue').length || 0}
+                  invoiceData?.data?.filter((inv: any) => inv.status === 'overdue').length || 0}
                 </p>
               </div>
             </div>
@@ -416,14 +417,14 @@ export default function Invoices() {
             )}
 
             {/* Pagination */}
-            {!isLoading && !error && data?.count > 0 && (
+            {!isLoading && !error && invoiceData?.count > 0 && (
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
                   Showing <span className="font-medium">{(page - 1) * 10 + 1}</span> to{" "}
                   <span className="font-medium">
-                    {Math.min(page * 10, data.count)}
+                    {Math.min(page * 10, invoiceData.count)}
                   </span> of{" "}
-                  <span className="font-medium">{data.count}</span> invoices
+                  <span className="font-medium">{invoiceData.count}</span> invoices
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button
@@ -437,7 +438,7 @@ export default function Invoices() {
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={page * 10 >= data.count}
+                    disabled={page * 10 >= (invoiceData?.count || 0)}
                     onClick={() => setPage(page + 1)}
                   >
                     Next

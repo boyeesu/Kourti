@@ -20,7 +20,7 @@ logInfo('Application initialized', {
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary
-    fallbackRender={({ resetErrorBoundary }) => (
+    fallbackRender={() => (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background">
         <div className="w-full max-w-md p-8 space-y-6 text-center bg-card rounded-lg shadow-lg">
           <h2 className="text-2xl font-bold text-destructive">Application Error</h2>
