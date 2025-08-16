@@ -5,7 +5,8 @@ import { useToast } from '@/hooks/use-toast';
 import { addCSRFToRequest } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 
-const DOCUMENT_ANALYSIS_ENDPOINT = import.meta.env.VITE_AI_API_ENDPOINT || 'https://api.kouti.legal/ai/analyze';
+// Use Supabase Edge Function instead of external API
+const DOCUMENT_ANALYSIS_FUNCTION = 'analyze-document';
 
 /**
  * Enhanced hook for document analysis with streaming support and improved error handling
@@ -38,30 +39,20 @@ export function useEnhancedDocumentAnalysis() {
           .eq('user_id', user?.id)
           .single();
           
-        // Prepare the request with CSRF protection
-        const response = await fetch(DOCUMENT_ANALYSIS_ENDPOINT, {
-          method: 'POST',
-          ...addCSRFToRequest(),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        // Use Supabase Edge Function
+        const { data, error } = await supabase.functions.invoke(DOCUMENT_ANALYSIS_FUNCTION, {
+          body: {
             documentId: docId,
             content,
             documentType,
             analysisType,
             userId: user?.id,
             organizationId: profile?.organization_id
-          })
+          }
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Analysis failed: ${response.status} - ${errorText}`);
-        }
-
-        const result = await response.json();
-        return result;
+        if (error) throw error;
+        return data;
       } catch (error) {
         logError('Document analysis failed', error);
         throw error;
@@ -118,14 +109,9 @@ export function useEnhancedDocumentAnalysis() {
       const controller = new AbortController();
       setAbortController(controller);
       
-      // Make the fetch request with streaming
-      const response = await fetch(`${DOCUMENT_ANALYSIS_ENDPOINT}/stream`, {
-        method: 'POST',
-        ...addCSRFToRequest(),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use Supabase Edge Function with streaming
+      const response = await supabase.functions.invoke(`${DOCUMENT_ANALYSIS_FUNCTION}-stream`, {
+        body: {
           documentId: docId,
           content,
           documentType,
@@ -133,14 +119,14 @@ export function useEnhancedDocumentAnalysis() {
           userId: user?.id,
           organizationId: profile?.organization_id,
           stream: true
-        }),
-        signal: controller.signal
+        },
+        // Use AbortController signal
+        signal: controller.signal,
+        // Enable response streaming
+        responseType: 'stream'
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Analysis failed: ${response.status} - ${errorText}`);
-      }
+
+      if (response.error) throw response.error;
       
       // Handle the streaming response
       const reader = response.body?.getReader();
