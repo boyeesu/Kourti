@@ -94,7 +94,8 @@ function getStatusVariant(status: string) {
 
 // --- Invoice Dialog ---
 function InvoiceDialog({ open, onOpenChange, existing }: { open: boolean, onOpenChange: (b: boolean) => void, existing?: any }) {
-  const { data: clients = [] } = useClients();
+  const { data: clientsData } = useClients();
+  const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items ?? [];
   const { data: casesData = [] } = useCases();
   const createInvoice = useCreateInvoice();
   const updateInvoice = useUpdateInvoice();
