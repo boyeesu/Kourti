@@ -513,14 +513,25 @@ export default function Onboarding() {
           {renderStepContent()}
           
           <div className="flex justify-between mt-8">
-            <Button
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={currentStep === 1}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Previous
-            </Button>
+            <div className="space-x-2">
+              {currentStep === 1 ? (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/auth")}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Login
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handlePrevious}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+              )}
+            </div>
             
             {currentStep === steps.length ? (
               <Button onClick={handleFinish}>
