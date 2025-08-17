@@ -8,10 +8,21 @@ import type { CaseActivity } from '@/features/activities/types';
 export function useCreateActivity(caseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: Partial<CaseActivity>) => {
+    mutationFn: async (payload: Partial<CaseActivity> & { title: string; activity_type: string }) => {
+      // Get current user's organization
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
       const { data, error } = await supabase
         .from('case_activities')
-        .insert({ ...payload, case_id: caseId })
+        .insert({ 
+          ...payload, 
+          case_id: caseId,
+          organization_id: profile?.organization_id 
+        })
         .select()
         .single();
       if (error) throw error;

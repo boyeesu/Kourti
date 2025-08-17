@@ -1368,6 +1368,10 @@ export type Database = {
         Args: { org_id: string }
         Returns: string
       }
+      get_current_user_organization_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_document_analysis: {
         Args: { p_analysis_type?: string; p_document_id: string }
         Returns: {
@@ -1391,6 +1395,10 @@ export type Database = {
           p_role: string
         }
         Returns: Json
+      }
+      is_user_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       match_best_practices: {
         Args: { query: string }
