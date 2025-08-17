@@ -13,7 +13,7 @@ export function useCaseFields(caseTypeId: string) {
         .eq('case_type_id', caseTypeId)
         .order('field_order', { ascending: true });
       if (error) throw error;
-      return data;
+      return data as CaseField[]; // Add explicit type assertion here
     },
     enabled: Boolean(caseTypeId),
     staleTime: 5 * 60 * 1000,
