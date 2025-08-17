@@ -57,19 +57,21 @@ export default function CaseCreate() {
   const createCase = useCreateCase();
 
   // hooks for case types, issues & fields
-  const { data: caseTypes = [] } = useCaseTypes();
+  const { data: caseTypes = [], isLoading: isLoadingCaseTypes, error: caseTypesError } = useCaseTypes();
   const [caseTypeId, setCaseTypeId] = useState<string>("");
-  const { data: caseIssues = [] } = useCaseIssues(caseTypeId);
+  const { data: caseIssues = [], isLoading: isLoadingCaseIssues } = useCaseIssues(caseTypeId);
   const [caseIssueId, setCaseIssueId] = useState<string>("");
   const { data: caseFields = [] } = useCaseFields(caseTypeId);
   const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
   
-  // Reset issue when type changes
+  // Log current state for debugging
   useEffect(() => {
-    setCaseIssueId("");
-    form.setValue("case_issue_id", "");
-  }, [caseTypeId, form]);
-
+    console.log('Case types loaded:', caseTypes);
+    console.log('Selected case type ID:', caseTypeId);
+    console.log('Case issues loaded:', caseIssues);
+    console.log('Selected case issue ID:', caseIssueId);
+  }, [caseTypes, caseTypeId, caseIssues, caseIssueId]);
+  
   const form = useForm<CaseFormData>({
     resolver: zodResolver(caseSchema),
     defaultValues: {
@@ -83,6 +85,12 @@ export default function CaseCreate() {
       case_issue_id: "",
     },
   });
+
+  // Reset issue when type changes
+  useEffect(() => {
+    setCaseIssueId("");
+    form.setValue("case_issue_id", "");
+  }, [caseTypeId, form]);
 
   const onSubmit = async (data: CaseFormData) => {
     try {
@@ -221,17 +229,30 @@ export default function CaseCreate() {
                         <Select 
                           value={caseTypeId} 
                           onValueChange={(value) => {
+                            console.log('Case type selected:', value);
                             setCaseTypeId(value);
                             field.onChange(value);
                           }}
                           required
+                          disabled={isLoadingCaseTypes}
                         >
-                          <SelectTrigger><SelectValue placeholder="Select case type" /></SelectTrigger>
+                          <SelectTrigger>
+                            <SelectValue placeholder={isLoadingCaseTypes ? "Loading case types..." : "Select case type"} />
+                          </SelectTrigger>
                           <SelectContent>
-                            {caseTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
+                            {isLoadingCaseTypes ? (
+                              <SelectItem value="loading" disabled>Loading...</SelectItem>
+                            ) : caseTypes.length > 0 ? (
+                              caseTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)
+                            ) : (
+                              <SelectItem value="none" disabled>No case types available</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                       </FormControl>
+                      {caseTypesError && (
+                        <p className="text-sm text-red-500">Error loading case types</p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -248,17 +269,26 @@ export default function CaseCreate() {
                           <Select 
                             value={caseIssueId} 
                             onValueChange={(value) => {
+                              console.log('Case issue selected:', value);
                               setCaseIssueId(value);
                               field.onChange(value);
                             }}
-                            disabled={!caseTypeId || caseIssues.length === 0}
+                            disabled={!caseTypeId || isLoadingCaseIssues}
                             required
                           >
-                            <SelectTrigger><SelectValue placeholder="Select case issue" /></SelectTrigger>
+                            <SelectTrigger>
+                              <SelectValue placeholder={isLoadingCaseIssues ? "Loading issues..." : "Select case issue"} />
+                            </SelectTrigger>
                             <SelectContent>
-                              {caseIssues.map(issue => (
-                                <SelectItem key={issue.id} value={issue.id}>{issue.name}</SelectItem>
-                              ))}
+                              {isLoadingCaseIssues ? (
+                                <SelectItem value="loading" disabled>Loading issues...</SelectItem>
+                              ) : caseIssues.length > 0 ? (
+                                caseIssues.map(issue => (
+                                  <SelectItem key={issue.id} value={issue.id}>{issue.name}</SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="none" disabled>No issues available for this case type</SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                         </FormControl>

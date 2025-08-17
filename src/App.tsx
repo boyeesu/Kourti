@@ -9,6 +9,8 @@ import { CasesProvider } from "@/context/CasesContext";
 import { SearchProvider } from "@/hooks/use-search";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import OrganizationSetup from "@/components/OrganizationSetup";
+import { useUserOrganization } from "@/hooks/useUserOrganization";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -72,6 +74,23 @@ function PageViewTracker() {
   return null;
 }
 
+// Organization check component - will show organization setup if needed
+function OrganizationCheck({ children }: { children: React.ReactNode }) {
+  const { data: organizationId, isLoading } = useUserOrganization();
+  
+  if (isLoading) {
+    return <LoadingFallback />;
+  }
+  
+  // If no organization is found, show the setup page
+  if (!organizationId) {
+    return <OrganizationSetup />;
+  }
+  
+  // Otherwise, render the children
+  return <>{children}</>;
+}
+
 // Loading Fallback Component
 function LoadingFallback() {
   return (
@@ -105,9 +124,10 @@ const App = () => (
               
               <Route path="/*" element={
                 <ProtectedRoute>
-                  <SearchProvider>
-                    <CasesProvider>
-                      <AppLayout>
+                  <OrganizationCheck>
+                    <SearchProvider>
+                      <CasesProvider>
+                        <AppLayout>
                         <Routes>
                           {/* Dashboard */}
                           <Route path="/" element={
@@ -276,9 +296,10 @@ const App = () => (
                           {/* 404 Not Found */}
                           <Route path="*" element={<NotFound />} />
                         </Routes>
-                      </AppLayout>
-                    </CasesProvider>
-                  </SearchProvider>
+                        </AppLayout>
+                      </CasesProvider>
+                    </SearchProvider>
+                  </OrganizationCheck>
                 </ProtectedRoute>
               } />
             </Routes>

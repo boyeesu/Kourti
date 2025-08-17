@@ -49,8 +49,8 @@ export function useCases(page = 1, pageSize = 20) {
           *, 
           client:client_id(id, name), 
           assigned_user:assigned_to(id, first_name, last_name),
-          case_type:case_type_id(*),
-          case_issue:case_issue_id(*)
+          case_type:case_types(*)!case_type_id,
+          case_issue:case_issues(*)!case_issue_id
         `, { count: 'exact' })
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
@@ -87,8 +87,8 @@ export function useCase(id: string) {
           *, 
           client:client_id(id, name), 
           assigned_user:assigned_to(id, first_name, last_name),
-          case_type:case_type_id(*),
-          case_issue:case_issue_id(*)
+          case_type:case_types(*)!case_type_id,
+          case_issue:case_issues(*)!case_issue_id
         `)
         .eq('id', id)
         .single();
@@ -126,23 +126,42 @@ export function useCreateCase() {
   return useMutation({
     mutationFn: async (caseData: CreateCaseData) => {
       const userId = await getCurrentUserId();
-      const { data: profile } = await supabase
+      
+      if (!userId) {
+        throw new Error("User is not authenticated. Please sign in to create a case.");
+      }
+      
+      // Get organization ID from user profile
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
         .eq('user_id', userId)
         .single();
+        
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+        throw new Error("Could not retrieve user profile information.");
+      }
+      
+      if (!profile?.organization_id) {
+        throw new Error("No organization associated with your account. Please contact your administrator.");
+      }
 
       const { data, error } = await supabase
         .from('cases')
         .insert({
           ...caseData,
-          organization_id: profile?.organization_id,
+          organization_id: profile.organization_id,
           created_by: userId,
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating case:", error);
+        throw error;
+      }
+      
       return data;
     },
     onSuccess: () => {
