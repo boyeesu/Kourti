@@ -1,6 +1,8 @@
 
 import { useParams, useNavigate } from "react-router-dom";
 import { useCase, useUpdateCase } from "@/hooks/useCases";
+import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
+import { useCaseIssues } from "@/features/cases/api/useCaseIssues";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +21,17 @@ export default function CaseDetails() {
   const navigate = useNavigate();
   const { data: caseData, isLoading, error } = useCase(id!);
   const updateCase = useUpdateCase();
-
+  
+  // Get case type and issue data
+  const caseTypeId = (caseData as any)?.case_type_id || "";
+  const caseIssueId = (caseData as any)?.case_issue_id || "";
+  const { data: caseTypes = [] } = useCaseTypes();
+  const { data: caseIssues = [] } = useCaseIssues(caseTypeId);
+  
+  // Find the selected case type and issue names
+  const caseType = caseTypes.find(type => type.id === caseTypeId)?.name || "";
+  const caseIssue = caseIssues.find(issue => issue.id === caseIssueId)?.name || "";
+  
   // Define status stages and compute progress percentage
   const STAGES = ["open", "active", "review", "closed"] as const;
   const idx = caseData ? STAGES.indexOf(caseData.status as any) : -1;
@@ -105,6 +117,27 @@ export default function CaseDetails() {
           <CardTitle>Case Information</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Case Type and Issue */}
+          {caseType && (
+            <div className="flex items-center gap-3">
+              <Gavel className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Case Type</p>
+                <p className="font-medium">{caseType}</p>
+              </div>
+            </div>
+          )}
+          
+          {caseIssue && (
+            <div className="flex items-center gap-3">
+              <Gavel className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Case Issue</p>
+                <p className="font-medium">{caseIssue}</p>
+              </div>
+            </div>
+          )}
+          
           {caseData.client && (
             <div className="flex items-center gap-3">
               <Building className="h-5 w-5 text-muted-foreground" />

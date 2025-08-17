@@ -7,6 +7,15 @@ export interface CaseType {
   created_at: string;
 }
 
+export interface CaseIssue {
+  id: string;
+  case_type_id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CaseField {
   id: string;
   case_type_id: string;

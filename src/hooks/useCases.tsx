@@ -17,6 +17,9 @@ export interface CreateCaseData {
   court?: string;
   next_hearing_date?: string;
   client_id?: string;
+  case_type_id?: string;
+  case_issue_id?: string;
+  custom_fields?: Record<string, any>;
 }
 
 export interface UpdateCaseData extends Partial<CreateCaseData> {
@@ -42,7 +45,13 @@ export function useCases(page = 1, pageSize = 20) {
 
       const { data, error, count } = await supabase
         .from('cases')
-        .select('*, client:client_id(id, name), assigned_user:assigned_to(id, first_name, last_name)', { count: 'exact' })
+        .select(`
+          *, 
+          client:client_id(id, name), 
+          assigned_user:assigned_to(id, first_name, last_name),
+          case_type:case_type_id(*),
+          case_issue:case_issue_id(*)
+        `, { count: 'exact' })
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -74,7 +83,13 @@ export function useCase(id: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cases')
-        .select('*, client:client_id(id, name), assigned_user:assigned_to(id, first_name, last_name)')
+        .select(`
+          *, 
+          client:client_id(id, name), 
+          assigned_user:assigned_to(id, first_name, last_name),
+          case_type:case_type_id(*),
+          case_issue:case_issue_id(*)
+        `)
         .eq('id', id)
         .single();
 

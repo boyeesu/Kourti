@@ -112,3 +112,58 @@ export function useDeleteUserRole() {
     },
   });
 }
+
+export function useUsersWithRoles() {
+  return useQuery({
+    queryKey: ['users-with-roles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          user_id,
+          first_name,
+          last_name,
+          email,
+          role,
+          department,
+          title,
+          avatar_url
+        `)
+        .order('first_name');
+
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useUpdateUserRole() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      toast({
+        title: "User role updated",
+        description: "The user's role has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update user role",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,6 +6,7 @@ import * as z from "zod";
 import { useCreateCase } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
 import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
+import { useCaseIssues } from "@/features/cases/api/useCaseIssues";
 import { useCaseFields } from "@/features/cases/api/useCaseFields";
 import { DynamicForm, DynamicField } from "@/shared/components/DynamicForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +44,8 @@ const caseSchema = z.object({
   client_id: z.string().optional(),
   court: z.string().optional(),
   next_hearing_date: z.date().optional(),
+  case_type_id: z.string().optional(),
+  case_issue_id: z.string().optional(),
 });
 
 type CaseFormData = z.infer<typeof caseSchema>;
@@ -53,11 +56,19 @@ export default function CaseCreate() {
   const clients = data?.items ?? [];
   const createCase = useCreateCase();
 
-  // new hooks for case types & fields
+  // hooks for case types, issues & fields
   const { data: caseTypes = [] } = useCaseTypes();
   const [caseTypeId, setCaseTypeId] = useState<string>("");
+  const { data: caseIssues = [] } = useCaseIssues(caseTypeId);
+  const [caseIssueId, setCaseIssueId] = useState<string>("");
   const { data: caseFields = [] } = useCaseFields(caseTypeId);
   const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+  
+  // Reset issue when type changes
+  useEffect(() => {
+    setCaseIssueId("");
+    form.setValue("case_issue_id", "");
+  }, [caseTypeId, form]);
 
   const form = useForm<CaseFormData>({
     resolver: zodResolver(caseSchema),
@@ -68,6 +79,8 @@ export default function CaseCreate() {
       priority: "medium",
       client_id: "",
       court: "",
+      case_type_id: "",
+      case_issue_id: "",
     },
   });
 
@@ -83,6 +96,7 @@ export default function CaseCreate() {
         court: data.court,
         next_hearing_date: data.next_hearing_date?.toISOString(),
         case_type_id: caseTypeId,
+        case_issue_id: caseIssueId,
         custom_fields: dynamicValues,
       } as any;
 
@@ -195,18 +209,65 @@ export default function CaseCreate() {
                 <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Enter case description" className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
 
-              {/* Case Type selector */}
-              <FormItem>
-                <FormLabel>Case Type *</FormLabel>
-                <FormControl>
-                  <Select value={caseTypeId} onValueChange={setCaseTypeId} required>
-                    <SelectTrigger><SelectValue placeholder="Select case type" /></SelectTrigger>
-                    <SelectContent>
-                      {caseTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-              </FormItem>
+              {/* Case Type and Issue selectors */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="case_type_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Case Type *</FormLabel>
+                      <FormControl>
+                        <Select 
+                          value={caseTypeId} 
+                          onValueChange={(value) => {
+                            setCaseTypeId(value);
+                            field.onChange(value);
+                          }}
+                          required
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select case type" /></SelectTrigger>
+                          <SelectContent>
+                            {caseTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {caseTypeId && (
+                  <FormField
+                    control={form.control}
+                    name="case_issue_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Case Issue *</FormLabel>
+                        <FormControl>
+                          <Select 
+                            value={caseIssueId} 
+                            onValueChange={(value) => {
+                              setCaseIssueId(value);
+                              field.onChange(value);
+                            }}
+                            disabled={!caseTypeId || caseIssues.length === 0}
+                            required
+                          >
+                            <SelectTrigger><SelectValue placeholder="Select case issue" /></SelectTrigger>
+                            <SelectContent>
+                              {caseIssues.map(issue => (
+                                <SelectItem key={issue.id} value={issue.id}>{issue.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
 
               {/* Dynamic Custom Fields */}
               {caseTypeId && caseFields.length > 0 && (

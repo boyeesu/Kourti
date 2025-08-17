@@ -18,7 +18,21 @@ export interface Case {
   trial_date?: string;
   resolution_date?: string;
   notes?: string;
+  case_type_id?: string;
+  case_issue_id?: string;
+  custom_fields?: Record<string, any>;
   client?: Client;
+  case_type?: {
+    id: string;
+    name: string;
+    description?: string;
+  };
+  case_issue?: {
+    id: string;
+    case_type_id: string;
+    name: string;
+    description?: string;
+  };
   documents?: Document[];
   tasks?: Task[];
   events?: CalendarEvent[];
