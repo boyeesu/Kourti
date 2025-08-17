@@ -10,18 +10,23 @@ export function useCreateActivity(caseId: string) {
   return useMutation({
     mutationFn: async (payload: Partial<CaseActivity> & { title: string; activity_type: string }) => {
       // Get current user's organization
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) throw new Error('User not authenticated');
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', user.data.user.id)
         .single();
+
+      if (!profile?.organization_id) throw new Error('User organization not found');
 
       const { data, error } = await supabase
         .from('case_activities')
         .insert({ 
           ...payload, 
           case_id: caseId,
-          organization_id: profile?.organization_id 
+          organization_id: profile.organization_id 
         })
         .select()
         .single();
