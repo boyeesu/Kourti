@@ -49,8 +49,8 @@ export function useCases(page = 1, pageSize = 20) {
           *, 
           client:client_id(id, name), 
           assigned_user:assigned_to(id, first_name, last_name),
-          case_type:case_types(*)!case_type_id,
-          case_issue:case_issues(*)!case_issue_id
+          case_type:case_types(*),
+          case_issue:case_issues(*)
         `, { count: 'exact' })
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
@@ -62,7 +62,7 @@ export function useCases(page = 1, pageSize = 20) {
       }
       
       console.log('✅ Cases found:', data?.length || 0, 'of total', count || 0);
-      return { cases: data as Case[], count: count || 0 };
+      return { cases: data as unknown as Case[], count: count || 0 };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
@@ -87,14 +87,14 @@ export function useCase(id: string) {
           *, 
           client:client_id(id, name), 
           assigned_user:assigned_to(id, first_name, last_name),
-          case_type:case_types(*)!case_type_id,
-          case_issue:case_issues(*)!case_issue_id
+          case_type:case_types(*),
+          case_issue:case_issues(*)
         `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as Case;
+      return data as unknown as Case;
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,

@@ -49,7 +49,14 @@ export function useInvoices() {
         .select('*, client:client_id(id, name), case:case_id(id, title)')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as Invoice[];
+      
+      // Transform the raw data to match the Invoice type with missing properties
+      return (data || []).map(item => ({
+        ...item,
+        // Add required properties that might be missing from the database
+        vat: item.vat ?? 0,
+        items: item.items ?? [],
+      })) as Invoice[];
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -63,13 +70,18 @@ export function useCreateInvoice() {
       const userId = await getCurrentUserId();
       // Auto-generate total
       const total = data.amount + (data.vat ?? 0);
+      // Ensure required fields for Invoice type
+      const invoiceData = {
+        ...data,
+        total,
+        created_by: userId || '',
+        // Make sure items exists (required by Invoice type)
+        items: data.items || []
+      };
+      
       const { data: newInvoice, error } = await supabase
         .from('invoices')
-        .insert({
-          ...data,
-          total,
-          created_by: userId,
-        })
+        .insert(invoiceData)
         .select()
         .single();
       if (error) throw error;

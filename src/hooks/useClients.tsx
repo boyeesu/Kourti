@@ -74,7 +74,7 @@ export function useClient(id: string) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId || '')
         .single();
 
       if (!profile?.organization_id) {
@@ -106,7 +106,7 @@ export function useCreateClient() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId || '')
         .single();
 
       const { data, error } = await supabase

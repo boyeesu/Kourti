@@ -24,6 +24,7 @@ export function useClientLogs(clientId: string) {
         type: item.type,
         content: item.content,
         created_at: item.created_at,
+        created_by: item.created_by || item.user_id, // Use user_id as fallback for created_by
       }));
     },
     enabled: Boolean(clientId),
@@ -59,6 +60,7 @@ export function useCreateClientLog() {
         type: data.type,
         content: data.content,
         created_at: data.created_at,
+        created_by: data.created_by || data.user_id, // Use user_id as fallback for created_by
       };
     },
     onSuccess: (_, vars) => {

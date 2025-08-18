@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { logError } from '@/lib/logger';
 
 // Use Supabase Edge Function instead of external API
-const DOCUMENT_ANALYSIS_FUNCTION = 'analyze-document';
+// This function name is now defined in the call itself
 
 /**
  * Enhanced hook for document analysis with streaming support and improved error handling
@@ -20,14 +20,10 @@ export function useEnhancedDocumentAnalysis() {
   // Basic document analysis mutation (non-streaming)
   const documentAnalysis = useMutation({
     mutationFn: async ({ 
-      docId, 
       content, 
-      documentType = 'document',
       analysisType = 'general'
     }: { 
-      docId: string; 
       content: string;
-      documentType?: 'document' | 'contract' | 'case' | 'email';
       analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     }) => {
       try {
@@ -70,15 +66,11 @@ export function useEnhancedDocumentAnalysis() {
 
   // Streaming document analysis
   const streamDocumentAnalysis = useCallback(async ({
-    docId,
     content,
-    documentType = 'document',
     analysisType = 'general',
     onProgress
   }: {
-    docId: string;
     content: string;
-    documentType?: 'document' | 'contract' | 'case' | 'email';
     analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     onProgress: (content: string, done: boolean) => void;
   }) => {

@@ -98,7 +98,7 @@ export function useCreateContract() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId || '')
         .single();
 
       const { data, error } = await supabase

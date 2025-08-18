@@ -27,13 +27,13 @@ export function useDocuments() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId || '')
         .single();
 
       const { data, error } = await supabase
         .from('documents')
         .select('*')
-        .eq('organization_id', profile?.organization_id);
+        .eq('organization_id', profile?.organization_id || '');
 
       if (error) throw error;
       return data as Document[];
@@ -82,7 +82,7 @@ export function useCreateDocument() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId || '')
         .single();
 
       const { data, error } = await supabase

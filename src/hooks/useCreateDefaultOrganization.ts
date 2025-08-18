@@ -70,7 +70,7 @@ export function useCreateDefaultOrganization() {
       // Sign out and back in to refresh JWT with the new org_id claim
       await supabase.auth.signOut();
       
-      return newOrg;
+      return newOrg || { id: '', name: 'Organization creation failed' };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user-organization'] });
