@@ -186,6 +186,152 @@ export type Database = {
           },
         ]
       }
+      case_fields: {
+        Row: {
+          case_type_id: string
+          created_at: string
+          created_by: string | null
+          data_type: string
+          field_key: string
+          field_order: number | null
+          id: string
+          is_required: boolean | null
+          label: string
+          options: Json | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          case_type_id: string
+          created_at?: string
+          created_by?: string | null
+          data_type?: string
+          field_key: string
+          field_order?: number | null
+          id?: string
+          is_required?: boolean | null
+          label: string
+          options?: Json | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          case_type_id?: string
+          created_at?: string
+          created_by?: string | null
+          data_type?: string
+          field_key?: string
+          field_order?: number | null
+          id?: string
+          is_required?: boolean | null
+          label?: string
+          options?: Json | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_fields_case_type_id_fkey"
+            columns: ["case_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_fields_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_issues: {
+        Row: {
+          case_type_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          case_type_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          case_type_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_issues_case_type_id_fkey"
+            columns: ["case_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_issues_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_types: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cases: {
         Row: {
           assigned_to: string | null
@@ -251,6 +397,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cases_case_type_id_fkey"
+            columns: ["case_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cases_client_id_fkey"
             columns: ["client_id"]
@@ -665,6 +818,24 @@ export type Database = {
           },
         ]
       }
+      global_roles: {
+        Row: {
+          description: string | null
+          display_name: string
+          role: string
+        }
+        Insert: {
+          description?: string | null
+          display_name: string
+          role: string
+        }
+        Update: {
+          description?: string | null
+          display_name?: string
+          role?: string
+        }
+        Relationships: []
+      }
       invitations: {
         Row: {
           created_at: string
@@ -1058,6 +1229,7 @@ export type Database = {
           role_id: string | null
           settings: Json | null
           status: string | null
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -1080,6 +1252,7 @@ export type Database = {
           role_id?: string | null
           settings?: Json | null
           status?: string | null
+          title?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1102,6 +1275,7 @@ export type Database = {
           role_id?: string | null
           settings?: Json | null
           status?: string | null
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
