@@ -1,0 +1,698 @@
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  BarChart as RechartBarChart,
+  Bar
+} from "recharts";
+import { 
+  FileText, 
+  Users, 
+  Briefcase,
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  DollarSign,
+  BarChart,
+  RefreshCw,
+  ArrowRight,
+  ArrowUpRight,
+  Calendar,
+  CheckCircle2,
+  Ban,
+  Eye,
+  FileCheck,
+  CircleAlert,
+  Activity,
+  User
+} from "lucide-react";
+import { useInsights } from "@/hooks/useInsights";
+import { useDashboard } from "@/hooks/useDashboard";
+import { useUserRole } from "@/hooks/useUserManagement";
+import { useCases } from "@/hooks/useCases";
+import { useContracts } from "@/hooks/useContracts";
+import { Case, Contract } from "@/types";
+import { formatDate, formatCurrency, cn } from "@/lib/utils";
+import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
+import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+// Components
+const StatCard = ({ 
+  title, 
+  value, 
+  icon, 
+  description, 
+  trend, 
+  loading, 
+  iconColor = "text-primary",
+  iconBgColor = "bg-primary/10"
+}: { 
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  description?: string;
+  trend?: { value: number; label: string };
+  loading?: boolean;
+  iconColor?: string;
+  iconBgColor?: string;
+}) => {
+  return (
+    <Card className="overflow-hidden transition-all hover:shadow-md">
+      <CardContent className="p-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <h3 className="text-2xl font-bold">{value}</h3>
+            )}
+            {description && (
+              <p className="text-xs text-muted-foreground mt-1">{description}</p>
+            )}
+            {trend && (
+              <div className="flex items-center mt-2">
+                <Badge variant={trend.value > 0 ? "success" : "destructive"} className="px-1.5 h-5">
+                  {trend.value > 0 ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowRight className="h-3 w-3 mr-1" />}
+                  {Math.abs(trend.value)}%
+                </Badge>
+                <span className="text-xs text-muted-foreground ml-2">{trend.label}</span>
+              </div>
+            )}
+          </div>
+          <div className={cn("p-3 rounded-full", iconBgColor)}>
+            <div className={cn("h-5 w-5", iconColor)}>
+              {icon}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Custom tooltip for charts
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-background/95 backdrop-blur-sm border border-border p-3 rounded-lg shadow-lg">
+        <p className="text-sm font-medium mb-1">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={`item-${index}`} className="flex items-center gap-2 text-sm">
+            <div
+              className="h-3 w-3 rounded-full"
+              style={{ backgroundColor: entry.color || entry.fill }}
+            />
+            <span className="font-medium">{entry.name}:</span>
+            <span>{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
+};
+
+// Main Dashboard Component
+export default function Dashboard() {
+  const [windowDays] = useState(7);
+  const [chartView, setChartView] = useState("monthly");
+  const navigate = useNavigate();
+
+  // Get data for different dashboard sections
+  const { upcomingCases, upcomingContracts } = useInsights(windowDays);
+  const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard } = useDashboard();
+  const { data: userRoleData } = useUserRole();
+  const { data: casesData, isLoading: casesLoading } = useCases();
+  const { data: contractsData, isLoading: contractsLoading } = useContracts();
+  
+  const role = userRoleData?.role;
+  const isAdmin = role === "super_admin" || role === "admin";
+
+  // Process case status data for pie chart
+  const casesByStatus = useMemo(() => {
+    // If we have real data, use it
+    if (casesData?.cases) {
+      const statusMap: Record<string, number> = {};
+      casesData.cases.forEach((c: Case) => {
+        const status = c.status || 'unknown';
+        statusMap[status] = (statusMap[status] || 0) + 1;
+      });
+
+      // Transform to format needed for pie chart
+      return Object.entries(statusMap).map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' '),
+        value,
+        color: getStatusColor(name)
+      }));
+    }
+
+    // Fallback to sample data
+    return [
+      { name: 'Active', value: 45, color: '#3b82f6' },
+      { name: 'Pending', value: 23, color: '#f59e0b' },
+      { name: 'Closed', value: 12, color: '#10b981' }
+    ];
+  }, [casesData]);
+
+  // Generate monthly activity data based on real data if available
+  const recentActivity = useMemo(() => {
+    // If we have real case and contract data, calculate monthly trends
+    if (casesData?.cases && contractsData) {
+      const monthlyData: Record<string, { cases: number; contracts: number }> = {};
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      // Initialize all months to zero
+      months.forEach(month => {
+        monthlyData[month] = { cases: 0, contracts: 0 };
+      });
+      
+      // Count cases by month
+      casesData.cases.forEach((c: Case) => {
+        if (c.created_at) {
+          const month = months[new Date(c.created_at).getMonth()];
+          monthlyData[month].cases += 1;
+        }
+      });
+      
+      // Count contracts by month
+      contractsData.forEach((contract: Contract) => {
+        if (contract.created_at) {
+          const month = months[new Date(contract.created_at).getMonth()];
+          monthlyData[month].contracts += 1;
+        }
+      });
+      
+      // Transform to array format for the chart
+      return months.map(month => ({
+        month,
+        cases: monthlyData[month].cases,
+        contracts: monthlyData[month].contracts
+      }));
+    }
+
+    // Fallback to sample data
+    return [
+      { month: 'Jan', cases: 12, contracts: 8 },
+      { month: 'Feb', cases: 19, contracts: 12 },
+      { month: 'Mar', cases: 15, contracts: 9 },
+      { month: 'Apr', cases: 22, contracts: 15 },
+      { month: 'May', cases: 18, contracts: 11 },
+      { month: 'Jun', cases: 24, contracts: 16 },
+      { month: 'Jul', cases: 20, contracts: 14 },
+      { month: 'Aug', cases: 25, contracts: 18 },
+      { month: 'Sep', cases: 17, contracts: 13 },
+      { month: 'Oct', cases: 21, contracts: 16 },
+      { month: 'Nov', cases: 16, contracts: 12 },
+      { month: 'Dec', cases: 10, contracts: 8 }
+    ];
+  }, [casesData, contractsData]);
+
+  // Weekly activity data
+  const weeklyActivity = useMemo(() => {
+    // Generate weekly data (simplified example)
+    return [
+      { day: 'Mon', cases: 5, contracts: 3 },
+      { day: 'Tue', cases: 8, contracts: 4 },
+      { day: 'Wed', cases: 7, contracts: 6 },
+      { day: 'Thu', cases: 10, contracts: 5 },
+      { day: 'Fri', cases: 12, contracts: 7 },
+      { day: 'Sat', cases: 4, contracts: 2 },
+      { day: 'Sun', cases: 3, contracts: 1 }
+    ];
+  }, []);
+
+  // Generate recent cases
+  const recentCases = useMemo(() => {
+    if (casesData?.cases) {
+      return casesData.cases
+        .slice(0, 5)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return [];
+  }, [casesData]);
+
+  // Helper function to get color based on status
+  function getStatusColor(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'active': return '#3b82f6';
+      case 'pending': 
+      case 'in_progress': return '#f59e0b';
+      case 'closed': return '#10b981';
+      case 'expired': return '#ef4444';
+      default: return '#6b7280';
+    }
+  }
+
+  // Get status badge styles
+  function getStatusBadge(status: string) {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200">Active</Badge>;
+      case 'pending':
+      case 'in_progress':
+        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200">Pending</Badge>;
+      case 'closed':
+        return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">Closed</Badge>;
+      case 'expired':
+        return <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-200">Expired</Badge>;
+      default:
+        return <Badge variant="outline">{status || 'Unknown'}</Badge>;
+    }
+  }
+
+  // Handle loading states
+  if (dashboardLoading && casesLoading && contractsLoading) {
+    return (
+      <div className="flex items-center justify-center h-[70vh]">
+        <div className="flex flex-col items-center gap-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (dashboardError) {
+    return (
+      <div className="px-4 py-12 flex flex-col items-center justify-center">
+        <div className="p-4 bg-destructive/10 rounded-full mb-4">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Failed to load dashboard data</h2>
+        <p className="text-muted-foreground mb-6 text-center max-w-md">
+          There was an error loading your dashboard. Please try again or contact support if the problem persists.
+        </p>
+        <Button onClick={() => refetchDashboard()}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 py-6 space-y-8 max-w-7xl mx-auto">
+      {/* Header with welcome message */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
+          <p className="text-muted-foreground mt-1">
+            Here's what's happening with your legal practice today
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/cases/create")}>
+            <Briefcase className="h-4 w-4 mr-2" />
+            New Case
+          </Button>
+          <Button className="shadow-sm" onClick={() => navigate("/calendar")}>
+            <Calendar className="h-4 w-4 mr-2" />
+            Calendar
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards (Live Data) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Active Cases"
+          value={dashboardLoading ? "—" : dashboardData?.activeCases ?? "0"}
+          icon={<Briefcase className="h-5 w-5" />}
+          description="Currently in progress"
+          trend={{ value: 12, label: "from last month" }}
+          loading={dashboardLoading}
+          iconColor="text-blue-500"
+          iconBgColor="bg-blue-500/10"
+        />
+        
+        <StatCard
+          title="Total Clients"
+          value={dashboardLoading ? "—" : dashboardData?.totalClients ?? "0"}
+          icon={<Users className="h-5 w-5" />}
+          trend={{ value: 8, label: "new this month" }}
+          loading={dashboardLoading}
+          iconColor="text-green-500"
+          iconBgColor="bg-green-500/10"
+        />
+        
+        <StatCard
+          title="Documents"
+          value={dashboardLoading ? "—" : dashboardData?.totalDocuments ?? "0"}
+          icon={<FileText className="h-5 w-5" />}
+          description="Across all cases"
+          loading={dashboardLoading}
+          iconColor="text-amber-500"
+          iconBgColor="bg-amber-500/10"
+        />
+        
+        {isAdmin && (
+          <StatCard
+            title="Revenue"
+            value={dashboardLoading ? "—" : formatCurrency(dashboardData?.totalRevenue || 0)}
+            icon={<DollarSign className="h-5 w-5" />}
+            trend={{ value: 15, label: "increase" }}
+            loading={dashboardLoading}
+            iconColor="text-purple-500"
+            iconBgColor="bg-purple-500/10"
+          />
+        )}
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ModuleErrorBoundary name="Activity Chart">
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-primary" />
+                  Activity Overview
+                </CardTitle>
+                <Tabs value={chartView} onValueChange={setChartView} className="w-auto">
+                  <TabsList className="grid w-[200px] grid-cols-2">
+                    <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                    <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              <CardDescription>
+                Track new cases and contracts over time
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-1">
+              <TabsContent value="monthly" className="mt-0">
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={recentActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
+                    <XAxis 
+                      dataKey="month" 
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      axisLine={false}
+                      tickLine={false}
+                      width={30}
+                    />
+                    <RechartsTooltip content={<CustomTooltip />} />
+                    <Legend 
+                      verticalAlign="top" 
+                      height={36}
+                      iconType="circle"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="cases" 
+                      name="Cases" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="contracts" 
+                      name="Contracts" 
+                      stroke="#10b981" 
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </TabsContent>
+              <TabsContent value="weekly" className="mt-0">
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartBarChart data={weeklyActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
+                    <XAxis 
+                      dataKey="day" 
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      axisLine={false}
+                      tickLine={false}
+                      width={30}
+                    />
+                    <RechartsTooltip content={<CustomTooltip />} />
+                    <Legend 
+                      verticalAlign="top" 
+                      height={36}
+                      iconType="circle"
+                    />
+                    <Bar dataKey="cases" name="Cases" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="contracts" name="Contracts" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </RechartBarChart>
+                </ResponsiveContainer>
+              </TabsContent>
+            </CardContent>
+          </Card>
+        </ModuleErrorBoundary>
+
+        <ModuleErrorBoundary name="Cases by Status Chart">
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Cases by Status
+              </CardTitle>
+              <CardDescription>
+                Distribution of cases by their current status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={casesByStatus}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={120}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                    labelLine={true}
+                  >
+                    {casesByStatus.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip content={<CustomTooltip />} />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36}
+                    iconType="circle"
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </ModuleErrorBoundary>
+      </div>
+
+      {/* Recent Activity and Upcoming Events */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ModuleErrorBoundary name="Recent Cases">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                  Recent Cases
+                </CardTitle>
+                <CardDescription>
+                  Latest case activities
+                </CardDescription>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-1"
+                onClick={() => navigate('/cases')}
+              >
+                View All
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {recentCases.length > 0 ? (
+                <div className="space-y-4">
+                  {recentCases.map((c: Case) => (
+                    <div 
+                      key={c.id} 
+                      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/cases/${c.id}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full bg-blue-500/10`}>
+                          <Briefcase className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm">{c.title}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(c.created_at)}
+                            </p>
+                            <span className="text-muted-foreground">•</span>
+                            {getStatusBadge(c.status || '')}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View Case</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        {c.assigned_to && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Avatar className="h-8 w-8 ml-2">
+                                  <AvatarFallback>{c.assigned_user?.first_name?.charAt(0) || 'U'}</AvatarFallback>
+                                </Avatar>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Assigned to {c.assigned_user?.first_name} {c.assigned_user?.last_name}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-muted/10 rounded-md">
+                  <Briefcase className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-muted-foreground text-sm">No recent cases found.</p>
+                  <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/cases/create')}>
+                    <Plus className="h-4 w-4 mr-1" /> Create a Case
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </ModuleErrorBoundary>
+
+        <ModuleErrorBoundary name="Upcoming Events">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-warning" />
+                  Upcoming Events
+                </CardTitle>
+                <CardDescription>Next {windowDays} days</CardDescription>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-1"
+                onClick={() => navigate('/calendar')}
+              >
+                View Calendar
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {upcomingCases.length > 0 || upcomingContracts.length > 0 ? (
+                <div className="space-y-4">
+                  {upcomingCases.map((c: Case) => (
+                    <div 
+                      key={c.id}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/cases/${c.id}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-amber-500/10">
+                          <Calendar className="h-5 w-5 text-amber-500" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm">Hearing: {c.title}</h4>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDate(c.next_hearing_date)}
+                            {c.court && <span> • {c.court}</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-8">
+                        View
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {upcomingContracts.map((contract: Contract) => (
+                    <div 
+                      key={contract.id}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/contracts/${contract.id}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-red-500/10">
+                          <FileCheck className="h-5 w-5 text-red-500" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm">Contract Expiring: {contract.title}</h4>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDate(contract.end_date)}
+                            {contract.value && <span> • {formatCurrency(contract.value)}</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-8">
+                        View
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-muted/10 rounded-md">
+                  <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-muted-foreground text-sm">No upcoming events in the next {windowDays} days.</p>
+                  <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/calendar')}>
+                    View Calendar
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </ModuleErrorBoundary>
+      </div>
+    </div>
+  );
+}

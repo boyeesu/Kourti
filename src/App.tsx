@@ -11,7 +11,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import OrganizationSetup from "@/components/OrganizationSetup";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
-import Dashboard from "./pages/Dashboard";
+import DashboardNew from "./pages/DashboardNew";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import Cases from "./pages/Cases";
@@ -42,10 +42,14 @@ import NotFound from "./pages/NotFound";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Suspense, lazy, useEffect } from "react";
 import { logInfo } from "./lib/logger";
+import { ThemeProvider } from "@/hooks/useTheme";
 
 // Lazy load the Invoices page for better performance
 const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
+const HelpCenter = lazy(() => import('./pages/HelpCenter'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Analytics = lazy(() => import('./pages/Analytics'));
 
 // Create a query client with better defaults
 const queryClient = new QueryClient({
@@ -94,52 +98,56 @@ function OrganizationCheck({ children }: { children: React.ReactNode }) {
 // Loading Fallback Component
 function LoadingFallback() {
   return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+    <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <p className="text-muted-foreground animate-pulse">Loading...</p>
+      </div>
     </div>
   );
 }
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <NotificationsProvider>
-        <BrowserRouter>
-          <PageViewTracker />
-          <AuthProvider>
-            <Routes>
-              {/* Public routes - no layout */}
-              <Route path="/auth" element={<Auth />} />
-              
-              {/* Protected routes with layout */}
-              <Route path="/onboarding" element={
-                <ProtectedRoute>
-                  <ModuleErrorBoundary name="Onboarding">
-                    <Onboarding />
-                  </ModuleErrorBoundary>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/*" element={
-                <ProtectedRoute>
-                  <OrganizationCheck>
-                    <SearchProvider>
-                      <CasesProvider>
-                        <AppLayout>
-                        <Routes>
-                          {/* Dashboard */}
-                          <Route path="/" element={
-                            <ModuleErrorBoundary name="Dashboard">
-                              <Dashboard />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/dashboard" element={
-                            <ModuleErrorBoundary name="Dashboard">
-                              <Dashboard />
-                            </ModuleErrorBoundary>
-                          } />
+    <ThemeProvider defaultTheme="light" storageKey="kouti-legal-theme">
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <NotificationsProvider>
+          <BrowserRouter>
+            <PageViewTracker />
+            <AuthProvider>
+              <Routes>
+                {/* Public routes - no layout */}
+                <Route path="/auth" element={<Auth />} />
+                
+                {/* Protected routes with layout */}
+                <Route path="/onboarding" element={
+                  <ProtectedRoute>
+                    <ModuleErrorBoundary name="Onboarding">
+                      <Onboarding />
+                    </ModuleErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/*" element={
+                  <ProtectedRoute>
+                    <OrganizationCheck>
+                      <SearchProvider>
+                        <CasesProvider>
+                          <AppLayout>
+                          <Routes>
+                            {/* Dashboard */}
+                            <Route path="/" element={
+                              <ModuleErrorBoundary name="Dashboard">
+                                <DashboardNew />
+                              </ModuleErrorBoundary>
+                            } />
+                            <Route path="/dashboard" element={
+                              <ModuleErrorBoundary name="Dashboard">
+                                <DashboardNew />
+                              </ModuleErrorBoundary>
+                            } />
                           
                           {/* Cases Module */}
                           <Route path="/cases" element={
