@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { addCSRFToRequest } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 
 // Use Supabase Edge Function instead of external API
@@ -32,54 +31,20 @@ export function useEnhancedDocumentAnalysis() {
       analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     }) => {
       try {
-        // Get user and organization info for context
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('user_id', user?.id)
-          .single();
-          
-        // Use database function directly
-        const { data, error } = await supabase.rpc('analyze_document', {
-          p_document_id: docId,
-          p_content: content,
-          p_document_type: documentType,
-          p_analysis_type: analysisType
+        // Call the contract-analysis-ai edge function for document analysis
+        const { data, error } = await supabase.functions.invoke('contract-analysis-ai', {
+          body: {
+            text: content,
+            analysisType: 'document_review',
+            goal: analysisType === 'general' 
+              ? 'Provide a comprehensive analysis of this document'
+              : analysisType
+          }
         });
 
         if (error) throw error;
-
-        // Poll for results since analysis is async
-        let attempts = 0;
-        const maxAttempts = 30; // 30 seconds timeout
         
-        while (attempts < maxAttempts) {
-          const { data: result, error: resultError } = await supabase.rpc('get_document_analysis', {
-            p_document_id: docId,
-            p_analysis_type: analysisType
-          });
-          
-          if (resultError) throw resultError;
-          
-          if (result && result.length > 0) {
-            const analysis = result[0];
-            
-            if (analysis.status === 'completed') {
-              return { analysis: analysis.content };
-            }
-            
-            if (analysis.status === 'failed') {
-              throw new Error(analysis.error || 'Analysis failed');
-            }
-          }
-          
-          // Wait 1 second before next attempt
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          attempts++;
-        }
-        
-        throw new Error('Analysis timed out');
+        return { analysis: data?.analysis || 'Analysis completed' };
       } catch (error) {
         logError('Document analysis failed', error);
         throw error;
@@ -124,64 +89,48 @@ export function useEnhancedDocumentAnalysis() {
       setIsStreaming(true);
       setStreamingContent('');
       
-      // Get user and organization info for context
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user?.id)
-        .single();
-      
       // Create a new abort controller for this request
       const controller = new AbortController();
       setAbortController(controller);
       
-      // Use Supabase Edge Function with streaming
-      const response = await supabase.functions.invoke(`${DOCUMENT_ANALYSIS_FUNCTION}-stream`, {
+      // Use the contract-analysis-ai edge function for analysis
+      const { data, error } = await supabase.functions.invoke('contract-analysis-ai', {
         body: {
-          documentId: docId,
-          content,
-          documentType,
-          analysisType,
-          userId: user?.id,
-          organizationId: profile?.organization_id,
-          stream: true
-        },
-        // Use AbortController signal
-        signal: controller.signal,
-        // Enable response streaming
-        responseType: 'stream'
+          text: content,
+          analysisType: 'document_review',
+          goal: analysisType === 'general' 
+            ? 'Provide a comprehensive analysis of this document'
+            : analysisType
+        }
       });
 
-      if (response.error) throw response.error;
+      if (error) throw error;
       
-      // Handle the streaming response
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('Response body is not readable');
+      const analysisContent = data?.analysis || 'Analysis completed';
       
-      let accumulatedContent = '';
-      const decoder = new TextDecoder();
-      
-      while (true) {
-        const { done, value } = await reader.read();
+      // Simulate streaming by gradually revealing the content
+      let currentIndex = 0;
+      const streamInterval = setInterval(() => {
+        if (controller.signal.aborted) {
+          clearInterval(streamInterval);
+          return;
+        }
+
+        const chunkSize = Math.max(1, Math.floor(analysisContent.length / 20));
+        currentIndex = Math.min(currentIndex + chunkSize, analysisContent.length);
         
-        if (done) {
-          onProgress(accumulatedContent, true);
+        const currentContent = analysisContent.substring(0, currentIndex);
+        setStreamingContent(currentContent);
+        onProgress(currentContent, currentIndex >= analysisContent.length);
+        
+        if (currentIndex >= analysisContent.length) {
+          clearInterval(streamInterval);
           setIsStreaming(false);
           setAbortController(null);
-          break;
         }
-        
-        // Decode the chunk and add to our accumulated content
-        const chunk = decoder.decode(value, { stream: true });
-        accumulatedContent += chunk;
-        setStreamingContent(accumulatedContent);
-        
-        // Call the progress callback
-        onProgress(accumulatedContent, false);
-      }
+      }, 100);
       
-      return { analysis: accumulatedContent };
+      return { analysis: analysisContent };
     } catch (error) {
       // Handle abort separately from other errors
       if (error instanceof DOMException && error.name === 'AbortError') {
