@@ -19,13 +19,16 @@ export interface CreateCaseData {
   client_id?: string;
   case_type_id?: string;
   case_issue_id?: string;
-  custom_fields?: Record<string, any>;
+  custom_fields?: Record<string, unknown>;
 }
 
 export interface UpdateCaseData extends Partial<CreateCaseData> {
   id: string;
 }
 
+/**
+ * Hook for fetching paginated cases with optimized query
+ */
 export function useCases(page = 1, pageSize = 20) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
   const [currentPage, setCurrentPage] = useState(page);
@@ -34,35 +37,45 @@ export function useCases(page = 1, pageSize = 20) {
     queryKey: ['cases', organizationId, currentPage, pageSize],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for cases query');
         return { cases: [], count: 0 };
       }
-
-      console.log('🔍 Fetching cases for org:', organizationId, 'page:', currentPage);
 
       const from = (currentPage - 1) * pageSize;
       const to = currentPage * pageSize - 1;
 
+      // Optimize query to only select the fields we actually need
       const { data, error, count } = await supabase
         .from('cases')
         .select(`
-          *, 
+          id, 
+          title, 
+          description, 
+          case_number, 
+          status, 
+          priority, 
+          assigned_to, 
+          court, 
+          next_hearing_date,
+          client_id,
+          case_type_id,
+          case_issue_id, 
+          created_at,
+          updated_at,
+          custom_fields,
           client:client_id(id, name), 
           assigned_user:assigned_to(id, first_name, last_name),
-          case_type:case_types(*),
-          case_issue:case_issues(*)
+          case_type:case_types(id, name, description),
+          case_issue:case_issues(id, name, description)
         `, { count: 'exact' })
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (error) {
-        console.error('❌ Error fetching cases:', error);
         throw error;
       }
       
-      console.log('✅ Cases found:', data?.length || 0, 'of total', count || 0);
-      return { cases: data as unknown as Case[], count: count || 0 };
+      return { cases: data as Case[], count: count || 0 };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
@@ -77,48 +90,99 @@ export function useCases(page = 1, pageSize = 20) {
   };
 }
 
+/**
+ * Hook for fetching a single case by ID
+ */
 export function useCase(id: string) {
   return useQuery({
     queryKey: ['case', id],
     queryFn: async () => {
+      // Optimize query to only select the fields we need
       const { data, error } = await supabase
         .from('cases')
         .select(`
-          *, 
+          id, 
+          title, 
+          description, 
+          case_number, 
+          status, 
+          priority, 
+          assigned_to, 
+          court, 
+          next_hearing_date,
+          client_id,
+          case_type_id,
+          case_issue_id, 
+          created_at,
+          updated_at,
+          custom_fields,
           client:client_id(id, name), 
           assigned_user:assigned_to(id, first_name, last_name),
-          case_type:case_types(*),
-          case_issue:case_issues(*)
+          case_type:case_types(id, name, description),
+          case_issue:case_issues(id, name, description)
         `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as unknown as Case;
+      return data as Case;
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 }
 
-export function useCasesByClient(clientId: string) {
-  return useQuery({
-    queryKey: ['cases', 'client', clientId],
+/**
+ * Hook for fetching cases by client ID
+ */
+export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
+  const [currentPage, setCurrentPage] = useState(page);
+  
+  const query = useQuery({
+    queryKey: ['cases', 'client', clientId, currentPage, pageSize],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = (currentPage - 1) * pageSize;
+      const to = currentPage * pageSize - 1;
+      
+      // Add pagination and select only needed fields
+      const { data, error, count } = await supabase
         .from('cases')
-        .select('*')
+        .select(`
+          id, 
+          title, 
+          description, 
+          case_number, 
+          status, 
+          priority, 
+          assigned_to, 
+          next_hearing_date,
+          created_at
+        `, { count: 'exact' })
         .eq('client_id', clientId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
-      return data as Case[];
+      return { 
+        cases: data as Case[], 
+        count: count || 0 
+      };
     },
     enabled: !!clientId,
     staleTime: 5 * 60 * 1000,
   });
+
+  return {
+    ...query,
+    page: currentPage,
+    pageSize,
+    setPage: setCurrentPage,
+  };
 }
 
+/**
+ * Hook for creating a new case
+ */
 export function useCreateCase() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -139,7 +203,6 @@ export function useCreateCase() {
         .single();
         
       if (profileError) {
-        console.error("Error fetching profile:", profileError);
         throw new Error("Could not retrieve user profile information.");
       }
       
@@ -158,7 +221,6 @@ export function useCreateCase() {
         .single();
 
       if (error) {
-        console.error("Error creating case:", error);
         throw error;
       }
       
@@ -171,16 +233,20 @@ export function useCreateCase() {
         description: "Case created successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create case.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to create case.",
+        description: errorMessage,
       });
     },
   });
 }
 
+/**
+ * Hook for updating an existing case
+ */
 export function useUpdateCase() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -205,16 +271,20 @@ export function useUpdateCase() {
         description: "Case updated successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update case.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to update case.",
+        description: errorMessage,
       });
     },
   });
 }
 
+/**
+ * Hook for deleting a case
+ */
 export function useDeleteCase() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -235,11 +305,12 @@ export function useDeleteCase() {
         description: "Case deleted successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete case.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to delete case.",
+        description: errorMessage,
       });
     },
   });

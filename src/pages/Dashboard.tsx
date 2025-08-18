@@ -1,7 +1,8 @@
 
-import { useState, useMemo } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -10,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ResponsiveContainer,
   PieChart,
@@ -20,8 +22,10 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend
+  Tooltip as RechartsTooltip,
+  Legend,
+  BarChart as RechartBarChart,
+  Bar
 } from "recharts";
 import { 
   FileText, 
@@ -33,7 +37,15 @@ import {
   DollarSign,
   BarChart,
   RefreshCw,
-  ArrowRight
+  ArrowRight,
+  ArrowUpRight,
+  Calendar,
+  CheckCircle2,
+  Ban,
+  Eye,
+  FileCheck,
+  CircleAlert,
+  Activity
 } from "lucide-react";
 import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";
@@ -41,9 +53,12 @@ import { useUserRole } from "@/hooks/useUserManagement";
 import { useCases } from "@/hooks/useCases";
 import { useContracts } from "@/hooks/useContracts";
 import { Case, Contract } from "@/types";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCurrency, cn } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function Dashboard() {
   const [windowDays] = useState(7);

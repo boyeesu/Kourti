@@ -18,32 +18,72 @@ export interface CreateContractData {
   client_id?: string;
 }
 
-export function useContracts() {
+/**
+ * Hook for fetching contracts with pagination and filtering
+ * @param page Current page number (default: 1)
+ * @param pageSize Number of records per page (default: 10)
+ * @param status Optional filter by status
+ * @param clientId Optional filter by client ID
+ */
+export function useContracts(page = 1, pageSize = 10, status?: string, clientId?: string) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery({
-    queryKey: ['contracts', organizationId],
+    queryKey: ['contracts', organizationId, page, pageSize, status, clientId],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for contracts query');
-        return [];
+        return { contracts: [], count: 0 };
       }
 
-      console.log('🔍 Fetching contracts for org:', organizationId);
+      // Calculate pagination range
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
 
-      const { data, error } = await supabase
+      // Start building the query
+      let query = supabase
         .from('contracts')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
+        .select(`
+          id,
+          title,
+          description,
+          contract_type,
+          status,
+          value,
+          currency,
+          start_date,
+          end_date,
+          client_id,
+          version,
+          created_at,
+          updated_at,
+          created_by,
+          client:client_id(id, name),
+          created_by_user:created_by(id, first_name, last_name)
+        `, { count: 'exact' })
+        .eq('organization_id', organizationId);
+
+      // Apply filters if provided
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      if (clientId) {
+        query = query.eq('client_id', clientId);
+      }
+
+      // Apply sorting and pagination
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) {
-        console.error('❌ Error fetching contracts:', error);
         throw error;
       }
       
-      console.log('✅ Contracts found:', data?.length || 0);
-      return data as Contract[];
+      return { 
+        contracts: data as Contract[], 
+        count: count || 0 
+      };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
@@ -51,13 +91,35 @@ export function useContracts() {
   });
 }
 
+/**
+ * Hook for fetching a single contract by ID
+ */
 export function useContract(id: string) {
   return useQuery({
     queryKey: ['contract', id],
     queryFn: async () => {
+      // Optimize query to only select needed fields and include related data
       const { data, error } = await supabase
         .from('contracts')
-        .select('*')
+        .select(`
+          id,
+          title,
+          description,
+          contract_type,
+          status,
+          value,
+          currency,
+          start_date,
+          end_date,
+          terms,
+          client_id,
+          version,
+          created_at,
+          updated_at,
+          created_by,
+          client:client_id(id, name),
+          created_by_user:created_by(id, first_name, last_name)
+        `)
         .eq('id', id)
         .single();
 
@@ -69,24 +131,52 @@ export function useContract(id: string) {
   });
 }
 
-export function useContractsByClient(clientId: string) {
+/**
+ * Hook for fetching contracts by client ID with pagination
+ */
+export function useContractsByClient(clientId: string, page = 1, pageSize = 5) {
   return useQuery({
-    queryKey: ['contracts', 'client', clientId],
+    queryKey: ['contracts', 'client', clientId, page, pageSize],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!clientId) {
+        return { contracts: [], count: 0 };
+      }
+
+      // Calculate pagination range
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await supabase
         .from('contracts')
-        .select('*')
+        .select(`
+          id,
+          title,
+          status,
+          value,
+          currency,
+          start_date,
+          end_date,
+          created_at
+        `, { count: 'exact' })
         .eq('client_id', clientId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
-      return data as Contract[];
+      
+      return { 
+        contracts: data as Contract[], 
+        count: count || 0 
+      };
     },
     enabled: !!clientId,
     staleTime: 5 * 60 * 1000,
   });
 }
 
+/**
+ * Hook for creating a new contract
+ */
 export function useCreateContract() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -94,19 +184,33 @@ export function useCreateContract() {
   return useMutation({
     mutationFn: async (contractData: CreateContractData) => {
       const userId = await getCurrentUserId();
+      
+      if (!userId) {
+        throw new Error("User is not authenticated. Please sign in to create a contract.");
+      }
 
-      const { data: profile } = await supabase
+      // Get organization ID from user profile
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId)
         .single();
+        
+      if (profileError) {
+        throw new Error("Could not retrieve user profile information.");
+      }
+      
+      if (!profile?.organization_id) {
+        throw new Error("No organization associated with your account. Please contact your administrator.");
+      }
 
       const { data, error } = await supabase
         .from('contracts')
         .insert({
           ...contractData,
-          organization_id: profile?.organization_id,
+          organization_id: profile.organization_id,
           created_by: userId,
+          version: 1, // Initialize version number
         })
         .select()
         .single();
@@ -121,25 +225,53 @@ export function useCreateContract() {
         description: "Contract created successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create contract.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to create contract.",
+        description: errorMessage,
       });
     },
   });
 }
 
+/**
+ * Hook for updating a contract
+ */
 export function useUpdateContract() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ id, ...updateData }: { id: string } & Partial<CreateContractData>) => {
+      // First, get the current contract to increment version if needed
+      const { data: currentContract, error: fetchError } = await supabase
+        .from('contracts')
+        .select('version')
+        .eq('id', id)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      
+      // Increment version number for content changes
+      const hasContentChanges = 
+        updateData.title !== undefined ||
+        updateData.description !== undefined ||
+        updateData.terms !== undefined;
+        
+      const version = hasContentChanges 
+        ? (currentContract.version || 1) + 1 
+        : currentContract.version;
+        
+      // Apply the update with version increment if needed
       const { data, error } = await supabase
         .from('contracts')
-        .update(updateData)
+        .update({
+          ...updateData,
+          ...(hasContentChanges && { version }),
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', id)
         .select()
         .single();
@@ -155,16 +287,20 @@ export function useUpdateContract() {
         description: "Contract updated successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update contract.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to update contract.",
+        description: errorMessage,
       });
     },
   });
 }
 
+/**
+ * Hook for deleting a contract
+ */
 export function useDeleteContract() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -185,11 +321,12 @@ export function useDeleteContract() {
         description: "Contract deleted successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete contract.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to delete contract.",
+        description: errorMessage,
       });
     },
   });

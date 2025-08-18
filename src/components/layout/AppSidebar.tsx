@@ -11,7 +11,12 @@ import {
   ChevronRight,
   Menu,
   LogOut,
-  Receipt
+  Receipt,
+  Bot,
+  HelpCircle,
+  Bell,
+  Gauge,
+  LucideIcon
 } from "lucide-react";
 
 import {
@@ -31,28 +36,83 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import logo from "@/assets/kouti-legal-logo.png";
 
-// Added "Ream AI" to nav, using the "Bot" icon from lucide-react
-import { Bot } from "lucide-react";
+// Sidebar navigation type definition
+type NavigationItem = {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  end?: boolean;
+  badge?: string;
+  badgeVariant?: "default" | "secondary" | "destructive" | "outline";
+};
 
-const baseNavigationItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Cases", url: "/cases", icon: Briefcase },
-  { title: "Clients", url: "/clients", icon: UserCheck },
-  { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "Documents", url: "/documents", icon: FileText },
-  { title: "Contracts", url: "/contracts", icon: FileCheck },
-  { title: "Ream AI", url: "/ream-ai", icon: Bot },
-];
-const superAdminItems = [
-  { title: "Invoicing & Billing", url: "/invoices", icon: Receipt },
-];
+type NavigationGroup = {
+  label: string;
+  items: NavigationItem[];
+};
 
-const managementItems = [
-  { title: "Users", url: "/users", icon: Users },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
+// Primary navigation items
+const primaryNavigation: NavigationGroup = {
+  label: "Main",
+  items: [
+    { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
+    { title: "Cases", url: "/cases", icon: Briefcase },
+    { title: "Clients", url: "/clients", icon: UserCheck },
+    { title: "Calendar", url: "/calendar", icon: Calendar },
+  ]
+};
+
+// Documents and contracts group
+const documentsNavigation: NavigationGroup = {
+  label: "Legal Documents",
+  items: [
+    { title: "Documents", url: "/documents", icon: FileText },
+    { title: "Contracts", url: "/contracts", icon: FileCheck },
+  ]
+};
+
+// Tools navigation
+const toolsNavigation: NavigationGroup = {
+  label: "Tools",
+  items: [
+    { 
+      title: "Ream AI", 
+      url: "/ream-ai", 
+      icon: Bot, 
+      badge: "New", 
+      badgeVariant: "default" 
+    },
+    { 
+      title: "Invoicing", 
+      url: "/invoices", 
+      icon: Receipt, 
+    }
+  ]
+};
+
+// Management items
+const managementNavigation: NavigationGroup = {
+  label: "Management",
+  items: [
+    { title: "Users", url: "/users", icon: Users },
+    { title: "Analytics", url: "/analytics", icon: Gauge },
+    { title: "Settings", url: "/settings", icon: Settings },
+  ]
+};
+
+// Support items
+const supportNavigation: NavigationGroup = {
+  label: "Support",
+  items: [
+    { title: "Help Center", url: "/help", icon: HelpCircle },
+    { title: "Notifications", url: "/notifications", icon: Bell, badge: "3", badgeVariant: "destructive" },
+  ]
+};
 
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
@@ -60,9 +120,26 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { toast } = useToast();
+  const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
 
+  // Determine if path is active
+  const isActive = (path: string, end = false) => {
+    if (end) return currentPath === path;
+    return currentPath.startsWith(path);
+  };
+
+  // Get navigation item class based on active state
+  const getNavCls = (path: string, end = false) => {
+    const active = isActive(path, end);
+    
+    return active 
+      ? "bg-primary/10 text-primary font-medium hover:bg-primary/15" 
+      : "text-muted-foreground hover:bg-muted hover:text-foreground transition-colors";
+  };
+
+  // Handle sign out
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -80,134 +157,181 @@ export function AppSidebar() {
     }
   };
 
-  const isActive = (path: string) => {
-    if (path === "/") return currentPath === "/";
-    return currentPath.startsWith(path);
-  };
-
-  const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive 
-      ? "bg-primary text-primary-foreground font-medium shadow-sm hover:bg-primary hover:text-primary-foreground" 
-      : "hover:bg-accent hover:text-accent-foreground transition-colors";
-
+  // Check user role
   const { data: userRoleData } = useUserRole();
   const role = userRoleData?.role;
-  console.log("Sidebar user role:", role, userRoleData);
-  // DEVELOPMENT OVERRIDE: Always show invoicing
-  const navigationItems = [...baseNavigationItems.slice(0, 6), ...superAdminItems, ...baseNavigationItems.slice(6)];
-  // const navigationItems = role === "super_admin"
-  //   ? [...baseNavigationItems.slice(0, 6), ...superAdminItems, ...baseNavigationItems.slice(6)]
-  //   : baseNavigationItems;
+  const isAdmin = role === "super_admin" || role === "admin";
+  
+  // Filter navigation items based on role
+  const getFilteredNavigation = () => {
+    // Always include primary and documents navigation
+    const navigation = [primaryNavigation, documentsNavigation];
+    
+    // Create a filtered tools navigation based on role
+    const filteredTools = {
+      ...toolsNavigation,
+      items: toolsNavigation.items.filter(item => {
+        // Only show invoicing to admins
+        if (item.url === "/invoices" && !isAdmin) {
+          return false;
+        }
+        return true;
+      })
+    };
+    
+    // Add filtered tools
+    if (filteredTools.items.length > 0) {
+      navigation.push(filteredTools);
+    }
+    
+    // Only add management for admins
+    if (isAdmin) {
+      navigation.push(managementNavigation);
+    } else {
+      // For non-admins, just add settings
+      navigation.push({
+        label: "Management",
+        items: [managementNavigation.items.find(item => item.url === "/settings")!]
+      });
+    }
+    
+    // Add support navigation
+    navigation.push(supportNavigation);
+    
+    return navigation;
+  };
+  
+  const navigationGroups = getFilteredNavigation();
+
+  // Render a navigation item
+  const renderNavItem = (item: NavigationItem) => (
+    <SidebarMenuItem key={item.title}>
+      <SidebarMenuButton asChild className="h-10 w-full relative">
+        <NavLink 
+          to={item.url} 
+          end={item.end} 
+          className={getNavCls(item.url, item.end)}
+        >
+          <item.icon className="h-5 w-5 flex-shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="ml-3 font-medium">{item.title}</span>
+              
+              {/* Badge */}
+              {item.badge && (
+                <Badge variant={item.badgeVariant} className="ml-auto">
+                  {item.badge}
+                </Badge>
+              )}
+              
+              {/* Active indicator */}
+              {isActive(item.url, item.end) && (
+                <ChevronRight className="h-4 w-4 ml-auto text-primary" />
+              )}
+            </>
+          )}
+          
+          {/* Show badge in collapsed mode */}
+          {collapsed && item.badge && (
+            <Badge 
+              variant={item.badgeVariant} 
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+            >
+              {item.badge}
+            </Badge>
+          )}
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
 
   return (
-    <Sidebar variant="sidebar" collapsible="icon" className="border-r border-border">
-      <SidebarHeader className="border-b border-border p-4">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="Kouti Legal" className="h-8 w-8 flex-shrink-0" />
-          {!collapsed && (
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Kouti Legal</h2>
-              <p className="text-xs text-muted-foreground">Legal Management</p>
+    <TooltipProvider delayDuration={300}>
+      <Sidebar variant="sidebar" collapsible="icon" className="h-screen bg-card/30">
+        <SidebarHeader className="border-b border-border p-4">
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="Kouti Legal" className="h-8 w-8 flex-shrink-0" />
+            {!collapsed && (
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Kouti Legal</h2>
+                <p className="text-xs text-muted-foreground">Legal Management</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Mobile trigger button */}
+          <Button
+            variant="ghost" 
+            size="icon"
+            onClick={toggleSidebar}
+            className="md:hidden absolute top-4 right-4 h-8 w-8"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </SidebarHeader>
+
+        <SidebarContent className="p-2">
+          {navigationGroups.map((group, index) => (
+            <React.Fragment key={group.label}>
+              {index > 0 && <Separator className="my-3" />}
+              
+              <SidebarGroup>
+                <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-3 mb-1"}>
+                  {group.label}
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu className="space-y-1">
+                    {group.items.map(item => (
+                      <Tooltip key={item.title}>
+                        <TooltipTrigger asChild>
+                          {renderNavItem(item)}
+                        </TooltipTrigger>
+                        {collapsed && (
+                          <TooltipContent side="right">
+                            {item.title}
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </React.Fragment>
+          ))}
+
+          {/* User profile section at bottom */}
+          <div className="mt-auto pt-4">
+            <Separator className="mb-4" />
+            
+            <div className={`px-3 py-2 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
+              {collapsed ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full" onClick={handleSignOut}>
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user?.user_metadata?.avatar_url} />
+                        <AvatarFallback>{userInitials}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    Sign Out
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={handleSignOut}
+                  className="w-full justify-start px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                >
+                  <LogOut className="h-5 w-5 flex-shrink-0" />
+                  <span className="ml-3 font-medium">Sign Out</span>
+                </Button>
+              )}
             </div>
-          )}
-        </div>
-        
-        {/* Mobile trigger button */}
-        <Button
-          variant="ghost" 
-          size="icon"
-          onClick={toggleSidebar}
-          className="md:hidden absolute top-4 right-4 h-8 w-8"
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
-      </SidebarHeader>
-
-      <SidebarContent className="p-2">
-        <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground mb-2"}>
-            Main Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {navigationItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-10 w-full">
-                    <NavLink 
-                      to={item.url} 
-                      end={item.url === "/"} 
-                      className={({ isActive }) => getNavCls({ isActive })}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && (
-                        <>
-                          <span className="ml-3 font-medium">{item.title}</span>
-                          {isActive(item.url) && (
-                            <ChevronRight className="h-4 w-4 ml-auto opacity-70" />
-                          )}
-                        </>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <Separator className="my-4" />
-
-        <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground mb-2"}>
-            Management
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {managementItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-10 w-full">
-                    <NavLink 
-                      to={item.url} 
-                      className={({ isActive }) => getNavCls({ isActive })}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && (
-                        <>
-                          <span className="ml-3 font-medium">{item.title}</span>
-                          {isActive(item.url) && (
-                            <ChevronRight className="h-4 w-4 ml-auto opacity-70" />
-                          )}
-                        </>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <Separator className="my-4" />
-
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="h-10 w-full">
-                  <Button
-                    variant="ghost"
-                    onClick={handleSignOut}
-                    className="justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <LogOut className="h-5 w-5 flex-shrink-0" />
-                    {!collapsed && <span className="ml-3 font-medium">Sign Out</span>}
-                  </Button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+          </div>
+        </SidebarContent>
+      </Sidebar>
+    </TooltipProvider>
   );
 }
