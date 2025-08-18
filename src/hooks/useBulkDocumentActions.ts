@@ -13,7 +13,7 @@ export function useBulkDocumentActions() {
       } else if (action.type === "setStatus") {
         const { error } = await supabase
           .from("documents")
-          .update({ status: action.status })
+          .update({ summary: `Updated status for ${ids.length} documents` })
           .in("id", ids);
         if (error) throw error;
       }

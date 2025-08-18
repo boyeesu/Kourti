@@ -1,7 +1,8 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { CommunicationLog } from '@/types';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export function useClientLogs(clientId: string) {
   return useQuery<CommunicationLog[], Error>({
@@ -13,7 +14,17 @@ export function useClientLogs(clientId: string) {
         .eq('client_id', clientId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as CommunicationLog[];
+      
+      // Map database results to interface
+      return (data || []).map(item => ({
+        id: item.id,
+        client_id: item.client_id,
+        user_id: item.user_id,
+        organization_id: item.organization_id,
+        type: item.type,
+        content: item.content,
+        created_at: item.created_at,
+      }));
     },
     enabled: Boolean(clientId),
   });
@@ -21,15 +32,34 @@ export function useClientLogs(clientId: string) {
 
 export function useCreateClientLog() {
   const qc = useQueryClient();
+  const { data: organizationId } = useUserOrganization();
+
   return useMutation({
-    mutationFn: async (log: Omit<CommunicationLog, 'id' | 'created_at'>) => {
+    mutationFn: async (log: { client_id: string; type: string; content: string }) => {
+      const userId = await getCurrentUserId();
+      
+      const logData = {
+        ...log,
+        user_id: userId!,
+        organization_id: organizationId!,
+      };
+
       const { data, error } = await supabase
         .from('communication_logs')
-        .insert([log])
+        .insert([logData])
         .select()
         .single();
       if (error) throw error;
-      return data as CommunicationLog;
+      
+      return {
+        id: data.id,
+        client_id: data.client_id,
+        user_id: data.user_id,
+        organization_id: data.organization_id,
+        type: data.type,
+        content: data.content,
+        created_at: data.created_at,
+      };
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['client-logs', vars.client_id] });
