@@ -29,6 +29,8 @@ export function useCaseTypes() {
         name: type.name,
         description: type.description,
         created_at: type.created_at,
+        updated_at: type.updated_at,
+        is_active: type.is_active,
         // Use defaults for fields that might be missing in the database
         organization_id: type.organization_id || organizationId || '',
         created_by: type.created_by || ''
