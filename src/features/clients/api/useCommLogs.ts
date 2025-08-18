@@ -21,10 +21,14 @@ export function useCommLogs(clientId: string) {
 export function useCreateCommLog(clientId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (log: Omit<CommunicationLog, 'id' | 'created_at' | 'client_id'>) => {
+    mutationFn: async (log: Omit<CommunicationLog, 'id' | 'created_at' | 'client_id' | 'organization_id'>) => {
       const { data, error } = await supabase
         .from('communication_logs')
-        .insert({ ...log, client_id: clientId })
+        .insert({ 
+          ...log, 
+          client_id: clientId,
+          organization_id: '' // This will be handled by RLS
+        })
         .select()
         .single();
       if (error) throw error;

@@ -14,7 +14,7 @@ export function useUpdateCaseField() {
         .update({
           label: field.label,
           data_type: field.data_type,
-          required: field.required,
+          is_required: field.is_required,
           options: field.options,
           field_order: field.field_order,
         })
