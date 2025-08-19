@@ -69,53 +69,58 @@ logInfo('Application initialized', {
 });
 
 // Find and validate root element
-const rootElement = document.getElementById("root");
-if (!rootElement) {
+const container = document.getElementById('root');
+if (!container) {
   throw new Error("Failed to find the root element. Please check your HTML.");
 }
 
+// Initialize React 18 with new root API
+const root = ReactDOM.createRoot(container);
+
 // Render the application
-createRoot(rootElement).render(
-  <ErrorBoundary
-    fallbackRender={({ error, resetErrorBoundary }) => (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background">
-        <div className="w-full max-w-md p-8 space-y-6 bg-card rounded-lg shadow-lg">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-destructive">Application Error</h2>
-            <p className="text-muted-foreground mt-2">
-              The application encountered a critical error and cannot continue.
-            </p>
-            {import.meta.env.DEV && error && (
-              <div className="mt-4 p-4 bg-muted rounded-md text-left overflow-auto max-h-32">
-                <p className="text-sm font-mono text-destructive">{error.message}</p>
-              </div>
-            )}
-          </div>
-          <div className="pt-4 flex justify-center space-x-4">
-            <button
-              onClick={() => window.location.href = '/'}
-              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md shadow hover:bg-secondary/90 transition-colors"
-            >
-              Go to Home
-            </button>
-            <button
-              onClick={() => {
-                resetErrorBoundary();
-                window.location.reload();
-              }}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md shadow hover:bg-primary/90 transition-colors"
-            >
-              Reload Application
-            </button>
+root.render(
+  <React.StrictMode>
+    <ErrorBoundary
+      fallbackRender={({ error, resetErrorBoundary }) => (
+        <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background">
+          <div className="w-full max-w-md p-8 space-y-6 bg-card rounded-lg shadow-lg">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-destructive">Application Error</h2>
+              <p className="text-muted-foreground mt-2">
+                The application encountered a critical error and cannot continue.
+              </p>
+              {import.meta.env.DEV && error && (
+                <div className="mt-4 p-4 bg-muted rounded-md text-left overflow-auto max-h-32">
+                  <p className="text-sm font-mono text-destructive">{error.message}</p>
+                </div>
+              )}
+            </div>
+            <div className="pt-4 flex justify-center space-x-4">
+              <button
+                onClick={() => window.location.href = '/'}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md shadow hover:bg-secondary/90 transition-colors"
+              >
+                Go to Home
+              </button>
+              <button
+                onClick={() => {
+                  resetErrorBoundary();
+                  window.location.reload();
+                }}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md shadow hover:bg-primary/90 transition-colors"
+              >
+                Reload Application
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
-  >
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="kouti-legal-theme">
-        <App />
-      </ThemeProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
+      )}
+    >
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="light" storageKey="kouti-legal-theme">
+          <App />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  </React.StrictMode>
 );

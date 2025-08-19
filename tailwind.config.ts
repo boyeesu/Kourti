@@ -1,11 +1,14 @@
 import type { Config } from "tailwindcss";
 
-const config: Config = {
+const config = {
   darkMode: ["class"],
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}',
+    './index.html',
+	],
   theme: {
     container: {
       center: true,
@@ -49,15 +52,6 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Sidebar colors
-        sidebar: "hsl(var(--sidebar-background))",
-        "sidebar-foreground": "hsl(var(--sidebar-foreground))",
-        "sidebar-primary": "hsl(var(--sidebar-primary))",
-        "sidebar-primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-        "sidebar-accent": "hsl(var(--sidebar-accent))",
-        "sidebar-accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-        "sidebar-border": "hsl(var(--sidebar-border))",
-        "sidebar-ring": "hsl(var(--sidebar-ring))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -81,6 +75,6 @@ const config: Config = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-};
+} satisfies Config
 
 export default config;
