@@ -44,7 +44,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { logInfo } from "./lib/logger";
 import { ThemeProvider } from "@/hooks/useTheme";
 
-// Lazy load the Invoices page for better performance
+// Lazy load the additional pages for better performance
 const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
@@ -59,6 +59,8 @@ const queryClient = new QueryClient({
       staleTime: 30 * 1000, // 30 seconds
       refetchOnWindowFocus: true,
       refetchOnMount: true,
+      refetchOnReconnect: true,
+      cacheTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
@@ -68,7 +70,6 @@ function PageViewTracker() {
   const location = useLocation();
   
   useEffect(() => {
-    // Log page view for analytics
     logInfo('Page view', { 
       path: location.pathname,
       search: location.search
@@ -78,7 +79,7 @@ function PageViewTracker() {
   return null;
 }
 
-// Organization check component - will show organization setup if needed
+// Organization check component
 function OrganizationCheck({ children }: { children: React.ReactNode }) {
   const { data: organizationId, isLoading } = useUserOrganization();
   
@@ -86,12 +87,10 @@ function OrganizationCheck({ children }: { children: React.ReactNode }) {
     return <LoadingFallback />;
   }
   
-  // If no organization is found, show the setup page
   if (!organizationId) {
     return <OrganizationSetup />;
   }
   
-  // Otherwise, render the children
   return <>{children}</>;
 }
 
@@ -107,6 +106,7 @@ function LoadingFallback() {
   );
 }
 
+// App Component
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="light" storageKey="kouti-legal-theme">
@@ -118,10 +118,10 @@ const App = () => (
             <PageViewTracker />
             <AuthProvider>
               <Routes>
-                {/* Public routes - no layout */}
+                {/* Public routes */}
                 <Route path="/auth" element={<Auth />} />
                 
-                {/* Protected routes with layout */}
+                {/* Onboarding */}
                 <Route path="/onboarding" element={
                   <ProtectedRoute>
                     <ModuleErrorBoundary name="Onboarding">
@@ -130,191 +130,218 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 
+                {/* Protected routes */}
                 <Route path="/*" element={
                   <ProtectedRoute>
                     <OrganizationCheck>
                       <SearchProvider>
                         <CasesProvider>
                           <AppLayout>
-                          <Routes>
-                            {/* Dashboard */}
-                            <Route path="/" element={
-                              <ModuleErrorBoundary name="Dashboard">
-                                <DashboardNew />
-                              </ModuleErrorBoundary>
-                            } />
-                            <Route path="/dashboard" element={
-                              <ModuleErrorBoundary name="Dashboard">
-                                <DashboardNew />
-                              </ModuleErrorBoundary>
-                            } />
-                          
-                          {/* Cases Module */}
-                          <Route path="/cases" element={
-                            <ModuleErrorBoundary name="Cases">
-                              <Cases />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/cases/create" element={
-                            <ModuleErrorBoundary name="Case Create">
-                              <CaseCreate />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/cases/:id" element={
-                            <ModuleErrorBoundary name="Case Details">
-                              <CaseDetails />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/cases/:id/edit" element={
-                            <ModuleErrorBoundary name="Case Edit">
-                              <CaseEdit />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/cases/:id/activities" element={
-                            <ModuleErrorBoundary name="Case Activities">
-                              <CaseActivities />
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* Clients Module */}
-                          <Route path="/clients" element={
-                            <ModuleErrorBoundary name="Clients">
-                              <Clients />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/clients/create" element={
-                            <ModuleErrorBoundary name="Client Create">
-                              <ClientCreate />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/clients/:clientId" element={
-                            <ModuleErrorBoundary name="Client Details">
-                              <ClientDetails />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/clients/:clientId/edit" element={
-                            <ModuleErrorBoundary name="Client Edit">
-                              <ClientEdit />
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* Bulk Import */}
-                          <Route path="/bulk-import" element={
-                            <ModuleErrorBoundary name="Bulk Import">
-                              <BulkImport />
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* Calendar Module */}
-                          <Route path="/calendar" element={
-                            <ModuleErrorBoundary name="Calendar">
-                              <Calendar />
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* Documents Module */}
-                          <Route path="/documents" element={
-                            <ModuleErrorBoundary name="Documents">
-                              <Documents />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/documents/upload" element={
-                            <ModuleErrorBoundary name="Document Upload">
-                              <DocumentUpload />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/documents/review" element={
-                            <ModuleErrorBoundary name="Document Review">
-                              <DocumentReview />
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* Contracts Module */}
-                          <Route path="/contracts" element={
-                            <ModuleErrorBoundary name="Contracts">
-                              <Contracts />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/contracts/create" element={
-                            <ModuleErrorBoundary name="Contract Create">
-                              <ContractCreate />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/contracts/compare" element={
-                            <ModuleErrorBoundary name="Contract Compare">
-                              <ContractCompare />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/contracts/:id" element={
-                            <ModuleErrorBoundary name="Contract View">
-                              <ContractView />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/contracts/:id/edit" element={
-                            <ModuleErrorBoundary name="Contract Edit">
-                              <ContractEdit />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/contracts/:id/history" element={
-                            <ModuleErrorBoundary name="Contract History">
-                              <ContractHistory />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/contracts/review" element={
-                            <ModuleErrorBoundary name="Contract Review">
-                              <ContractReview />
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* AI Assistant */}
-                          <Route path="/ream-ai" element={
-                            <ModuleErrorBoundary name="Ream AI">
-                              <ReamAI />
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* Invoices Module (Lazy loaded) */}
-                          <Route path="/invoices" element={
-                            <ModuleErrorBoundary name="Invoices">
-                              <Suspense fallback={<LoadingFallback />}>
-                                <Invoices />
-                              </Suspense>
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/invoices/:id" element={
-                            <ModuleErrorBoundary name="Invoice Details">
-                              <Suspense fallback={<LoadingFallback />}>
-                                <InvoiceDetails />
-                              </Suspense>
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* User Management & Settings */}
-                          <Route path="/users" element={
-                            <ModuleErrorBoundary name="User Management">
-                              <UserManagement />
-                            </ModuleErrorBoundary>
-                          } />
-                          <Route path="/settings" element={
-                            <ModuleErrorBoundary name="Settings">
-                              <Settings />
-                            </ModuleErrorBoundary>
-                          } />
-                          
-                          {/* 404 Not Found */}
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                        </AppLayout>
-                      </CasesProvider>
-                    </SearchProvider>
-                  </OrganizationCheck>
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
-      </NotificationsProvider>
-    </TooltipProvider>
+                            <Routes>
+                              {/* Dashboard */}
+                              <Route path="/" element={
+                                <ModuleErrorBoundary name="Dashboard">
+                                  <DashboardNew />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/dashboard" element={
+                                <ModuleErrorBoundary name="Dashboard">
+                                  <DashboardNew />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Cases Module */}
+                              <Route path="/cases" element={
+                                <ModuleErrorBoundary name="Cases">
+                                  <Cases />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/cases/create" element={
+                                <ModuleErrorBoundary name="Case Create">
+                                  <CaseCreate />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/cases/:id" element={
+                                <ModuleErrorBoundary name="Case Details">
+                                  <CaseDetails />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/cases/:id/edit" element={
+                                <ModuleErrorBoundary name="Case Edit">
+                                  <CaseEdit />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/cases/:id/activities" element={
+                                <ModuleErrorBoundary name="Case Activities">
+                                  <CaseActivities />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Clients Module */}
+                              <Route path="/clients" element={
+                                <ModuleErrorBoundary name="Clients">
+                                  <Clients />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/clients/create" element={
+                                <ModuleErrorBoundary name="Client Create">
+                                  <ClientCreate />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/clients/:clientId" element={
+                                <ModuleErrorBoundary name="Client Details">
+                                  <ClientDetails />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/clients/:clientId/edit" element={
+                                <ModuleErrorBoundary name="Client Edit">
+                                  <ClientEdit />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Calendar Module */}
+                              <Route path="/calendar" element={
+                                <ModuleErrorBoundary name="Calendar">
+                                  <Calendar />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Bulk Import */}
+                              <Route path="/bulk-import" element={
+                                <ModuleErrorBoundary name="Bulk Import">
+                                  <BulkImport />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Documents Module */}
+                              <Route path="/documents" element={
+                                <ModuleErrorBoundary name="Documents">
+                                  <Documents />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/documents/upload" element={
+                                <ModuleErrorBoundary name="Document Upload">
+                                  <DocumentUpload />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/documents/review" element={
+                                <ModuleErrorBoundary name="Document Review">
+                                  <DocumentReview />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Contracts Module */}
+                              <Route path="/contracts" element={
+                                <ModuleErrorBoundary name="Contracts">
+                                  <Contracts />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/contracts/create" element={
+                                <ModuleErrorBoundary name="Contract Create">
+                                  <ContractCreate />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/contracts/compare" element={
+                                <ModuleErrorBoundary name="Contract Compare">
+                                  <ContractCompare />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/contracts/:id" element={
+                                <ModuleErrorBoundary name="Contract View">
+                                  <ContractView />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/contracts/:id/edit" element={
+                                <ModuleErrorBoundary name="Contract Edit">
+                                  <ContractEdit />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/contracts/:id/history" element={
+                                <ModuleErrorBoundary name="Contract History">
+                                  <ContractHistory />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/contracts/review" element={
+                                <ModuleErrorBoundary name="Contract Review">
+                                  <ContractReview />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Invoices Module (Lazy loaded) */}
+                              <Route path="/invoices" element={
+                                <ModuleErrorBoundary name="Invoices">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    <Invoices />
+                                  </Suspense>
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/invoices/:id" element={
+                                <ModuleErrorBoundary name="Invoice Details">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    <InvoiceDetails />
+                                  </Suspense>
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* New Modules */}
+                              <Route path="/help" element={
+                                <ModuleErrorBoundary name="Help Center">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    <HelpCenter />
+                                  </Suspense>
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              <Route path="/notifications" element={
+                                <ModuleErrorBoundary name="Notifications">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    <Notifications />
+                                  </Suspense>
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              <Route path="/analytics" element={
+                                <ModuleErrorBoundary name="Analytics">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    <Analytics />
+                                  </Suspense>
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* AI Assistant */}
+                              <Route path="/ream-ai" element={
+                                <ModuleErrorBoundary name="Ream AI">
+                                  <ReamAI />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* User Management & Settings */}
+                              <Route path="/users" element={
+                                <ModuleErrorBoundary name="User Management">
+                                  <UserManagement />
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/settings" element={
+                                <ModuleErrorBoundary name="Settings">
+                                  <Settings />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* 404 Not Found */}
+                              <Route path="*" element={<NotFound />} />
+                            </Routes>
+                          </AppLayout>
+                        </CasesProvider>
+                      </SearchProvider>
+                    </OrganizationCheck>
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </NotificationsProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

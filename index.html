@@ -2,23 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>kouti-legal-hub</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <title>Kouti Legal Hub</title>
+    <meta name="description" content="Legal Practice Management Software" />
+    <meta name="author" content="Kouti Legal" />
 
-    <meta property="og:title" content="kouti-legal-hub" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:title" content="Kouti Legal Hub" />
+    <meta property="og:description" content="Legal Practice Management Software" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <!-- Load React and ReactDOM from CDN for faster loading -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Preload key assets -->
+    <link rel="preload" href="/src/main.tsx" as="script" type="module" />
+    <link rel="preload" href="/src/index.css" as="style" />
   </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Fallback for no JavaScript -->
+    <noscript>
+      <div style="padding: 2rem; text-align: center;">
+        <h1>JavaScript Required</h1>
+        <p>Please enable JavaScript to use Kouti Legal Hub.</p>
+      </div>
+    </noscript>
   </body>
 </html>
