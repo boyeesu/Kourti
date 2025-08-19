@@ -21,11 +21,11 @@ export function useClientLogs(clientId: string) {
         client_id: item.client_id,
         user_id: item.user_id,
         organization_id: item.organization_id,
-        type: item.type,
+        type: item.type as 'note' | 'email' | 'phone' | 'call' | 'meeting' | 'other',
         content: item.content,
         created_at: item.created_at,
-        created_by: item.created_by || item.user_id, // Use user_id as fallback for created_by
-      }));
+        created_by: item.user_id,
+      } as CommunicationLog));
     },
     enabled: Boolean(clientId),
   });
@@ -57,11 +57,11 @@ export function useCreateClientLog() {
         client_id: data.client_id,
         user_id: data.user_id,
         organization_id: data.organization_id,
-        type: data.type,
+        type: data.type as 'note' | 'email' | 'phone' | 'call' | 'meeting' | 'other',
         content: data.content,
         created_at: data.created_at,
-        created_by: data.created_by || data.user_id, // Use user_id as fallback for created_by
-      };
+        created_by: data.user_id,
+      } as CommunicationLog;
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['client-logs', vars.client_id] });

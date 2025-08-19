@@ -44,12 +44,9 @@ import { Suspense, lazy, useEffect } from "react";
 import { logInfo } from "./lib/logger";
 import { ThemeProvider } from "@/hooks/useTheme";
 
-// Lazy load the Invoices page for better performance
+// Lazy load pages for better performance
 const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
-const HelpCenter = lazy(() => import('./pages/HelpCenter'));
-const Notifications = lazy(() => import('./pages/Notifications'));
-const Analytics = lazy(() => import('./pages/Analytics'));
 
 // Create a query client with better defaults
 const queryClient = new QueryClient({

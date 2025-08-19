@@ -12,7 +12,10 @@ export function useCommLogs(clientId: string) {
         .eq('client_id', clientId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data.map(item => ({
+        ...item,
+        type: item.type as 'note' | 'email' | 'phone' | 'call' | 'meeting' | 'other'
+      }));
     },
     enabled: Boolean(clientId),
   });

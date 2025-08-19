@@ -1,3 +1,4 @@
+import React from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -160,7 +161,7 @@ export function AppSidebar() {
   // Check user role
   const { data: userRoleData } = useUserRole();
   const role = userRoleData?.role;
-  const isAdmin = role === "super_admin" || role === "admin";
+  const isAdmin = role === "superadmin" || role === "admin";
   
   // Filter navigation items based on role
   const getFilteredNavigation = () => {

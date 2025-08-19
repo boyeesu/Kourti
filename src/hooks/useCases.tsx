@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { Case } from '@/types';
+
 
 export interface CreateCaseData {
   title: string;
@@ -18,8 +18,7 @@ export interface CreateCaseData {
   next_hearing_date?: string;
   client_id?: string;
   case_type_id?: string;
-  case_issue_id?: string;
-  custom_fields?: Record<string, unknown>;
+  custom_fields?: any;
 }
 
 export interface UpdateCaseData extends Partial<CreateCaseData> {
@@ -58,14 +57,14 @@ export function useCases(page = 1, pageSize = 20) {
           next_hearing_date,
           client_id,
           case_type_id,
-          case_issue_id, 
           created_at,
           updated_at,
+          created_by,
+          organization_id,
           custom_fields,
           client:client_id(id, name), 
           assigned_user:assigned_to(id, first_name, last_name),
-          case_type:case_types(id, name, description),
-          case_issue:case_issues(id, name, description)
+          case_type:case_types(id, name, description)
         `, { count: 'exact' })
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
@@ -75,7 +74,7 @@ export function useCases(page = 1, pageSize = 20) {
         throw error;
       }
       
-      return { cases: data as Case[], count: count || 0 };
+      return { cases: data as any[], count: count || 0 };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
@@ -112,20 +111,20 @@ export function useCase(id: string) {
           next_hearing_date,
           client_id,
           case_type_id,
-          case_issue_id, 
           created_at,
           updated_at,
+          created_by,
+          organization_id,
           custom_fields,
           client:client_id(id, name), 
           assigned_user:assigned_to(id, first_name, last_name),
-          case_type:case_types(id, name, description),
-          case_issue:case_issues(id, name, description)
+          case_type:case_types(id, name, description)
         `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as Case;
+      return data as any;
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -156,7 +155,10 @@ export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
           priority, 
           assigned_to, 
           next_hearing_date,
-          created_at
+          created_at,
+          updated_at,
+          created_by,
+          organization_id
         `, { count: 'exact' })
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
@@ -164,7 +166,7 @@ export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
 
       if (error) throw error;
       return { 
-        cases: data as Case[], 
+        cases: data as any[], 
         count: count || 0 
       };
     },
