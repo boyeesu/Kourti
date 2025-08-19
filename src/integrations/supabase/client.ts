@@ -4,11 +4,11 @@ import type { Database } from './types';
 
 // Get environment variables from import.meta.env (Vite's environment variable system)
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Ensure environment variables are set
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Supabase URL or key missing. Check your .env file and make sure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are set.');
+  console.error('Supabase URL or key missing. Check your .env file and make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
 }
 
 // Import the supabase client like this:
