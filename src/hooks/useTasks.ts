@@ -23,11 +23,16 @@ export function useTasks(caseId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tasks')
-        .select('*, assignee:assigned_to(id, first_name, last_name, email)')
+        .select('*')
         .eq('case_id', caseId)
         .order('due_date', { ascending: true });
       if (error) throw error;
-      return data as Task[];
+      
+      // Transform data to include organization_id (tasks table doesn't have this field)
+      return (data || []).map(task => ({
+        ...task,
+        organization_id: '', // Add default value since tasks table doesn't have this field
+      })) as Task[];
     },
     enabled: !!caseId,
     staleTime: 60 * 1000,

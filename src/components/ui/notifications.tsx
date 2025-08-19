@@ -2,7 +2,7 @@ import { useState, createContext, useContext, ReactNode } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Bell, CheckCircle, AlertCircle, UserPlus, RefreshCw } from 'lucide-react';
 
-export type NotificationType = 'approval' | 'event' | 'case-assigned' | 'update';
+export type NotificationType = 'approval' | 'event' | 'case-assigned' | 'update' | 'info' | 'warning' | 'success' | 'error';
 
 export interface Notification {
   id: string;

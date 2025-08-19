@@ -16,7 +16,8 @@ export function useInsights(windowDays: number = 7) {
   }) || [];
 
   // Filter contracts expiring in the next windowDays
-  const upcomingContracts = (contractsData || [])
+  const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
+  const upcomingContracts = contractsList
     .filter((contract: Contract) => {
       if (!contract.end_date) return false;
       const endDate = new Date(contract.end_date);

@@ -50,12 +50,12 @@ export function useInvoices() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       
-      // Transform the raw data to match the Invoice type with missing properties
+      // Transform the raw data to match the Invoice type
       return (data || []).map(item => ({
         ...item,
-        // Add required properties that might be missing from the database
-        vat: item.vat ?? 0,
-        items: item.items ?? [],
+        // Map database fields to interface fields
+        vat: item.tax_amount ?? 0,
+        items: [], // This will need to come from invoice_items table
       })) as Invoice[];
     },
     staleTime: 2 * 60 * 1000,
@@ -71,12 +71,30 @@ export function useCreateInvoice() {
       // Auto-generate total
       const total = data.amount + (data.vat ?? 0);
       // Ensure required fields for Invoice type
+      // Get organization ID from user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', userId || '')
+        .single();
+        
+      if (profileError) throw new Error("Could not retrieve user profile information.");
+      if (!profile?.organization_id) throw new Error("No organization associated with your account.");
+
       const invoiceData = {
-        ...data,
+        invoice_number: `INV-${Date.now()}`,
+        title: `Invoice for ${data.amount}`,
+        organization_id: profile.organization_id,
+        client_id: data.client_id,
+        case_id: data.case_id,
+        amount: data.amount,
+        tax_rate: data.vat ? (data.vat / data.amount) * 100 : 0,
+        tax_amount: data.vat ?? 0,
         total,
+        status: data.status,
+        due_date: data.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        notes: data.notes,
         created_by: userId || '',
-        // Make sure items exists (required by Invoice type)
-        items: data.items || []
       };
       
       const { data: newInvoice, error } = await supabase

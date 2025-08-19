@@ -53,12 +53,11 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
           start_date,
           end_date,
           client_id,
-          version,
+          organization_id,
           created_at,
           updated_at,
           created_by,
-          client:client_id(id, name),
-          created_by_user:created_by(id, first_name, last_name)
+          client:client_id(id, name)
         `, { count: 'exact' })
         .eq('organization_id', organizationId);
 
@@ -113,12 +112,11 @@ export function useContract(id: string) {
           end_date,
           terms,
           client_id,
-          version,
+          organization_id,
           created_at,
           updated_at,
           created_by,
-          client:client_id(id, name),
-          created_by_user:created_by(id, first_name, last_name)
+          client:client_id(id, name)
         `)
         .eq('id', id)
         .single();
@@ -210,7 +208,6 @@ export function useCreateContract() {
           ...contractData,
           organization_id: profile.organization_id,
           created_by: userId,
-          version: 1, // Initialize version number
         })
         .select()
         .single();
@@ -245,31 +242,10 @@ export function useUpdateContract() {
 
   return useMutation({
     mutationFn: async ({ id, ...updateData }: { id: string } & Partial<CreateContractData>) => {
-      // First, get the current contract to increment version if needed
-      const { data: currentContract, error: fetchError } = await supabase
-        .from('contracts')
-        .select('version')
-        .eq('id', id)
-        .single();
-        
-      if (fetchError) throw fetchError;
-      
-      // Increment version number for content changes
-      const hasContentChanges = 
-        updateData.title !== undefined ||
-        updateData.description !== undefined ||
-        updateData.terms !== undefined;
-        
-      const version = hasContentChanges 
-        ? (currentContract.version || 1) + 1 
-        : currentContract.version;
-        
-      // Apply the update with version increment if needed
       const { data, error } = await supabase
         .from('contracts')
         .update({
           ...updateData,
-          ...(hasContentChanges && { version }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
