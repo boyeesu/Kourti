@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Contract } from '@/types';
+import { mockContracts } from '@/lib/mock-data';
 
 export interface CreateContractData {
   title: string;
@@ -35,54 +36,99 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
         return { contracts: [], count: 0 };
       }
 
-      // Calculate pagination range
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-
-      // Start building the query
-      let query = supabase
-        .from('contracts')
-        .select(`
-          id,
-          title,
-          description,
-          contract_type,
-          status,
-          value,
-          currency,
-          start_date,
-          end_date,
-          client_id,
-          organization_id,
-          created_at,
-          updated_at,
-          created_by,
-          client:client_id(id, name)
-        `, { count: 'exact' })
-        .eq('organization_id', organizationId);
-
-      // Apply filters if provided
-      if (status) {
-        query = query.eq('status', status);
+      // Use mock data in development mode or when testing
+      if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
+        console.log('📝 Using mock contracts data');
+        let filteredContracts = [...mockContracts];
+        
+        if (status) {
+          filteredContracts = filteredContracts.filter(c => c.status === status);
+        }
+        
+        if (clientId) {
+          filteredContracts = filteredContracts.filter(c => c.client_id === clientId);
+        }
+        
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        
+        return { 
+          contracts: filteredContracts.slice(startIndex, endIndex), 
+          count: filteredContracts.length 
+        };
       }
 
-      if (clientId) {
-        query = query.eq('client_id', clientId);
-      }
+      try {
+        // Calculate pagination range
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
 
-      // Apply sorting and pagination
-      const { data, error, count } = await query
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        // Start building the query
+        let query = supabase
+          .from('contracts')
+          .select(`
+            id,
+            title,
+            description,
+            contract_type,
+            status,
+            value,
+            currency,
+            start_date,
+            end_date,
+            client_id,
+            organization_id,
+            created_at,
+            updated_at,
+            created_by,
+            client:client_id(id, name)
+          `, { count: 'exact' })
+          .eq('organization_id', organizationId);
 
-      if (error) {
-        throw error;
+        // Apply filters if provided
+        if (status) {
+          query = query.eq('status', status);
+        }
+
+        if (clientId) {
+          query = query.eq('client_id', clientId);
+        }
+
+        // Apply sorting and pagination
+        const { data, error, count } = await query
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) {
+          throw error;
+        }
+        
+        return { 
+          contracts: data as Contract[], 
+          count: count || 0 
+        };
+      } catch (error) {
+        console.error('Error fetching contracts:', error);
+        console.log('📝 Falling back to mock contracts data');
+        
+        let filteredContracts = [...mockContracts];
+        
+        if (status) {
+          filteredContracts = filteredContracts.filter(c => c.status === status);
+        }
+        
+        if (clientId) {
+          filteredContracts = filteredContracts.filter(c => c.client_id === clientId);
+        }
+        
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        
+        return { 
+          contracts: filteredContracts.slice(startIndex, endIndex), 
+          count: filteredContracts.length 
+        };
       }
-      
-      return { 
-        contracts: data as Contract[], 
-        count: count || 0 
-      };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,

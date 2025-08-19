@@ -106,14 +106,7 @@ const managementNavigation: NavigationGroup = {
   ]
 };
 
-// Support items
-const supportNavigation: NavigationGroup = {
-  label: "Support",
-  items: [
-    { title: "Help Center", url: "/help", icon: HelpCircle },
-    { title: "Notifications", url: "/notifications", icon: Bell, badge: "3", badgeVariant: "destructive" },
-  ]
-};
+// This section was removed as requested
 
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
@@ -196,8 +189,7 @@ export function AppSidebar() {
       });
     }
     
-    // Add support navigation
-    navigation.push(supportNavigation);
+    // Support navigation removed as requested
     
     return navigation;
   };
