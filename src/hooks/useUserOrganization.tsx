@@ -12,7 +12,8 @@ export function useUserOrganization() {
       // Use mock data in development mode
       if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
         console.log('🏢 Using mock organization ID');
-        return 'org123';
+        // Return a proper UUID format for Supabase
+        return '123e4567-e89b-12d3-a456-426614174000';
       }
       
       try {
@@ -20,7 +21,8 @@ export function useUserOrganization() {
 
         if (!userId) {
           console.error('❌ User not authenticated');
-          return 'org123'; // Return mock ID instead of null for demo
+          // Return a proper UUID format for Supabase
+          return '123e4567-e89b-12d3-a456-426614174000';
         }
 
         console.log('👤 User ID:', userId);
@@ -46,7 +48,8 @@ export function useUserOrganization() {
       } catch (error) {
         console.error('Error fetching organization:', error);
         console.log('🏢 Falling back to mock organization ID');
-        return 'org123'; // Return mock ID for error cases
+        // Return a proper UUID format for Supabase
+        return '123e4567-e89b-12d3-a456-426614174000'; // Return mock ID for error cases
       }
     },
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes since org rarely changes

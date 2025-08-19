@@ -263,40 +263,36 @@ export function AppSidebar() {
           </Button>
         </SidebarHeader>
 
-        <SidebarContent className="p-2">
-          {navigationGroups.map((group, index) => (
-            <React.Fragment key={group.label}>
-              {index > 0 && <Separator className="my-3" />}
-              
-              <SidebarGroup>
-                <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-3 mb-1"}>
-                  {group.label}
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu className="space-y-1">
-                    {group.items.map(item => (
-                      <Tooltip key={item.title}>
-                        <TooltipTrigger asChild>
-                          {renderNavItem(item)}
-                        </TooltipTrigger>
-                        {collapsed && (
-                          <TooltipContent side="right">
-                            {item.title}
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </React.Fragment>
+        <SidebarContent className="p-1">
+          {navigationGroups.map((group) => (
+            <SidebarGroup key={group.label} className="mt-1">
+              <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-3 mb-1"}>
+                {group.label}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="space-y-0.5">
+                  {group.items.map(item => (
+                    <Tooltip key={item.title}>
+                      <TooltipTrigger asChild>
+                        {renderNavItem(item)}
+                      </TooltipTrigger>
+                      {collapsed && (
+                        <TooltipContent side="right">
+                          {item.title}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
           ))}
 
           {/* User profile section at bottom */}
-          <div className="mt-auto pt-4">
-            <Separator className="mb-4" />
+          <div className="mt-auto pt-2">
+            <Separator className="mb-2" />
             
-            <div className={`px-3 py-2 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
+            <div className={`px-2 py-1 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
               {collapsed ? (
                 <Tooltip>
                   <TooltipTrigger asChild>

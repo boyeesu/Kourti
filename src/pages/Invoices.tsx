@@ -72,26 +72,24 @@ export default function Invoices() {
     queryKey: ['invoices', page, statusFilter],
     select: '*, client:client_id(id, name), case:case_id(id, title), created_by_user:created_by(id, first_name, last_name)',
     filters: statusFilter !== 'all' ? { status: statusFilter } : {},
-    pagination: { page, pageSize: 10 },
+    page,
+    pageSize: 10,
   });
 
   // Setup mutations
   const createInvoice = useCreateItem({
     table: 'invoices',
-    invalidateQueries: [['invoices']],
-    successToast: 'Invoice created successfully',
+    onSuccess: () => refetch(),
   });
 
   const updateInvoice = useUpdateItem({
     table: 'invoices',
-    invalidateQueries: [['invoices']],
-    successToast: 'Invoice updated successfully',
+    onSuccess: () => refetch(),
   });
 
   const deleteInvoice = useDeleteItem({
     table: 'invoices',
-    invalidateQueries: [['invoices']],
-    successToast: 'Invoice deleted successfully',
+    onSuccess: () => refetch(),
   });
 
   // Handle form submission
@@ -114,7 +112,7 @@ export default function Invoices() {
     };
 
     if (editingInvoice) {
-      await updateInvoice.mutateAsync({ id: editingInvoice.id, data: payload });
+      await updateInvoice.mutateAsync({ id: editingInvoice.id, ...payload });
       setEditingInvoice(null);
     } else {
       await createInvoice.mutateAsync(payload);
