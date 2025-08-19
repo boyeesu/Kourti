@@ -45,7 +45,8 @@ import {
   FileCheck,
   CircleAlert,
   Activity,
-  User
+  User,
+  Plus
 } from "lucide-react";
 import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";

@@ -146,7 +146,7 @@ export function useUpdateUserRole() {
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       const { error } = await supabase
         .from('profiles')
-        .update({ role })
+        .update({ role: role as 'user' | 'admin' | 'superadmin' })
         .eq('user_id', userId);
 
       if (error) throw error;

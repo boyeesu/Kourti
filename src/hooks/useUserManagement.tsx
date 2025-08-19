@@ -63,7 +63,7 @@ export function useUserRole() {
       const { data, error } = await supabase
         .from('profiles')
         .select('role, is_organization_creator')
-        .eq('user_id', userId)
+        .eq('user_id', userId || '')
         .single();
 
       if (error) throw error;

@@ -1,4 +1,4 @@
-import { useApiQuery } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { sanitizeErrorForLogging } from '@/lib/utils';
@@ -22,7 +22,7 @@ export interface DashboardStats {
 export function useDashboard() {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
-  return useApiQuery<DashboardStats>({
+  return useQuery<DashboardStats>({
     queryKey: ['dashboard-stats', organizationId],
     queryFn: async () => {
       if (!organizationId) {
@@ -151,13 +151,10 @@ export function useDashboard() {
         throw error;
       }
     },
-    options: {
-      enabled: !!organizationId && !orgLoading && !orgError,
-      staleTime: 60 * 1000, // 1 minute
-      refetchOnWindowFocus: true,
-      retry: 2, // Retry failed requests twice
-    },
-    errorToast: 'Failed to load dashboard data. Please try refreshing the page.',
+    enabled: !!organizationId && !orgLoading && !orgError,
+    staleTime: 60 * 1000, // 1 minute
+    refetchOnWindowFocus: true,
+    retry: 2, // Retry failed requests twice
   });
 }
 

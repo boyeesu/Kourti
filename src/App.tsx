@@ -44,12 +44,13 @@ import { Suspense, lazy, useEffect } from "react";
 import { logInfo } from "./lib/logger";
 import { ThemeProvider } from "@/hooks/useTheme";
 
+<<<<<<< HEAD
 // Lazy load the additional pages for better performance
+=======
+// Lazy load pages for better performance
+>>>>>>> c314be0fbcdc0edad441b2a7eb047390514bb741
 const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
-const HelpCenter = lazy(() => import('./pages/HelpCenter'));
-const Notifications = lazy(() => import('./pages/Notifications'));
-const Analytics = lazy(() => import('./pages/Analytics'));
 
 // Create a query client with better defaults
 const queryClient = new QueryClient({
@@ -137,6 +138,7 @@ const App = () => (
                       <SearchProvider>
                         <CasesProvider>
                           <AppLayout>
+<<<<<<< HEAD
                             <Routes>
                               {/* Dashboard */}
                               <Route path="/" element={
@@ -341,6 +343,187 @@ const App = () => (
           </BrowserRouter>
         </NotificationsProvider>
       </TooltipProvider>
+=======
+                          <Routes>
+                            {/* Dashboard */}
+                            <Route path="/" element={
+                              <ModuleErrorBoundary name="Dashboard">
+                                <DashboardNew />
+                              </ModuleErrorBoundary>
+                            } />
+                            <Route path="/dashboard" element={
+                              <ModuleErrorBoundary name="Dashboard">
+                                <DashboardNew />
+                              </ModuleErrorBoundary>
+                            } />
+                          
+                          {/* Cases Module */}
+                          <Route path="/cases" element={
+                            <ModuleErrorBoundary name="Cases">
+                              <Cases />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/cases/create" element={
+                            <ModuleErrorBoundary name="Case Create">
+                              <CaseCreate />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/cases/:id" element={
+                            <ModuleErrorBoundary name="Case Details">
+                              <CaseDetails />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/cases/:id/edit" element={
+                            <ModuleErrorBoundary name="Case Edit">
+                              <CaseEdit />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/cases/:id/activities" element={
+                            <ModuleErrorBoundary name="Case Activities">
+                              <CaseActivities />
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* Clients Module */}
+                          <Route path="/clients" element={
+                            <ModuleErrorBoundary name="Clients">
+                              <Clients />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/clients/create" element={
+                            <ModuleErrorBoundary name="Client Create">
+                              <ClientCreate />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/clients/:clientId" element={
+                            <ModuleErrorBoundary name="Client Details">
+                              <ClientDetails />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/clients/:clientId/edit" element={
+                            <ModuleErrorBoundary name="Client Edit">
+                              <ClientEdit />
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* Bulk Import */}
+                          <Route path="/bulk-import" element={
+                            <ModuleErrorBoundary name="Bulk Import">
+                              <BulkImport />
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* Calendar Module */}
+                          <Route path="/calendar" element={
+                            <ModuleErrorBoundary name="Calendar">
+                              <Calendar />
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* Documents Module */}
+                          <Route path="/documents" element={
+                            <ModuleErrorBoundary name="Documents">
+                              <Documents />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/documents/upload" element={
+                            <ModuleErrorBoundary name="Document Upload">
+                              <DocumentUpload />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/documents/review" element={
+                            <ModuleErrorBoundary name="Document Review">
+                              <DocumentReview />
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* Contracts Module */}
+                          <Route path="/contracts" element={
+                            <ModuleErrorBoundary name="Contracts">
+                              <Contracts />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/contracts/create" element={
+                            <ModuleErrorBoundary name="Contract Create">
+                              <ContractCreate />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/contracts/compare" element={
+                            <ModuleErrorBoundary name="Contract Compare">
+                              <ContractCompare />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/contracts/:id" element={
+                            <ModuleErrorBoundary name="Contract View">
+                              <ContractView />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/contracts/:id/edit" element={
+                            <ModuleErrorBoundary name="Contract Edit">
+                              <ContractEdit />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/contracts/:id/history" element={
+                            <ModuleErrorBoundary name="Contract History">
+                              <ContractHistory />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/contracts/review" element={
+                            <ModuleErrorBoundary name="Contract Review">
+                              <ContractReview />
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* AI Assistant */}
+                          <Route path="/ream-ai" element={
+                            <ModuleErrorBoundary name="Ream AI">
+                              <ReamAI />
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* Invoices Module (Lazy loaded) */}
+                          <Route path="/invoices" element={
+                            <ModuleErrorBoundary name="Invoices">
+                              <Suspense fallback={<LoadingFallback />}>
+                                <Invoices />
+                              </Suspense>
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/invoices/:id" element={
+                            <ModuleErrorBoundary name="Invoice Details">
+                              <Suspense fallback={<LoadingFallback />}>
+                                <InvoiceDetails />
+                              </Suspense>
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* User Management & Settings */}
+                          <Route path="/users" element={
+                            <ModuleErrorBoundary name="User Management">
+                              <UserManagement />
+                            </ModuleErrorBoundary>
+                          } />
+                          <Route path="/settings" element={
+                            <ModuleErrorBoundary name="Settings">
+                              <Settings />
+                            </ModuleErrorBoundary>
+                          } />
+                          
+                          {/* 404 Not Found */}
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                        </AppLayout>
+                      </CasesProvider>
+                    </SearchProvider>
+                  </OrganizationCheck>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </NotificationsProvider>
+    </TooltipProvider>
+>>>>>>> c314be0fbcdc0edad441b2a7eb047390514bb741
     </ThemeProvider>
   </QueryClientProvider>
 );

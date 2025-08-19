@@ -1,10 +1,9 @@
 // src/components/layout/AppLayout.tsx
-import React, { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   DropdownMenu,
@@ -44,7 +43,7 @@ import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 // Types
 type NotificationType = {
   id: string;
-  type: string;
+  type: 'event' | 'case-assigned' | 'update' | 'approval';
   title: string;
   description: string;
   date: string;
@@ -75,10 +74,18 @@ function NotificationList() {
     const notifDate = new Date(n.date);
     const isToday = notifDate.toDateString() === new Date().toDateString();
     
+    const mappedNotification: NotificationType = {
+      ...n,
+      type: (['case-assigned', 'event', 'update', 'approval'].includes(n.type) 
+        ? n.type 
+        : 'update') as 'event' | 'case-assigned' | 'update' | 'approval',
+      read: n.read ?? false
+    };
+    
     if (isToday) {
-      today.push(n);
+      today.push(mappedNotification);
     } else {
-      earlier.push(n);
+      earlier.push(mappedNotification);
     }
   });
 
@@ -129,9 +136,9 @@ function NotificationItem({ notification, markAsRead }: {
     switch (notification.type) {
       case 'event':
         return <Calendar className="h-5 w-5 text-blue-500" />;
-      case 'document':
+      case 'update':
         return <FileText className="h-5 w-5 text-green-500" />;
-      case 'case':
+      case 'case-assigned':
         return <Briefcase className="h-5 w-5 text-purple-500" />;
       default:
         return <Bell className="h-5 w-5 text-orange-500" />;
@@ -245,18 +252,16 @@ function DeadlineReminders() {
   useEffect(() => {
     upcomingCases.forEach((c: any) =>
       addNotification({
-        type: 'case',
+        type: 'case-assigned',
         title: 'Upcoming hearing',
         description: `${c.title} on ${new Date(c.next_hearing_date!).toLocaleDateString()}`,
-        date: new Date().toISOString()
       })
     );
     upcomingContracts.forEach((c: any) =>
       addNotification({
-        type: 'document',
+        type: 'update',
         title: 'Contract expiring soon',
         description: `${c.title} on ${new Date(c._insight_date).toLocaleDateString()}`,
-        date: new Date().toISOString()
       })
     );
   }, [upcomingCases, upcomingContracts, addNotification]);

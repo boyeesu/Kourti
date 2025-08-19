@@ -31,7 +31,7 @@ export function useOrganization() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId || '')
         .single();
 
       if (!profile?.organization_id) {
@@ -62,7 +62,7 @@ export function useOrganizationMembers() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId || '')
         .single();
 
       if (!profile?.organization_id) {

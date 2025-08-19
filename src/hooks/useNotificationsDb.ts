@@ -2,7 +2,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Notification } from '@/components/ui/notifications';
+import type { Notification, NotificationType } from '@/components/ui/notifications';
 
 export function useNotificationsDb(orgId: string) {
   const queryClient = useQueryClient();
@@ -12,9 +12,16 @@ export function useNotificationsDb(orgId: string) {
       const { data } = await supabase
         .from('notifications')
         .select('*')
-        .eq('organisation_id', orgId)
+        .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
-      return (data as Notification[]) ?? [];
+      
+      // Transform database format to Notification interface
+      return (data || []).map(item => ({
+        ...item,
+        date: item.created_at || new Date().toISOString(),
+        read: item.status === 'read',
+        type: (item.type || 'info') as NotificationType,
+      })) as Notification[];
     },
     enabled: !!orgId,
     staleTime: 5 * 1000, // 5 seconds
@@ -31,7 +38,7 @@ export function useNotificationsDb(orgId: string) {
     });
     const channel = supabase
       .channel('public:notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `organisation_id=eq.${orgId}` }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `organization_id=eq.${orgId}` }, (payload) => {
         const newNotif = categorize(payload.new as Notification);
         // Prepend to existing notifications
         queryClient.setQueryData<Notification[]>(['notifications', orgId], (old = []) => [newNotif, ...old]);
@@ -60,7 +67,7 @@ export async function pushDbNotification(
 
   await supabase.from('notifications').insert([{ 
     user_id: userId,
-    organisation_id: orgId,
+    organization_id: orgId,
     ...notif,
   }]);
 }

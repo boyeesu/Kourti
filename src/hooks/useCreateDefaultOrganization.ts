@@ -76,7 +76,7 @@ export function useCreateDefaultOrganization() {
       queryClient.invalidateQueries({ queryKey: ['user-organization'] });
       toast({
         title: "Organization Created",
-        description: `'${data.name}' has been created. Please sign in again to continue.`,
+        description: `'${data?.name || 'Organization'}' has been created. Please sign in again to continue.`,
       });
     },
     onError: (error: any) => {
