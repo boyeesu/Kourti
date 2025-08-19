@@ -315,6 +315,7 @@ const App = () => (
         </BrowserRouter>
       </NotificationsProvider>
     </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
