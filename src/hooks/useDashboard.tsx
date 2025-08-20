@@ -44,11 +44,7 @@ export function useDashboard() {
       try {
         console.log('🔍 Fetching dashboard stats for org:', organizationId);
 
-        // Use mock data for demo or development purposes
-        if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
-          console.log('📊 Using mock dashboard data');
-          return mockDashboardStats;
-        }
+        // No mock data - always fetch from database
 
         // Fetch all stats in parallel for better performance
         const [
@@ -136,8 +132,8 @@ export function useDashboard() {
         // Check for errors
         if (casesResult.error || activeCasesResult.error || clientsResult.error || 
             documentsResult.error || upcomingEventsResult.error) {
-          console.warn('Some dashboard metrics failed to load, using mock data');
-          return mockDashboardStats;
+          console.error('Failed to fetch one or more dashboard metrics');
+          throw new Error('Failed to load dashboard data. Please try again.');
         }
 
         const result = {
@@ -156,8 +152,7 @@ export function useDashboard() {
         return result;
       } catch (error) {
         console.error('Error fetching dashboard stats:', sanitizeErrorForLogging(error));
-        console.log('📊 Falling back to mock dashboard data');
-        return mockDashboardStats;
+        throw error;
       }
     },
     enabled: !!organizationId && !orgLoading && !orgError,

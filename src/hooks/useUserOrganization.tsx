@@ -9,20 +9,14 @@ export function useUserOrganization() {
     queryFn: async () => {
       console.log('🔍 Fetching user organization...');
       
-      // Use mock data in development mode
-      if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
-        console.log('🏢 Using mock organization ID');
-        // Return a proper UUID format for Supabase
-        return '123e4567-e89b-12d3-a456-426614174000';
-      }
+      // No mock data - always fetch from database
       
       try {
         const userId = await getCurrentUserId();
 
         if (!userId) {
           console.error('❌ User not authenticated');
-          // Return a proper UUID format for Supabase
-          return '123e4567-e89b-12d3-a456-426614174000';
+          throw new Error('User not authenticated. Please sign in.');
         }
 
         console.log('👤 User ID:', userId);
@@ -37,8 +31,8 @@ export function useUserOrganization() {
           console.error('❌ Error fetching profile:', error);
           if (error.code === 'PGRST116') {
             // No profile found - user needs to complete setup
-            console.log('🏢 No profile found, using mock organization ID');
-            return 'org123';
+            console.log('🏢 No profile found');
+            throw new Error('No organization profile found. Please complete your profile setup.');
           }
           throw error;
         }
@@ -47,9 +41,7 @@ export function useUserOrganization() {
         return profile.organization_id;
       } catch (error) {
         console.error('Error fetching organization:', error);
-        console.log('🏢 Falling back to mock organization ID');
-        // Return a proper UUID format for Supabase
-        return '123e4567-e89b-12d3-a456-426614174000'; // Return mock ID for error cases
+        throw error; // Rethrow the error instead of using mock data
       }
     },
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes since org rarely changes

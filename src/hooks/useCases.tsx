@@ -40,16 +40,7 @@ export function useCases(page = 1, pageSize = 20) {
         return { cases: [], count: 0 };
       }
 
-      // Use mock data in development mode or when testing
-      if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
-        console.log('📄 Using mock cases data');
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        return { 
-          cases: mockCases.slice(startIndex, endIndex), 
-          count: mockCases.length 
-        };
-      }
+      // No mock data - always fetch from database
 
       try {
         const from = (currentPage - 1) * pageSize;
@@ -90,13 +81,7 @@ export function useCases(page = 1, pageSize = 20) {
         return { cases: data as any[], count: count || 0 };
       } catch (error) {
         console.error('Error fetching cases:', error);
-        console.log('📄 Falling back to mock cases data');
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        return { 
-          cases: mockCases.slice(startIndex, endIndex), 
-          count: mockCases.length 
-        };
+        throw error;
       }
     },
     enabled: !!organizationId && !orgLoading && !orgError,

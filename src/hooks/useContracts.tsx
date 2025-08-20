@@ -36,27 +36,7 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
         return { contracts: [], count: 0 };
       }
 
-      // Use mock data in development mode or when testing
-      if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
-        console.log('📝 Using mock contracts data');
-        let filteredContracts = [...mockContracts];
-        
-        if (status) {
-          filteredContracts = filteredContracts.filter(c => c.status === status);
-        }
-        
-        if (clientId) {
-          filteredContracts = filteredContracts.filter(c => c.client_id === clientId);
-        }
-        
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        
-        return { 
-          contracts: filteredContracts.slice(startIndex, endIndex), 
-          count: filteredContracts.length 
-        };
-      }
+      // No mock data - always fetch from database
 
       try {
         // Calculate pagination range
@@ -109,25 +89,7 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
         };
       } catch (error) {
         console.error('Error fetching contracts:', error);
-        console.log('📝 Falling back to mock contracts data');
-        
-        let filteredContracts = [...mockContracts];
-        
-        if (status) {
-          filteredContracts = filteredContracts.filter(c => c.status === status);
-        }
-        
-        if (clientId) {
-          filteredContracts = filteredContracts.filter(c => c.client_id === clientId);
-        }
-        
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        
-        return { 
-          contracts: filteredContracts.slice(startIndex, endIndex), 
-          count: filteredContracts.length 
-        };
+        throw error;
       }
     },
     enabled: !!organizationId && !orgLoading && !orgError,

@@ -42,33 +42,7 @@ export function useFetchData<T = any>({
     queryKey: [...queryKey, page, pageSize, JSON.stringify(filters), organizationId],
     queryFn: async () => {
       try {
-        // For development/demo mode, return mock data
-        if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
-          console.log(`📋 Using mock data for ${table}`);
-          
-          // Return mock data structure
-          return {
-            data: Array(Math.min(pageSize, 5)).fill(null).map((_, index) => ({
-              id: `mock-${index + 1}`,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              organization_id: '123e4567-e89b-12d3-a456-426614174000',
-              // Add table-specific mock fields
-              ...(table === 'invoices' ? {
-                invoice_number: `INV-${2025}${String(index + 1).padStart(4, '0')}`,
-                client_id: `client-${index + 1}`,
-                status: ['draft', 'sent', 'paid', 'overdue'][index % 4],
-                issue_date: new Date().toISOString(),
-                due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-                total_amount: (1000 * (index + 1)),
-                notes: 'This is a mock invoice for demonstration purposes',
-                client: { id: `client-${index + 1}`, name: `Mock Client ${index + 1}` }
-              } : {}),
-            })),
-            count: 15, // Mock total count
-            error: null
-          };
-        }
+        // No mock data - always fetch from database
 
         if (!organizationId) {
           throw new Error('No organization ID found');
@@ -170,18 +144,7 @@ export function useCreateItem({ table, onSuccess, onError }: MutationOptions) {
   return useMutation({
     mutationFn: async (data: ItemData) => {
       try {
-        // For development/demo mode
-        if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
-          console.log(`✅ Mock create for ${table}:`, data);
-          
-          // Return mock created item
-          return {
-            ...data,
-            id: `mock-${Date.now()}`,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-        }
+        // No mock data - always use database
 
         const userId = await getCurrentUserId();
         
@@ -256,17 +219,7 @@ export function useUpdateItem({ table, onSuccess, onError }: MutationOptions) {
   return useMutation({
     mutationFn: async ({ id, ...data }: ItemData & { id: string }) => {
       try {
-        // For development/demo mode
-        if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
-          console.log(`🔄 Mock update for ${table}:`, { id, ...data });
-          
-          // Return mock updated item
-          return {
-            id,
-            ...data,
-            updated_at: new Date().toISOString(),
-          };
-        }
+        // No mock data - always use database
 
         const { data: updatedData, error } = await supabase
           .from(table)
@@ -320,11 +273,7 @@ export function useDeleteItem({ table, onSuccess, onError }: MutationOptions) {
   return useMutation({
     mutationFn: async (id: string) => {
       try {
-        // For development/demo mode
-        if (import.meta.env.VITE_ENABLE_DEVELOPMENT_FEATURES === 'true') {
-          console.log(`❌ Mock delete for ${table}:`, id);
-          return { success: true, id };
-        }
+        // No mock data - always use database
 
         const { error } = await supabase
           .from(table)
