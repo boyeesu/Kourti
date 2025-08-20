@@ -201,8 +201,9 @@ export default function Dashboard() {
         }
       });
       
-      // Count contracts by month
-      contractsData.forEach((contract: Contract) => {
+      // Count contracts by month - handle both array and object formats
+      const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
+      contractsList.forEach((contract: Contract) => {
         if (contract.created_at) {
           const month = months[new Date(contract.created_at).getMonth()];
           monthlyData[month].contracts += 1;
