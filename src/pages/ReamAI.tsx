@@ -61,7 +61,8 @@ export default function ReamAI() {
 
   // Fetch documents and contracts
   const { data: documents = [], isLoading: docsLoading } = useDocuments();
-  const { data: contracts = [], isLoading: contractsLoading } = useContracts();
+  const { data: contractsData, isLoading: contractsLoading } = useContracts();
+  const contracts = contractsData?.contracts || [];
   
   // Get document analysis functionality
   const { 
