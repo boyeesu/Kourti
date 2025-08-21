@@ -1,3 +1,4 @@
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,6 +48,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 // Lazy load pages for better performance
 const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
+const Analytics = lazy(() => import('./pages/Analytics'));
 
 // Create a query client with better defaults
 const queryClient = new QueryClient({
@@ -280,11 +282,11 @@ const App = () => (
                                 </ModuleErrorBoundary>
                               } />
                               
-                              {/* Analytics */}
+                               {/* Analytics */}
                               <Route path="/analytics" element={
                                 <ModuleErrorBoundary name="Analytics">
                                   <Suspense fallback={<LoadingFallback />}>
-                                    {React.createElement(lazy(() => import('./pages/Analytics')))}
+                                    <Analytics />
                                   </Suspense>
                                 </ModuleErrorBoundary>
                               } />
