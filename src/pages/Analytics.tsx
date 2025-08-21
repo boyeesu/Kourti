@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { useFetchData } from "@/lib/api";
+import { useContracts } from '@/hooks/useContracts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { 
   TrendingUp, 
@@ -66,11 +67,8 @@ export default function Analytics() {
     select: 'id, created_at, name, status',
   });
 
-  const { data: contracts, isLoading: contractsLoading } = useFetchData({
-    table: 'contracts',
-    queryKey: ['analytics-contracts'],
-    select: 'id, value, status, created_at, start_date, end_date',
-  });
+  const { data: contractsData, isLoading: contractsLoading } = useContracts(1, 1000);
+  const contracts = contractsData?.contracts || [];
 
   const { data: invoices, isLoading: invoicesLoading } = useFetchData({
     table: 'invoices',
