@@ -70,7 +70,7 @@ export default function Invoices() {
   const { data: apiResponse, isLoading, error, refetch } = useFetchData<any[]>({
     table: 'invoices',
     queryKey: ['invoices', page, statusFilter],
-    select: '*, client:client_id(id, name), case:case_id(id, title), created_by_user:created_by(id, first_name, last_name)',
+    select: '*, client:client_id(id, name), case:case_id(id, title)',
     filters: statusFilter !== 'all' ? { status: statusFilter } : {},
     page,
     pageSize: 10,

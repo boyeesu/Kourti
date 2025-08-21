@@ -1,739 +1,512 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Legend,
-  Area,
-  AreaChart
-} from "recharts";
+import { Button } from "@/components/ui/button";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { useFetchData } from "@/lib/api";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { 
-  BarChart4, 
-  PieChart as PieChartIcon, 
-  LineChart as LineChartIcon, 
-  Download,
+  TrendingUp, 
+  Users, 
+  FileText, 
   Calendar,
-  ArrowUpRight,
-  ArrowDownRight,
-  CircleDollarSign,
-  Clock,
-  Users,
-  FileText,
-  Briefcase,
-  CheckCircle2,
-  TimerIcon,
-  Target
+  DollarSign,
+  Scale,
+  Eye,
+  Download,
+  RefreshCw
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
-// Types
-type StatCardProps = {
-  title: string;
-  value: string | number;
-  change?: number;
-  changeLabel?: string;
-  icon: React.ReactNode;
-  iconColor?: string;
-  iconBgColor?: string;
-};
-
-// Dummy data for charts and stats
+// Mock data for charts
 const caseStatusData = [
-  { name: 'Active', value: 45, color: '#3b82f6' },
-  { name: 'Pending', value: 23, color: '#f59e0b' },
-  { name: 'Closed', value: 12, color: '#10b981' },
-  { name: 'On Hold', value: 8, color: '#ef4444' },
+  { name: 'Open', value: 45, color: '#3b82f6' },
+  { name: 'In Progress', value: 32, color: '#f59e0b' },
+  { name: 'Closed', value: 23, color: '#10b981' },
+];
+
+const clientActivityData = [
+  { month: 'Jan', new: 12, active: 145 },
+  { month: 'Feb', new: 8, active: 152 },
+  { month: 'Mar', new: 15, active: 167 },
+  { month: 'Apr', new: 11, active: 171 },
+  { month: 'May', new: 19, active: 189 },
+  { month: 'Jun', new: 14, active: 203 },
 ];
 
 const revenueData = [
-  { month: 'Jan', billable: 5000, collected: 4800 },
-  { month: 'Feb', billable: 6500, collected: 6200 },
-  { month: 'Mar', billable: 5800, collected: 5500 },
-  { month: 'Apr', billable: 7200, collected: 6800 },
-  { month: 'May', billable: 6900, collected: 6300 },
-  { month: 'Jun', billable: 8500, collected: 7900 },
-  { month: 'Jul', billable: 8200, collected: 7500 },
-  { month: 'Aug', billable: 9000, collected: 8200 },
-  { month: 'Sep', billable: 8700, collected: 7800 },
-  { month: 'Oct', billable: 9500, collected: 8700 },
-  { month: 'Nov', billable: 9200, collected: 8200 },
-  { month: 'Dec', billable: 8800, collected: 7700 },
+  { month: 'Jan', revenue: 45000, contracts: 12000 },
+  { month: 'Feb', revenue: 52000, contracts: 15000 },
+  { month: 'Mar', revenue: 48000, contracts: 11000 },
+  { month: 'Apr', revenue: 61000, contracts: 18000 },
+  { month: 'May', revenue: 55000, contracts: 14000 },
+  { month: 'Jun', revenue: 67000, contracts: 22000 },
 ];
-
-const userActivityData = [
-  { day: 'Mon', cases: 10, documents: 15, contracts: 5 },
-  { day: 'Tue', cases: 12, documents: 18, contracts: 7 },
-  { day: 'Wed', cases: 15, documents: 12, contracts: 9 },
-  { day: 'Thu', cases: 8, documents: 15, contracts: 6 },
-  { day: 'Fri', cases: 14, documents: 22, contracts: 10 },
-  { day: 'Sat', cases: 5, documents: 8, contracts: 3 },
-  { day: 'Sun', cases: 3, documents: 5, contracts: 2 },
-];
-
-const clientGrowthData = [
-  { month: 'Jan', clients: 42 },
-  { month: 'Feb', clients: 48 },
-  { month: 'Mar', clients: 53 },
-  { month: 'Apr', clients: 59 },
-  { month: 'May', clients: 64 },
-  { month: 'Jun', clients: 68 },
-  { month: 'Jul', clients: 72 },
-  { month: 'Aug', clients: 79 },
-  { month: 'Sep', clients: 84 },
-  { month: 'Oct', clients: 87 },
-  { month: 'Nov', clients: 92 },
-  { month: 'Dec', clients: 98 },
-];
-
-const caseTypeData = [
-  { name: 'Corporate', value: 35, color: '#4f46e5' },
-  { name: 'Litigation', value: 28, color: '#0ea5e9' },
-  { name: 'Real Estate', value: 18, color: '#10b981' },
-  { name: 'IP', value: 12, color: '#f59e0b' },
-  { name: 'Family', value: 7, color: '#ec4899' },
-];
-
-const documentTypeData = [
-  { name: 'Contracts', value: 45, color: '#3b82f6' },
-  { name: 'Legal Opinions', value: 23, color: '#f59e0b' },
-  { name: 'Filings', value: 18, color: '#10b981' },
-  { name: 'Correspondence', value: 14, color: '#ec4899' },
-];
-
-// CustomTooltip for charts
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-background/95 backdrop-blur-sm border border-border p-3 rounded-lg shadow-lg">
-        <p className="text-sm font-medium mb-1">{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <div key={`item-${index}`} className="flex items-center gap-2 text-sm">
-            <div
-              className="h-3 w-3 rounded-full"
-              style={{ backgroundColor: entry.color || entry.fill }}
-            />
-            <span className="font-medium">{entry.name}:</span>
-            <span>{typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return null;
-};
-
-// Stat Card Component
-const StatCard = ({ 
-  title, 
-  value, 
-  change, 
-  changeLabel, 
-  icon, 
-  iconColor = "text-primary",
-  iconBgColor = "bg-primary/10"
-}: StatCardProps) => {
-  return (
-    <Card className="shadow-sm">
-      <CardContent className="p-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-            <h3 className="text-2xl font-bold">{value}</h3>
-            {change !== undefined && (
-              <div className="flex items-center mt-2">
-                <Badge 
-                  variant={change > 0 ? "success" : change < 0 ? "destructive" : "secondary"} 
-                  className="px-1.5 py-0 h-5"
-                >
-                  {change > 0 ? (
-                    <ArrowUpRight className="h-3 w-3 mr-1" />
-                  ) : change < 0 ? (
-                    <ArrowDownRight className="h-3 w-3 mr-1" />
-                  ) : null}
-                  {Math.abs(change)}%
-                </Badge>
-                {changeLabel && (
-                  <span className="text-xs text-muted-foreground ml-2">{changeLabel}</span>
-                )}
-              </div>
-            )}
-          </div>
-          <div className={`p-3 rounded-full ${iconBgColor}`}>
-            <div className={`h-5 w-5 ${iconColor}`}>
-              {icon}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
 
 export default function Analytics() {
-  const [dateRange, setDateRange] = useState("year");
-  const [activeTab, setActiveTab] = useState("overview");
-  
+  const [dateRange, setDateRange] = useState<any>({
+    from: new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1),
+    to: new Date(),
+  });
+  const [selectedPeriod, setSelectedPeriod] = useState("6months");
+
+  // Fetch real data
+  const { data: cases, isLoading: casesLoading } = useFetchData({
+    table: 'cases',
+    queryKey: ['analytics-cases'],
+    select: 'id, status, created_at, title, priority',
+  });
+
+  const { data: clients, isLoading: clientsLoading } = useFetchData({
+    table: 'clients',
+    queryKey: ['analytics-clients'],
+    select: 'id, created_at, name, status',
+  });
+
+  const { data: contracts, isLoading: contractsLoading } = useFetchData({
+    table: 'contracts',
+    queryKey: ['analytics-contracts'],
+    select: 'id, value, status, created_at, start_date, end_date',
+  });
+
+  const { data: invoices, isLoading: invoicesLoading } = useFetchData({
+    table: 'invoices',
+    queryKey: ['analytics-invoices'],
+    select: 'id, total_amount, status, created_at, due_date',
+  });
+
+  const { data: documents, isLoading: documentsLoading } = useFetchData({
+    table: 'documents',
+    queryKey: ['analytics-documents'],
+    select: 'id, created_at, name',
+  });
+
+  const { data: events, isLoading: eventsLoading } = useFetchData({
+    table: 'calendar_events',
+    queryKey: ['analytics-events'],
+    select: 'id, created_at, event_type, start_date, end_date',
+  });
+
+  // Calculate metrics
+  const totalCases = cases?.length || 0;
+  const totalClients = clients?.length || 0;
+  const totalContracts = contracts?.length || 0;
+  const totalInvoices = invoices?.length || 0;
+  const totalDocuments = documents?.length || 0;
+  const totalEvents = events?.length || 0;
+
+  const totalRevenue = invoices?.reduce((sum: number, inv: any) => 
+    inv.status === 'paid' ? sum + (inv.total_amount || 0) : sum, 0) || 0;
+
+  const totalContractValue = contracts?.reduce((sum: number, contract: any) => 
+    sum + (contract.value || 0), 0) || 0;
+
+  const isLoading = casesLoading || clientsLoading || contractsLoading || 
+    invoicesLoading || documentsLoading || eventsLoading;
+
   return (
-    <div className="px-4 py-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="px-4 py-6 space-y-6 animate-fade-in">
+      <Breadcrumbs />
+      
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
-          <p className="text-muted-foreground">
-            Monitor performance metrics and track key indicators
-          </p>
+          <h1 className="text-3xl font-bold text-foreground">Analytics Dashboard</h1>
+          <p className="text-muted-foreground">Comprehensive insights across your legal practice</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select defaultValue={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[180px]">
-              <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Select time range" />
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">Last 7 days</SelectItem>
-              <SelectItem value="month">Last 30 days</SelectItem>
-              <SelectItem value="quarter">Last quarter</SelectItem>
-              <SelectItem value="year">Last 12 months</SelectItem>
+              <SelectItem value="1month">1 Month</SelectItem>
+              <SelectItem value="3months">3 Months</SelectItem>
+              <SelectItem value="6months">6 Months</SelectItem>
+              <SelectItem value="1year">1 Year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export Data
+          <Button variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
           </Button>
         </div>
       </div>
-      
-      {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6" onValueChange={setActiveTab}>
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <BarChart4 className="h-4 w-4" />
-            <span>Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="performance" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            <span>Performance</span>
-          </TabsTrigger>
-          <TabsTrigger value="cases" className="flex items-center gap-2">
-            <Briefcase className="h-4 w-4" />
-            <span>Cases</span>
-          </TabsTrigger>
-          <TabsTrigger value="finance" className="flex items-center gap-2">
-            <CircleDollarSign className="h-4 w-4" />
-            <span>Finance</span>
-          </TabsTrigger>
+
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Scale className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Cases</p>
+                <p className="text-2xl font-bold">{isLoading ? "—" : totalCases}</p>
+                <p className="text-xs text-green-600">↑ 12% vs last month</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Users className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Active Clients</p>
+                <p className="text-2xl font-bold">{isLoading ? "—" : totalClients}</p>
+                <p className="text-xs text-green-600">↑ 8% vs last month</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <DollarSign className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Revenue (Paid)</p>
+                <p className="text-2xl font-bold">{isLoading ? "—" : formatCurrency(totalRevenue)}</p>
+                <p className="text-xs text-green-600">↑ 15% vs last month</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <FileText className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Contract Value</p>
+                <p className="text-2xl font-bold">{isLoading ? "—" : formatCurrency(totalContractValue)}</p>
+                <p className="text-xs text-green-600">↑ 22% vs last month</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="cases">Cases</TabsTrigger>
+          <TabsTrigger value="clients">Clients</TabsTrigger>
+          <TabsTrigger value="contracts">Contracts</TabsTrigger>
+          <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
-        
-        {/* Overview Tab */}
+
         <TabsContent value="overview" className="space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard 
-              title="Total Cases" 
-              value="88" 
-              change={12} 
-              changeLabel="vs last period" 
-              icon={<Briefcase className="h-5 w-5" />}
-              iconColor="text-blue-500"
-              iconBgColor="bg-blue-500/10"
-            />
-            <StatCard 
-              title="Active Clients" 
-              value="98" 
-              change={8} 
-              changeLabel="vs last period" 
-              icon={<Users className="h-5 w-5" />}
-              iconColor="text-green-500"
-              iconBgColor="bg-green-500/10"
-            />
-            <StatCard 
-              title="Documents Created" 
-              value="345" 
-              change={15} 
-              changeLabel="vs last period" 
-              icon={<FileText className="h-5 w-5" />}
-              iconColor="text-amber-500"
-              iconBgColor="bg-amber-500/10"
-            />
-            <StatCard 
-              title="Revenue" 
-              value="$89,520" 
-              change={7} 
-              changeLabel="vs last period" 
-              icon={<CircleDollarSign className="h-5 w-5" />}
-              iconColor="text-purple-500"
-              iconBgColor="bg-purple-500/10"
-            />
-          </div>
-          
-          {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Case Distribution */}
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChartIcon className="h-5 w-5 text-primary" />
-                  Case Status Distribution
-                </CardTitle>
-                <CardDescription>
-                  Breakdown of cases by current status
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-2">
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={caseStatusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={70}
-                        outerRadius={100}
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {caseStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip content={<CustomTooltip />} />
-                      <Legend 
-                        layout="horizontal" 
-                        verticalAlign="bottom" 
-                        align="center"
-                        height={36}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+            <ModuleErrorBoundary name="Case Status Chart">
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Case Status Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={caseStatusData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#8884d8"
+                        >
+                          {caseStatusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </ModuleErrorBoundary>
+
+            <ModuleErrorBoundary name="Revenue Trends">
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Revenue Trends</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={revenueData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} />
+                        <Line type="monotone" dataKey="contracts" stroke="#10b981" strokeWidth={3} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </ModuleErrorBoundary>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="cases" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">{totalCases}</p>
+                  <p className="text-sm text-muted-foreground">Total Cases</p>
                 </div>
               </CardContent>
             </Card>
-            
-            {/* Revenue Trends */}
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <LineChartIcon className="h-5 w-5 text-primary" />
-                  Revenue Trends
-                </CardTitle>
-                <CardDescription>
-                  Billable hours vs collected revenue
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-2">
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={revenueData}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                      <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `$${value}`} />
-                      <RechartsTooltip content={<CustomTooltip />} />
-                      <Area
-                        type="monotone"
-                        dataKey="billable"
-                        name="Billable"
-                        stackId="1"
-                        stroke="#3b82f6"
-                        fill="#3b82f6"
-                        fillOpacity={0.3}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="collected"
-                        name="Collected"
-                        stackId="2"
-                        stroke="#10b981"
-                        fill="#10b981"
-                        fillOpacity={0.3}
-                      />
-                      <Legend 
-                        layout="horizontal" 
-                        verticalAlign="bottom" 
-                        align="center"
-                        height={36}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">
+                    {cases?.filter((c: any) => c.status === 'open').length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Open Cases</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {cases?.filter((c: any) => c.priority === 'high').length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">High Priority</p>
                 </div>
               </CardContent>
             </Card>
           </div>
-          
-          {/* Additional Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* User Activity */}
-            <Card className="shadow-sm">
+
+          <ModuleErrorBoundary name="Cases Chart">
+            <Card className="shadow-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart4 className="h-5 w-5 text-primary" />
-                  Weekly Activity
-                </CardTitle>
-                <CardDescription>
-                  User activity breakdown by day
-                </CardDescription>
+                <CardTitle>Cases Created Over Time</CardTitle>
               </CardHeader>
-              <CardContent className="px-2">
-                <div className="h-[300px]">
+              <CardContent>
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={userActivityData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                      <XAxis dataKey="day" axisLine={false} tickLine={false} />
-                      <YAxis axisLine={false} tickLine={false} />
-                      <RechartsTooltip content={<CustomTooltip />} />
-                      <Bar
-                        dataKey="cases"
-                        name="Cases"
-                        fill="#3b82f6"
-                        radius={[4, 4, 0, 0]}
-                      />
-                      <Bar
-                        dataKey="documents"
-                        name="Documents"
-                        fill="#10b981"
-                        radius={[4, 4, 0, 0]}
-                      />
-                      <Bar
-                        dataKey="contracts"
-                        name="Contracts"
-                        fill="#f59e0b"
-                        radius={[4, 4, 0, 0]}
-                      />
-                      <Legend 
-                        layout="horizontal" 
-                        verticalAlign="bottom" 
-                        align="center"
-                        height={36}
-                      />
+                    <BarChart data={clientActivityData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="new" fill="#3b82f6" name="New Cases" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
-            
-            {/* Client Growth */}
-            <Card className="shadow-sm">
+          </ModuleErrorBoundary>
+        </TabsContent>
+
+        <TabsContent value="clients" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">{totalClients}</p>
+                  <p className="text-sm text-muted-foreground">Total Clients</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {clients?.filter((c: any) => c.status === 'active').length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Active Clients</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {clients?.filter((c: any) => {
+                      const created = new Date(c.created_at);
+                      const now = new Date();
+                      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                      return created >= thirtyDaysAgo;
+                    }).length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">New This Month</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <ModuleErrorBoundary name="Client Activity Chart">
+            <Card className="shadow-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Client Growth
-                </CardTitle>
-                <CardDescription>
-                  New client acquisition over time
-                </CardDescription>
+                <CardTitle>Client Growth</CardTitle>
               </CardHeader>
-              <CardContent className="px-2">
-                <div className="h-[300px]">
+              <CardContent>
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={clientGrowthData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                      <YAxis axisLine={false} tickLine={false} />
-                      <RechartsTooltip content={<CustomTooltip />} />
-                      <Line
-                        type="monotone"
-                        dataKey="clients"
-                        name="Clients"
-                        stroke="#3b82f6"
-                        strokeWidth={3}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Legend 
-                        layout="horizontal" 
-                        verticalAlign="bottom" 
-                        align="center"
-                        height={36}
-                      />
+                    <LineChart data={clientActivityData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="active" stroke="#10b981" strokeWidth={3} name="Active Clients" />
+                      <Line type="monotone" dataKey="new" stroke="#3b82f6" strokeWidth={3} name="New Clients" />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
+          </ModuleErrorBoundary>
+        </TabsContent>
+
+        <TabsContent value="contracts" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">{totalContracts}</p>
+                  <p className="text-sm text-muted-foreground">Total Contracts</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(totalContractValue)}</p>
+                  <p className="text-sm text-muted-foreground">Total Value</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {contracts?.filter((c: any) => c.status === 'active').length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Active Contracts</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
-        
-        {/* Performance Tab */}
-        <TabsContent value="performance" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard 
-              title="Case Resolution Rate" 
-              value="85%" 
-              change={5} 
-              changeLabel="vs last period" 
-              icon={<CheckCircle2 className="h-5 w-5" />}
-              iconColor="text-green-500"
-              iconBgColor="bg-green-500/10"
-            />
-            <StatCard 
-              title="Avg. Resolution Time" 
-              value="18 days" 
-              change={-12} 
-              changeLabel="vs last period" 
-              icon={<Clock className="h-5 w-5" />}
-              iconColor="text-blue-500"
-              iconBgColor="bg-blue-500/10"
-            />
-            <StatCard 
-              title="Document Turnover" 
-              value="2.4 days" 
-              change={-8} 
-              changeLabel="vs last period" 
-              icon={<FileText className="h-5 w-5" />}
-              iconColor="text-amber-500"
-              iconBgColor="bg-amber-500/10"
-            />
-            <StatCard 
-              title="Client Satisfaction" 
-              value="92%" 
-              change={3} 
-              changeLabel="vs last period" 
-              icon={<Users className="h-5 w-5" />}
-              iconColor="text-purple-500"
-              iconBgColor="bg-purple-500/10"
-            />
+
+        <TabsContent value="invoicing" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">{totalInvoices}</p>
+                  <p className="text-sm text-muted-foreground">Total Invoices</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+                  <p className="text-sm text-muted-foreground">Revenue (Paid)</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {invoices?.filter((i: any) => ['draft', 'sent'].includes(i.status)).length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-red-600">
+                    {invoices?.filter((i: any) => i.status === 'overdue').length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Overdue</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle>Performance Metrics</CardTitle>
-              <CardDescription>
-                Key performance indicators for your legal practice
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-12">
-                Detailed performance metrics will be displayed here.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        {/* Cases Tab */}
-        <TabsContent value="cases" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <StatCard 
-              title="Total Cases" 
-              value="88" 
-              icon={<Briefcase className="h-5 w-5" />}
-              iconColor="text-blue-500"
-              iconBgColor="bg-blue-500/10"
-            />
-            <StatCard 
-              title="New Cases (Month)" 
-              value="14" 
-              icon={<Briefcase className="h-5 w-5" />}
-              iconColor="text-green-500"
-              iconBgColor="bg-green-500/10"
-            />
-            <StatCard 
-              title="Case Closure Rate" 
-              value="85%" 
-              icon={<CheckCircle2 className="h-5 w-5" />}
-              iconColor="text-amber-500"
-              iconBgColor="bg-amber-500/10"
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="shadow-sm">
+
+          <ModuleErrorBoundary name="Revenue Chart">
+            <Card className="shadow-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChartIcon className="h-5 w-5 text-primary" />
-                  Cases by Type
-                </CardTitle>
-                <CardDescription>
-                  Distribution of cases by practice area
-                </CardDescription>
+                <CardTitle>Revenue & Invoicing Trends</CardTitle>
               </CardHeader>
-              <CardContent className="px-2">
-                <div className="h-[300px]">
+              <CardContent>
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={caseTypeData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={70}
-                        outerRadius={100}
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {caseTypeData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip content={<CustomTooltip />} />
-                      <Legend 
-                        layout="horizontal" 
-                        verticalAlign="bottom" 
-                        align="center"
-                        height={36}
-                      />
-                    </PieChart>
+                    <BarChart data={revenueData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                      <Bar dataKey="revenue" fill="#10b981" name="Invoice Revenue" />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
-            
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TimerIcon className="h-5 w-5 text-primary" />
-                  Average Case Lifecycle
-                </CardTitle>
-                <CardDescription>
-                  Time from opening to closing by case type
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-muted-foreground py-12">
-                  Case lifecycle visualization will be displayed here.
-                </p>
+          </ModuleErrorBoundary>
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">{totalDocuments}</p>
+                  <p className="text-sm text-muted-foreground">Total Documents</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">{totalEvents}</p>
+                  <p className="text-sm text-muted-foreground">Calendar Events</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {documents?.filter((d: any) => {
+                      const created = new Date(d.created_at);
+                      const now = new Date();
+                      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                      return created >= sevenDaysAgo;
+                    }).length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">This Week</p>
+                </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
-        
-        {/* Finance Tab */}
-        <TabsContent value="finance" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard 
-              title="Total Revenue" 
-              value="$89,520" 
-              change={7} 
-              changeLabel="vs last period" 
-              icon={<CircleDollarSign className="h-5 w-5" />}
-              iconColor="text-green-500"
-              iconBgColor="bg-green-500/10"
-            />
-            <StatCard 
-              title="Outstanding Invoices" 
-              value="$12,450" 
-              change={-5} 
-              changeLabel="vs last period" 
-              icon={<CircleDollarSign className="h-5 w-5" />}
-              iconColor="text-amber-500"
-              iconBgColor="bg-amber-500/10"
-            />
-            <StatCard 
-              title="Average Invoice" 
-              value="$3,420" 
-              change={2} 
-              changeLabel="vs last period" 
-              icon={<CircleDollarSign className="h-5 w-5" />}
-              iconColor="text-blue-500"
-              iconBgColor="bg-blue-500/10"
-            />
-            <StatCard 
-              title="Collection Rate" 
-              value="92%" 
-              change={3} 
-              changeLabel="vs last period" 
-              icon={<CircleDollarSign className="h-5 w-5" />}
-              iconColor="text-purple-500"
-              iconBgColor="bg-purple-500/10"
-            />
-          </div>
-          
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <LineChartIcon className="h-5 w-5 text-primary" />
-                Revenue Trends
-              </CardTitle>
-              <CardDescription>
-                Monthly revenue analysis
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-2">
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={revenueData}
-                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                    <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `$${value}`} />
-                    <RechartsTooltip content={<CustomTooltip />} />
-                    <Area
-                      type="monotone"
-                      dataKey="billable"
-                      name="Billable"
-                      stackId="1"
-                      stroke="#3b82f6"
-                      fill="#3b82f6"
-                      fillOpacity={0.3}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="collected"
-                      name="Collected"
-                      stackId="2"
-                      stroke="#10b981"
-                      fill="#10b981"
-                      fillOpacity={0.3}
-                    />
-                    <Legend 
-                      layout="horizontal" 
-                      verticalAlign="bottom" 
-                      align="center"
-                      height={36}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
-      
-      {/* Export Options */}
-      <Card className="shadow-sm bg-muted/30">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-1">Analytics Reports</h3>
-              <p className="text-muted-foreground">
-                Export detailed reports for your records or presentations
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                PDF Report
-              </Button>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Excel Data
-              </Button>
-              <Button>
-                <Download className="h-4 w-4 mr-2" />
-                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Report
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

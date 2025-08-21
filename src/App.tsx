@@ -280,6 +280,15 @@ const App = () => (
                                 </ModuleErrorBoundary>
                               } />
                               
+                              {/* Analytics */}
+                              <Route path="/analytics" element={
+                                <ModuleErrorBoundary name="Analytics">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    {React.createElement(lazy(() => import('./pages/Analytics')))}
+                                  </Suspense>
+                                </ModuleErrorBoundary>
+                              } />
+                              
                               {/* AI Assistant */}
                               <Route path="/ream-ai" element={
                                 <ModuleErrorBoundary name="Ream AI">
