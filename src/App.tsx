@@ -24,7 +24,7 @@ import ClientEdit from "./pages/ClientEdit";
 import CaseActivities from "./pages/CaseActivitiesNew";
 import Clients from "./pages/Clients";
 import ClientDetails from "./pages/ClientDetails";
-import BulkImport from "./pages/BulkImport";
+
 import Calendar from "./pages/Calendar";
 import Documents from "./pages/Documents";
 import DocumentUpload from "./pages/DocumentUpload";
@@ -205,12 +205,6 @@ const App = () => (
                                 </ModuleErrorBoundary>
                               } />
                               
-                              {/* Bulk Import */}
-                              <Route path="/bulk-import" element={
-                                <ModuleErrorBoundary name="Bulk Import">
-                                  <BulkImport />
-                                </ModuleErrorBoundary>
-                              } />
                               
                               {/* Documents Module */}
                               <Route path="/documents" element={

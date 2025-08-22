@@ -11,7 +11,7 @@ import { parseCSV } from "@/lib/csv";
 import * as z from "zod";
 
 interface BulkImportFormProps {
-  entityType: "clients" | "cases" | "contracts" | "documents";
+  entityType: "clients" | "cases";
   onImportComplete?: (data: any[]) => void;
 }
 
@@ -81,16 +81,6 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
       name: z.string().min(1),
       client: z.string().min(1),
       status: z.string().min(1),
-    }),
-    contracts: z.object({
-      name: z.string().min(1),
-      client: z.string().min(1),
-      type: z.string().min(1),
-    }),
-    documents: z.object({
-      name: z.string().min(1),
-      type: z.string().min(1),
-      linkedCase: z.string().min(1),
     }),
   };
 

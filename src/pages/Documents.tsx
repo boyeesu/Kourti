@@ -100,10 +100,6 @@ export default function Documents() {
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
           </Button>
-          <Button variant="outline" className="shadow-md" onClick={() => navigate("/bulk-import?type=documents")}>
-            <Upload className="h-4 w-4 mr-2" />
-            Bulk Import
-          </Button>
         </div>
       </div>
 

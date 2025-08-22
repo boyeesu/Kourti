@@ -191,10 +191,6 @@ export default function Contracts() {
             <Plus className="h-4 w-4 mr-2" />
             New Contract
           </Button>
-          <Button variant="outline" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=contracts")}> 
-            <Upload className="h-4 w-4 mr-2" />
-            Bulk Import
-          </Button>
           <Button variant="default" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/contracts/compare")}> 
             <GitBranch className="h-4 w-4 mr-2" />
             Compare
