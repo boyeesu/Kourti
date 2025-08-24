@@ -56,7 +56,8 @@ export default function ClientDetails() {
 
   const { data: client, isLoading: clientLoading } = useClient(clientId!);
   const { data: commLogs = [] } = useClientLogs(clientId!);
-  const { data: cases = [] } = useCasesByClient(clientId!);
+  const { data: casesData } = useCasesByClient(clientId!);
+  const cases = casesData?.cases || [];
   const { data: contracts = [] } = useContractsByClient(clientId!);
   const { data: calEvents = [] } = useCalendarEventsByClient(clientId!);
   const { data: documents = [] } = useDocumentsByClient(clientId!);

@@ -17,7 +17,7 @@ import {
 import { useSearch } from '@/hooks/use-search';
 import { useAuth } from '@/hooks/useAuth';
 import { useInsights } from '@/hooks/useInsights';
-import { useNotifications } from '@/components/ui/notifications';
+import { NotificationIcon } from '@/components/ui/notifications';
 import { 
   User, 
   Bell, 
@@ -40,143 +40,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 
-// Types
-type NotificationType = {
-  id: string;
-  type: 'event' | 'case-assigned' | 'update' | 'approval';
-  title: string;
-  description: string;
-  date: string;
-  read: boolean;
-};
+// Types - can be removed as we're using the database-backed notifications now
 
-// Extract NotificationList into a proper component
-function NotificationList() {
-  const { notifications, markAsRead, clearAll } = useNotifications();
-
-  if (!notifications.length) {
-    return (
-      <div className="p-6 flex flex-col items-center justify-center text-center">
-        <Bell className="h-10 w-10 text-muted-foreground/40 mb-2" />
-        <p className="text-muted-foreground font-medium">No notifications</p>
-        <p className="text-sm text-muted-foreground/70 mt-1">
-          We'll notify you when something requires your attention
-        </p>
-      </div>
-    );
-  }
-
-  // Group notifications by date
-  const today: NotificationType[] = [];
-  const earlier: NotificationType[] = [];
-  
-  notifications.forEach(n => {
-    const notifDate = new Date(n.date);
-    const isToday = notifDate.toDateString() === new Date().toDateString();
-    
-    const mappedNotification: NotificationType = {
-      ...n,
-      type: (['case-assigned', 'event', 'update', 'approval'].includes(n.type) 
-        ? n.type 
-        : 'update') as 'event' | 'case-assigned' | 'update' | 'approval',
-      read: n.read ?? false
-    };
-    
-    if (isToday) {
-      today.push(mappedNotification);
-    } else {
-      earlier.push(mappedNotification);
-    }
-  });
-
-  return (
-    <div className="max-h-[500px] overflow-y-auto py-2">
-      {/* Header */}
-      <div className="px-4 py-2 flex items-center justify-between border-b mb-2">
-        <h3 className="font-semibold text-foreground">Notifications</h3>
-        <Button variant="ghost" size="sm" onClick={clearAll}>
-          Clear All
-        </Button>
-      </div>
-      
-      {/* Today's notifications */}
-      {today.length > 0 && (
-        <div className="mb-4">
-          <h4 className="text-xs font-medium text-muted-foreground px-4 py-1">TODAY</h4>
-          <div className="space-y-1">
-            {today.map((n) => (
-              <NotificationItem key={n.id} notification={n} markAsRead={markAsRead} />
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {/* Earlier notifications */}
-      {earlier.length > 0 && (
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground px-4 py-1">EARLIER</h4>
-          <div className="space-y-1">
-            {earlier.map((n) => (
-              <NotificationItem key={n.id} notification={n} markAsRead={markAsRead} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Notification item component
-function NotificationItem({ notification, markAsRead }: { 
-  notification: NotificationType;
-  markAsRead: (id: string) => void;
-}) {
-  // Get icon based on notification type
-  const getIcon = () => {
-    switch (notification.type) {
-      case 'event':
-        return <Calendar className="h-5 w-5 text-blue-500" />;
-      case 'update':
-        return <FileText className="h-5 w-5 text-green-500" />;
-      case 'case-assigned':
-        return <Briefcase className="h-5 w-5 text-purple-500" />;
-      default:
-        return <Bell className="h-5 w-5 text-orange-500" />;
-    }
-  };
-
-  const formattedTime = new Date(notification.date).toLocaleTimeString([], { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  });
-
-  return (
-    <div 
-      className={`flex justify-between items-start px-4 py-3 hover:bg-muted/50 ${notification.read ? 'opacity-60' : ''}`}
-    >
-      <div className="flex gap-3">
-        <div className="mt-1">
-          {getIcon()}
-        </div>
-        <div>
-          <div className="font-medium text-sm">{notification.title}</div>
-          <div className="text-sm text-muted-foreground">{notification.description}</div>
-          <div className="text-xs text-muted-foreground mt-1">{formattedTime}</div>
-        </div>
-      </div>
-      {!notification.read && (
-        <Button 
-          size="sm" 
-          variant="ghost" 
-          className="text-xs h-8" 
-          onClick={() => markAsRead(notification.id)}
-        >
-          Mark read
-        </Button>
-      )}
-    </div>
-  );
-}
+// Legacy notification components - can be removed as we're using database-backed notifications
 
 // Command palette for quick navigation
 function CommandPalette() {
@@ -247,25 +113,10 @@ function CommandPalette() {
 // Trigger initial reminders from insights
 function DeadlineReminders() {
   const { upcomingCases, upcomingContracts } = useInsights(7);
-  const { addNotification } = useNotifications();
 
-  useEffect(() => {
-    upcomingCases.forEach((c: any) =>
-      addNotification({
-        type: 'case-assigned',
-        title: 'Upcoming hearing',
-        description: `${c.title} on ${new Date(c.next_hearing_date!).toLocaleDateString()}`,
-      })
-    );
-    upcomingContracts.forEach((c: any) =>
-      addNotification({
-        type: 'update',
-        title: 'Contract expiring soon',
-        description: `${c.title} on ${new Date(c._insight_date).toLocaleDateString()}`,
-      })
-    );
-  }, [upcomingCases, upcomingContracts, addNotification]);
-
+  // You can add notification creation logic here if needed
+  // For example, create database notifications for deadlines
+  
   return null;
 }
 
@@ -347,9 +198,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { term, setTerm } = useSearch();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
-  const { notifications } = useNotifications();
-  const unreadCount = notifications.filter((n) => !n.read).length;
-  const [notifOpen, setNotifOpen] = useState(false);
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
 
   // Command palette
@@ -431,32 +279,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </Tooltip>
               </TooltipProvider>
               
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Popover open={notifOpen} onOpenChange={setNotifOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-                          <Bell className="h-5 w-5" />
-                          {unreadCount > 0 && (
-                            <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">
-                              {unreadCount > 9 ? '9+' : unreadCount}
-                            </Badge>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent 
-                        side="bottom" 
-                        align="end" 
-                        className="w-[380px] p-0 border border-border shadow-lg rounded-lg"
-                      >
-                        <NotificationList />
-                      </PopoverContent>
-                    </Popover>
-                  </TooltipTrigger>
-                  <TooltipContent>Notifications</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <NotificationIcon />
               
               <DeadlineReminders />
 
