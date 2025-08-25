@@ -1,5 +1,6 @@
 import { useState, createContext, useContext, ReactNode } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Bell, CheckCircle, AlertCircle, UserPlus, RefreshCw } from 'lucide-react';
 
 export type NotificationType = 'approval' | 'event' | 'case-assigned' | 'update' | 'info' | 'warning' | 'success' | 'error';
@@ -51,6 +52,31 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     <NotificationContext.Provider value={{ notifications, addNotification, markAsRead, clearAll }}>
       {children}
     </NotificationContext.Provider>
+  );
+}
+
+export function NotificationIcon() {
+  const [open, setOpen] = useState(false);
+  const { notifications } = useNotifications();
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setOpen(true)}
+        className="relative"
+      >
+        <Bell className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </Button>
+      <NotificationModal open={open} onOpenChange={setOpen} />
+    </>
   );
 }
 
