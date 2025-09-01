@@ -72,8 +72,9 @@ export default function InvoiceDetails() {
   // Update invoice mutation
   const updateInvoice = useUpdateItem({
     table: 'invoices',
-    invalidateQueries: [['invoices'], ['invoices', 'detail', id]],
-    successToast: 'Invoice updated successfully',
+    onSuccess: () => {
+      refetch();
+    },
   });
 
   // Handle status updates
@@ -82,7 +83,7 @@ export default function InvoiceDetails() {
     
     await updateInvoice.mutateAsync({
       id: invoice.id,
-      data: { status: newStatus }
+      status: newStatus
     });
   };
 
@@ -109,7 +110,7 @@ export default function InvoiceDetails() {
     
     await updateInvoice.mutateAsync({
       id: invoice.id,
-      data: payload
+      ...payload
     });
     
     setIsEditDialogOpen(false);

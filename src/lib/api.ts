@@ -264,6 +264,78 @@ export function useUpdateItem({ table, onSuccess, onError }: MutationOptions) {
 }
 
 /**
+ * Hook for fetching a single item by ID
+ */
+export function useGetItemById<T = any>({
+  table,
+  id,
+  select = '*',
+  queryKey,
+}: {
+  table: string;
+  id: string;
+  select?: string;
+  queryKey?: string[];
+}) {
+  const { data: organizationId } = useUserOrganization();
+  const { toast } = useToast();
+
+  return useQuery({
+    queryKey: queryKey || [`${table}-item`, id],
+    queryFn: async () => {
+      try {
+        if (!organizationId) {
+          throw new Error('No organization ID found');
+        }
+
+        if (!id) {
+          throw new Error('No ID provided');
+        }
+
+        // Build the query
+        let query = supabase.from(table).select(select);
+
+        // Add organization filter by default for most tables
+        if (table !== 'invoice_items' && table !== 'time_entries') {
+          query = query.eq('organization_id', organizationId);
+        }
+
+        // Add ID filter
+        if (table === 'invoice_items') {
+          // For invoice_items, filter by invoice_id instead of id
+          query = query.eq('invoice_id', id);
+        } else {
+          query = query.eq('id', id);
+        }
+
+        // Execute the query
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        // For invoice_items, return the array, for others return single item
+        if (table === 'invoice_items') {
+          return data as T[];
+        } else {
+          return data?.[0] as T;
+        }
+      } catch (error) {
+        console.error(`Error fetching ${table} item:`, error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: `Failed to load ${table} item. Please try again later.`,
+        });
+        throw error;
+      }
+    },
+    enabled: !!organizationId && !!id,
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
  * Hook for deleting an item
  */
 export function useDeleteItem({ table, onSuccess, onError }: MutationOptions) {
