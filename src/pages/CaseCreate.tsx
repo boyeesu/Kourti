@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCreateCase } from "@/hooks/useCases";
+import { useCreateCase, type CreateCaseData } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
 import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
 import { useCaseIssues } from "@/features/cases/api/useCaseIssues";
@@ -96,20 +96,26 @@ export default function CaseCreate() {
 
   const onSubmit = async (data: CaseFormData) => {
     try {
+      // Validate required fields
+      if (!caseTypeId) {
+        form.setError("case_type_id", { message: "Case type is required" });
+        return;
+      }
+
       const caseData = {
         title: data.title,
-        description: data.description,
+        description: data.description || "",
         case_number: data.case_number,
-        status: data.status,
-        priority: data.priority,
-        client_id: data.client_id,
+        status: data.status || "open",
+        priority: data.priority || "medium",
+        client_id: data.client_id || null,
         court: data.court,
-        next_hearing_date: data.next_hearing_date?.toISOString(),
+        next_hearing_date: data.next_hearing_date?.toISOString() || null,
         case_type_id: caseTypeId,
-        case_issue_id: caseIssueId,
         custom_fields: dynamicValues,
-      } as any;
+      } as CreateCaseData;
 
+      console.log('Submitting case data:', caseData);
       const newCase = await createCase.mutateAsync(caseData);
       
       // Create notification for case creation
@@ -120,7 +126,8 @@ export default function CaseCreate() {
       });
       
       navigate(`/cases/${newCase.id}`);
-    } catch {
+    } catch (error) {
+      console.error('Case creation error:', error);
       /* error handled by mutation */
     }
   };

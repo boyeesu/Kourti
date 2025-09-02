@@ -9,11 +9,18 @@ export function useCaseTypes() {
   return useQuery<CaseType[], Error>({
     queryKey: ['caseTypes', organizationId],
     queryFn: async () => {
+      if (!organizationId) {
+        console.log('No organization ID available for case types');
+        return [];
+      }
+      
       console.log('Fetching case types for organization:', organizationId);
       
       const { data, error } = await supabase
         .from('case_types')
         .select('*')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
         .order('name');
       
       if (error) {
@@ -31,11 +38,11 @@ export function useCaseTypes() {
         created_at: type.created_at,
         updated_at: type.updated_at,
         is_active: type.is_active,
-        // Use defaults for fields that might be missing in the database
-        organization_id: type.organization_id || organizationId || '',
-        created_by: type.created_by || ''
+        organization_id: type.organization_id,
+        created_by: type.created_by
       }));
     },
+    enabled: !!organizationId,
     staleTime: 5 * 60 * 1000,
   });
 }
