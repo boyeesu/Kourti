@@ -36,6 +36,4 @@
       "@/integrations/*": ["./src/integrations/*"]
     }
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
 }
