@@ -16,16 +16,7 @@ export function useActivities(caseId: string) {
         .eq('case_id', caseId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      // Transform null values to undefined for TypeScript compatibility
-      return data.map(activity => ({
-        ...activity,
-        description: activity.description ?? undefined,
-        assigned_to: activity.assigned_to ?? undefined,
-        due_date: activity.due_date ?? undefined,
-        status: activity.status ?? undefined,
-        created_at: activity.created_at ?? undefined,
-        created_by: activity.created_by ?? undefined,
-      }));
+      return data || [];
     },
     enabled: Boolean(caseId),
     staleTime: 5 * 60 * 1000,
