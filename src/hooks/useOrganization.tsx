@@ -31,10 +31,10 @@ export function useOrganization() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId as any || '')
         .single();
 
-      if (!profile?.organization_id) {
+      if (!(profile as any)?.organization_id) {
         return null;
       }
 
@@ -42,11 +42,11 @@ export function useOrganization() {
       const { data, error } = await supabase
         .from('organizations')
         .select('*')
-        .eq('id', profile.organization_id)
+        .eq('id', (profile as any).organization_id)
         .single();
 
       if (error) throw error;
-      return data as Organization;
+      return (data as any) as Organization;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -62,10 +62,10 @@ export function useOrganizationMembers() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId as any || '')
         .single();
 
-      if (!profile?.organization_id) {
+      if (!(profile as any)?.organization_id) {
         return [];
       }
 
@@ -73,7 +73,7 @@ export function useOrganizationMembers() {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, user_id, first_name, last_name, email, role, department, created_at')
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', (profile as any).organization_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

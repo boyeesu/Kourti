@@ -38,7 +38,7 @@ export function useProfile() {
           created_at,
           updated_at
         `)
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .single();
 
       if (error) throw error;
@@ -58,8 +58,8 @@ export function useUpdateProfile() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .update(profileData)
-        .eq('user_id', userId)
+        .update(profileData as any)
+        .eq('user_id', userId as any)
         .select()
         .single();
 

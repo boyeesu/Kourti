@@ -12,15 +12,12 @@ const supabaseConfig = {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce',
+    flowType: 'pkce' as any,
   },
   realtime: {
     params: {
       eventsPerSecond: 10,
     },
-  },
-  db: {
-    schema: 'public',
   },
 };
 
@@ -32,7 +29,7 @@ export const supabase = createClient<Database>(
 );
 
 // Add error handling for auth state changes
-supabase.auth.onAuthStateChange((event, session) => {
+supabase.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') {
     // Clear any cached data when user signs out
     localStorage.removeItem('app_cache');

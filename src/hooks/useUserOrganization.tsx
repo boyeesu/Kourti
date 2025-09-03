@@ -24,7 +24,7 @@ export function useUserOrganization() {
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('organization_id')
-          .eq('user_id', userId)
+          .eq('user_id', userId as any)
           .single();
 
         if (error) {
@@ -37,8 +37,8 @@ export function useUserOrganization() {
           throw error;
         }
         
-        console.log('🏢 Organization ID:', profile.organization_id);
-        return profile.organization_id;
+        console.log('🏢 Organization ID:', (profile as any).organization_id);
+        return (profile as any).organization_id;
       } catch (error) {
         console.error('Error fetching organization:', error);
         throw error; // Rethrow the error instead of using mock data

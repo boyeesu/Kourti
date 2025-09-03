@@ -12,11 +12,11 @@ export function useNotificationsDb(orgId: string) {
       const { data } = await supabase
         .from('notifications')
         .select('*')
-        .eq('organization_id', orgId)
+        .eq('organization_id', orgId as any)
         .order('created_at', { ascending: false });
       
       // Transform database format to Notification interface
-      return (data || []).map(item => ({
+      return ((data || []) as any[]).map((item: any) => ({
         ...item,
         date: item.created_at || new Date().toISOString(),
         read: item.status === 'read',
@@ -69,5 +69,5 @@ export async function pushDbNotification(
     user_id: userId,
     organization_id: orgId,
     ...notif,
-  }]);
+  } as any]);
 }

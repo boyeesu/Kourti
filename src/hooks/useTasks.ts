@@ -24,12 +24,12 @@ export function useTasks(caseId: string) {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('case_id', caseId)
+        .eq('case_id', caseId as any)
         .order('due_date', { ascending: true });
       if (error) throw error;
       
       // Transform data to include organization_id (tasks table doesn't have this field)
-      return (data || []).map(task => ({
+      return ((data || []) as any[]).map((task: any) => ({
         ...task,
         organization_id: '', // Add default value since tasks table doesn't have this field
       })) as Task[];
@@ -47,7 +47,7 @@ export function useCreateTask() {
       const userId = await getCurrentUserId();
       const { data: created, error } = await supabase
         .from('tasks')
-        .insert({ ...data, created_by: userId })
+        .insert({ ...data, created_by: userId } as any)
         .select()
         .single();
       if (error) throw error;
@@ -70,15 +70,15 @@ export function useUpdateTask() {
     mutationFn: async ({ id, ...data }: UpdateTaskData) => {
       const { data: updated, error } = await supabase
         .from('tasks')
-        .update({ ...data })
-        .eq('id', id)
+        .update({ ...data } as any)
+        .eq('id', id as any)
         .select()
         .single();
       if (error) throw error;
       return updated;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', updated.case_id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', (updated as any).case_id] });
       toast({ title: 'Task updated', description: 'Task changes saved.' });
     },
     onError: (error: any) => {
@@ -95,7 +95,7 @@ export function useDeleteTask() {
       const { error } = await supabase
         .from('tasks')
         .delete()
-        .eq('id', id);
+        .eq('id', id as any);
       if (error) throw error;
       return { id, case_id };
     },

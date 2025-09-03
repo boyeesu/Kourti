@@ -30,7 +30,7 @@ export function useUserRoles() {
         .order('role_name');
 
       if (error) throw error;
-      return data as UserRole[];
+      return (data as any) as UserRole[];
     },
   });
 }
@@ -47,7 +47,7 @@ export function useCreateUserRole() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .single();
 
       if (!profile) throw new Error('Profile not found');
@@ -56,10 +56,10 @@ export function useCreateUserRole() {
         .from('user_roles')
         .insert({
           ...roleData,
-          organization_id: profile.organization_id,
+          organization_id: (profile as any).organization_id,
           created_by: userId,
           permissions: roleData.permissions || [],
-        })
+        } as any)
         .select()
         .single();
 
@@ -92,7 +92,7 @@ export function useDeleteUserRole() {
       const { error } = await supabase
         .from('user_roles')
         .delete()
-        .eq('id', roleId);
+        .eq('id', roleId as any);
 
       if (error) throw error;
     },
@@ -146,8 +146,8 @@ export function useUpdateUserRole() {
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       const { error } = await supabase
         .from('profiles')
-        .update({ role: role as 'user' | 'admin' | 'superadmin' })
-        .eq('user_id', userId);
+        .update({ role: role as 'user' | 'admin' | 'superadmin' } as any)
+        .eq('user_id', userId as any);
 
       if (error) throw error;
     },

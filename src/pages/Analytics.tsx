@@ -3,22 +3,17 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { useFetchData } from "@/lib/api";
 import { useContracts } from '@/hooks/useContracts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { 
-  TrendingUp, 
   Users, 
   FileText, 
-  Calendar,
   DollarSign,
   Scale,
-  Eye,
-  Download,
   RefreshCw
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
@@ -48,10 +43,6 @@ const revenueData = [
 ];
 
 export default function Analytics() {
-  const [dateRange, setDateRange] = useState<any>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1),
-    to: new Date(),
-  });
   const [selectedPeriod, setSelectedPeriod] = useState("6months");
 
   // Fetch real data
@@ -89,17 +80,17 @@ export default function Analytics() {
   });
 
   // Calculate metrics
-  const totalCases = cases?.length || 0;
-  const totalClients = clients?.length || 0;
-  const totalContracts = contracts?.length || 0;
-  const totalInvoices = invoices?.length || 0;
-  const totalDocuments = documents?.length || 0;
-  const totalEvents = events?.length || 0;
+  const totalCases = (cases as any)?.data?.length || 0;
+  const totalClients = (clients as any)?.data?.length || 0;
+  const totalContracts = (contracts as any)?.data?.length || 0;
+  const totalInvoices = (invoices as any)?.data?.length || 0;
+  const totalDocuments = (documents as any)?.data?.length || 0;
+  const totalEvents = (events as any)?.data?.length || 0;
 
-  const totalRevenue = invoices?.reduce((sum: number, inv: any) => 
+  const totalRevenue = (invoices as any)?.data?.reduce((sum: number, inv: any) => 
     inv.status === 'paid' ? sum + (inv.total_amount || 0) : sum, 0) || 0;
 
-  const totalContractValue = contracts?.reduce((sum: number, contract: any) => 
+  const totalContractValue = (contracts as any)?.data?.reduce((sum: number, contract: any) => 
     sum + (contract.value || 0), 0) || 0;
 
   const isLoading = casesLoading || clientsLoading || contractsLoading || 
@@ -275,9 +266,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-green-600">
-                    {cases?.filter((c: any) => c.status === 'open').length || 0}
-                  </p>
+                   <p className="text-2xl font-bold text-green-600">
+                     {((cases as any)?.data?.filter((c: any) => c.status === 'open') || []).length}
+                   </p>
                   <p className="text-sm text-muted-foreground">Open Cases</p>
                 </div>
               </CardContent>
@@ -285,9 +276,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-purple-600">
-                    {cases?.filter((c: any) => c.priority === 'high').length || 0}
-                  </p>
+                   <p className="text-2xl font-bold text-purple-600">
+                     {((cases as any)?.data?.filter((c: any) => c.priority === 'high') || []).length}
+                   </p>
                   <p className="text-sm text-muted-foreground">High Priority</p>
                 </div>
               </CardContent>
@@ -329,9 +320,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-600">
-                    {clients?.filter((c: any) => c.status === 'active').length || 0}
-                  </p>
+                   <p className="text-2xl font-bold text-blue-600">
+                     {((clients as any)?.data?.filter((c: any) => c.status === 'active') || []).length}
+                   </p>
                   <p className="text-sm text-muted-foreground">Active Clients</p>
                 </div>
               </CardContent>
@@ -339,14 +330,14 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-purple-600">
-                    {clients?.filter((c: any) => {
-                      const created = new Date(c.created_at);
-                      const now = new Date();
-                      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                      return created >= thirtyDaysAgo;
-                    }).length || 0}
-                  </p>
+                   <p className="text-2xl font-bold text-purple-600">
+                     {((clients as any)?.data?.filter((c: any) => {
+                       const created = new Date(c.created_at);
+                       const now = new Date();
+                       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                       return created >= thirtyDaysAgo;
+                     }) || []).length}
+                   </p>
                   <p className="text-sm text-muted-foreground">New This Month</p>
                 </div>
               </CardContent>
@@ -428,9 +419,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {invoices?.filter((i: any) => ['draft', 'sent'].includes(i.status)).length || 0}
-                  </p>
+                   <p className="text-2xl font-bold text-yellow-600">
+                     {((invoices as any)?.data?.filter((i: any) => ['draft', 'sent'].includes(i.status)) || []).length}
+                   </p>
                   <p className="text-sm text-muted-foreground">Pending</p>
                 </div>
               </CardContent>
@@ -438,9 +429,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-red-600">
-                    {invoices?.filter((i: any) => i.status === 'overdue').length || 0}
-                  </p>
+                   <p className="text-2xl font-bold text-red-600">
+                     {((invoices as any)?.data?.filter((i: any) => i.status === 'overdue') || []).length}
+                   </p>
                   <p className="text-sm text-muted-foreground">Overdue</p>
                 </div>
               </CardContent>
@@ -490,14 +481,14 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-purple-600">
-                    {documents?.filter((d: any) => {
-                      const created = new Date(d.created_at);
-                      const now = new Date();
-                      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                      return created >= sevenDaysAgo;
-                    }).length || 0}
-                  </p>
+                   <p className="text-2xl font-bold text-purple-600">
+                     {((documents as any)?.data?.filter((d: any) => {
+                       const created = new Date(d.created_at);
+                       const now = new Date();
+                       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                       return created >= sevenDaysAgo;
+                     }) || []).length}
+                   </p>
                   <p className="text-sm text-muted-foreground">This Week</p>
                 </div>
               </CardContent>

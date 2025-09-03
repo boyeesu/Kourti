@@ -53,7 +53,7 @@ export function useFetchData<T = any>({
         const to = from + pageSize - 1;
 
         // Build the query
-        let query = supabase.from(table).select(select, { count: 'exact' });
+        let query = supabase.from(table as any).select(select, { count: 'exact' });
 
         // Add organization filter by default
         query = query.eq('organization_id', organizationId);
@@ -156,25 +156,25 @@ export function useCreateItem({ table, onSuccess, onError }: MutationOptions) {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('organization_id')
-          .eq('user_id', userId)
+          .eq('user_id', userId as any)
           .single();
           
         if (profileError) {
           throw new Error('Could not retrieve user profile');
         }
         
-        if (!profile?.organization_id) {
+        if (!(profile as any)?.organization_id) {
           throw new Error('No organization associated with account');
         }
         
         // Insert the item with organization and user info
         const { data: insertedData, error } = await supabase
-          .from(table)
+          .from(table as any)
           .insert({
             ...data,
-            organization_id: profile.organization_id,
+            organization_id: (profile as any).organization_id,
             created_by: userId,
-          })
+          } as any)
           .select()
           .single();
 
@@ -222,12 +222,12 @@ export function useUpdateItem({ table, onSuccess, onError }: MutationOptions) {
         // No mock data - always use database
 
         const { data: updatedData, error } = await supabase
-          .from(table)
+          .from(table as any)
           .update({
             ...data,
             updated_at: new Date().toISOString(),
-          })
-          .eq('id', id)
+          } as any)
+          .eq('id', id as any)
           .select()
           .single();
 
@@ -242,7 +242,7 @@ export function useUpdateItem({ table, onSuccess, onError }: MutationOptions) {
     onSuccess: (data) => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: [table] });
-      queryClient.invalidateQueries({ queryKey: [`${table}-item`, data.id] });
+      queryClient.invalidateQueries({ queryKey: [`${table}-item`, (data as any).id] });
       
       toast({
         title: 'Success',
@@ -293,7 +293,7 @@ export function useGetItemById<T = any>({
         }
 
         // Build the query
-        let query = supabase.from(table).select(select);
+        let query = supabase.from(table as any).select(select);
 
         // Add organization filter by default for most tables
         if (table !== 'invoice_items' && table !== 'time_entries') {
@@ -303,9 +303,9 @@ export function useGetItemById<T = any>({
         // Add ID filter
         if (table === 'invoice_items') {
           // For invoice_items, filter by invoice_id instead of id
-          query = query.eq('invoice_id', id);
+          query = query.eq('invoice_id', id as any);
         } else {
-          query = query.eq('id', id);
+          query = query.eq('id', id as any);
         }
 
         // Execute the query
@@ -348,9 +348,9 @@ export function useDeleteItem({ table, onSuccess, onError }: MutationOptions) {
         // No mock data - always use database
 
         const { error } = await supabase
-          .from(table)
+          .from(table as any)
           .delete()
-          .eq('id', id);
+          .eq('id', id as any);
 
         if (error) throw error;
         
