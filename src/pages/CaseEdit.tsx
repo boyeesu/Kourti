@@ -181,7 +181,10 @@ export default function CaseEdit() {
             {/* Dynamic Fields */}
             {caseTypeId && caseFields.length > 0 && (
               <DynamicForm
-                fields={caseFields as DynamicField[]}
+                fields={caseFields.map(field => ({
+                  ...field,
+                  required: field.is_required ?? false
+                })) as DynamicField[]}
                 initialValues={dynamicValues}
                 onSubmit={setDynamicValues}
                 hideSubmit

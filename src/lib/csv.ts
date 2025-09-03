@@ -20,7 +20,7 @@ export function parseCSV<T>(csvText: string, schema: ZodSchema<T>): CSVParseResu
     if (parsed.success) {
       data.push(parsed.data);
     } else {
-      const fields = parsed.error.errors.map(e => e.path.join(".")).join(", ");
+      const fields = parsed.error.issues.map((e: any) => e.path.join(".")).join(", ");
       errors.push(`Row ${index + 2}: Invalid fields: ${fields}`);
     }
   });

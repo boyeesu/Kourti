@@ -38,10 +38,10 @@ import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 const caseSchema = z.object({
   title: z.string().min(1, "Case title is required"),
+  status: z.string().min(1, "Status is required"),
+  priority: z.string().min(1, "Priority is required"),
   description: z.string().optional(),
   case_number: z.string().optional(),
-  status: z.string().default("open"),
-  priority: z.string().default("medium"),
   client_id: z.string().optional(),
   court: z.string().optional(),
   next_hearing_date: z.date().optional(),
@@ -297,7 +297,15 @@ export default function CaseCreate() {
 
               {/* Dynamic Custom Fields */}
               {caseTypeId && caseFields.length > 0 && (
-                <DynamicForm fields={caseFields as DynamicField[]} initialValues={{}} onSubmit={setDynamicValues} hideSubmit />
+                <DynamicForm 
+                  fields={caseFields.map(field => ({
+                    ...field,
+                    required: field.is_required ?? false
+                  })) as DynamicField[]} 
+                  initialValues={{}} 
+                  onSubmit={setDynamicValues} 
+                  hideSubmit 
+                />
               )}
 
               {/* Optional Fields Section */}

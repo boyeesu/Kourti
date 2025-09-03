@@ -166,7 +166,7 @@ export const initCSRFProtection = (): void => {
     
     // Patch fetch to automatically include CSRF token for same-origin requests
     const originalFetch = window.fetch;
-    window.fetch = function(input: RequestInfo, init?: RequestInit) {
+    window.fetch = function(input: URL | RequestInfo, init?: RequestInit) {
       try {
         let url: URL;
         

@@ -39,12 +39,12 @@ import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Client name is required"),
+  status: z.string().min(1, "Status is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   phone: z.string().optional(),
   address: z.string().optional(),
   company: z.string().optional(),
   notes: z.string().optional(),
-  status: z.string().default("active"),
 });
 
 type ClientFormData = z.infer<typeof clientSchema>;

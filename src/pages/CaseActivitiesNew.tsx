@@ -165,10 +165,10 @@ export default function CaseActivities() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Badge className={typeColors[act.activity_type] || "bg-muted"}>{act.activity_type}</Badge>
+                  <Badge className={typeColors[act.activity_type || ''] || "bg-muted"}>{act.activity_type}</Badge>
                   <CardTitle>{act.title}</CardTitle>
                 </div>
-                <span className={statusColors[act.status] || ""}>{act.status}</span>
+                <span className={statusColors[act.status || ''] || ""}>{act.status}</span>
               </div>
             </CardHeader>
             <CardContent>

@@ -43,6 +43,7 @@ export default function Auth() {
       let result;
       if (isSignUp) {
         result = await signUp(formData.email, formData.password, {
+          email: formData.email,
           first_name: formData.firstName,
           last_name: formData.lastName,
           organization: formData.organization,
