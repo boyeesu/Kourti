@@ -72,7 +72,7 @@ export default function Invoices() {
     queryKey: ['invoices', page, statusFilter],
     select: '*, client:client_id(id, name), case:case_id(id, title)',
     filters: statusFilter !== 'all' ? { status: statusFilter } : {},
-    page,
+    page: page.toString(),
     pageSize: 10,
   });
 

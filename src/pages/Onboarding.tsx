@@ -163,7 +163,7 @@ export default function Onboarding() {
           organization_id: orgData.id,
           role: 'superadmin',
         })
-        .eq('user_id', user?.id);
+        .eq('user_id', user!.id);
 
       if (profileError) throw profileError;
 

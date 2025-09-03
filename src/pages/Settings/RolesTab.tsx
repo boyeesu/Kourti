@@ -74,7 +74,7 @@ export default function RolesTab() {
   const { data: users = [], isLoading: usersLoading, error: usersError } = useUsersWithRoles();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("roles");
-  const { toast } = useToast();
+  // const { toast } = useToast();
   
   const form = useForm<RoleFormData>({
     resolver: zodResolver(roleSchema),
@@ -382,7 +382,7 @@ export default function RolesTab() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={user.avatar_url || ''} alt={`${user.first_name} ${user.last_name}`} />
+                            <AvatarImage src={user.avatar_url || undefined} alt={`${user.first_name} ${user.last_name}`} />
                             <AvatarFallback>{getInitials(user.first_name, user.last_name)}</AvatarFallback>
                           </Avatar>
                           <div>

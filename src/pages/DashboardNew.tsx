@@ -1,15 +1,7 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ResponsiveContainer,
@@ -34,18 +26,14 @@ import {
   AlertTriangle,
   Clock,
   DollarSign,
-  BarChart,
   RefreshCw,
   ArrowRight,
   ArrowUpRight,
   Calendar,
-  CheckCircle2,
-  Ban,
   Eye,
   FileCheck,
-  CircleAlert,
+  AlertCircle,
   Activity,
-  User,
   Plus
 } from "lucide-react";
 import { useInsights } from "@/hooks/useInsights";
@@ -58,7 +46,7 @@ import { formatDate, formatCurrency, cn } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Components
@@ -97,7 +85,7 @@ const StatCard = ({
             )}
             {trend && (
               <div className="flex items-center mt-2">
-                <Badge variant={trend.value > 0 ? "success" : "destructive"} className="px-1.5 h-5">
+                <Badge variant={trend.value > 0 ? "default" : "destructive"} className="px-1.5 h-5">
                   {trend.value > 0 ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowRight className="h-3 w-3 mr-1" />}
                   {Math.abs(trend.value)}%
                 </Badge>
@@ -153,7 +141,7 @@ export default function Dashboard() {
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
   
   const role = userRoleData?.role;
-  const isAdmin = role === "super_admin" || role === "admin";
+  const isAdmin = role === "superadmin" || role === "admin";
 
   // Process case status data for pie chart
   const casesByStatus = useMemo(() => {
@@ -501,7 +489,7 @@ export default function Dashboard() {
                     outerRadius={120}
                     paddingAngle={2}
                     dataKey="value"
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ name, value, percent }) => `${name}: ${value} (${(percent! * 100).toFixed(0)}%)`}
                     labelLine={true}
                   >
                     {casesByStatus.map((entry, index) => (
@@ -580,16 +568,16 @@ export default function Dashboard() {
                             <TooltipContent>View Case</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                        {c.assigned_to && (
+                        {(c as any).assigned_to && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Avatar className="h-8 w-8 ml-2">
-                                  <AvatarFallback>{c.assigned_user?.first_name?.charAt(0) || 'U'}</AvatarFallback>
+                                  <AvatarFallback>{(c as any).assigned_user?.first_name?.charAt(0) || 'U'}</AvatarFallback>
                                 </Avatar>
                               </TooltipTrigger>
                               <TooltipContent>
-                                Assigned to {c.assigned_user?.first_name} {c.assigned_user?.last_name}
+                                Assigned to {(c as any).assigned_user?.first_name} {(c as any).assigned_user?.last_name}
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>

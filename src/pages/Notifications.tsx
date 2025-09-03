@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNotifications } from "@/components/ui/notifications";
+import { useNotifications, Notification } from "@/components/ui/notifications";
 import { 
   Bell, 
   CheckCircle, 
@@ -16,15 +16,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-type NotificationType = {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  date: string;
-  read: boolean;
-};
-
 export default function Notifications() {
   const { notifications, markAsRead, clearAll } = useNotifications();
   const [activeTab, setActiveTab] = useState("all");
@@ -32,8 +23,8 @@ export default function Notifications() {
   // Group notifications by type
   const allNotifications = [...notifications];
   const unreadNotifications = notifications.filter(n => !n.read);
-  const caseNotifications = notifications.filter(n => n.type === 'case');
-  const documentNotifications = notifications.filter(n => n.type === 'document');
+  const caseNotifications = notifications.filter(n => n.type === 'cases');
+  const documentNotifications = notifications.filter(n => n.type === 'documents');
   const eventNotifications = notifications.filter(n => n.type === 'event');
   
   // Sort notifications by date (newest first)

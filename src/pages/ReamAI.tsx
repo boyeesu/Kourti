@@ -19,11 +19,7 @@ import {
   Search,
   Loader2,
   StopCircle,
-  FileQuestion,
-  Database,
-  SquareTerminal,
-  ChevronRight,
-  RefreshCw
+  Square
 } from "lucide-react";
 
 interface Message {
@@ -186,7 +182,6 @@ export default function ReamAI() {
         
         // Stream the AI analysis
         await streamAnalysis({
-          docId,
           content,
           documentType: docType,
           analysisType: "general",

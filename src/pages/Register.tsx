@@ -36,6 +36,7 @@ export default function Register() {
       return;
     }
     const { error } = await signUp(formData.email, formData.password, {
+      email: formData.email,
       first_name: formData.firstName,
       last_name: formData.lastName,
       organization: formData.organization,
