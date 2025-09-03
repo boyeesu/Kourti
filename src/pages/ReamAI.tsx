@@ -18,8 +18,7 @@ import {
   FileCheck,
   Search,
   Loader2,
-  StopCircle,
-  Square
+  StopCircle
 } from "lucide-react";
 
 interface Message {
@@ -164,18 +163,12 @@ export default function ReamAI() {
     try {
       // Handle document analysis if a document is selected or uploaded
       if (selectedDoc || selectedFile) {
-        let docId: string;
         let content: string;
-        let docType: 'document' | 'contract';
         
         if (selectedDoc) {
-          docId = selectedDoc.id;
           content = selectedDoc.content || selectedDoc.terms || selectedDoc.title || "";
-          docType = selectedDoc.type as 'document' | 'contract';
         } else if (selectedFile) {
-          docId = `uploaded-${selectedFile.name}`;
           content = await selectedFile.text();
-          docType = 'document';
         } else {
           throw new Error("No document selected");
         }
@@ -183,7 +176,6 @@ export default function ReamAI() {
         // Stream the AI analysis
         await streamAnalysis({
           content,
-          documentType: docType,
           analysisType: "general",
           onProgress: (content, done) => {
             setMessages((msgs) => 

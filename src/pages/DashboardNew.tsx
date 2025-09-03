@@ -32,7 +32,6 @@ import {
   Calendar,
   Eye,
   FileCheck,
-  AlertCircle,
   Activity,
   Plus
 } from "lucide-react";
@@ -85,7 +84,7 @@ const StatCard = ({
             )}
             {trend && (
               <div className="flex items-center mt-2">
-                <Badge variant={trend.value > 0 ? "default" : "destructive"} className="px-1.5 h-5">
+                <Badge variant={trend.value > 0 ? "secondary" : "destructive"} className="px-1.5 h-5">
                   {trend.value > 0 ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowRight className="h-3 w-3 mr-1" />}
                   {Math.abs(trend.value)}%
                 </Badge>

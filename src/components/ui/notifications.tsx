@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Bell, CheckCircle, AlertCircle, UserPlus, RefreshCw } from 'lucide-react';
 
-export type NotificationType = 'approval' | 'event' | 'case-assigned' | 'update' | 'info' | 'warning' | 'success' | 'error';
+export type NotificationType = 'approval' | 'event' | 'case-assigned' | 'update' | 'info' | 'warning' | 'success' | 'error' | 'case' | 'document';
 
 export interface Notification {
   id: string;

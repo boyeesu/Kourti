@@ -69,10 +69,10 @@ export default function Invoices() {
   // Fetch invoices with pagination
   const { data: apiResponse, isLoading, error, refetch } = useFetchData<any[]>({
     table: 'invoices',
-    queryKey: ['invoices', page, statusFilter],
+    queryKey: ['invoices', page.toString(), statusFilter],
     select: '*, client:client_id(id, name), case:case_id(id, title)',
     filters: statusFilter !== 'all' ? { status: statusFilter } : {},
-    page: page.toString(),
+    page,
     pageSize: 10,
   });
 

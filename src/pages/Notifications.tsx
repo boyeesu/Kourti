@@ -23,12 +23,12 @@ export default function Notifications() {
   // Group notifications by type
   const allNotifications = [...notifications];
   const unreadNotifications = notifications.filter(n => !n.read);
-  const caseNotifications = notifications.filter(n => n.type === 'cases');
-  const documentNotifications = notifications.filter(n => n.type === 'documents');
+  const caseNotifications = notifications.filter(n => n.type === 'case');
+  const documentNotifications = notifications.filter(n => n.type === 'document');
   const eventNotifications = notifications.filter(n => n.type === 'event');
   
   // Sort notifications by date (newest first)
-  const sortedNotifications = (notifs: NotificationType[]) => {
+  const sortedNotifications = (notifs: Notification[]) => {
     return [...notifs].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -99,7 +99,7 @@ export default function Notifications() {
   };
   
   // Render notification list
-  const renderNotificationList = (notificationList: NotificationType[]) => {
+  const renderNotificationList = (notificationList: Notification[]) => {
     const sorted = sortedNotifications(notificationList);
     
     if (sorted.length === 0) {

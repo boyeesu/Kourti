@@ -17,7 +17,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -383,7 +382,7 @@ export default function RolesTab() {
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={user.avatar_url || undefined} alt={`${user.first_name} ${user.last_name}`} />
-                            <AvatarFallback>{getInitials(user.first_name, user.last_name)}</AvatarFallback>
+                            <AvatarFallback>{getInitials(user.first_name || '', user.last_name || '')}</AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="font-medium">{user.first_name} {user.last_name}</div>
