@@ -1,8 +1,6 @@
-
-import { useState, useMemo, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -11,7 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ResponsiveContainer,
   PieChart,
@@ -22,10 +19,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as RechartsTooltip,
   Legend,
-  BarChart as RechartBarChart,
-  Bar
 } from "recharts";
 import { 
   FileText, 
@@ -38,14 +32,6 @@ import {
   BarChart,
   RefreshCw,
   ArrowRight,
-  ArrowUpRight,
-  Calendar,
-  CheckCircle2,
-  Ban,
-  Eye,
-  FileCheck,
-  CircleAlert,
-  Activity
 } from "lucide-react";
 import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";
@@ -53,12 +39,9 @@ import { useUserRole } from "@/hooks/useUserManagement";
 import { useCases } from "@/hooks/useCases";
 import { useContracts } from "@/hooks/useContracts";
 import { Case, Contract } from "@/types";
-import { formatDate, formatCurrency, cn } from "@/lib/utils";
+import { formatDate, formatCurrency } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function Dashboard() {
   const [windowDays] = useState(7);
@@ -72,7 +55,7 @@ export default function Dashboard() {
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
   
   const role = userRoleData?.role;
-  const isAdmin = role === "super_admin" || role === "admin";
+  const isAdmin = role === "superadmin" || role === "admin";
 
   // Process case status data for pie chart
   const casesByStatus = useMemo(() => {
@@ -121,7 +104,8 @@ export default function Dashboard() {
       });
       
       // Count contracts by month
-      contractsData.forEach((contract: Contract) => {
+      const contractsArray = Array.isArray(contractsData) ? contractsData : (contractsData?.contracts || []);
+      contractsArray.forEach((contract: Contract) => {
         if (contract.created_at) {
           const month = months[new Date(contract.created_at).getMonth()];
           monthlyData[month].contracts += 1;
@@ -313,14 +297,6 @@ export default function Dashboard() {
                     tickLine={false}
                     width={30}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-                      borderRadius: '6px',
-                      border: '1px solid #eee',
-                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                    }}
-                  />
                   <Legend 
                     verticalAlign="top" 
                     height={36}
@@ -367,22 +343,13 @@ export default function Dashboard() {
                     outerRadius={90}
                     fill="#8884d8"
                     dataKey="value"
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ name, value, percent }) => `${name}: ${value} (${((percent || 0) * 100).toFixed(0)}%)`}
                     labelLine={true}
                   >
                     {casesByStatus.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    formatter={(value: number, name: string) => [value, name]}
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-                      borderRadius: '6px',
-                      border: '1px solid #eee',
-                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                    }}
-                  />
                   <Legend 
                     verticalAlign="bottom" 
                     height={36}
@@ -405,7 +372,7 @@ export default function Dashboard() {
                   <Clock className="h-5 w-5 text-warning" />
                   Upcoming Hearings
                 </CardTitle>
-                <CardDescription>Next {windowDays} days</CardDescription>
+                <p className="text-muted-foreground text-sm">Next {windowDays} days</p>
               </div>
               <Button 
                 variant="ghost" 
@@ -454,7 +421,7 @@ export default function Dashboard() {
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                   Contract Renewals
                 </CardTitle>
-                <CardDescription>Expiring soon</CardDescription>
+                <p className="text-muted-foreground text-sm">Expiring soon</p>
               </div>
               <Button 
                 variant="ghost" 

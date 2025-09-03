@@ -36,7 +36,7 @@ import {
   AlertTriangle,
   GitBranch,
   Zap,
-  Upload,
+  
   RefreshCw
 } from "lucide-react";
 import {
@@ -145,7 +145,7 @@ export default function Contracts() {
     const matchesClient =
       clientFilter === "" ||
       String(contract.client_id).toLowerCase() === clientFilter ||
-      contract.client?.name?.toLowerCase().includes(clientFilter);
+      (contract as any).client?.name?.toLowerCase().includes(clientFilter);
       
     return matchesLocal && matchesGlobal && matchesClient;
   });
@@ -339,7 +339,7 @@ export default function Contracts() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {contract.client?.name || contract.client_id || 'No client'}
+                          {(contract as any).client?.name || contract.client_id || 'No client'}
                         </TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(contract.status)} variant="secondary">
@@ -373,7 +373,7 @@ export default function Contracts() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <GitBranch className="h-4 w-4 text-muted-foreground" />
-                            {contract.version || 'v1'}
+                            {(contract as any).version || 'v1'}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -381,7 +381,7 @@ export default function Contracts() {
                             <User className="h-4 w-4 text-muted-foreground" />
                             <div>
                               <div className="text-sm">
-                                {contract.created_by_user?.first_name || 'User'}
+                                {(contract as any).created_by_user?.first_name || 'User'}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {new Date(contract.created_at).toLocaleDateString()}

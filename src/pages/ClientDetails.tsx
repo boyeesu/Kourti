@@ -39,7 +39,7 @@ import { useCasesByClient } from "@/hooks/useCases";
 import { useContractsByClient } from "@/hooks/useContracts";
 import { useCalendarEventsByClient } from "@/hooks/useCalendar";
 import { useDocumentsByClient } from "@/hooks/useDocuments";
-import { getCurrentUserId } from "@/hooks/useCurrentUser";
+
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import {
   Table,
