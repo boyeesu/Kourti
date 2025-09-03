@@ -23,15 +23,15 @@ export function useCreateDefaultOrganization() {
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .single();
       
       // If user already has an organization, return it
-      if (existingProfile?.organization_id) {
+      if ((existingProfile as any)?.organization_id) {
         const { data: org } = await supabase
           .from('organizations')
           .select('*')
-          .eq('id', existingProfile.organization_id)
+          .eq('id', (existingProfile as any).organization_id)
           .single();
           
         return org;
@@ -45,7 +45,7 @@ export function useCreateDefaultOrganization() {
         .insert({
           name: defaultName,
           description: 'Default organization created automatically',
-        })
+        } as any)
         .select()
         .single();
       
@@ -58,9 +58,9 @@ export function useCreateDefaultOrganization() {
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          organization_id: newOrg.id,
-        })
-        .eq('user_id', userId);
+          organization_id: (newOrg as any).id,
+        } as any)
+        .eq('user_id', userId as any);
       
       if (profileError) {
         console.error('Error updating profile:', profileError);
@@ -76,7 +76,7 @@ export function useCreateDefaultOrganization() {
       queryClient.invalidateQueries({ queryKey: ['user-organization'] });
       toast({
         title: "Organization Created",
-        description: `'${data?.name || 'Organization'}' has been created. Please sign in again to continue.`,
+        description: `'${(data as any)?.name || 'Organization'}' has been created. Please sign in again to continue.`,
       });
     },
     onError: (error: any) => {

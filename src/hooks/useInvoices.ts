@@ -51,10 +51,10 @@ export function useInvoices() {
       if (error) throw error;
       
       // Transform the raw data to match the Invoice type
-      return (data || []).map(item => ({
+      return (data || []).map((item: any) => ({
         ...item,
         // Map database fields to interface fields
-        vat: item.tax_amount ?? 0,
+        vat: item?.tax_amount ?? 0,
         items: [], // This will need to come from invoice_items table
       })) as Invoice[];
     },
@@ -75,16 +75,16 @@ export function useCreateInvoice() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId as any)
         .single();
         
       if (profileError) throw new Error("Could not retrieve user profile information.");
-      if (!profile?.organization_id) throw new Error("No organization associated with your account.");
+      if (!(profile as any)?.organization_id) throw new Error("No organization associated with your account.");
 
       const invoiceData = {
         invoice_number: `INV-${Date.now()}`,
         title: `Invoice for ${data.amount}`,
-        organization_id: profile.organization_id,
+        organization_id: (profile as any).organization_id,
         client_id: data.client_id,
         case_id: data.case_id,
         amount: data.amount,
@@ -99,7 +99,7 @@ export function useCreateInvoice() {
       
       const { data: newInvoice, error } = await supabase
         .from('invoices')
-        .insert(invoiceData)
+        .insert(invoiceData as any)
         .select()
         .single();
       if (error) throw error;
@@ -124,8 +124,8 @@ export function useUpdateInvoice() {
       const updateData = total ? { ...data, total } : data;
       const { data: updated, error } = await supabase
         .from('invoices')
-        .update(updateData)
-        .eq('id', id)
+        .update(updateData as any)
+        .eq('id', id as any)
         .select()
         .single();
       if (error) throw error;
@@ -149,7 +149,7 @@ export function useDeleteInvoice() {
       const { error } = await supabase
         .from('invoices')
         .delete()
-        .eq('id', id);
+        .eq('id', id as any);
       if (error) throw error;
       return id;
     },

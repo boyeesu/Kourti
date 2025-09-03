@@ -27,16 +27,16 @@ export function useDocuments() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId as any)
         .single();
 
       const { data, error } = await supabase
         .from('documents')
         .select('*')
-        .eq('organization_id', profile?.organization_id || '');
+        .eq('organization_id', (profile as any)?.organization_id || '');
 
       if (error) throw error;
-      return data as Document[];
+      return data as any as Document[];
     },
   });
 }
@@ -48,11 +48,11 @@ export function useDocument(id: string) {
       const { data, error } = await supabase
         .from('documents')
         .select('*')
-        .eq('id', id)
+        .eq('id', id as any)
         .single();
 
       if (error) throw error;
-      return data as Document;
+      return data as any as Document;
     },
   });
 }
@@ -64,10 +64,10 @@ export function useDocumentsByClient(clientId: string) {
       const { data, error } = await supabase
         .from('documents')
         .select('*')
-        .eq('client_id', clientId);
+        .eq('client_id', clientId as any);
 
       if (error) throw error;
-      return data as Document[];
+      return data as any as Document[];
     },
   });
 }
@@ -82,16 +82,16 @@ export function useCreateDocument() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId as any)
         .single();
 
       const { data, error } = await supabase
         .from('documents')
         .insert({
           ...documentData,
-          organization_id: profile?.organization_id,
+          organization_id: (profile as any)?.organization_id,
           created_by: userId,
-        })
+        } as any)
         .select()
         .single();
 

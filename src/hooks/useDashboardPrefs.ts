@@ -18,8 +18,8 @@ export function useDashboardPrefs(orgId: string) {
       const { data, error } = await supabase
         .from('dashboard_prefs')
         .select('*')
-        .eq('user_id', userId)
-        .eq('organization_id', orgId)
+        .eq('user_id', userId as any)
+        .eq('organization_id', orgId as any)
         .maybeSingle();
 
       if (error) throw error;
@@ -46,7 +46,7 @@ export function useSaveDashboardPrefs(orgId: string) {
 
       const { error } = await supabase
         .from('dashboard_prefs')
-        .upsert({ user_id: userId, organization_id: orgId, ...prefs });
+        .upsert({ user_id: userId, organization_id: orgId, ...prefs } as any);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -51,7 +51,7 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<{ items: Cli
         throw error;
       }
 
-      const items = (data ?? []).map(client => ({
+      const items = (data ?? []).map((client: any) => ({
         ...client,
         cases: client.cases ?? [],
         contracts: client.contracts ?? [],
@@ -74,7 +74,7 @@ export function useClient(id: string) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId as any)
         .single();
 
       if (!(profile as any)?.organization_id) {
@@ -84,12 +84,12 @@ export function useClient(id: string) {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
-        .eq('id', id)
-        .eq('organization_id', profile.organization_id)
+        .eq('id', id as any)
+        .eq('organization_id', (profile as any)?.organization_id)
         .single();
 
       if (error) throw error;
-      return data as Client;
+      return data as any as Client;
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -106,16 +106,16 @@ export function useCreateClient() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId as any)
         .single();
 
       const { data, error } = await supabase
         .from('clients')
         .insert({
           ...clientData,
-          organization_id: profile?.organization_id,
+          organization_id: (profile as any)?.organization_id,
           created_by: userId,
-        })
+        } as any)
         .select()
         .single();
 
@@ -147,8 +147,8 @@ export function useUpdateClient() {
     mutationFn: async ({ id, ...updateData }: UpdateClientData) => {
       const { data, error } = await supabase
         .from('clients')
-        .update(updateData)
-        .eq('id', id)
+        .update(updateData as any)
+        .eq('id', id as any)
         .select()
         .single();
 
@@ -157,7 +157,7 @@ export function useUpdateClient() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['client', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['client', (data as any).id] });
       toast({
         title: "Success",
         description: "Client updated successfully.",
@@ -182,7 +182,7 @@ export function useDeleteClient() {
       const { error } = await supabase
         .from('clients')
         .delete()
-        .eq('id', id);
+        .eq('id', id as any);
 
       if (error) throw error;
     },

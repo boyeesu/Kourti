@@ -29,7 +29,7 @@ export function useNotifications(userId?: string) {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', targetUserId)
+        .eq('user_id', targetUserId as any)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -53,8 +53,8 @@ export function useUnreadNotificationsCount(userId?: string) {
       const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', targetUserId)
-        .eq('status', 'unread');
+        .eq('user_id', targetUserId as any)
+        .eq('status', 'unread' as any);
 
       if (error) throw error;
       return count || 0;
@@ -87,7 +87,7 @@ export function useCreateNotification() {
           user_id: targetUserId,
           organization_id: organizationId,
           status: 'unread',
-        })
+        } as any)
         .select()
         .single();
 
@@ -119,8 +119,8 @@ export function useUpdateNotification() {
     mutationFn: async ({ id, status }: UpdateNotificationData) => {
       const { data, error } = await supabase
         .from('notifications')
-        .update({ status })
-        .eq('id', id)
+        .update({ status } as any)
+        .eq('id', id as any)
         .select()
         .single();
 
@@ -155,9 +155,9 @@ export function useMarkAllNotificationsAsRead() {
 
       const { error } = await supabase
         .from('notifications')
-        .update({ status: 'read' })
-        .eq('user_id', userId)
-        .eq('status', 'unread');
+        .update({ status: 'read' } as any)
+        .eq('user_id', userId as any)
+        .eq('status', 'unread' as any);
 
       if (error) throw error;
     },
@@ -191,7 +191,7 @@ export function useDeleteNotification() {
       const { error } = await supabase
         .from('notifications')
         .delete()
-        .eq('id', notificationId);
+        .eq('id', notificationId as any);
 
       if (error) throw error;
     },

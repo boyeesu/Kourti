@@ -4,7 +4,6 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Contract } from '@/types';
-import { mockContracts } from '@/lib/mock-data';
 
 export interface CreateContractData {
   title: string;
@@ -67,11 +66,11 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
 
         // Apply filters if provided
         if (status) {
-          query = query.eq('status', status);
+          query = query.eq('status', status as any);
         }
 
         if (clientId) {
-          query = query.eq('client_id', clientId);
+          query = query.eq('client_id', clientId as any);
         }
 
         // Apply sorting and pagination
@@ -126,7 +125,7 @@ export function useContract(id: string) {
           created_by,
           client:client_id(id, name)
         `)
-        .eq('id', id)
+        .eq('id', id as any)
         .single();
 
       if (error) throw error;
@@ -164,14 +163,14 @@ export function useContractsByClient(clientId: string, page = 1, pageSize = 5) {
           end_date,
           created_at
         `, { count: 'exact' })
-        .eq('client_id', clientId)
+        .eq('client_id', clientId as any)
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
       
       return { 
-        contracts: data as Contract[], 
+        contracts: data as any as Contract[],
         count: count || 0 
       };
     },
@@ -199,14 +198,14 @@ export function useCreateContract() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .single();
         
       if (profileError) {
         throw new Error("Could not retrieve user profile information.");
       }
       
-      if (!profile?.organization_id) {
+      if (!(profile as any)?.organization_id) {
         throw new Error("No organization associated with your account. Please contact your administrator.");
       }
 
@@ -214,9 +213,9 @@ export function useCreateContract() {
         .from('contracts')
         .insert({
           ...contractData,
-          organization_id: profile.organization_id,
+          organization_id: (profile as any).organization_id,
           created_by: userId,
-        })
+        } as any)
         .select()
         .single();
 
@@ -255,8 +254,8 @@ export function useUpdateContract() {
         .update({
           ...updateData,
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
+        } as any)
+        .eq('id', id as any)
         .select()
         .single();
 
@@ -265,7 +264,7 @@ export function useUpdateContract() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
-      queryClient.invalidateQueries({ queryKey: ['contract', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['contract', (data as any).id] });
       toast({
         title: "Success",
         description: "Contract updated successfully.",
@@ -294,7 +293,7 @@ export function useDeleteContract() {
       const { error } = await supabase
         .from('contracts')
         .delete()
-        .eq('id', id);
+        .eq('id', id as any);
 
       if (error) throw error;
     },

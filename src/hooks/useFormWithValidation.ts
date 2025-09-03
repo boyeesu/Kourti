@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm, UseFormProps, UseFormReturn, FieldValues, SubmitHandler } from 'react-hook-form';
+import { useForm, UseFormProps, UseFormReturn, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -10,9 +10,8 @@ import { sanitizeErrorForLogging } from '@/lib/utils';
  * and loading state management.
  */
 export function useFormWithValidation<
-  TFormValues extends FieldValues = FieldValues,
-  TContext = any,
-  TSchema extends z.ZodType<any, any, any> = z.ZodType<any, any, any>
+  TSchema extends z.ZodType<any, any, any> = z.ZodType<any, any, any>,
+  TContext = any
 >({
   schema,
   defaultValues,
@@ -23,12 +22,12 @@ export function useFormWithValidation<
   ...formOptions
 }: {
   schema: TSchema;
-  defaultValues?: UseFormProps<TFormValues, TContext>['defaultValues'];
+  defaultValues?: UseFormProps<z.infer<TSchema>, TContext>['defaultValues'];
   onSubmit?: SubmitHandler<z.infer<TSchema>>;
   onError?: (errors: any, event?: any) => void;
   successMessage?: string;
   errorMessage?: string;
-} & Omit<UseFormProps<TFormValues, TContext>, 'resolver'>): UseFormReturn<z.infer<TSchema>, TContext> & {
+} & Omit<UseFormProps<z.infer<TSchema>, TContext>, 'resolver'>): UseFormReturn<z.infer<TSchema>, TContext> & {
   isSubmitting: boolean;
   submitHandler: (values: z.infer<TSchema>) => Promise<void>;
   resetWithValues: (values: z.infer<TSchema>) => void;
@@ -37,10 +36,10 @@ export function useFormWithValidation<
   const { toast } = useToast();
 
   const form = useForm<z.infer<TSchema>, TContext>({
-    resolver: zodResolver(schema),
-    defaultValues: defaultValues as UseFormProps<z.infer<TSchema>, TContext>['defaultValues'],
+    resolver: zodResolver(schema) as any,
+    defaultValues: defaultValues as any,
     ...formOptions,
-  });
+  }) as any;
 
   const submitHandler = async (values: z.infer<TSchema>) => {
     if (!onSubmit) return;

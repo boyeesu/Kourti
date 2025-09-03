@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { sanitizeErrorForLogging } from '@/lib/utils';
 import { Case, Client, CalendarEvent } from '@/types';
-import { mockDashboardStats } from '@/lib/mock-data';
 
 export interface DashboardStats {
   totalCases: number;
@@ -69,7 +68,7 @@ export function useDashboard() {
             .from('cases')
             .select('*', { count: 'exact', head: true })
             .eq('organization_id', organizationId)
-            .in('status', ['open', 'active', 'in_progress']),
+            .in('status', ['open', 'active', 'in_progress'] as any),
 
           // Total clients count
           supabase
@@ -88,7 +87,7 @@ export function useDashboard() {
             .from('invoices')
             .select('total_amount')
             .eq('organization_id', organizationId)
-            .eq('status', 'paid'),
+            .eq('status', 'paid' as any),
 
           // Upcoming events count (next 7 days)
           supabase
@@ -125,8 +124,8 @@ export function useDashboard() {
         ]);
 
         // Calculate total revenue from paid invoices
-        const totalRevenue = invoicesResult.data?.reduce((sum, invoice) => {
-          return sum + (invoice.total_amount || 0);
+        const totalRevenue = invoicesResult.data?.reduce((sum, invoice: any) => {
+          return sum + (invoice?.total_amount || 0);
         }, 0) || 0;
 
         // Check for errors
