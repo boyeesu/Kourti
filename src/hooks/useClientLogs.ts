@@ -11,12 +11,12 @@ export function useClientLogs(clientId: string) {
       const { data, error } = await supabase
         .from('communication_logs')
         .select('*')
-        .eq('client_id', clientId)
+        .eq('client_id', clientId as any)
         .order('created_at', { ascending: false });
       if (error) throw error;
       
       // Map database results to interface
-      return (data || []).map(item => ({
+      return ((data as any[]) || []).map((item: any) => ({
         id: item.id,
         client_id: item.client_id,
         user_id: item.user_id,
@@ -47,20 +47,20 @@ export function useCreateClientLog() {
 
       const { data, error } = await supabase
         .from('communication_logs')
-        .insert([logData])
+        .insert([logData] as any)
         .select()
         .single();
       if (error) throw error;
       
       return {
-        id: data.id,
-        client_id: data.client_id,
-        user_id: data.user_id,
-        organization_id: data.organization_id,
-        type: data.type as 'note' | 'email' | 'phone' | 'call' | 'meeting' | 'other',
-        content: data.content,
-        created_at: data.created_at,
-        created_by: data.user_id,
+        id: (data as any).id,
+        client_id: (data as any).client_id,
+        user_id: (data as any).user_id,
+        organization_id: (data as any).organization_id,
+        type: (data as any).type as 'note' | 'email' | 'phone' | 'call' | 'meeting' | 'other',
+        content: (data as any).content,
+        created_at: (data as any).created_at,
+        created_by: (data as any).user_id,
       } as CommunicationLog;
     },
     onSuccess: (_, vars) => {

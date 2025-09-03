@@ -33,8 +33,8 @@ export function useAnalyzeDocument() {
     onSuccess: async ({ analysis, docId }) => {
       await supabase
         .from('documents')
-        .update({ summary: analysis })
-        .eq('id', docId);
+        .update({ summary: analysis } as any)
+        .eq('id', docId as any);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast({ title: 'Document summarized', description: 'Summary saved.' });
     },

@@ -27,7 +27,7 @@ export function useCreateCaseType() {
 
       const { data, error } = await supabase
         .from('case_types')
-        .insert(typeData)
+        .insert(typeData as any)
         .select()
         .single();
       if (error) throw error;

@@ -63,7 +63,7 @@ export function useCalendarEvents() {
       }
 
       console.log('✅ Calendar events found:', data?.length || 0);
-      return data as CalendarEvent[];
+      return (data as unknown as CalendarEvent[]) || [];
     },
     // The query is only enabled if all necessary dependencies are met.
     enabled: !!organizationId && !orgLoading && !orgError,
@@ -82,11 +82,11 @@ export function useCalendarEvent(id: string) {
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
-        .eq('id', id)
+        .eq('id', id as any)
         .single();
 
       if (error) throw error;
-      return data as CalendarEvent;
+      return (data as unknown as CalendarEvent) || {};
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -116,7 +116,7 @@ export function useCalendarEventsByDateRange(startDate: string, endDate: string)
         .order('start_date', { ascending: true });
 
       if (error) throw error;
-      return data as CalendarEvent[];
+      return (data as unknown as CalendarEvent[]) || [];
     },
     enabled: !!startDate && !!endDate && !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
@@ -133,11 +133,11 @@ export function useCalendarEventsByClient(clientId: string) {
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
-        .eq('client_id', clientId)
+        .eq('client_id', clientId as any)
         .order('start_date', { ascending: true });
 
       if (error) throw error;
-      return data as CalendarEvent[];
+      return (data as unknown as CalendarEvent[]) || [];
     },
     enabled: !!clientId,
     staleTime: 5 * 60 * 1000,
@@ -166,7 +166,7 @@ export function useCreateCalendarEvent() {
           ...eventData,
           organization_id: organizationId,
           created_by: userId,
-        })
+        } as any)
         .select()
         .single();
 
@@ -205,17 +205,17 @@ export function useUpdateCalendarEvent() {
     mutationFn: async ({ id, ...updateData }: { id: string } & Partial<CreateCalendarEventData>) => {
       const { data, error } = await supabase
         .from('calendar_events')
-        .update(updateData)
-        .eq('id', id)
+        .update(updateData as any)
+        .eq('id', id as any)
         .select()
         .single();
 
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({
-        queryKey: ['calendar-event', { id: data.id }],
+        queryKey: ['calendar-event', { id: data?.id }],
       });
       queryClient.invalidateQueries({
         queryKey: ['calendar-events', { organizationId }],
@@ -249,7 +249,7 @@ export function useDeleteCalendarEvent() {
       const { error } = await supabase
         .from('calendar_events')
         .delete()
-        .eq('id', id);
+        .eq('id', id as any);
 
       if (error) throw error;
     },

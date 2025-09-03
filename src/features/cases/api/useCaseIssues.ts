@@ -16,7 +16,7 @@ export const useCaseIssues = (caseTypeId?: string) => {
       const { data, error } = await supabase
         .from("case_issues")
         .select("*")
-        .eq("case_type_id", caseTypeId)
+        .eq("case_type_id", caseTypeId as any)
         .order("name");
 
       if (error) {
@@ -25,7 +25,7 @@ export const useCaseIssues = (caseTypeId?: string) => {
       }
 
       console.log('Case issues retrieved:', data);
-      return data || [];
+      return (data as unknown as CaseIssue[]) || [];
     },
     enabled: !!caseTypeId,
   });

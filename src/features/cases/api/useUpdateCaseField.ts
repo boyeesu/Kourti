@@ -17,8 +17,8 @@ export function useUpdateCaseField() {
           is_required: field.is_required,
           options: field.options,
           field_order: field.field_order,
-        })
-        .eq('id', field.id)
+        } as any)
+        .eq('id', field.id as any)
         .select()
         .single();
 

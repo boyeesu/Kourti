@@ -11,7 +11,7 @@ export function useDeleteCaseField(caseTypeId: string) {
       const { error } = await supabase
         .from('case_fields')
         .delete()
-        .eq('id', fieldId);
+        .eq('id', fieldId as any);
       if (error) throw error;
     },
     onSuccess: () => {

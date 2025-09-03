@@ -23,10 +23,6 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ 
   caseId, 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  clientId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  contractId,
   limit = 10, 
   showTitle = true 
 }: ActivityFeedProps) {

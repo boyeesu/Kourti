@@ -1,4 +1,3 @@
-import React from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,8 +13,6 @@ import {
   LogOut,
   Receipt,
   Bot,
-  HelpCircle,
-  Bell,
   Gauge,
   LucideIcon
 } from "lucide-react";
@@ -153,7 +150,7 @@ export function AppSidebar() {
 
   // Check user role
   const { data: userRoleData } = useUserRole();
-  const role = userRoleData?.role;
+  const role = userRoleData && 'role' in userRoleData ? userRoleData.role : null;
   const isAdmin = role === "superadmin" || role === "admin";
   
   // Filter navigation items based on role

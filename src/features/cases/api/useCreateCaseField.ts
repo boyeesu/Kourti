@@ -32,7 +32,7 @@ export function useCreateCaseField() {
 
       const { data, error } = await supabase
         .from('case_fields')
-        .insert(fieldData)
+        .insert(fieldData as any)
         .select()
         .single();
       if (error) throw error;

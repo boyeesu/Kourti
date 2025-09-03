@@ -109,8 +109,7 @@ function CommandPalette() {
 
 // Trigger initial reminders from insights
 function DeadlineReminders() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { upcomingCases, upcomingContracts } = useInsights(7);
+  useInsights(7);
 
   // You can add notification creation logic here if needed
   // For example, create database notifications for deadlines

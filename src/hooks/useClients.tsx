@@ -77,7 +77,7 @@ export function useClient(id: string) {
         .eq('user_id', userId || '')
         .single();
 
-      if (!profile?.organization_id) {
+      if (!(profile as any)?.organization_id) {
         throw new Error('User organization not found');
       }
 

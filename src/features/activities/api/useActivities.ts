@@ -13,7 +13,7 @@ export function useActivities(caseId: string) {
       const { data, error } = await supabase
         .from('case_activities')
         .select('*')
-        .eq('case_id' as any, caseId)
+        .eq('case_id', caseId as any)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data as unknown as CaseActivity[]) || [];

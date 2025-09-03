@@ -1,6 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { CaseActivity } from '@/features/activities/types';
+
+export interface CreateActivityData {
+  title: string;
+  description?: string;
+  activity_type: string;
+  status?: string;
+  due_date?: string;
+  assigned_to?: string;
+}
 
 /**
  * Create a new activity for a given case
@@ -8,7 +16,7 @@ import type { CaseActivity } from '@/features/activities/types';
 export function useCreateActivity(caseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: Partial<CaseActivity> & { title: string; activity_type: string }) => {
+    mutationFn: async (payload: CreateActivityData) => {
       // Get current user's organization
       const user = await supabase.auth.getUser();
       if (!user.data.user) throw new Error('User not authenticated');
@@ -16,7 +24,7 @@ export function useCreateActivity(caseId: string) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id' as any, user.data.user.id)
+        .eq('user_id', user.data.user.id as any)
         .single();
 
       if (!(profile as any)?.organization_id) throw new Error('User organization not found');

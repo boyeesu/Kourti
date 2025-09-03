@@ -19,8 +19,8 @@ export function useCaseTypes() {
       const { data, error } = await supabase
         .from('case_types')
         .select('*')
-        .eq('organization_id', organizationId)
-        .eq('is_active', true)
+        .eq('organization_id', organizationId as any)
+        .eq('is_active', true as any)
         .order('name');
       
       if (error) {

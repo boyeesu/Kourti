@@ -26,11 +26,11 @@ export function useAllRoles() {
       if (customError) throw customError;
 
       // Mark source for UI use
-      const globalRoles = (globals || []).map((r) => ({
+      const globalRoles = ((globals as any[]) || []).map((r: any) => ({
         ...r,
         source: 'global',
       }));
-      const customRoles = (customs || []).map((r) => ({
+      const customRoles = ((customs as any[]) || []).map((r: any) => ({
         ...r,
         source: 'custom',
       }));

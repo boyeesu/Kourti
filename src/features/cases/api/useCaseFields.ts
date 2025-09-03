@@ -10,10 +10,10 @@ export function useCaseFields(caseTypeId: string) {
       const { data, error } = await supabase
         .from('case_fields')
         .select('*')
-        .eq('case_type_id', caseTypeId)
+        .eq('case_type_id', caseTypeId as any)
         .order('field_order', { ascending: true });
       if (error) throw error;
-      return data as CaseField[]; // Add explicit type assertion here
+      return (data as unknown as CaseField[]) || [];
     },
     enabled: Boolean(caseTypeId),
     staleTime: 5 * 60 * 1000,

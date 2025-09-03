@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { mockCases } from '@/lib/mock-data';
 
 
 export interface CreateCaseData {
@@ -128,7 +127,7 @@ export function useCase(id: string) {
           assigned_user:assigned_to(id, first_name, last_name),
           case_type:case_types(id, name, description)
         `)
-        .eq('id', id)
+        .eq('id', id as any)
         .single();
 
       if (error) throw error;
@@ -168,7 +167,7 @@ export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
           created_by,
           organization_id
         `, { count: 'exact' })
-        .eq('client_id', clientId)
+        .eq('client_id', clientId as any)
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -209,14 +208,14 @@ export function useCreateCase() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .single();
         
       if (profileError) {
         throw new Error("Could not retrieve user profile information.");
       }
       
-      if (!profile?.organization_id) {
+      if (!(profile as any)?.organization_id) {
         throw new Error("No organization associated with your account. Please contact your administrator.");
       }
 
@@ -224,9 +223,9 @@ export function useCreateCase() {
         .from('cases')
         .insert({
           ...caseData,
-          organization_id: profile.organization_id,
+          organization_id: (profile as any).organization_id,
           created_by: userId,
-        })
+        } as any)
         .select()
         .single();
 
@@ -265,17 +264,17 @@ export function useUpdateCase() {
     mutationFn: async ({ id, ...updateData }: UpdateCaseData) => {
       const { data, error } = await supabase
         .from('cases')
-        .update(updateData)
-        .eq('id', id)
+        .update(updateData as any)
+        .eq('id', id as any)
         .select()
         .single();
 
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
-      queryClient.invalidateQueries({ queryKey: ['case', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['case', data?.id] });
       toast({
         title: "Success",
         description: "Case updated successfully.",
@@ -304,7 +303,7 @@ export function useDeleteCase() {
       const { error } = await supabase
         .from('cases')
         .delete()
-        .eq('id', id);
+        .eq('id', id as any);
 
       if (error) throw error;
     },

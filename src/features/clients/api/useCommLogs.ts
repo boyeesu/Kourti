@@ -9,10 +9,10 @@ export function useCommLogs(clientId: string) {
       const { data, error } = await supabase
         .from('communication_logs')
         .select('*')
-        .eq('client_id', clientId)
+        .eq('client_id', clientId as any)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data.map(item => ({
+      return (data as any[]).map((item: any) => ({
         ...item,
         type: item.type as 'note' | 'email' | 'phone' | 'call' | 'meeting' | 'other'
       }));
@@ -31,7 +31,7 @@ export function useCreateCommLog(clientId: string) {
           ...log, 
           client_id: clientId,
           organization_id: '' // This will be handled by RLS
-        })
+        } as any)
         .select()
         .single();
       if (error) throw error;
