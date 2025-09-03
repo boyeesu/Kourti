@@ -1,4 +1,3 @@
-import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,16 +23,16 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ 
   caseId, 
-  clientId, 
-  contractId, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  clientId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  contractId,
   limit = 10, 
   showTitle = true 
 }: ActivityFeedProps) {
-  const { data: activities = [], isLoading } = useActivities({
-    case_id: caseId,
-    client_id: clientId,
-    contract_id: contractId,
-  });
+  const { data: activities = [], isLoading } = useActivities(
+    caseId || ''
+  );
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -149,7 +148,7 @@ export function ActivityFeed({
                   )}
                   <div className="flex items-center space-x-2 mt-2">
                     <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
+                      {activity.created_at && formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
                     </p>
                     {activity.status && (
                       <Badge className={`text-xs ${getStatusColor(activity.status)}`}>

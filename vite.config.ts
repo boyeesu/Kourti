@@ -29,7 +29,6 @@ export default defineConfig(({ mode }) => ({
     minify: 'terser' as const,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
-      external: ['react-dom'],
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],

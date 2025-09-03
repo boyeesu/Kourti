@@ -7,16 +7,16 @@ import type { CaseActivity } from '@/features/activities/types';
  * Fetch all activities for a given case
  */
 export function useActivities(caseId: string) {
-  return useQuery<CaseActivity[], Error>({
+  return useQuery({
     queryKey: ['activities', caseId],
-    queryFn: async () => {
+    queryFn: async (): Promise<CaseActivity[]> => {
       const { data, error } = await supabase
         .from('case_activities')
         .select('*')
-        .eq('case_id', caseId)
+        .eq('case_id' as any, caseId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data as unknown as CaseActivity[]) || [];
     },
     enabled: Boolean(caseId),
     staleTime: 5 * 60 * 1000,

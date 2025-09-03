@@ -16,18 +16,18 @@ export function useCreateActivity(caseId: string) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', user.data.user.id)
+        .eq('user_id' as any, user.data.user.id)
         .single();
 
-      if (!profile?.organization_id) throw new Error('User organization not found');
+      if (!(profile as any)?.organization_id) throw new Error('User organization not found');
 
       const { data, error } = await supabase
         .from('case_activities')
         .insert({ 
           ...payload, 
           case_id: caseId,
-          organization_id: profile.organization_id 
-        })
+          organization_id: (profile as any).organization_id 
+        } as any)
         .select()
         .single();
       if (error) throw error;

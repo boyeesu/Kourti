@@ -1,10 +1,9 @@
 // src/components/layout/AppLayout.tsx
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -20,7 +19,6 @@ import { useInsights } from '@/hooks/useInsights';
 import { NotificationIcon } from '@/components/ui/notifications';
 import { 
   User, 
-  Bell, 
   Settings, 
   Plus, 
   Search as SearchIcon, 
@@ -34,7 +32,6 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -112,6 +109,7 @@ function CommandPalette() {
 
 // Trigger initial reminders from insights
 function DeadlineReminders() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { upcomingCases, upcomingContracts } = useInsights(7);
 
   // You can add notification creation logic here if needed
