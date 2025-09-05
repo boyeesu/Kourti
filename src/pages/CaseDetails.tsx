@@ -3,16 +3,18 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useCase, useUpdateCase } from "@/hooks/useCases";
 import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
 import { useCaseIssues } from "@/features/cases/api/useCaseIssues";
+import { useDocuments } from "@/hooks/useDocuments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ArrowLeft, Calendar, Building, Gavel, Plus, Check, Trash, Edit2, X } from "lucide-react";
+import { ArrowLeft, Calendar, Building, Gavel, Plus, Check, Trash, Edit2, FileText, Download, Eye } from "lucide-react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from "@/hooks/useTasks";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useState } from "react";
 
@@ -21,6 +23,8 @@ export default function CaseDetails() {
   const navigate = useNavigate();
   const { data: caseData, isLoading, error } = useCase(id!);
   const updateCase = useUpdateCase();
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [showDocumentDialog, setShowDocumentDialog] = useState(false);
   
   // Get case type and issue data
   const caseTypeId = (caseData as any)?.case_type_id || "";
@@ -223,16 +227,29 @@ export default function CaseDetails() {
         </CardContent>
       </Card>
 
-      {/* Tasks Section - replaces "Activities" */}
+      {/* Tasks Section */}
       <Card className="shadow-card">
-        <CardHeader className="flex gap-4 items-center">
-          <CardTitle className="flex-1">Tasks</CardTitle>
-          <Button size="sm" onClick={() => {}}>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Tasks</CardTitle>
+          <Button size="sm" onClick={() => setShowTaskDialog(true)}>
             <Plus className="h-4 w-4 mr-1" /> Add Task
           </Button>
         </CardHeader>
         <CardContent>
           <TasksSection caseId={caseData.id} />
+        </CardContent>
+      </Card>
+
+      {/* Documents Section */}
+      <Card className="shadow-card">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Case Documents</CardTitle>
+          <Button size="sm" onClick={() => setShowDocumentDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Attach Document
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <DocumentsSection caseId={caseData.id} />
         </CardContent>
       </Card>
 
@@ -256,7 +273,19 @@ export default function CaseDetails() {
         </CardContent>
       </Card>
 
-      {/* Task dialog placeholder */}
+      {/* Task Creation Dialog */}
+      <NewTaskDialog
+        open={showTaskDialog}
+        onOpenChange={setShowTaskDialog}
+        caseId={caseData.id}
+      />
+
+      {/* Document Attachment Dialog */}
+      <DocumentAttachDialog
+        open={showDocumentDialog}
+        onOpenChange={setShowDocumentDialog}
+        caseId={caseData.id}
+      />
     </div>
   );
 }
@@ -329,12 +358,36 @@ function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean
   const { data: users = [] } = useOrganizationMembers();
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
-  const [form, setForm] = useState(() => existing ? { ...existing } : { title: "", description: "", due_date: "", priority: "medium", assigned_to: "" });
+  const [form, setForm] = useState(() => existing ? { ...existing } : { 
+    title: "", 
+    description: "", 
+    due_date: "", 
+    priority: "medium", 
+    assigned_to: "",
+    task_type: "general"
+  });
   const [submitting, setSubmitting] = useState(false);
+
+  // Task types for legal practice
+  const taskTypes = [
+    { value: "general", label: "General Task" },
+    { value: "court_appearance", label: "Court Appearance" },
+    { value: "client_visit", label: "Client Visit" },
+    { value: "document_review", label: "Document Review" },
+    { value: "research", label: "Legal Research" },
+    { value: "filing", label: "Court Filing" },
+    { value: "deposition", label: "Deposition" },
+    { value: "meeting", label: "Meeting" },
+    { value: "phone_call", label: "Phone Call" },
+    { value: "investigation", label: "Investigation" },
+    { value: "negotiation", label: "Negotiation" },
+    { value: "contract_draft", label: "Contract Drafting" },
+  ];
 
   function handleChange(e: any) {
     setForm((prev: any) => ({ ...prev, [e.target.name]: e.target.value }));
   }
+
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     setSubmitting(true);
@@ -351,6 +404,7 @@ function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean
         onSuccess: () => {
           setSubmitting(false);
           onOpenChange(false);
+          setForm({ title: "", description: "", due_date: "", priority: "medium", assigned_to: "", task_type: "general" });
         },
         onError: () => setSubmitting(false)
       });
@@ -359,32 +413,253 @@ function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Task" : "New Task"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Task" : "Create New Task"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input name="title" value={form.title} onChange={handleChange} placeholder="Title" required />
-          <Input name="description" value={form.description} onChange={handleChange} placeholder="Description" />
-          <Input name="due_date" type="date" value={form.due_date ? form.due_date.substring(0, 10) : ""} onChange={handleChange} />
-          <select name="priority" value={form.priority} onChange={handleChange} className="w-full border rounded p-2">
-            <option value="high">High Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="low">Low Priority</option>
-          </select>
-          <select name="assigned_to" value={form.assigned_to} onChange={handleChange} className="w-full border rounded p-2">
-            <option value="">Unassigned</option>
-            {users.map((u: any) => (
-              <option key={u.user_id} value={u.user_id}>
-                {u.first_name} {u.last_name} ({u.email})
-              </option>
-            ))}
-          </select>
+        <form onSubmit={handleSubmit} className="space-y-4" id="task-form">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Task Title *</label>
+              <Input 
+                name="title" 
+                value={form.title} 
+                onChange={handleChange} 
+                placeholder="Enter task title" 
+                required 
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Task Type</label>
+              <Select value={form.task_type} onValueChange={(value) => setForm((prev: any) => ({ ...prev, task_type: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select task type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {taskTypes.map(type => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Due Date</label>
+              <Input 
+                name="due_date" 
+                type="date" 
+                value={form.due_date ? form.due_date.substring(0, 10) : ""} 
+                onChange={handleChange} 
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Priority</label>
+              <Select value={form.priority} onValueChange={(value) => setForm((prev: any) => ({ ...prev, priority: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">High Priority</SelectItem>
+                  <SelectItem value="medium">Medium Priority</SelectItem>
+                  <SelectItem value="low">Low Priority</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-2">Assign To</label>
+              <Select value={form.assigned_to} onValueChange={(value) => setForm((prev: any) => ({ ...prev, assigned_to: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {users.map((u: any) => (
+                    <SelectItem key={u.user_id} value={u.user_id}>
+                      {u.first_name} {u.last_name} ({u.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-2">Description</label>
+              <Textarea 
+                name="description" 
+                value={form.description} 
+                onChange={handleChange} 
+                placeholder="Enter task description (optional)" 
+                rows={3}
+              />
+            </div>
+          </div>
         </form>
         <DialogFooter>
-          <Button onClick={() => onOpenChange(false)} variant="ghost"><X className="h-4 w-4" /> Cancel</Button>
+          <Button onClick={() => onOpenChange(false)} variant="outline">
+            Cancel
+          </Button>
           <Button type="submit" form="task-form" disabled={submitting}>
             {submitting ? "Saving…" : isEdit ? "Save Changes" : "Create Task"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --- Documents Section ---
+function DocumentsSection({ caseId }: { caseId: string }) {
+  const { data: documents = [], isLoading } = useDocuments();
+  
+  // Filter documents that might be associated with this case
+  const caseDocuments = documents.filter((doc: any) => 
+    doc.metadata?.case_id === caseId || doc.name.toLowerCase().includes('case')
+  );
+
+  if (isLoading) return <div>Loading documents…</div>;
+
+  return (
+    <div className="space-y-4">
+      {caseDocuments.length === 0 ? (
+        <p className="text-center py-8 text-muted-foreground">No documents attached to this case</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3">
+          {caseDocuments.map((doc: any) => (
+            <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">{doc.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Uploaded {new Date(doc.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline">
+                  <Eye className="h-4 w-4 mr-1" />
+                  View
+                </Button>
+                <Button size="sm" variant="outline">
+                  <Download className="h-4 w-4 mr-1" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Document Attachment Dialog ---
+function DocumentAttachDialog({ open, onOpenChange, caseId }: { open: boolean, onOpenChange: (b: boolean) => void, caseId: string }) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleAttach = () => {
+    if (selectedFile) {
+      // TODO: Implement file upload and association with case
+      console.log('Attaching file to case:', selectedFile, caseId);
+      onOpenChange(false);
+      setSelectedFile(null);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Attach Document to Case</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+            }`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            {selectedFile ? (
+              <div className="space-y-2">
+                <FileText className="h-12 w-12 mx-auto text-primary" />
+                <p className="font-medium">{selectedFile.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {Math.round(selectedFile.size / 1024)} KB
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSelectedFile(null)}
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                <p>Drag and drop a file here, or</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => document.getElementById('file-input')?.click()}
+                >
+                  Browse Files
+                </Button>
+              </div>
+            )}
+            <input
+              id="file-input"
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  handleFileSelect(e.target.files[0]);
+                }
+              }}
+              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Supported formats: PDF, Word documents, images, and text files
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)} variant="outline">
+            Cancel
+          </Button>
+          <Button onClick={handleAttach} disabled={!selectedFile}>
+            Attach Document
           </Button>
         </DialogFooter>
       </DialogContent>
