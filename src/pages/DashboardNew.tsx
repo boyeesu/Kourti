@@ -384,84 +384,86 @@ export default function Dashboard() {
                   <Activity className="h-5 w-5 text-primary" />
                   Activity Overview
                 </CardTitle>
-                <Tabs value={chartView} onValueChange={setChartView} className="w-auto">
-                  <TabsList className="grid w-[200px] grid-cols-2">
-                    <TabsTrigger value="monthly">Monthly</TabsTrigger>
-                    <TabsTrigger value="weekly">Weekly</TabsTrigger>
-                  </TabsList>
-                </Tabs>
               </div>
               <CardDescription>
                 Track new cases and contracts over time
               </CardDescription>
             </CardHeader>
             <CardContent className="px-1">
-              <TabsContent value="monthly" className="mt-0">
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={recentActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                    <XAxis 
-                      dataKey="month" 
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis 
-                      axisLine={false}
-                      tickLine={false}
-                      width={30}
-                    />
-                    <RechartsTooltip content={<CustomTooltip />} />
-                    <Legend 
-                      verticalAlign="top" 
-                      height={36}
-                      iconType="circle"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="cases" 
-                      name="Cases" 
-                      stroke="#3b82f6" 
-                      strokeWidth={3}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="contracts" 
-                      name="Contracts" 
-                      stroke="#10b981" 
-                      strokeWidth={3}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </TabsContent>
-              <TabsContent value="weekly" className="mt-0">
-                <ResponsiveContainer width="100%" height={300}>
-                  <RechartBarChart data={weeklyActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                    <XAxis 
-                      dataKey="day" 
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis 
-                      axisLine={false}
-                      tickLine={false}
-                      width={30}
-                    />
-                    <RechartsTooltip content={<CustomTooltip />} />
-                    <Legend 
-                      verticalAlign="top" 
-                      height={36}
-                      iconType="circle"
-                    />
-                    <Bar dataKey="cases" name="Cases" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="contracts" name="Contracts" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </RechartBarChart>
-                </ResponsiveContainer>
-              </TabsContent>
+              <Tabs value={chartView} onValueChange={setChartView} className="w-full">
+                <div className="flex justify-center mb-4">
+                  <TabsList className="grid w-[200px] grid-cols-2">
+                    <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                    <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                  </TabsList>
+                </div>
+                <TabsContent value="monthly" className="mt-0">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={recentActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
+                      <XAxis 
+                        dataKey="month" 
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        width={30}
+                      />
+                      <RechartsTooltip content={<CustomTooltip />} />
+                      <Legend 
+                        verticalAlign="top" 
+                        height={36}
+                        iconType="circle"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="cases" 
+                        name="Cases" 
+                        stroke="#3b82f6" 
+                        strokeWidth={3}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="contracts" 
+                        name="Contracts" 
+                        stroke="#10b981" 
+                        strokeWidth={3}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </TabsContent>
+                <TabsContent value="weekly" className="mt-0">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartBarChart data={weeklyActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
+                      <XAxis 
+                        dataKey="day" 
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        width={30}
+                      />
+                      <RechartsTooltip content={<CustomTooltip />} />
+                      <Legend 
+                        verticalAlign="top" 
+                        height={36}
+                        iconType="circle"
+                      />
+                      <Bar dataKey="cases" name="Cases" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="contracts" name="Contracts" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </RechartBarChart>
+                  </ResponsiveContainer>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </ModuleErrorBoundary>
