@@ -1348,6 +1348,7 @@ export type Database = {
           due_date: string | null
           id: string
           priority: string | null
+          task_type: string | null
           title: string
           updated_at: string | null
         }
@@ -1361,6 +1362,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string | null
+          task_type?: string | null
           title: string
           updated_at?: string | null
         }
@@ -1374,6 +1376,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string | null
+          task_type?: string | null
           title?: string
           updated_at?: string | null
         }

@@ -290,9 +290,9 @@ export default function CaseDetails() {
   );
 }
 
-// --- Tasks Section ---
 function TasksSection({ caseId }: { caseId: string }) {
   const { data: tasks = [], isLoading } = useTasks(caseId);
+  const { data: users = [] } = useOrganizationMembers();
   const total = tasks.length;
   const done = tasks.filter(t => t.completed).length;
   const pct = total === 0 ? 0 : Math.round((100 * done) / total);
@@ -312,6 +312,7 @@ function TasksSection({ caseId }: { caseId: string }) {
         <thead>
           <tr className="border-b">
             <th className="text-left py-2">Task</th>
+            <th className="text-left py-2">Type</th>
             <th className="text-left py-2">Due</th>
             <th className="text-left py-2">Assignee</th>
             <th className="text-left py-2">Priority</th>
@@ -320,23 +321,79 @@ function TasksSection({ caseId }: { caseId: string }) {
           </tr>
         </thead>
         <tbody>
-          {tasks.map(task => (
-            <tr key={task.id} className={task.completed ? "opacity-60" : ""}>
-              <td>{task.title}</td>
-              <td>{task.due_date ? new Date(task.due_date).toLocaleDateString() : "-"}</td>
-              <td>{task.assigned_to ? `Assigned to: ${task.assigned_to}` : "Unassigned"}</td>
-              <td className="capitalize">{task.priority || "-"}</td>
-              <td>
-                <Button size="sm" variant={task.completed ? "secondary" : "outline"} onClick={() => updateTask.mutate({ id: task.id, case_id: caseId! })}>
-                  {task.completed ? <Check className="h-4 w-4" /> : "Mark Done"}
-                </Button>
-              </td>
-              <td>
-                <Button size="icon" variant="ghost" onClick={() => setEditTask(task)}><Edit2 className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => deleteTask.mutate({ id: task.id, case_id: caseId })}><Trash className="h-4 w-4" /></Button>
-              </td>
-            </tr>
-          ))}
+          {tasks.map(task => {
+            const taskTypeLabels: Record<string, string> = {
+              general: "General",
+              court_appearance: "Court",
+              client_visit: "Visit",
+              document_review: "Doc Review",
+              research: "Research",
+              filing: "Filing",
+              deposition: "Deposition",
+              meeting: "Meeting",
+              phone_call: "Call",
+              investigation: "Investigation",
+              negotiation: "Negotiation",
+              contract_draft: "Drafting"
+            };
+            
+            return (
+              <tr key={task.id} className={task.completed ? "opacity-60" : ""}>
+                <td className="py-2">
+                  <div>
+                    <p className="font-medium">{task.title}</p>
+                    {task.description && (
+                      <p className="text-xs text-muted-foreground mt-1">{task.description}</p>
+                    )}
+                  </div>
+                </td>
+                <td className="py-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {taskTypeLabels[(task as any).task_type] || 'General'}
+                  </Badge>
+                </td>
+                <td className="py-2">{task.due_date ? new Date(task.due_date).toLocaleDateString() : "-"}</td>
+                <td className="py-2">
+                  {task.assigned_to ? (
+                    <span className="text-sm">{users.find((u: any) => u.user_id === task.assigned_to)?.first_name || 'Unknown'}</span>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">Unassigned</span>
+                  )}
+                </td>
+                <td className="py-2">
+                  <Badge 
+                    variant={task.priority === 'high' ? 'destructive' : task.priority === 'medium' ? 'default' : 'outline'}
+                    className="text-xs capitalize"
+                  >
+                    {task.priority || "Medium"}
+                  </Badge>
+                </td>
+                <td className="py-2">
+                  <Button 
+                    size="sm" 
+                    variant={task.completed ? "secondary" : "outline"} 
+                    onClick={() => updateTask.mutate({ 
+                      id: task.id, 
+                      case_id: caseId!, 
+                      completed: !task.completed 
+                    })}
+                  >
+                    {task.completed ? <Check className="h-4 w-4" /> : "Mark Done"}
+                  </Button>
+                </td>
+                <td className="py-2">
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => setEditTask(task)}>
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => deleteTask.mutate({ id: task.id, case_id: caseId })}>
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {/* Edit Task Dialog */}

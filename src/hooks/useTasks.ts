@@ -16,10 +16,12 @@ export interface CreateTaskData {
   due_date?: string;
   priority?: 'high' | 'medium' | 'low';
   assigned_to?: string;
+  task_type?: string;
 }
 
 export interface UpdateTaskData extends Partial<CreateTaskData> {
   id: string;
+  completed?: boolean;
 }
 
 /**
