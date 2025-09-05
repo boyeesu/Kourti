@@ -226,8 +226,6 @@ export default function Documents() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Document</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Size</TableHead>
                   <TableHead>Linked Case</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Uploaded By</TableHead>
@@ -244,14 +242,9 @@ export default function Documents() {
                          {getFileIcon(doc.file_type || 'file')}
                          <div>
                            <div className="font-medium">{doc.title || doc.name}</div>
-                           <div className="text-sm text-muted-foreground">ID: {doc.id}</div>
                          </div>
                        </div>
                      </TableCell>
-                     <TableCell>
-                       <Badge variant="outline">{doc.file_type || 'File'}</Badge>
-                     </TableCell>
-                     <TableCell className="text-sm">{doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : 'Unknown'}</TableCell>
                       <TableCell>
                          {(doc as any).case ? (
                            <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80" 

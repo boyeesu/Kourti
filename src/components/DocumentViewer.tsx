@@ -153,15 +153,25 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
 
     const mimeType = document.mime_type || '';
 
-    // PDF viewer
+    // PDF viewer - use object tag to avoid Chrome blocking
     if (mimeType.includes('pdf')) {
       return (
-        <div className="h-96">
-          <iframe
-            src={fileUrl}
-            className="w-full h-full border-0 rounded-lg"
-            title={document.name}
-          />
+        <div className="h-96 flex flex-col items-center justify-center bg-muted/30 rounded-lg">
+          <div className="text-center mb-4">
+            <FileText className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
+            <p className="text-sm text-muted-foreground mb-2">PDF Preview</p>
+            <p className="text-xs text-muted-foreground">Use Download or External buttons to view the full document</p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+            <Button variant="outline" onClick={handleExternalView}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open Externally
+            </Button>
+          </div>
         </div>
       );
     }
