@@ -193,14 +193,20 @@ export default function ReamAI() {
           content = documentContent.fullContent || "";
           
           // Add metadata for better context
-          contextInfo = `Document: ${documentContent.title || documentContent.name || "Untitled"}
+          contextInfo = `Document: ${
+            documentContent.type === 'contract' 
+              ? documentContent.title 
+              : documentContent.name
+          }
 Type: ${documentContent.type === 'contract' ? 'Contract' : 'Document'}
 ${documentContent.contract_type ? `Contract Type: ${documentContent.contract_type}` : ''}
-${documentContent.status ? `Status: ${documentContent.status}` : ''}
+${documentContent.type === 'contract' && documentContent.status ? `Status: ${documentContent.status}` : ''}
 ${documentContent.value ? `Value: ${documentContent.currency || 'USD'} ${documentContent.value}` : ''}
-${documentContent.start_date ? `Start Date: ${documentContent.start_date}` : ''}
-${documentContent.end_date ? `End Date: ${documentContent.end_date}` : ''}
-Created: ${new Date(documentContent.created_at).toLocaleDateString()}
+${documentContent.type === 'contract' && documentContent.start_date ? `Start Date: ${documentContent.start_date}` : ''}
+${documentContent.type === 'contract' && documentContent.end_date ? `End Date: ${documentContent.end_date}` : ''}
+${documentContent.type === 'document' && documentContent.effective_date ? `Effective Date: ${documentContent.effective_date}` : ''}
+${documentContent.type === 'document' && documentContent.termination_date ? `Termination Date: ${documentContent.termination_date}` : ''}
+Created: ${documentContent.created_at ? new Date(documentContent.created_at).toLocaleDateString() : 'Unknown'}
 
 Question: ${userMessage}
 
@@ -209,7 +215,11 @@ ${content}`;
           
           // If still no content, provide guidance
           if (!content.trim()) {
-            content = `Document "${documentContent.title || documentContent.name}" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
+            content = `Document "${
+              documentContent.type === 'contract' 
+                ? documentContent.title 
+                : documentContent.name
+            }" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
           }
         } else if (selectedFile) {
           // For uploaded files, handle different file types

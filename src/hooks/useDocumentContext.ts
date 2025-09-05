@@ -21,7 +21,6 @@ export function useDocumentContent(documentId: string | null, documentType: 'doc
             content,
             summary,
             terms,
-            description,
             contract_type,
             effective_date,
             renewal_date,
@@ -43,8 +42,7 @@ export function useDocumentContent(documentId: string | null, documentType: 'doc
         const fullContent = [
           data.content,
           data.summary,
-          data.terms,
-          data.description
+          data.terms
         ].filter(Boolean).join('\n\n');
 
         return {
@@ -106,21 +104,19 @@ export function useSearchDocumentsForContext(searchTerm: string) {
         return { documents: [], contracts: [] };
       }
 
-      const [documentsResult, contractsResult] = await Promise.all([
-        // Search documents
-        supabase
-          .from('documents')
-          .select(`
-            id,
-            name,
-            title,
-            content,
-            summary,
-            description,
-            created_at
-          `)
-          .or(`name.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,summary.ilike.%${searchTerm}%`)
-          .limit(10),
+        const [documentsResult, contractsResult] = await Promise.all([
+          // Search documents
+          supabase
+            .from('documents')
+            .select(`
+              id,
+              name,
+              content,
+              summary,
+              created_at
+            `)
+            .or(`name.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,summary.ilike.%${searchTerm}%`)
+            .limit(10),
 
         // Search contracts
         supabase
