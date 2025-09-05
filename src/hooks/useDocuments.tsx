@@ -71,13 +71,54 @@ export function useDocumentsByClient(clientId: string) {
   return useQuery({
     queryKey: ['documents', 'client', clientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('client_id', clientId as any);
+      // First get cases for this client
+      const { data: cases, error: casesError } = await supabase
+        .from('cases')
+        .select('id')
+        .eq('client_id', clientId);
 
-      if (error) throw error;
-      return data as any as Document[];
+      if (casesError) throw casesError;
+
+      const caseIds = cases?.map(c => c.id) || [];
+
+      // Query for documents directly associated with client OR associated with client's cases
+      const queries = [];
+      
+      // Direct client documents
+      queries.push(
+        supabase
+          .from('documents')
+          .select('*')
+          .eq('client_id', clientId as any)
+      );
+
+      // Documents from client's cases (stored in metadata)
+      if (caseIds.length > 0) {
+        for (const caseId of caseIds) {
+          queries.push(
+            supabase
+              .from('documents')
+              .select('*')
+              .contains('metadata', { case_id: caseId })
+          );
+        }
+      }
+
+      // Execute all queries
+      const results = await Promise.all(queries);
+      
+      // Check for errors
+      for (const result of results) {
+        if (result.error) throw result.error;
+      }
+
+      // Combine all documents and remove duplicates
+      const allDocuments = results.flatMap(result => result.data || []);
+      const uniqueDocuments = allDocuments.filter((doc, index, self) => 
+        index === self.findIndex(d => d.id === doc.id)
+      );
+
+      return uniqueDocuments as any as Document[];
     },
   });
 }
