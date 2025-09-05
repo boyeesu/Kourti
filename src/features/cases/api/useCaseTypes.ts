@@ -31,7 +31,12 @@ export function useCaseTypes() {
           .eq('is_active', true)
           .order('name');
         
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase error:', error);
+          throw error;
+        }
+        
+        console.log('Raw case types from database:', data);
         return data;
       });
       

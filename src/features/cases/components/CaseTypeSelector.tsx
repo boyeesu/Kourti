@@ -127,7 +127,7 @@ export function CaseTypeSelector({
             placeholder={isLoading ? "Loading case types..." : placeholder} 
           />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="z-50 bg-background border border-border shadow-lg">
           {isLoading ? (
             <SelectItem value="loading" disabled>
               <div className="flex items-center gap-2">
