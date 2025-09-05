@@ -52,7 +52,7 @@ type EventFormValues = z.infer<typeof eventSchema>;
 interface EventEditDialogProps {
   event: CalendarEvent;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (open: boolean, wasUpdated?: boolean) => void;
 }
 
 export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogProps) {
@@ -70,19 +70,29 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
       end_date: format(new Date(event.end_date), "yyyy-MM-dd'T'HH:mm"),
       location: event.location || "",
       event_type: event.event_type,
-      case_id: event.case_id || "",
-      client_id: event.client_id || "",
+      case_id: event.case_id || "none",
+      client_id: event.client_id || "none",
       attendees: event.attendees || [],
     },
   });
 
   const onSubmit = async (data: EventFormValues) => {
     try {
+      console.log('Updating calendar event...', data);
+      
+      // Clean up the data - convert 'none' back to undefined/null
+      const cleanedData = {
+        ...data,
+        case_id: data.case_id === 'none' ? undefined : data.case_id,
+        client_id: data.client_id === 'none' ? undefined : data.client_id,
+      };
+      
       await updateEvent.mutateAsync({
         id: event.id,
-        ...data,
+        ...cleanedData,
       });
-      onOpenChange(false);
+      console.log('Calendar event updated successfully');
+      onOpenChange(false, true); // Pass true to indicate successful update
     } catch (error) {
       console.error("Failed to update event:", error);
     }
@@ -228,7 +238,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">No case</SelectItem>
+                        <SelectItem value="none">No case</SelectItem>
                         {cases.map((case_) => (
                           <SelectItem key={case_.id} value={case_.id}>
                             {case_.title}
@@ -254,7 +264,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">No client</SelectItem>
+                        <SelectItem value="none">No client</SelectItem>
                         {clients.map((client) => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.name}
