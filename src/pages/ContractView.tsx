@@ -81,7 +81,7 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
 import { Link, useParams } from "react-router-dom";
 import { useState } from "react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { contractsData } from "@/pages/contractsData";
+import { useContract } from "@/hooks/useContracts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -97,52 +97,43 @@ import {
   GitBranch,
   FileText,
   Calendar,
-  User,
   Building,
   DollarSign,
   Clock,
   Eye,
   Share,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  AlertTriangle,
+  CheckCircle,
+  Bot
 } from "lucide-react";
 import { summarizeContract, extractKeyClauses, redlineContract } from "@/lib/openaiService";
 
 export default function ContractView() {
   const { id } = useParams();
-  const contract = contractsData.find((c) => c.id === id);
+  const { data: contract, isLoading, error } = useContract(id!);
 
-  // Enhanced contract data with more details
-  const contractDetails = {
-    ...contract,
-    status: "Active",
-    type: "Software License Agreement",
-    parties: [
-      { name: "Acme Corp", role: "Licensor", type: "Organization" },
-      { name: "Client Company", role: "Licensee", type: "Organization" }
-    ],
-    value: "$50,000",
-    currency: "USD",
-    startDate: "2024-01-01",
-    endDate: "2025-01-01",
-    assignedTo: "Sarah Wilson",
-    createdBy: "Michael Chen",
-    createdAt: "2023-12-01",
-    lastModified: "2024-02-01",
-    tags: ["Software", "License", "Commercial"],
-    approvalStatus: "Approved",
-    signatureStatus: "Fully Executed"
-  };
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">Loading contract...</p>
+        </div>
+      </div>
+    );
+  }
 
-  if (!contract) {
+  if (error || !contract) {
     return (
       <div className="p-6">
         <Card className="shadow-card">
           <CardContent className="p-12 text-center">
-            <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <AlertTriangle className="h-16 w-16 text-destructive mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Contract Not Found</h3>
             <p className="text-muted-foreground mb-4">
-              The contract you're looking for doesn't exist or has been removed.
+              {error ? 'Error loading contract' : "The contract you're looking for doesn't exist or has been removed."}
             </p>
             <Button asChild>
               <Link to="/contracts">
@@ -157,11 +148,12 @@ export default function ContractView() {
   }
 
   const handleDownload = () => {
-    const blob = new Blob([contract.content], { type: "text/plain" });
+    if (!contract.terms) return;
+    const blob = new Blob([contract.terms], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${contract.name}.txt`;
+    link.download = `${contract.title}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -170,6 +162,8 @@ export default function ContractView() {
     switch (status.toLowerCase()) {
       case 'active':
         return 'bg-green-100 text-green-800 border-green-200';
+      case 'signed':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'expired':
         return 'bg-red-100 text-red-800 border-red-200';
       case 'pending':
@@ -181,9 +175,23 @@ export default function ContractView() {
     }
   };
 
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatCurrency = (amount: number | null | undefined, currency: string) => {
+    if (!amount) return 'Not specified';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'USD',
+    }).format(amount);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <Breadcrumbs />
+      
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">
@@ -196,13 +204,18 @@ export default function ContractView() {
             </Button>
           </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">{contract.name}</h1>
-            <Badge variant="outline" className={getStatusColor(contractDetails.status)}>
-              {contractDetails.status}
+            <h1 className="text-2xl font-semibold">{contract.title}</h1>
+            <Badge variant="outline" className={getStatusColor(contract.status)}>
+              {contract.status}
             </Badge>
-            <Badge variant="secondary">{contract.id}</Badge>
+            {contract.terms && (
+              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                <Bot className="h-3 w-3 mr-1" />
+                AI Generated
+              </Badge>
+            )}
           </div>
-          <p className="text-muted-foreground">{contractDetails.type}</p>
+          <p className="text-muted-foreground">{contract.contract_type || 'Contract'}</p>
         </div>
         
         <div className="flex gap-2">
@@ -210,7 +223,7 @@ export default function ContractView() {
             <Share className="h-4 w-4 mr-2" />
             Share
           </Button>
-          <Button variant="outline" size="sm" onClick={handleDownload}>
+          <Button variant="outline" size="sm" onClick={handleDownload} disabled={!contract.terms}>
             <Download className="h-4 w-4 mr-2" />
             Download
           </Button>
@@ -233,8 +246,7 @@ export default function ContractView() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="document">Document</TabsTrigger>
-          <TabsTrigger value="parties">Parties</TabsTrigger>
-          <TabsTrigger value="terms">Terms & Conditions</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -242,7 +254,10 @@ export default function ContractView() {
             {/* Contract Summary */}
             <Card className="lg:col-span-2 shadow-card">
               <CardHeader>
-                <CardTitle>Contract Summary</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Contract Summary
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -250,105 +265,99 @@ export default function ContractView() {
                     <p className="text-sm text-muted-foreground">Contract Value</p>
                     <div className="flex items-center gap-1">
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium">{contractDetails.value} {contractDetails.currency}</p>
+                      <p className="font-medium">{formatCurrency(contract.value, contract.currency || 'USD')}</p>
                     </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Start Date</p>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium">{contractDetails.startDate}</p>
+                      <p className="font-medium">{formatDate(contract.start_date)}</p>
                     </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">End Date</p>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium">{contractDetails.endDate}</p>
+                      <p className="font-medium">{formatDate(contract.end_date)}</p>
                     </div>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Assigned To</p>
-                    <div className="flex items-center gap-1">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium">{contractDetails.assignedTo}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Created By</p>
-                    <div className="flex items-center gap-1">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium">{contractDetails.createdBy}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Last Modified</p>
+                    <p className="text-sm text-muted-foreground">Created</p>
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium">{contractDetails.lastModified}</p>
+                      <p className="font-medium">{formatDate(contract.created_at)}</p>
                     </div>
                   </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Tags</p>
-                  <div className="flex flex-wrap gap-2">
-                    {contractDetails.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
-                    ))}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Last Updated</p>
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <p className="font-medium">{formatDate(contract.updated_at)}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Type</p>
+                    <p className="font-medium">{contract.contract_type || 'Standard Contract'}</p>
                   </div>
                 </div>
+
+                {contract.description && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Description</p>
+                      <p className="text-sm leading-relaxed">{contract.description}</p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
-            {/* Status & Approvals */}
+            {/* Status & Info */}
             <Card className="shadow-card">
               <CardHeader>
-                <CardTitle>Status & Approvals</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5" />
+                  Status & Info
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Contract Status</p>
-                  <Badge className={getStatusColor(contractDetails.status)}>
-                    {contractDetails.status}
+                  <Badge className={getStatusColor(contract.status)}>
+                    {contract.status}
                   </Badge>
                 </div>
                 
-                <div>
-                  <p className="text-sm text-muted-foreground">Approval Status</p>
-                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                    {contractDetails.approvalStatus}
-                  </Badge>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-muted-foreground">Signature Status</p>
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                    {contractDetails.signatureStatus}
-                  </Badge>
-                </div>
+                {contract.client_id && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Client</p>
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{(contract as any).client?.name || contract.client_id}</span>
+                    </div>
+                  </div>
+                )}
 
                 <Separator />
 
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">Recent Activity</p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Contract signed by all parties</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span>Final review completed</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <span>Terms updated in v2</span>
-                    </div>
-                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">Contract ID</p>
+                  <code className="text-xs bg-muted px-2 py-1 rounded font-mono">{contract.id}</code>
                 </div>
+
+                {contract.terms && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-blue-700">
+                      <Bot className="h-4 w-4" />
+                      <span className="text-sm font-medium">AI Generated</span>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">
+                      This contract was created using AI and should be reviewed by legal counsel.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -358,131 +367,80 @@ export default function ContractView() {
           <Card className="shadow-card">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Contract Document</CardTitle>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Eye className="h-4 w-4" />
-                  Read-only view
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="default" className="ml-4 flex gap-1 items-center">
-                        <Sparkles className="h-4 w-4" /> AI Review
-                      </Button>
-                    </DialogTrigger>
-                    <AIReviewDialog contractText={contract.content} />
-                  </Dialog>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Contract Document
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Eye className="h-4 w-4" />
+                    Read-only view
+                  </div>
+                  {contract.terms && (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="default" className="flex gap-1 items-center">
+                          <Sparkles className="h-4 w-4" /> AI Review
+                        </Button>
+                      </DialogTrigger>
+                      <AIReviewDialog contractText={contract.terms} />
+                    </Dialog>
+                  )}
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="prose max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/30 p-6 rounded-lg border">
-                  {contract.content}
-                </pre>
-              </div>
+              {contract.terms ? (
+                <div className="prose max-w-none">
+                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/30 p-6 rounded-lg border max-h-96 overflow-y-auto">
+                    {contract.terms}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No contract document available</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="parties" className="space-y-6">
+        <TabsContent value="details" className="space-y-6">
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Contract Parties</CardTitle>
+              <CardTitle>Contract Details</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {contractDetails.parties.map((party, index) => (
-                  <Card key={index}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          <Building className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium">{party.name}</h4>
-                            <Badge variant="outline">{party.role}</Badge>
-                            <Badge variant="secondary">{party.type}</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Acting as {party.role} in this agreement
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="terms" className="space-y-6">
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Key Terms & Conditions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium mb-2">Financial Terms</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Contract Value:</span>
-                        <span className="font-medium">{contractDetails.value}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Payment Terms:</span>
-                        <span className="font-medium">Net 30</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Currency:</span>
-                        <span className="font-medium">{contractDetails.currency}</span>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-medium">Financial Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Contract Value:</span>
+                      <span className="font-medium">{formatCurrency(contract.value, contract.currency || 'USD')}</span>
                     </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium mb-2">Duration</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Start Date:</span>
-                        <span className="font-medium">{contractDetails.startDate}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">End Date:</span>
-                        <span className="font-medium">{contractDetails.endDate}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Duration:</span>
-                        <span className="font-medium">12 months</span>
-                      </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Currency:</span>
+                      <span className="font-medium">{contract.currency || 'USD'}</span>
                     </div>
                   </div>
                 </div>
 
-                <Separator />
-
-                <div>
-                  <h4 className="font-medium mb-3">Important Clauses</h4>
-                  <div className="space-y-3">
-                    <div className="border rounded-lg p-4">
-                      <h5 className="font-medium text-sm mb-2">Termination</h5>
-                      <p className="text-sm text-muted-foreground">
-                        Either party may terminate this agreement with 30 days written notice.
-                      </p>
+                <div className="space-y-4">
+                  <h4 className="font-medium">Timeline</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Effective Date:</span>
+                      <span className="font-medium">{formatDate(contract.start_date)}</span>
                     </div>
-                    <div className="border rounded-lg p-4">
-                      <h5 className="font-medium text-sm mb-2">Intellectual Property</h5>
-                      <p className="text-sm text-muted-foreground">
-                        All intellectual property remains with the respective owner.
-                      </p>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Expiration Date:</span>
+                      <span className="font-medium">{formatDate(contract.end_date)}</span>
                     </div>
-                    <div className="border rounded-lg p-4">
-                      <h5 className="font-medium text-sm mb-2">Governing Law</h5>
-                      <p className="text-sm text-muted-foreground">
-                        This agreement is governed by the laws of New York State.
-                      </p>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Created:</span>
+                      <span className="font-medium">{formatDate(contract.created_at)}</span>
                     </div>
                   </div>
                 </div>

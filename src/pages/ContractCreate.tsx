@@ -10,11 +10,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarIcon, Plus, X, FileText, Users, Clock, Upload, Bot } from "lucide-react";
+import { CalendarIcon, Plus, X, FileText, Users, Clock, Upload, Bot, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
 import { useAIContractGenerator } from "@/hooks/useAIContractGenerator";
+import { ContractSuccess } from "@/components/ContractSuccess";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface ContractParty {
@@ -39,6 +40,7 @@ export default function ContractCreate() {
   const generateContract = useAIContractGenerator();
   const [template, setTemplate] = useState<string>("");
   const [additionalTerms, setAdditionalTerms] = useState<string>("");
+  const [generatedContract, setGeneratedContract] = useState<any>(null);
   
   const [contractData, setContractData] = useState({
     title: "",
@@ -207,12 +209,26 @@ export default function ContractCreate() {
       const result = await generateContract.mutateAsync(generationData);
       
       if (result.success) {
-        navigate(`/contracts/${result.contract.id}`);
+        setGeneratedContract(result.contract);
+        setActiveTab("success");
       }
     } catch (error) {
       console.error("Contract generation failed:", error);
     }
   };
+
+  // If we're showing success, render the success component
+  if (activeTab === "success" && generatedContract) {
+    return (
+      <div className="p-6">
+        <Breadcrumbs />
+        <ContractSuccess 
+          contract={generatedContract}
+          onViewContract={() => navigate(`/contracts/${generatedContract.id}`)}
+        />
+      </div>
+    );
+  }
 
   const handleUploadContract = () => {
     navigate("/contracts/upload");
@@ -228,15 +244,15 @@ export default function ContractCreate() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Create New Contract</h1>
-          <p className="text-muted-foreground">Set up a new contract with parties, terms, and clauses</p>
+          <p className="text-muted-foreground">Generate a professional contract using AI with your custom details</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleUploadContract}>
             <Upload className="h-4 w-4 mr-2" />
             Upload Contract
           </Button>
-          <Button variant="outline" onClick={handleUseReamAI}>
-            <Bot className="h-4 w-4 mr-2" />
+          <Button variant="secondary" onClick={handleUseReamAI}>
+            <Sparkles className="h-4 w-4 mr-2" />
             Use Ream AI
           </Button>
         </div>
@@ -245,112 +261,125 @@ export default function ContractCreate() {
       <Card className="shadow-card">
         <CardContent className="p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic" className="flex items-center gap-2">
+            <TabsList className="grid w-full grid-cols-4 bg-muted/50">
+              <TabsTrigger value="basic" className="flex items-center gap-2 data-[state=active]:bg-background">
                 <FileText className="h-4 w-4" />
                 Basic Info
               </TabsTrigger>
-              <TabsTrigger value="parties" className="flex items-center gap-2">
+              <TabsTrigger value="parties" className="flex items-center gap-2 data-[state=active]:bg-background">
                 <Users className="h-4 w-4" />
                 Parties
               </TabsTrigger>
-              <TabsTrigger value="terms" className="flex items-center gap-2">
+              <TabsTrigger value="terms" className="flex items-center gap-2 data-[state=active]:bg-background">
                 <Clock className="h-4 w-4" />
                 Terms
               </TabsTrigger>
-              <TabsTrigger value="clauses" className="flex items-center gap-2">
+              <TabsTrigger value="clauses" className="flex items-center gap-2 data-[state=active]:bg-background">
                 <FileText className="h-4 w-4" />
                 Clauses
               </TabsTrigger>
             </TabsList>
 
             <form onSubmit={handleSubmit}>
-              <TabsContent value="basic" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Contract Title *</Label>
-                    <Input
-                      id="title"
-                      placeholder="Enter contract title"
-                      value={contractData.title}
-                      onChange={(e) => setContractData({ ...contractData, title: e.target.value })}
-                      required
-                    />
-                  </div>
+              <TabsContent value="basic" className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Contract Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="title" className="text-sm font-medium">
+                        Contract Title <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="title"
+                        placeholder="e.g., Software Development Agreement"
+                        value={contractData.title}
+                        onChange={(e) => setContractData({ ...contractData, title: e.target.value })}
+                        required
+                        className="h-11"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>Contract Type *</Label>
-                    <Select value={contractData.type} onValueChange={(value) => setContractData({ ...contractData, type: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select contract type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {contractTypes.map((type) => (
-                          <SelectItem key={type} value={type}>{type}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Brief description of the contract"
-                    value={contractData.description}
-                    onChange={(e) => setContractData({ ...contractData, description: e.target.value })}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="value">Contract Value</Label>
-                    <Input
-                      id="value"
-                      type="number"
-                      placeholder="0.00"
-                      value={contractData.value}
-                      onChange={(e) => setContractData({ ...contractData, value: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Currency</Label>
-                    <Select value={contractData.currency} onValueChange={(value) => setContractData({ ...contractData, currency: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                        <SelectItem value="GBP">GBP</SelectItem>
-                        <SelectItem value="CAD">CAD</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Assigned To</Label>
-                    <Select value={contractData.assignedTo} onValueChange={(value) => setContractData({ ...contractData, assignedTo: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {profile && (
-                          <SelectItem value={profile.user_id}>
-                            Me ({profile.first_name || ''} {profile.last_name || ''})
-                          </SelectItem>
-                        )}
-                        {orgMembers
-                          .filter(({ user_id }) => !profile || user_id !== profile.user_id)
-                          .map(user => (
-                            <SelectItem key={user.user_id} value={user.user_id}>
-                              {user.first_name} {user.last_name} ({user.email})
-                            </SelectItem>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Contract Type <span className="text-destructive">*</span>
+                      </Label>
+                      <Select value={contractData.type} onValueChange={(value) => setContractData({ ...contractData, type: value })}>
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select contract type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {contractTypes.map((type) => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mt-6">
+                    <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Brief description of the contract purpose and scope..."
+                      value={contractData.description}
+                      onChange={(e) => setContractData({ ...contractData, description: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="value" className="text-sm font-medium">Contract Value</Label>
+                      <Input
+                        id="value"
+                        type="number"
+                        placeholder="0.00"
+                        value={contractData.value}
+                        onChange={(e) => setContractData({ ...contractData, value: e.target.value })}
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Currency</Label>
+                      <Select value={contractData.currency} onValueChange={(value) => setContractData({ ...contractData, currency: value })}>
+                        <SelectTrigger className="h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem>
+                          <SelectItem value="CAD">CAD</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Assigned To</Label>
+                      <Select value={contractData.assignedTo} onValueChange={(value) => setContractData({ ...contractData, assignedTo: value })}>
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select assignee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {profile && (
+                            <SelectItem value={profile.user_id}>
+                              Me ({profile.first_name || ''} {profile.last_name || ''})
+                            </SelectItem>
+                          )}
+                          {orgMembers
+                            .filter(({ user_id }) => !profile || user_id !== profile.user_id)
+                            .map(user => (
+                              <SelectItem key={user.user_id} value={user.user_id}>
+                                {user.first_name} {user.last_name} ({user.email})
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
@@ -694,8 +723,19 @@ export default function ContractCreate() {
                      <Button 
                        type="submit" 
                        disabled={generateContract.isPending}
+                       className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 h-11 px-8"
                      >
-                       {generateContract.isPending ? 'Generating Contract...' : 'Generate Contract with AI'}
+                       {generateContract.isPending ? (
+                         <>
+                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                           Generating Contract...
+                         </>
+                       ) : (
+                         <>
+                           <Bot className="h-4 w-4 mr-2" />
+                           Generate Contract with AI
+                         </>
+                       )}
                      </Button>
                   )}
                 </div>
