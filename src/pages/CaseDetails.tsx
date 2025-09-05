@@ -22,6 +22,7 @@ import { useActivities } from "@/features/activities/api/useActivities";
 import { useDeleteActivity } from "@/features/activities/api/useDeleteActivity";
 import { ActivityDialog } from "@/components/ActivityDialog";
 import { DocumentViewer } from "@/components/DocumentViewer";
+import { getActivityIcon, getActivityStatusColor } from "@/utils/activityUtils";
 
 export default function CaseDetails() {
   const { id } = useParams<{ id: string }>();
@@ -677,33 +678,6 @@ function ActivitiesSection({ caseId }: { caseId: string }) {
 
   if (isLoading) return <div>Loading activities…</div>;
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'hearing': return '⚖️';
-      case 'meeting': return '👥';
-      case 'deposition': return '📝';
-      case 'research': return '🔍';
-      case 'filing': return '📄';
-      case 'negotiation': return '🤝';
-      case 'investigation': return '🕵️';
-      case 'document_review': return '📋';
-      case 'mediation': return '🤲';
-      case 'consultation': return '💬';
-      case 'preparation': return '📚';
-      case 'follow_up': return '📞';
-      default: return '📝';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-success text-success-foreground';
-      case 'in_progress': return 'bg-warning text-warning-foreground';
-      case 'cancelled': return 'bg-destructive text-destructive-foreground';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
   return (
     <div className="space-y-4">
       {activities.length === 0 ? (
@@ -731,7 +705,7 @@ function ActivitiesSection({ caseId }: { caseId: string }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className={getStatusColor(activity.status)}>
+                <Badge className={getActivityStatusColor(activity.status)}>
                   {activity.status}
                 </Badge>
                 <div className="flex gap-1">

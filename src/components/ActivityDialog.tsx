@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateActivity, useUpdateActivity } from '@/features/activities/api/useCreateActivity';
 import { useOrganizationMembers } from '@/hooks/useOrganization';
+import { useActivityTypes } from '@/hooks/useActivityTypes';
 import { CaseActivity } from '@/features/activities/types';
 
 interface ActivityDialogProps {
@@ -18,6 +19,7 @@ interface ActivityDialogProps {
 export function ActivityDialog({ open, onOpenChange, caseId, activity }: ActivityDialogProps) {
   const isEdit = !!activity;
   const { data: users = [] } = useOrganizationMembers();
+  const { data: activityTypes = [] } = useActivityTypes();
   const createActivity = useCreateActivity();
   const updateActivity = useUpdateActivity();
   
@@ -31,29 +33,13 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
   } : {
     title: '',
     description: '',
-    activity_type: 'meeting',
+    activity_type: activityTypes[0]?.value || 'meeting',
     due_date: '',
     assigned_to: 'unassigned',
     status: 'pending',
   });
 
   const [submitting, setSubmitting] = useState(false);
-
-  // Activity types for legal practice
-  const activityTypes = [
-    { value: 'hearing', label: 'Court Hearing' },
-    { value: 'meeting', label: 'Client Meeting' },
-    { value: 'deposition', label: 'Deposition' },
-    { value: 'research', label: 'Legal Research' },
-    { value: 'filing', label: 'Court Filing' },
-    { value: 'negotiation', label: 'Negotiation' },
-    { value: 'investigation', label: 'Investigation' },
-    { value: 'document_review', label: 'Document Review' },
-    { value: 'mediation', label: 'Mediation' },
-    { value: 'consultation', label: 'Consultation' },
-    { value: 'preparation', label: 'Case Preparation' },
-    { value: 'follow_up', label: 'Follow-up' },
-  ];
 
   const statusOptions = [
     { value: 'pending', label: 'Pending' },
@@ -94,7 +80,7 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
         setForm({
           title: '',
           description: '',
-          activity_type: 'meeting',
+          activity_type: activityTypes[0]?.value || 'meeting',
           due_date: '',
           assigned_to: 'unassigned',
           status: 'pending',
