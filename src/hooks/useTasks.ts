@@ -4,11 +4,10 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Task } from '@/types';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
-import { AppError, handleSupabaseError, tryCatch } from '@/lib/error-handling';
+import { AppError, tryCatch } from '@/lib/error-handling';
 
 // Use Database type for type safety with Supabase
 type TaskRow = Tables<'tasks'>;
-type TaskInsert = TablesInsert<'tasks'>;
 
 export interface CreateTaskData {
   case_id: string;

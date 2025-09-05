@@ -15,6 +15,11 @@ type EnvConfig = {
   SUPABASE_ANON_KEY: string;
   
   /**
+   * Alternative name for Supabase anonymous key
+   */
+  SUPABASE_PUBLISHABLE_KEY: string;
+  
+  /**
    * OpenAI API key for AI features
    */
   OPENAI_API_KEY?: string;
@@ -78,7 +83,8 @@ function getEnvVar(
  */
 export const env: EnvConfig = {
   SUPABASE_URL: getEnvVar('SUPABASE_URL', '') as string,
-  SUPABASE_ANON_KEY: getEnvVar('SUPABASE_PUBLISHABLE_KEY', '') as string,
+  SUPABASE_ANON_KEY: getEnvVar('SUPABASE_ANON_KEY', '') as string,
+  SUPABASE_PUBLISHABLE_KEY: getEnvVar('SUPABASE_PUBLISHABLE_KEY', '') as string,
   OPENAI_API_KEY: getEnvVar('OPENAI_API_KEY', '') as string,
   APP_URL: getEnvVar('APP_URL', 'http://localhost:5173') as string,
   API_TIMEOUT: Number(getEnvVar('API_TIMEOUT', 30000)),

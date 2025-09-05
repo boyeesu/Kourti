@@ -1,6 +1,6 @@
 import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from './types';
-import { env, validateEnv } from '@/lib/env';
+import { validateEnv } from '@/lib/env';
 
 // Directly access environment variables as a fallback
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 

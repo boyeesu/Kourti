@@ -81,11 +81,11 @@ const queryClient = new QueryClient({
       retry: 1,
       staleTime: 1000 * 60 * 5, // 5 minutes
       // Transform errors to AppError for consistent handling
-      useErrorBoundary: (error) => error instanceof AppError && error.code !== ErrorCode.VALIDATION_ERROR,
+      throwOnError: (error: Error) => error instanceof AppError && error.code !== ErrorCode.VALIDATION_ERROR,
     },
     mutations: {
       // Transform errors to AppError for consistent handling
-      useErrorBoundary: false,
+      throwOnError: false,
     }
   }
 });

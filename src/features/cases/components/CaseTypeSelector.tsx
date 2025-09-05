@@ -11,7 +11,7 @@ import {
   SelectValue,
   SelectSeparator,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+
 import { cn } from '@/lib/utils';
 import { AddCaseTypeModal } from './AddCaseTypeModal';
 
