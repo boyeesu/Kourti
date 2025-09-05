@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearch } from "@/hooks/use-search";
+import { useDocuments } from "@/hooks/useDocuments";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useDocuments } from "@/hooks/useDocuments";
 import { 
   Table,
   TableBody,
@@ -46,14 +47,45 @@ import {
 import { Document } from "@/types";
 
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
-import { ShareDocumentDialog } from '@/components/ui/ShareDocumentDialog';
+import { DocumentViewer } from '@/components/DocumentViewer';
+import { InternalShareDialog } from '@/components/InternalShareDialog';
 
 export default function Documents() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [shareDocument, setShareDocument] = useState<Document | null>(null);
   const { term: globalSearch } = useSearch();
   const { data: documents = [], isLoading } = useDocuments();
+
+  // Handler functions
+  const handleDownload = async (doc: Document) => {
+    if (!doc.file_path) return;
+    
+    try {
+      const { data } = await supabase.storage
+        .from('documents')
+        .download(doc.file_path);
+      
+      if (data) {
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (doc as any).metadata?.original_filename || doc.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+  };
+
+  const handleShare = (doc: Document) => {
+    setShareDocument(doc);
+  };
 
   if (isLoading) {
     return (
@@ -220,11 +252,16 @@ export default function Documents() {
                        <Badge variant="outline">{doc.file_type || 'File'}</Badge>
                      </TableCell>
                      <TableCell className="text-sm">{doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : 'Unknown'}</TableCell>
-                     <TableCell>
-                        <Badge variant="secondary">
-                          {(doc as any).cases?.title || 'No case'}
-                        </Badge>
-                      </TableCell>
+                      <TableCell>
+                         {(doc as any).case ? (
+                           <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80" 
+                                  onClick={() => navigate(`/cases/${(doc as any).case.id}`)}>
+                             {(doc as any).case.title}
+                           </Badge>
+                         ) : (
+                           <span className="text-muted-foreground text-sm">No case linked</span>
+                         )}
+                       </TableCell>
                      <TableCell>
                        <Badge className="bg-muted text-muted-foreground" variant="secondary">
                          {doc.status || 'Uploaded'}
@@ -262,29 +299,24 @@ export default function Documents() {
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                         <DropdownMenuContent align="end">
-                           <DropdownMenuItem>
-                             <Eye className="h-4 w-4 mr-2" />
-                             View Document
-                           </DropdownMenuItem>
-                           <DropdownMenuItem>
-                             <MessageSquare className="h-4 w-4 mr-2" />
-                             AI Review
-                           </DropdownMenuItem>
-                           <DropdownMenuItem>
-                             <Download className="h-4 w-4 mr-2" />
-                             Download
-                           </DropdownMenuItem>
-                           {/* Share via dialog */}
-                          <ShareDocumentDialog documentId={doc.id}>
-                            <DropdownMenuItem asChild>
-                              <button className="flex items-center">
-                                <Share className="h-4 w-4 mr-2" />
-                                Share
-                              </button>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setSelectedDocument(doc)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Document
                             </DropdownMenuItem>
-                          </ShareDocumentDialog>
-                         </DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => navigate(`/ream-ai?documentId=${doc.id}`)}>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              AI Review
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleShare(doc)}>
+                              <Share className="h-4 w-4 mr-2" />
+                              Share Internally
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
@@ -335,6 +367,35 @@ export default function Documents() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Document Viewer */}
+      {selectedDocument && (
+        <DocumentViewer
+          open={!!selectedDocument}
+          onOpenChange={() => setSelectedDocument(null)}
+          document={{
+            id: selectedDocument.id,
+            name: selectedDocument.name || (selectedDocument as any).title || 'Untitled Document',
+            file_path: (selectedDocument as any).file_path,
+            mime_type: (selectedDocument as any).mime_type,
+            file_size: (selectedDocument as any).file_size,
+            content: (selectedDocument as any).content,
+            metadata: (selectedDocument as any).metadata,
+          }}
+        />
+      )}
+
+      {/* Internal Share Dialog */}
+      {shareDocument && (
+        <InternalShareDialog
+          open={!!shareDocument}
+          onOpenChange={() => setShareDocument(null)}
+          document={{
+            id: shareDocument.id,
+            name: shareDocument.name || (shareDocument as any).title || 'Untitled Document',
+          }}
+        />
+      )}
     </div>
   );
 }
