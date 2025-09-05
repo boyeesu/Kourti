@@ -14,6 +14,7 @@ import { CalendarIcon, Plus, X, FileText, Users, Clock, Upload, Bot } from "luci
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
+import { useAIContractGenerator } from "@/hooks/useAIContractGenerator";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface ContractParty {
@@ -35,6 +36,9 @@ interface ContractClause {
 export default function ContractCreate() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("basic");
+  const generateContract = useAIContractGenerator();
+  const [template, setTemplate] = useState<string>("");
+  const [additionalTerms, setAdditionalTerms] = useState<string>("");
   
   const [contractData, setContractData] = useState({
     title: "",
@@ -175,20 +179,39 @@ export default function ContractCreate() {
     setClauses(clauses.filter(c => c.id !== clauseId));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const contractPayload = {
-      ...contractData,
-      parties,
-      clauses,
-      createdAt: new Date().toISOString(),
-      createdBy: profile ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || "Unknown User" : "Unknown User",
-    };
-    const stored = JSON.parse(localStorage.getItem("contracts") || "[]");
-    localStorage.setItem("contracts", JSON.stringify([...stored, contractPayload]));
-    console.log("Creating contract:", contractPayload);
-    alert("Contract created (stored locally for development).");
-    navigate("/contracts");
+    
+    if (!contractData.title || !contractData.type) {
+      alert("Please fill in the required fields (Title and Type).");
+      return;
+    }
+
+    try {
+      const generationData = {
+        basicInfo: {
+          title: contractData.title,
+          type: contractData.type,
+          description: contractData.description,
+          value: contractData.value,
+          currency: contractData.currency,
+          startDate: contractData.startDate?.toISOString().split('T')[0],
+          endDate: contractData.endDate?.toISOString().split('T')[0],
+        },
+        parties,
+        terms: additionalTerms,
+        clauses,
+        template: template || undefined,
+      };
+
+      const result = await generateContract.mutateAsync(generationData);
+      
+      if (result.success) {
+        navigate(`/contracts/${result.contract.id}`);
+      }
+    } catch (error) {
+      console.error("Contract generation failed:", error);
+    }
   };
 
   const handleUploadContract = () => {
@@ -449,46 +472,73 @@ export default function ContractCreate() {
               </TabsContent>
 
               <TabsContent value="terms" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Start Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {contractData.startDate ? format(contractData.startDate, "PPP") : "Select start date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={contractData.startDate}
-                          onSelect={(date) => setContractData({ ...contractData, startDate: date })}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Label htmlFor="additionalTerms">Additional Terms & Conditions</Label>
+                    <Textarea
+                      id="additionalTerms"
+                      placeholder="Enter any specific terms, conditions, or requirements for this contract..."
+                      value={additionalTerms}
+                      onChange={(e) => setAdditionalTerms(e.target.value)}
+                      rows={6}
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>End Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {contractData.endDate ? format(contractData.endDate, "PPP") : "Select end date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={contractData.endDate}
-                          onSelect={(date) => setContractData({ ...contractData, endDate: date })}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Label htmlFor="template">Contract Template (Optional)</Label>
+                    <Textarea
+                      id="template"
+                      placeholder="Paste an existing contract template here for the AI to use as a reference..."
+                      value={template}
+                      onChange={(e) => setTemplate(e.target.value)}
+                      rows={8}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Upload or paste a contract template to help the AI generate a contract that follows your preferred structure and style.
+                    </p>
                   </div>
+                
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <Label>Start Date</Label>
+                       <Popover>
+                         <PopoverTrigger asChild>
+                           <Button variant="outline" className="w-full justify-start text-left font-normal">
+                             <CalendarIcon className="mr-2 h-4 w-4" />
+                           {contractData.startDate ? format(contractData.startDate, "PPP") : "Select start date"}
+                         </Button>
+                       </PopoverTrigger>
+                       <PopoverContent className="w-auto p-0">
+                         <Calendar
+                           mode="single"
+                           selected={contractData.startDate}
+                           onSelect={(date) => setContractData({ ...contractData, startDate: date })}
+                           initialFocus
+                         />
+                       </PopoverContent>
+                     </Popover>
+                   </div>
+
+                   <div className="space-y-2">
+                     <Label>End Date</Label>
+                     <Popover>
+                       <PopoverTrigger asChild>
+                         <Button variant="outline" className="w-full justify-start text-left font-normal">
+                           <CalendarIcon className="mr-2 h-4 w-4" />
+                           {contractData.endDate ? format(contractData.endDate, "PPP") : "Select end date"}
+                         </Button>
+                       </PopoverTrigger>
+                       <PopoverContent className="w-auto p-0">
+                         <Calendar
+                           mode="single"
+                           selected={contractData.endDate}
+                           onSelect={(date) => setContractData({ ...contractData, endDate: date })}
+                           initialFocus
+                         />
+                       </PopoverContent>
+                     </Popover>
+                   </div>
+                 </div>
                 </div>
               </TabsContent>
 
@@ -641,9 +691,12 @@ export default function ContractCreate() {
                       Next
                     </Button>
                   ) : (
-                    <Button type="submit">
-                      Create Contract
-                    </Button>
+                     <Button 
+                       type="submit" 
+                       disabled={generateContract.isPending}
+                     >
+                       {generateContract.isPending ? 'Generating Contract...' : 'Generate Contract with AI'}
+                     </Button>
                   )}
                 </div>
               </div>
