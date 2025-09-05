@@ -17,6 +17,7 @@ const VoiceTranscriptionModule: React.FC = () => {
   const createActivity = useCreateActivity();
   
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState('');
@@ -27,11 +28,27 @@ const VoiceTranscriptionModule: React.FC = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const startTimeRef = useRef<number>(0);
+  const pausedTimeRef = useRef<number>(0);
+
+  // Check microphone permissions on component mount
+  React.useEffect(() => {
+    const checkPermissions = async () => {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        setHasPermission(true);
+      } catch (error) {
+        setHasPermission(false);
+        console.error('Microphone permission denied:', error);
+      }
+    };
+    checkPermissions();
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -40,6 +57,7 @@ const VoiceTranscriptionModule: React.FC = () => {
       
       audioChunksRef.current = [];
       startTimeRef.current = Date.now();
+      pausedTimeRef.current = 0;
       
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -47,17 +65,25 @@ const VoiceTranscriptionModule: React.FC = () => {
         }
       };
       
-      mediaRecorderRef.current.onstop = () => {
+      mediaRecorderRef.current.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setAudioBlob(blob);
-        setDuration(Math.round((Date.now() - startTimeRef.current) / 1000));
+        setDuration(Math.round((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000));
         
         // Stop all tracks to free up the microphone
         stream.getTracks().forEach(track => track.stop());
+        
+        // Auto-transcribe immediately after recording ends
+        toast({
+          title: "Recording Complete",
+          description: "Starting transcription...",
+        });
+        await autoTranscribe(blob);
       };
       
       mediaRecorderRef.current.start(1000); // Collect data every second
       setIsRecording(true);
+      setIsPaused(false);
       
       toast({
         title: "Recording Started",
@@ -73,14 +99,41 @@ const VoiceTranscriptionModule: React.FC = () => {
     }
   };
 
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && isRecording && !isPaused) {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+      pausedTimeRef.current += Date.now();
+      
+      toast({
+        title: "Recording Paused",
+        description: "Click resume to continue recording",
+      });
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && isRecording && isPaused) {
+      pausedTimeRef.current = Date.now() - pausedTimeRef.current;
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      
+      toast({
+        title: "Recording Resumed",
+        description: "Recording continues...",
+      });
+    }
+  };
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsPaused(false);
       
       toast({
         title: "Recording Stopped",
-        description: `Recording completed (${Math.round((Date.now() - startTimeRef.current) / 1000)}s)`,
+        description: "Processing recording...",
       });
     }
   };
@@ -100,10 +153,58 @@ const VoiceTranscriptionModule: React.FC = () => {
     }
   };
 
-  const pauseRecording = () => {
+  const pausePlayback = () => {
     if (audioRef.current && isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
+    }
+  };
+
+  // Auto-transcribe function called immediately after recording
+  const autoTranscribe = async (blob: Blob) => {
+    setIsTranscribing(true);
+    
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Audio = reader.result?.toString().split(',')[1];
+        
+        if (!base64Audio) {
+          throw new Error('Failed to process audio');
+        }
+
+        const { data, error } = await supabase.functions.invoke('voice-transcription', {
+          body: {
+            audio: base64Audio,
+            action: 'transcribe'
+          }
+        });
+
+        if (error) throw error;
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        setTranscript(data.transcript);
+        
+        toast({
+          title: "Transcription Complete",
+          description: "Audio has been transcribed successfully",
+        });
+      };
+      
+      reader.readAsDataURL(blob);
+    } catch (error: any) {
+      console.error('Auto-transcription error:', error);
+      toast({
+        title: "Transcription Failed",
+        description: error.message || "Failed to transcribe audio",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -309,17 +410,42 @@ const VoiceTranscriptionModule: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {hasPermission === false && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                Microphone access is required for voice recording. Please allow microphone access and refresh the page.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center space-x-4">
             {!isRecording ? (
-              <Button onClick={startRecording} className="flex items-center space-x-2">
+              <Button 
+                onClick={startRecording} 
+                disabled={hasPermission === false}
+                className="flex items-center space-x-2"
+              >
                 <Mic className="h-4 w-4" />
                 <span>Start Recording</span>
               </Button>
             ) : (
-              <Button onClick={stopRecording} variant="destructive" className="flex items-center space-x-2">
-                <Square className="h-4 w-4" />
-                <span>Stop Recording</span>
-              </Button>
+              <div className="flex items-center space-x-2">
+                {!isPaused ? (
+                  <Button onClick={pauseRecording} variant="outline" className="flex items-center space-x-2">
+                    <Pause className="h-4 w-4" />
+                    <span>Pause</span>
+                  </Button>
+                ) : (
+                  <Button onClick={resumeRecording} variant="outline" className="flex items-center space-x-2">
+                    <Play className="h-4 w-4" />
+                    <span>Resume</span>
+                  </Button>
+                )}
+                <Button onClick={stopRecording} variant="destructive" className="flex items-center space-x-2">
+                  <Square className="h-4 w-4" />
+                  <span>Stop Recording</span>
+                </Button>
+              </div>
             )}
 
             {audioBlob && (
@@ -330,7 +456,7 @@ const VoiceTranscriptionModule: React.FC = () => {
                     <span>Play</span>
                   </Button>
                 ) : (
-                  <Button onClick={pauseRecording} variant="outline" className="flex items-center space-x-2">
+                  <Button onClick={pausePlayback} variant="outline" className="flex items-center space-x-2">
                     <Pause className="h-4 w-4" />
                     <span>Pause</span>
                   </Button>
@@ -347,31 +473,38 @@ const VoiceTranscriptionModule: React.FC = () => {
           {isRecording && (
             <div className="flex items-center space-x-2 text-red-600">
               <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
-              <span className="text-sm font-medium">Recording in progress...</span>
+              <span className="text-sm font-medium">
+                {isPaused ? 'Recording paused...' : 'Recording in progress...'}
+              </span>
+            </div>
+          )}
+
+          {isTranscribing && (
+            <div className="flex items-center space-x-2 text-blue-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm font-medium">Transcribing audio...</span>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {audioBlob && (
+      {(audioBlob || transcript) && (
         <Card>
           <CardHeader>
             <CardTitle>Processing</CardTitle>
-            <CardDescription>Convert your recording to text and generate summaries</CardDescription>
+            <CardDescription>Your recording has been automatically transcribed</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button 
-              onClick={transcribeAudio} 
-              disabled={isTranscribing}
-              className="flex items-center space-x-2"
-            >
-              {isTranscribing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
+            {audioBlob && !transcript && !isTranscribing && (
+              <Button 
+                onClick={transcribeAudio} 
+                disabled={isTranscribing}
+                className="flex items-center space-x-2"
+              >
                 <FileText className="h-4 w-4" />
-              )}
-              <span>{isTranscribing ? 'Transcribing...' : 'Generate Transcript'}</span>
-            </Button>
+                <span>Re-transcribe Audio</span>
+              </Button>
+            )}
 
             {transcript && (
               <div className="space-y-4">
