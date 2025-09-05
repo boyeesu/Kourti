@@ -193,7 +193,11 @@ export default function Contracts() {
           </Button>
           <Button variant="default" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/contracts/compare")}> 
             <GitBranch className="h-4 w-4 mr-2" />
-            Compare
+            Compare Contracts
+          </Button>
+          <Button variant="secondary" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/ream-ai")}> 
+            <Zap className="h-4 w-4 mr-2" />
+            Ream AI Analysis
           </Button>
         </div>
       </div>
@@ -415,12 +419,12 @@ export default function Contracts() {
                                   Version History
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link to={`/contracts/review?id=${contract.id}`} className="flex items-center">
-                                  <Zap className="h-4 w-4 mr-2" />
-                                  AI Analysis
-                                </Link>
-                              </DropdownMenuItem>
+                               <DropdownMenuItem asChild>
+                                 <Link to={`/ream-ai?contract=${contract.id}`} className="flex items-center">
+                                   <Zap className="h-4 w-4 mr-2" />
+                                   Ream AI Analysis
+                                 </Link>
+                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

@@ -27,11 +27,11 @@ export function useEnhancedDocumentAnalysis() {
       analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     }) => {
       try {
-        // Call the contract-analysis-ai edge function for document analysis
-        const { data, error } = await supabase.functions.invoke('contract-analysis-ai', {
+        // Call the advanced contract analysis edge function with GPT-4
+        const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
           body: {
             text: content,
-            analysisType: 'document_review',
+            analysisType: analysisType,
             goal: analysisType === 'general' 
               ? 'Provide a comprehensive analysis of this document'
               : analysisType
@@ -85,11 +85,11 @@ export function useEnhancedDocumentAnalysis() {
       const controller = new AbortController();
       setAbortController(controller);
       
-      // Use the contract-analysis-ai edge function for analysis
-      const { data, error } = await supabase.functions.invoke('contract-analysis-ai', {
+      // Use the advanced contract analysis edge function with GPT-4
+      const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
         body: {
           text: content,
-          analysisType: 'document_review',
+          analysisType: analysisType,
           goal: analysisType === 'general' 
             ? 'Provide a comprehensive analysis of this document'
             : analysisType

@@ -1,3 +1,25 @@
-project_id = "YOUR_PROJECT_ID"
-api_url = "https://YOUR_PROJECT.supabase.co"
-db_url = "postgresql://postgres:postgres@db.YOUR_PROJECT.supabase.co:5432/postgres"
+project_id = "zjbvnvydgsxqmmrrmvif"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+
+[functions.advanced-contract-analysis]
+verify_jwt = true
+
+[functions.contract-analysis]
+verify_jwt = true
+
+[functions.contract-analysis-ai]
+verify_jwt = true
+
+[functions.generate-invoice-pdf]
+verify_jwt = true

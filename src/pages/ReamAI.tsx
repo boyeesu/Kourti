@@ -11,6 +11,7 @@ import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Send,
@@ -38,6 +39,8 @@ const EXAMPLE_PROMPTS = [
 ];
 
 export default function ReamAI() {
+  const [searchParams] = useSearchParams();
+  
   // State for chat and document selection
   const [messages, setMessages] = useState<Message[]>([
     { 
@@ -65,6 +68,18 @@ export default function ReamAI() {
     cancelStreaming, 
     isStreaming,
   } = useEnhancedDocumentAnalysis();
+
+  // Auto-select contract from URL params
+  useEffect(() => {
+    const contractId = searchParams.get('contract');
+    if (contractId && contracts.length > 0) {
+      const contract = contracts.find(c => c.id === contractId);
+      if (contract) {
+        handleSelectDoc(contract, true);
+        setActiveTab('contracts');
+      }
+    }
+  }, [searchParams, contracts]);
 
   // Scroll to bottom of messages when new messages arrive
   useEffect(() => {

@@ -192,8 +192,7 @@ export default function ContractCreate() {
   };
 
   const handleUploadContract = () => {
-    // Placeholder for contract upload functionality
-    alert("Contract upload functionality coming soon!");
+    navigate("/contracts/upload");
   };
 
   const handleUseReamAI = () => {

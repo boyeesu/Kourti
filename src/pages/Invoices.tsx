@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
+import { useDownloadInvoicePDF } from "@/hooks/useInvoicePDF";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 export default function Invoices() {
@@ -65,6 +66,7 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const navigate = useNavigate();
+  const downloadPDF = useDownloadInvoicePDF();
 
   // Fetch invoices with pagination
   const { data: apiResponse, isLoading, error, refetch } = useFetchData<any[]>({
@@ -369,7 +371,7 @@ export default function Invoices() {
                                 <Edit2 className="h-4 w-4 mr-2" />
                                 Edit Invoice
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => downloadPDF.mutate(invoice.id)}>
                                 <Download className="h-4 w-4 mr-2" />
                                 Download PDF
                               </DropdownMenuItem>

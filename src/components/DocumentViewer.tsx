@@ -153,24 +153,31 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
 
     const mimeType = document.mime_type || '';
 
-    // PDF viewer - use object tag to avoid Chrome blocking
+    // PDF viewer with better preview handling
     if (mimeType.includes('pdf')) {
       return (
-        <div className="h-96 flex flex-col items-center justify-center bg-muted/30 rounded-lg">
-          <div className="text-center mb-4">
-            <FileText className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
-            <p className="text-sm text-muted-foreground mb-2">PDF Preview</p>
-            <p className="text-xs text-muted-foreground">Use Download or External buttons to view the full document</p>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleDownload}>
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-            <Button variant="outline" onClick={handleExternalView}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open Externally
-            </Button>
+        <div className="h-96 flex flex-col bg-muted/30 rounded-lg overflow-hidden">
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="text-center">
+              <FileText className="h-16 w-16 text-primary mb-4 mx-auto" />
+              <h3 className="text-lg font-semibold mb-2">PDF Document</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {document.name}
+              </p>
+              <p className="text-xs text-muted-foreground mb-6">
+                Click below to view or download this PDF document
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button onClick={handleExternalView} size="lg">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in New Tab
+                </Button>
+                <Button variant="outline" onClick={handleDownload} size="lg">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       );
