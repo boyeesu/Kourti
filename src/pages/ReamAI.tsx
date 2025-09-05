@@ -176,17 +176,33 @@ export default function ReamAI() {
     ]);
     
     try {
-      // Handle document analysis if a document is selected or uploaded
-      if (selectedDoc || selectedFile) {
-        let content: string;
-        
-        if (selectedDoc) {
-          content = selectedDoc.content || selectedDoc.terms || selectedDoc.title || "";
-        } else if (selectedFile) {
-          content = await selectedFile.text();
-        } else {
-          throw new Error("No document selected");
-        }
+        // Handle document analysis if a document is selected or uploaded
+        if (selectedDoc || selectedFile) {
+          let content: string;
+          
+          if (selectedDoc) {
+            // For selected documents, get content from various fields
+            content = selectedDoc.content || selectedDoc.terms || selectedDoc.description || selectedDoc.title || "";
+            
+            // If still no content, inform user to upload a document with text content
+            if (!content.trim()) {
+              content = `Document "${selectedDoc.title || selectedDoc.name}" selected but no text content available. Please upload a document with text content or provide specific questions about this document.`;
+            }
+          } else if (selectedFile) {
+            // For uploaded files, handle different file types
+            if (selectedFile.type === 'application/pdf') {
+              // For PDFs, we need to inform the user that PDF text extraction is not yet supported
+              content = `PDF file "${selectedFile.name}" uploaded. PDF text extraction is currently being processed. Please try asking specific questions about this document, or upload a text-based document (.txt, .docx) for direct analysis.`;
+            } else if (selectedFile.type.startsWith('text/') || selectedFile.name.endsWith('.txt')) {
+              // For text files, we can read the content
+              content = await selectedFile.text();
+            } else {
+              // For other document types, provide a helpful message
+              content = `Document "${selectedFile.name}" uploaded. Please provide specific questions about this document for analysis.`;
+            }
+          } else {
+            throw new Error("No document selected");
+          }
         
         // Stream the AI analysis
         await streamAnalysis({

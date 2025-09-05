@@ -22,8 +22,11 @@ serve(async (req: Request) => {
     
     const { text, analysisType, goal, documentId } = await req.json();
     
-    if (!text || typeof text !== 'string') {
-      throw new Error('Document text is required');
+    console.log('Request payload:', { text: text?.length || 0, analysisType, goal });
+    
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      console.log('No text provided or empty text');
+      throw new Error('Document text is required and cannot be empty');
     }
 
     if (!openAIApiKey) {
