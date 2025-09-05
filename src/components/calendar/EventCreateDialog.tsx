@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -74,6 +74,22 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
     },
   });
 
+  const cases = Array.isArray(casesData) ? casesData : casesData?.cases || [];
+  const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
+
+  // Watch for case selection changes to auto-populate client
+  const selectedCaseId = form.watch("case_id");
+  
+  // Auto-populate client when case is selected
+  useEffect(() => {
+    if (selectedCaseId && selectedCaseId !== 'none') {
+      const selectedCase = cases.find((c: any) => c.id === selectedCaseId);
+      if (selectedCase?.client_id) {
+        form.setValue("client_id", selectedCase.client_id);
+      }
+    }
+  }, [selectedCaseId, cases, form]);
+
   const onSubmit = async (data: EventFormValues) => {
     // Convert 'none' to undefined/null for case_id and client_id
     const payload = {
@@ -102,9 +118,6 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
     const currentAttendees = form.getValues("attendees") || [];
     form.setValue("attendees", currentAttendees.filter((_, i) => i !== index));
   };
-
-  const cases = Array.isArray(casesData) ? casesData : casesData?.cases || [];
-  const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -231,7 +244,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Related Case</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a case" />
@@ -239,7 +252,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">No case</SelectItem>
-                        {cases.map((case_) => (
+                        {cases.map((case_: any) => (
                           <SelectItem key={case_.id} value={case_.id}>
                             {case_.title}
                           </SelectItem>
@@ -257,7 +270,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Related Client</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a client" />
@@ -265,7 +278,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">No client</SelectItem>
-                        {clients.map((client) => (
+                        {clients.map((client: any) => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.name}
                           </SelectItem>

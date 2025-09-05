@@ -756,6 +756,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          client_id: string | null
           content: string
           contract_type: string | null
           created_at: string | null
@@ -778,6 +779,7 @@ export type Database = {
           value: number | null
         }
         Insert: {
+          client_id?: string | null
           content: string
           contract_type?: string | null
           created_at?: string | null
@@ -800,6 +802,7 @@ export type Database = {
           value?: number | null
         }
         Update: {
+          client_id?: string | null
           content?: string
           contract_type?: string | null
           created_at?: string | null
@@ -822,6 +825,13 @@ export type Database = {
           value?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_created_by_fkey"
             columns: ["created_by"]

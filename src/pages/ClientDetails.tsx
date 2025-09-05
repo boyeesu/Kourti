@@ -482,32 +482,24 @@ function DocumentsSection({ documents }: { documents: any[] }) {
           {documents.slice(0, 10).map((d) => (
             <div key={d.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
               <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground" />
+                <FileText className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="font-medium">{d.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {new Date(d.created_at).toLocaleDateString()}
-                    {d.file_size && ` • ${Math.round(d.file_size / 1024)} KB`}
+                    {d.file_size && `${Math.round(d.file_size / 1024)} KB`} • {new Date(d.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{d.status || 'Active'}</Badge>
-                <Button size="sm" variant="outline" onClick={() => handleView(d)}>
-                  <Eye className="h-4 w-4 mr-1" />
-                  View
-                </Button>
-              </div>
+              <Button size="sm" variant="outline" onClick={() => handleView(d)}>
+                <Eye className="h-4 w-4 mr-2" />
+                View
+              </Button>
             </div>
           ))}
-          {documents.length > 10 && (
-            <p className="text-center py-2 text-muted-foreground text-sm">
-              And {documents.length - 10} more documents...
-            </p>
-          )}
         </div>
       )}
       
+      {/* Document Viewer */}
       {selectedDocument && (
         <DocumentViewer
           open={!!selectedDocument}
