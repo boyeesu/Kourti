@@ -41,53 +41,15 @@ type EnvConfig = {
 };
 
 /**
- * Get environment variable with type checking and optional validation
- */
-function getEnvVar(
-  key: keyof EnvConfig, 
-  defaultValue?: string | number,
-  validator?: (value: string) => boolean
-): string | number {
-  // Get from import.meta.env (Vite) with VITE_ prefix
-  // Also handle the case where key already has VITE_ prefix
-  const prefix = key.startsWith('VITE_') ? '' : 'VITE_';
-  const formattedKey = key.replace('_', '').replace('VITE', '');
-  const fullKey = `${prefix}${formattedKey}`;
-  
-  // For debugging during development
-  console.log(`Looking for env var: ${fullKey}`);
-  
-  // Try direct access first (how Vite typically exposes env vars)
-  let value = import.meta.env[fullKey];
-  
-  // If not found, try process.env as fallback (for non-Vite environments)
-  if (value === undefined && typeof process !== 'undefined' && process.env) {
-    value = process.env[fullKey] ?? defaultValue;
-  }
-  
-  // If still not found, use default or empty string
-  if (value === undefined) {
-    console.warn(`Environment variable ${fullKey} is not defined, using default value`);
-    return defaultValue ?? '';
-  }
-  
-  if (validator && typeof value === 'string' && !validator(value)) {
-    console.warn(`Environment variable ${fullKey} failed validation`);
-  }
-  
-  return value;
-}
-
-/**
- * Environment configuration object
+ * Environment configuration object - using direct access to import.meta.env
  */
 export const env: EnvConfig = {
-  SUPABASE_URL: getEnvVar('SUPABASE_URL', '') as string,
-  SUPABASE_ANON_KEY: getEnvVar('SUPABASE_ANON_KEY', '') as string,
-  SUPABASE_PUBLISHABLE_KEY: getEnvVar('SUPABASE_PUBLISHABLE_KEY', '') as string,
-  OPENAI_API_KEY: getEnvVar('OPENAI_API_KEY', '') as string,
-  APP_URL: getEnvVar('APP_URL', 'http://localhost:5173') as string,
-  API_TIMEOUT: Number(getEnvVar('API_TIMEOUT', 30000)),
+  SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
+  SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '', // Using publishable key as anon key
+  SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
+  OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY || '',
+  APP_URL: import.meta.env.VITE_APP_URL || 'http://localhost:5173',
+  API_TIMEOUT: Number(import.meta.env.VITE_API_TIMEOUT || 30000),
   NODE_ENV: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',
 };
 
@@ -117,14 +79,14 @@ export function validateEnv(): { valid: boolean; errors: string[] } {
   const warnings: string[] = [];
   
   // Check Supabase URL
-  if (!env.SUPABASE_URL) {
+  if (!import.meta.env.VITE_SUPABASE_URL) {
     const message = 'VITE_SUPABASE_URL is not set';
     isDevelopment ? warnings.push(message) : errors.push(message);
   }
   
-  // Check Supabase key
-  if (!env.SUPABASE_ANON_KEY) {
-    const message = 'VITE_SUPABASE_ANON_KEY is not set';
+  // Check Supabase key (using the actual env var name from .env)
+  if (!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    const message = 'VITE_SUPABASE_PUBLISHABLE_KEY is not set';
     isDevelopment ? warnings.push(message) : errors.push(message);
   }
   
