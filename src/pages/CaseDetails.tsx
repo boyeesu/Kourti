@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useCase, useUpdateCase } from "@/hooks/useCases";
 import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
 import { useCaseIssues } from "@/features/cases/api/useCaseIssues";
-import { useDocuments } from "@/hooks/useDocuments";
+import { useDocumentsByCase, useUploadDocument } from "@/hooks/useDocuments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function CaseDetails() {
   const { id } = useParams<{ id: string }>();
@@ -571,14 +572,40 @@ function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean
 
 // --- Documents Section ---
 function DocumentsSection({ caseId }: { caseId: string }) {
-  const { data: documents = [], isLoading } = useDocuments();
-  
-  // Filter documents that might be associated with this case
-  const caseDocuments = documents.filter((doc: any) => 
-    doc.metadata?.case_id === caseId || doc.name.toLowerCase().includes('case')
-  );
+  const { data: caseDocuments = [], isLoading } = useDocumentsByCase(caseId);
 
   if (isLoading) return <div>Loading documents…</div>;
+
+  const handleView = async (doc: any) => {
+    if (doc.file_path) {
+      const { data } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(doc.file_path, 3600);
+      
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      }
+    }
+  };
+
+  const handleDownload = async (doc: any) => {
+    if (doc.file_path) {
+      const { data } = await supabase.storage
+        .from('documents')
+        .download(doc.file_path);
+      
+      if (data) {
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.metadata?.original_filename || doc.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -594,15 +621,16 @@ function DocumentsSection({ caseId }: { caseId: string }) {
                   <p className="font-medium">{doc.name}</p>
                   <p className="text-sm text-muted-foreground">
                     Uploaded {new Date(doc.created_at).toLocaleDateString()}
+                    {doc.file_size && ` • ${Math.round(doc.file_size / 1024)} KB`}
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" onClick={() => handleView(doc)}>
                   <Eye className="h-4 w-4 mr-1" />
                   View
                 </Button>
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" onClick={() => handleDownload(doc)}>
                   <Download className="h-4 w-4 mr-1" />
                   Download
                 </Button>
@@ -619,6 +647,7 @@ function DocumentsSection({ caseId }: { caseId: string }) {
 function DocumentAttachDialog({ open, onOpenChange, caseId }: { open: boolean, onOpenChange: (b: boolean) => void, caseId: string }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const uploadDocument = useUploadDocument();
   
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -645,10 +674,20 @@ function DocumentAttachDialog({ open, onOpenChange, caseId }: { open: boolean, o
 
   const handleAttach = () => {
     if (selectedFile) {
-      // TODO: Implement file upload and association with case
-      console.log('Attaching file to case:', selectedFile, caseId);
-      onOpenChange(false);
-      setSelectedFile(null);
+      uploadDocument.mutate({
+        name: selectedFile.name,
+        file: selectedFile,
+        case_id: caseId,
+        metadata: {
+          attached_to_case: true,
+          upload_date: new Date().toISOString()
+        }
+      }, {
+        onSuccess: () => {
+          onOpenChange(false);
+          setSelectedFile(null);
+        }
+      });
     }
   };
 
@@ -715,8 +754,11 @@ function DocumentAttachDialog({ open, onOpenChange, caseId }: { open: boolean, o
           <Button onClick={() => onOpenChange(false)} variant="outline">
             Cancel
           </Button>
-          <Button onClick={handleAttach} disabled={!selectedFile}>
-            Attach Document
+          <Button 
+            onClick={handleAttach} 
+            disabled={!selectedFile || uploadDocument.isPending}
+          >
+            {uploadDocument.isPending ? "Uploading..." : "Attach Document"}
           </Button>
         </DialogFooter>
       </DialogContent>

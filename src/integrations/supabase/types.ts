@@ -752,8 +752,11 @@ export type Database = {
           currency: string | null
           effective_date: string | null
           embedding: string | null
+          file_path: string | null
+          file_size: number | null
           id: string
           metadata: Json | null
+          mime_type: string | null
           name: string
           organization_id: string | null
           renewal_date: string | null
@@ -771,8 +774,11 @@ export type Database = {
           currency?: string | null
           effective_date?: string | null
           embedding?: string | null
+          file_path?: string | null
+          file_size?: number | null
           id?: string
           metadata?: Json | null
+          mime_type?: string | null
           name: string
           organization_id?: string | null
           renewal_date?: string | null
@@ -790,8 +796,11 @@ export type Database = {
           currency?: string | null
           effective_date?: string | null
           embedding?: string | null
+          file_path?: string | null
+          file_size?: number | null
           id?: string
           metadata?: Json | null
+          mime_type?: string | null
           name?: string
           organization_id?: string | null
           renewal_date?: string | null
