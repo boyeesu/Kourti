@@ -40,6 +40,8 @@ import UserManagement from "./pages/UserManagement";
 import Settings from "./pages/Settings";
 import ReamAI from "./pages/ReamAI";
 import VoiceRecorder from "./pages/VoiceRecorder";
+import TranscriptionView from "./pages/TranscriptionView";
+import TranscriptionsList from "./pages/TranscriptionsList";
 import NotFound from "./pages/NotFound";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Suspense, lazy, useEffect } from "react";
@@ -308,6 +310,19 @@ const App = () => (
                               <Route path="/voice-recorder" element={
                                 <ModuleErrorBoundary name="Voice Recorder">
                                   <VoiceRecorder />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Transcriptions */}
+                              <Route path="/transcriptions" element={
+                                <ModuleErrorBoundary name="Transcriptions List">
+                                  <TranscriptionsList />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              <Route path="/transcriptions/:id" element={
+                                <ModuleErrorBoundary name="Transcription View">
+                                  <TranscriptionView />
                                 </ModuleErrorBoundary>
                               } />
                               

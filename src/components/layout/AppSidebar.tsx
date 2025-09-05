@@ -94,6 +94,11 @@ const toolsNavigation: NavigationGroup = {
       badgeVariant: "default" 
     },
     { 
+      title: "Transcriptions", 
+      url: "/transcriptions", 
+      icon: FileText
+    },
+    { 
       title: "Invoicing", 
       url: "/invoices", 
       icon: Receipt, 

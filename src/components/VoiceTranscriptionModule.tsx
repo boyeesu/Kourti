@@ -1,16 +1,18 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCases } from '@/hooks/useCases';
 import { useCreateActivity } from '@/features/activities/api/useCreateActivity';
-import { Mic, Play, Pause, Square, Save, FileText, Loader2 } from 'lucide-react';
+import { Mic, Play, Pause, Square, Save, FileText, Loader2, List } from 'lucide-react';
 
 const VoiceTranscriptionModule: React.FC = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { data: casesData } = useCases();
   const cases = casesData?.cases || [];
@@ -397,9 +399,15 @@ const VoiceTranscriptionModule: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center space-x-2 mb-6">
-        <Mic className="h-6 w-6 text-primary" />
-        <h1 className="text-3xl font-bold">Legal Proceedings Recorder</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-2">
+          <Mic className="h-6 w-6 text-primary" />
+          <h1 className="text-3xl font-bold">Legal Proceedings Recorder</h1>
+        </div>
+        <Button variant="outline" onClick={() => navigate('/transcriptions')}>
+          <List className="h-4 w-4 mr-2" />
+          View All Transcriptions
+        </Button>
       </div>
 
       <Card>
