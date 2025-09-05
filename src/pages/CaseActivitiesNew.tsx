@@ -46,7 +46,7 @@ export default function CaseActivities() {
   const { toast } = useToast();
 
   const { data: activities = [], isLoading } = useActivities(caseId);
-  const createActivity = useCreateActivity(caseId);
+  const createActivity = useCreateActivity();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newActivity, setNewActivity] = useState({
@@ -81,9 +81,12 @@ export default function CaseActivities() {
     }
     try {
       await createActivity.mutateAsync({
-        ...newActivity,
-        status: newActivity.status || "pending",
-      } as any);
+        caseId,
+        payload: {
+          ...newActivity,
+          status: newActivity.status || "pending",
+        } as any
+      });
       setNewActivity({
         title: "",
         description: "",

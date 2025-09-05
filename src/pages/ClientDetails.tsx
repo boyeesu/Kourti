@@ -14,6 +14,7 @@ import {
   Calendar,
   FileText,
   Briefcase,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +40,7 @@ import { useCasesByClient } from "@/hooks/useCases";
 import { useContractsByClient } from "@/hooks/useContracts";
 import { useCalendarEventsByClient } from "@/hooks/useCalendar";
 import { useDocumentsByClient } from "@/hooks/useDocuments";
+import { DocumentViewer } from "@/components/DocumentViewer";
 
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import {
@@ -66,6 +68,7 @@ export default function ClientDetails() {
   const createLog = useCreateClientLog();
   const [logContent, setLogContent] = useState("");
   const [logType, setLogType] = useState<'email' | 'phone' | 'note'>("note");
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
 
   const getInitials = (name: string) =>
     name
@@ -404,23 +407,7 @@ export default function ClientDetails() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {documents.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">No documents uploaded</p>
-            ) : (
-              <div className="space-y-3">
-                {documents.slice(0, 5).map((d) => (
-                  <div key={d.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
-                    <div>
-                      <p className="font-medium">{d.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(d.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Badge variant="outline">{d.status || 'Active'}</Badge>
-                  </div>
-                ))}
-              </div>
-            )}
+            <DocumentsSection documents={documents} />
           </CardContent>
         </Card>
       </div>
@@ -465,6 +452,69 @@ export default function ClientDetails() {
           )}
         </CardContent>
       </Card>
+
+      {/* Document Viewer */}
+      {selectedDocument && (
+        <DocumentViewer
+          open={!!selectedDocument}
+          onOpenChange={() => setSelectedDocument(null)}
+          document={selectedDocument}
+        />
+      )}
     </div>
+  );
+}
+
+// Documents Section Component
+function DocumentsSection({ documents }: { documents: any[] }) {
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+
+  const handleView = (doc: any) => {
+    setSelectedDocument(doc);
+  };
+
+  return (
+    <>
+      {documents.length === 0 ? (
+        <p className="text-center py-8 text-muted-foreground">No documents uploaded</p>
+      ) : (
+        <div className="space-y-3">
+          {documents.slice(0, 10).map((d) => (
+            <div key={d.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">{d.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(d.created_at).toLocaleDateString()}
+                    {d.file_size && ` • ${Math.round(d.file_size / 1024)} KB`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{d.status || 'Active'}</Badge>
+                <Button size="sm" variant="outline" onClick={() => handleView(d)}>
+                  <Eye className="h-4 w-4 mr-1" />
+                  View
+                </Button>
+              </div>
+            </div>
+          ))}
+          {documents.length > 10 && (
+            <p className="text-center py-2 text-muted-foreground text-sm">
+              And {documents.length - 10} more documents...
+            </p>
+          )}
+        </div>
+      )}
+      
+      {selectedDocument && (
+        <DocumentViewer
+          open={!!selectedDocument}
+          onOpenChange={() => setSelectedDocument(null)}
+          document={selectedDocument}
+        />
+      )}
+    </>
   );
 }

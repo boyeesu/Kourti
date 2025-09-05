@@ -18,6 +18,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActivities } from "@/features/activities/api/useActivities";
+import { useDeleteActivity } from "@/features/activities/api/useDeleteActivity";
+import { ActivityDialog } from "@/components/ActivityDialog";
+import { DocumentViewer } from "@/components/DocumentViewer";
 
 export default function CaseDetails() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +30,7 @@ export default function CaseDetails() {
   const updateCase = useUpdateCase();
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDocumentDialog, setShowDocumentDialog] = useState(false);
+  const [showActivityDialog, setShowActivityDialog] = useState(false);
   
   // Get case type and issue data
   const caseTypeId = (caseData as any)?.case_type_id || "";
@@ -241,6 +246,19 @@ export default function CaseDetails() {
         </CardContent>
       </Card>
 
+      {/* Activities Section */}
+      <Card className="shadow-card">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Activities</CardTitle>
+          <Button size="sm" onClick={() => setShowActivityDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Add Activity
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <ActivitiesSection caseId={caseData.id} />
+        </CardContent>
+      </Card>
+
       {/* Documents Section */}
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -285,6 +303,13 @@ export default function CaseDetails() {
       <DocumentAttachDialog
         open={showDocumentDialog}
         onOpenChange={setShowDocumentDialog}
+        caseId={caseData.id}
+      />
+
+      {/* Activity Creation Dialog */}
+      <ActivityDialog
+        open={showActivityDialog}
+        onOpenChange={setShowActivityDialog}
         caseId={caseData.id}
       />
     </div>
@@ -573,19 +598,12 @@ function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean
 // --- Documents Section ---
 function DocumentsSection({ caseId }: { caseId: string }) {
   const { data: caseDocuments = [], isLoading } = useDocumentsByCase(caseId);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
 
   if (isLoading) return <div>Loading documents…</div>;
 
-  const handleView = async (doc: any) => {
-    if (doc.file_path) {
-      const { data } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(doc.file_path, 3600);
-      
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
-      }
-    }
+  const handleView = (doc: any) => {
+    setSelectedDocument(doc);
   };
 
   const handleDownload = async (doc: any) => {
@@ -638,6 +656,109 @@ function DocumentsSection({ caseId }: { caseId: string }) {
             </div>
           ))}
         </div>
+      )}
+      
+      {selectedDocument && (
+        <DocumentViewer
+          open={!!selectedDocument}
+          onOpenChange={() => setSelectedDocument(null)}
+          document={selectedDocument}
+        />
+      )}
+    </div>
+  );
+}
+
+function ActivitiesSection({ caseId }: { caseId: string }) {
+  const { data: activities = [], isLoading } = useActivities(caseId);
+  const { data: users = [] } = useOrganizationMembers();
+  const deleteActivity = useDeleteActivity();
+  const [editActivity, setEditActivity] = useState<any>(null);
+
+  if (isLoading) return <div>Loading activities…</div>;
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'hearing': return '⚖️';
+      case 'meeting': return '👥';
+      case 'deposition': return '📝';
+      case 'research': return '🔍';
+      case 'filing': return '📄';
+      case 'negotiation': return '🤝';
+      case 'investigation': return '🕵️';
+      case 'document_review': return '📋';
+      case 'mediation': return '🤲';
+      case 'consultation': return '💬';
+      case 'preparation': return '📚';
+      case 'follow_up': return '📞';
+      default: return '📝';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-success text-success-foreground';
+      case 'in_progress': return 'bg-warning text-warning-foreground';
+      case 'cancelled': return 'bg-destructive text-destructive-foreground';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {activities.length === 0 ? (
+        <p className="text-center py-8 text-muted-foreground">No activities for this case</p>
+      ) : (
+        <div className="space-y-3">
+          {activities.map((activity: any) => (
+            <div key={activity.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{getActivityIcon(activity.activity_type)}</span>
+                <div>
+                  <h4 className="font-medium">{activity.title}</h4>
+                  <p className="text-sm text-muted-foreground capitalize">
+                    {activity.activity_type.replace('_', ' ')}
+                    {activity.due_date && ` • Due: ${new Date(activity.due_date).toLocaleDateString()}`}
+                  </p>
+                  {activity.description && (
+                    <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
+                  )}
+                  {activity.assigned_to && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Assigned to: {users.find((u: any) => u.user_id === activity.assigned_to)?.first_name || 'Unknown'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className={getStatusColor(activity.status)}>
+                  {activity.status}
+                </Badge>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" onClick={() => setEditActivity(activity)}>
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => deleteActivity.mutate(activity.id)}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {editActivity && (
+        <ActivityDialog
+          open={!!editActivity}
+          onOpenChange={() => setEditActivity(null)}
+          caseId={caseId}
+          activity={editActivity}
+        />
       )}
     </div>
   );
