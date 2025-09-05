@@ -222,6 +222,24 @@ const VoiceTranscriptionModule: React.FC = () => {
     setIsSaving(true);
 
     try {
+      // Get current user data
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get user's organization from profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        throw new Error('User organization not found');
+      }
+
       // Save to voice_transcriptions table
       const { error: transcriptionError } = await supabase
         .from('voice_transcriptions')
@@ -231,9 +249,9 @@ const VoiceTranscriptionModule: React.FC = () => {
           summary: saveType === 'summary' ? summary : '',
           case_id: selectedCaseId || null,
           duration_seconds: duration,
-          status: 'completed',
-          organization_id: (await supabase.auth.getUser()).data.user?.user_metadata?.organization_id,
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          status: 'completed' as const,
+          organization_id: profile.organization_id,
+          created_by: user.id
         });
 
       if (transcriptionError) throw transcriptionError;

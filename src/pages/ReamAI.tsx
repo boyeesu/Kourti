@@ -244,7 +244,9 @@ ${fileContent}`;
 User Question: ${userMessage}`;
           }
         } else {
-          throw new Error("No document selected");
+          // Allow queries without document selection
+          content = userMessage;
+          contextInfo = "General legal AI query (no specific document selected)";
         }
         
         // Stream the AI analysis with enhanced context
