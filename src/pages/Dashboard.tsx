@@ -37,7 +37,7 @@ import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useUserRole } from "@/hooks/useUserManagement";
 import { useCases } from "@/hooks/useCases";
-import { useContracts } from "@/hooks/useContracts";
+import { useAllActivities } from "@/features/activities/api/useAllActivities";
 import { Case, Contract } from "@/types";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
@@ -52,7 +52,7 @@ export default function Dashboard() {
   const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard } = useDashboard();
   const { data: userRoleData } = useUserRole();
   const { data: casesData, isLoading: casesLoading } = useCases();
-  const { data: contractsData, isLoading: contractsLoading } = useContracts();
+  const { data: activitiesData, isLoading: activitiesLoading } = useAllActivities();
   
   const role = userRoleData?.role;
   const isAdmin = role === "superadmin" || role === "admin";
@@ -83,59 +83,70 @@ export default function Dashboard() {
     ];
   }, [casesData]);
 
-  // Generate monthly activity data based on real data if available
+  // Generate monthly activity data based on real activity data
   const recentActivity = useMemo(() => {
-    // If we have real case and contract data, calculate monthly trends
-    if (casesData?.cases && contractsData) {
-      const monthlyData: Record<string, { cases: number; contracts: number }> = {};
+    // If we have real activity data, calculate monthly trends by activity type
+    if (activitiesData && activitiesData.length > 0) {
+      const monthlyData: Record<string, Record<string, number>> = {};
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       
-      // Initialize all months to zero
+      // Initialize all months
       months.forEach(month => {
-        monthlyData[month] = { cases: 0, contracts: 0 };
+        monthlyData[month] = {};
       });
       
-      // Count cases by month
-      casesData.cases.forEach((c: Case) => {
-        if (c.created_at) {
-          const month = months[new Date(c.created_at).getMonth()];
-          monthlyData[month].cases += 1;
+      // Count activities by month and type
+      activitiesData.forEach((activity: any) => {
+        if (activity.created_at) {
+          const month = months[new Date(activity.created_at).getMonth()];
+          const activityType = activity.activity_type || 'Other';
+          monthlyData[month][activityType] = (monthlyData[month][activityType] || 0) + 1;
         }
       });
       
-      // Count contracts by month
-      const contractsArray = Array.isArray(contractsData) ? contractsData : (contractsData?.contracts || []);
-      contractsArray.forEach((contract: Contract) => {
-        if (contract.created_at) {
-          const month = months[new Date(contract.created_at).getMonth()];
-          monthlyData[month].contracts += 1;
-        }
+      // Transform to array format for the chart with top activity types
+      const allActivityTypes = new Set<string>();
+      Object.values(monthlyData).forEach(monthData => {
+        Object.keys(monthData).forEach(type => allActivityTypes.add(type));
       });
       
-      // Transform to array format for the chart
-      return months.map(month => ({
-        month,
-        cases: monthlyData[month].cases,
-        contracts: monthlyData[month].contracts
-      }));
+      // Get top 3 most common activity types
+      const typeCounts: Record<string, number> = {};
+      activitiesData.forEach((activity: any) => {
+        const type = activity.activity_type || 'Other';
+        typeCounts[type] = (typeCounts[type] || 0) + 1;
+      });
+      
+      const topTypes = Object.entries(typeCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([type]) => type);
+      
+      return months.map(month => {
+        const result: any = { month };
+        topTypes.forEach(type => {
+          result[type] = monthlyData[month][type] || 0;
+        });
+        return result;
+      });
     }
 
     // Fallback to sample data
     return [
-      { month: 'Jan', cases: 12, contracts: 8 },
-      { month: 'Feb', cases: 19, contracts: 12 },
-      { month: 'Mar', cases: 15, contracts: 9 },
-      { month: 'Apr', cases: 22, contracts: 15 },
-      { month: 'May', cases: 18, contracts: 11 },
-      { month: 'Jun', cases: 24, contracts: 16 },
-      { month: 'Jul', cases: 20, contracts: 14 },
-      { month: 'Aug', cases: 25, contracts: 18 },
-      { month: 'Sep', cases: 17, contracts: 13 },
-      { month: 'Oct', cases: 21, contracts: 16 },
-      { month: 'Nov', cases: 16, contracts: 12 },
-      { month: 'Dec', cases: 10, contracts: 8 }
+      { month: 'Jan', Meeting: 5, Court: 3, Research: 8 },
+      { month: 'Feb', Meeting: 8, Court: 2, Research: 12 },
+      { month: 'Mar', Meeting: 6, Court: 4, Research: 9 },
+      { month: 'Apr', Meeting: 10, Court: 6, Research: 15 },
+      { month: 'May', Meeting: 7, Court: 3, Research: 11 },
+      { month: 'Jun', Meeting: 12, Court: 5, Research: 16 },
+      { month: 'Jul', Meeting: 9, Court: 4, Research: 14 },
+      { month: 'Aug', Meeting: 11, Court: 7, Research: 18 },
+      { month: 'Sep', Meeting: 8, Court: 3, Research: 13 },
+      { month: 'Oct', Meeting: 10, Court: 5, Research: 16 },
+      { month: 'Nov', Meeting: 7, Court: 2, Research: 12 },
+      { month: 'Dec', Meeting: 5, Court: 1, Research: 8 }
     ];
-  }, [casesData, contractsData]);
+  }, [activitiesData]);
 
   // Helper function to get color based on status
   function getStatusColor(status: string): string {
@@ -150,7 +161,7 @@ export default function Dashboard() {
   }
 
   // Handle loading states
-  if (dashboardLoading && casesLoading && contractsLoading) {
+  if (dashboardLoading && casesLoading && activitiesLoading) {
     return (
       <div className="flex items-center justify-center h-[70vh]">
         <div className="flex flex-col items-center gap-2">
@@ -297,27 +308,26 @@ export default function Dashboard() {
                     tickLine={false}
                     width={30}
                   />
-                  <Legend 
+                   <Legend 
                     verticalAlign="top" 
                     height={36}
                     iconType="circle"
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="cases" 
-                    name="Cases" 
-                    stroke="#3b82f6" 
-                    strokeWidth={3}
-                    activeDot={{ r: 8 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="contracts" 
-                    name="Contracts" 
-                    stroke="#10b981" 
-                    strokeWidth={3}
-                    activeDot={{ r: 8 }}
-                  />
+                  {/* Render lines dynamically based on activity data */}
+                  {recentActivity.length > 0 && Object.keys(recentActivity[0]).filter(key => key !== 'month').map((activityType, index) => {
+                    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                    return (
+                      <Line 
+                        key={activityType}
+                        type="monotone" 
+                        dataKey={activityType} 
+                        name={activityType} 
+                        stroke={colors[index % colors.length]} 
+                        strokeWidth={3}
+                        activeDot={{ r: 8 }}
+                      />
+                    );
+                  })}
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
