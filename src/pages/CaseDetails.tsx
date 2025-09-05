@@ -354,7 +354,7 @@ function TasksSection({ caseId }: { caseId: string }) {
                 </td>
                 <td className="py-2">{task.due_date ? new Date(task.due_date).toLocaleDateString() : "-"}</td>
                 <td className="py-2">
-                  {task.assigned_to ? (
+                  {task.assigned_to && task.assigned_to !== 'unassigned' ? (
                     <span className="text-sm">{users.find((u: any) => u.user_id === task.assigned_to)?.first_name || 'Unknown'}</span>
                   ) : (
                     <span className="text-muted-foreground text-sm">Unassigned</span>
@@ -420,7 +420,7 @@ function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean
     description: "", 
     due_date: "", 
     priority: "medium", 
-    assigned_to: "",
+    assigned_to: "unassigned",
     task_type: "general"
   });
   const [submitting, setSubmitting] = useState(false);
@@ -461,7 +461,7 @@ function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean
         onSuccess: () => {
           setSubmitting(false);
           onOpenChange(false);
-          setForm({ title: "", description: "", due_date: "", priority: "medium", assigned_to: "", task_type: "general" });
+          setForm({ title: "", description: "", due_date: "", priority: "medium", assigned_to: "unassigned", task_type: "general" });
         },
         onError: () => setSubmitting(false)
       });
@@ -534,7 +534,7 @@ function NewTaskDialog({ open, onOpenChange, caseId, existing }: { open: boolean
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {users.map((u: any) => (
                     <SelectItem key={u.user_id} value={u.user_id}>
                       {u.first_name} {u.last_name} ({u.email})
