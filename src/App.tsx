@@ -2,7 +2,7 @@ import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// QueryClient removed - now handled in main.tsx
 import { NotificationsProvider } from "@/components/ui/notifications";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -46,26 +46,12 @@ import NotFound from "./pages/NotFound";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Suspense, lazy, useEffect } from "react";
 import { logInfo } from "./lib/logger";
-import { ThemeProvider } from "@/hooks/useTheme";
+// ThemeProvider removed - now handled in main.tsx
 
 // Lazy load pages for better performance
 const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const Analytics = lazy(() => import('./pages/Analytics'));
-
-// Create a query client with better defaults
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      staleTime: 30 * 1000, // 30 seconds
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
-      refetchOnReconnect: true,
-      gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
-    },
-  },
-});
 
 // Component to track page views for analytics
 function PageViewTracker() {
@@ -121,15 +107,13 @@ function LoadingFallback() {
 
 // App Component
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light" storageKey="kouti-legal-theme">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <NotificationsProvider>
-          <BrowserRouter>
-            <PageViewTracker />
-            <AuthProvider>
+  <TooltipProvider>
+    <Toaster />
+    <Sonner />
+    <NotificationsProvider>
+      <BrowserRouter>
+        <PageViewTracker />
+        <AuthProvider>
               <Routes>
                 {/* Public routes */}
                 <Route path="/auth" element={<Auth />} />
@@ -352,8 +336,6 @@ const App = () => (
           </BrowserRouter>
         </NotificationsProvider>
       </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
 );
 
 export default App;
