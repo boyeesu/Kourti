@@ -48,5 +48,9 @@ export function useUserOrganization() {
       return failureCount < 3;
     },
     retryDelay: 1000,
+    // Add timeout to prevent infinite loading
+    networkMode: 'always',
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 }

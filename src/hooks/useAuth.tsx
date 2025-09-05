@@ -36,12 +36,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔐 Auth useEffect: Starting authentication check...');
     // Set loading state
     setLoading(true);
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, currentSession) => {
+      (event, currentSession) => {
+        console.log('🔐 Auth state change:', event, currentSession ? 'Session exists' : 'No session');
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
@@ -49,9 +51,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    console.log('🔐 Checking for existing session...');
+    supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
+      if (error) {
+        console.error('🔐 Error getting session:', error);
+      } else {
+        console.log('🔐 Got session:', currentSession ? 'Session exists' : 'No session');
+      }
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
+      setLoading(false);
+    }).catch((error) => {
+      console.error('🔐 Session check failed:', error);
       setLoading(false);
     });
 

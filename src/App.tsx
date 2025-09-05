@@ -80,16 +80,26 @@ function PageViewTracker() {
 
 // Organization check component
 function OrganizationCheck({ children }: { children: React.ReactNode }) {
-  const { data: organizationId, isLoading } = useUserOrganization();
+  const { data: organizationId, isLoading, error } = useUserOrganization();
+  
+  console.log('🏢 OrganizationCheck - Loading:', isLoading, 'OrgId:', organizationId, 'Error:', error);
   
   if (isLoading) {
+    console.log('🏢 OrganizationCheck: Showing loading fallback');
     return <LoadingFallback />;
   }
-  
-  if (!organizationId) {
+
+  if (error) {
+    console.log('🏢 OrganizationCheck: Error detected, showing organization setup');
     return <OrganizationSetup />;
   }
   
+  if (!organizationId) {
+    console.log('🏢 OrganizationCheck: No organization ID, showing setup');
+    return <OrganizationSetup />;
+  }
+  
+  console.log('🏢 OrganizationCheck: Organization found, rendering children');
   return <>{children}</>;
 }
 
@@ -99,7 +109,8 @@ function LoadingFallback() {
     <div className="flex items-center justify-center h-screen bg-background">
       <div className="flex flex-col items-center gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        <p className="text-muted-foreground animate-pulse">Loading...</p>
+        <p className="text-muted-foreground animate-pulse">Loading your workspace...</p>
+        <p className="text-xs text-muted-foreground/60">This should only take a moment</p>
       </div>
     </div>
   );
