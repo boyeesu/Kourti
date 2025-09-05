@@ -44,9 +44,9 @@ export function useDocuments() {
         .from('documents')
         .select(`
           *,
-          cases (
+          clients (
             id,
-            title
+            name
           ),
           profiles!documents_created_by_fkey (
             first_name,
@@ -56,7 +56,25 @@ export function useDocuments() {
         .eq('organization_id', (profile as any)?.organization_id || '');
 
       if (error) throw error;
-      return data as any as Document[];
+
+      // For each document, if it has a case_id in metadata, fetch the case info
+      const documentsWithCases = await Promise.all(
+        (data || []).map(async (doc) => {
+          const metadata = doc.metadata as any;
+          const caseId = metadata?.case_id;
+          if (caseId) {
+            const { data: caseData } = await supabase
+              .from('cases')
+              .select('id, title')
+              .eq('id', caseId)
+              .single();
+            return { ...doc, case: caseData };
+          }
+          return { ...doc, case: null };
+        })
+      );
+
+      return documentsWithCases as any as Document[];
     },
   });
 }
@@ -69,9 +87,9 @@ export function useDocument(id: string) {
         .from('documents')
         .select(`
           *,
-          cases (
+          clients (
             id,
-            title
+            name
           ),
           profiles!documents_created_by_fkey (
             first_name,
@@ -82,7 +100,23 @@ export function useDocument(id: string) {
         .single();
 
       if (error) throw error;
-      return data as any as Document;
+
+      // If document has a case_id in metadata, fetch the case info
+      let documentWithCase = { ...data } as any;
+      const metadata = data.metadata as any;
+      const caseId = metadata?.case_id;
+      if (caseId) {
+        const { data: caseData } = await supabase
+          .from('cases')
+          .select('id, title')
+          .eq('id', caseId)
+          .single();
+        documentWithCase.case = caseData;
+      } else {
+        documentWithCase.case = null;
+      }
+
+      return documentWithCase as any as Document;
     },
   });
 }
@@ -110,9 +144,9 @@ export function useDocumentsByClient(clientId: string) {
           .from('documents')
           .select(`
             *,
-            cases (
+            clients (
               id,
-              title
+              name
             ),
             profiles!documents_created_by_fkey (
               first_name,
@@ -130,9 +164,9 @@ export function useDocumentsByClient(clientId: string) {
               .from('documents')
               .select(`
                 *,
-                cases (
+                clients (
                   id,
-                  title
+                  name
                 ),
                 profiles!documents_created_by_fkey (
                   first_name,
@@ -171,9 +205,9 @@ export function useDocumentsByCase(caseId: string) {
         .from('documents')
         .select(`
           *,
-          cases (
+          clients (
             id,
-            title
+            name
           ),
           profiles!documents_created_by_fkey (
             first_name,
@@ -183,7 +217,14 @@ export function useDocumentsByCase(caseId: string) {
         .contains('metadata', { case_id: caseId });
 
       if (error) throw error;
-      return data as any as Document[];
+
+      // Add case information to each document
+      const documentsWithCase = (data || []).map(doc => ({
+        ...doc,
+        case: { id: caseId, title: 'Case' } // You could fetch actual case title if needed
+      }));
+
+      return documentsWithCase as any as Document[];
     },
   });
 }
