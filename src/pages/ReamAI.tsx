@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useContracts } from "@/hooks/useContracts";
 import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
+import { useDocumentContent } from "@/hooks/useDocumentContext";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,6 +69,12 @@ export default function ReamAI() {
     cancelStreaming, 
     isStreaming,
   } = useEnhancedDocumentAnalysis();
+
+  // Get full document content for AI context
+  const { data: documentContent } = useDocumentContent(
+    selectedDoc?.id || null,
+    selectedDoc?.type || null
+  );
 
   // Auto-select contract from URL params
   useEffect(() => {
@@ -176,43 +183,73 @@ export default function ReamAI() {
     ]);
     
     try {
-        // Handle document analysis if a document is selected or uploaded
-        if (selectedDoc || selectedFile) {
-          let content: string;
-          
-          if (selectedDoc) {
-            // For selected documents, get content from various fields
-            content = selectedDoc.content || selectedDoc.terms || selectedDoc.description || selectedDoc.title || "";
-            
-            // If still no content, inform user to upload a document with text content
-            if (!content.trim()) {
-              content = `Document "${selectedDoc.title || selectedDoc.name}" selected but no text content available. Please upload a document with text content or provide specific questions about this document.`;
-            }
-          } else if (selectedFile) {
-            // For uploaded files, handle different file types
-            if (selectedFile.type === 'application/pdf') {
-              // For PDFs, we need to inform the user that PDF text extraction is not yet supported
-              content = `PDF file "${selectedFile.name}" uploaded. PDF text extraction is currently being processed. Please try asking specific questions about this document, or upload a text-based document (.txt, .docx) for direct analysis.`;
-            } else if (selectedFile.type.startsWith('text/') || selectedFile.name.endsWith('.txt')) {
-              // For text files, we can read the content
-              content = await selectedFile.text();
-            } else {
-              // For other document types, provide a helpful message
-              content = `Document "${selectedFile.name}" uploaded. Please provide specific questions about this document for analysis.`;
-            }
-          } else {
-            throw new Error("No document selected");
-          }
+      // Handle document analysis if a document is selected or uploaded
+      if (selectedDoc || selectedFile) {
+        let content: string;
+        let contextInfo: string = "";
         
-        // Stream the AI analysis
+        if (selectedDoc && documentContent) {
+          // Use the full content from the document context hook
+          content = documentContent.fullContent || "";
+          
+          // Add metadata for better context
+          contextInfo = `Document: ${documentContent.title || documentContent.name || "Untitled"}
+Type: ${documentContent.type === 'contract' ? 'Contract' : 'Document'}
+${documentContent.contract_type ? `Contract Type: ${documentContent.contract_type}` : ''}
+${documentContent.status ? `Status: ${documentContent.status}` : ''}
+${documentContent.value ? `Value: ${documentContent.currency || 'USD'} ${documentContent.value}` : ''}
+${documentContent.start_date ? `Start Date: ${documentContent.start_date}` : ''}
+${documentContent.end_date ? `End Date: ${documentContent.end_date}` : ''}
+Created: ${new Date(documentContent.created_at).toLocaleDateString()}
+
+Question: ${userMessage}
+
+Document Content:
+${content}`;
+          
+          // If still no content, provide guidance
+          if (!content.trim()) {
+            content = `Document "${documentContent.title || documentContent.name}" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
+          }
+        } else if (selectedFile) {
+          // For uploaded files, handle different file types
+          if (selectedFile.type === 'application/pdf') {
+            content = `PDF file "${selectedFile.name}" uploaded. PDF text extraction is currently being processed. Please ask specific questions about this document, or upload a text-based document (.txt, .docx) for direct analysis.
+
+User Question: ${userMessage}`;
+          } else if (selectedFile.type.startsWith('text/') || selectedFile.name.endsWith('.txt')) {
+            // For text files, we can read the content
+            const fileContent = await selectedFile.text();
+            content = `Document: ${selectedFile.name}
+Type: Uploaded Text File
+Size: ${(selectedFile.size / 1024).toFixed(1)} KB
+
+Question: ${userMessage}
+
+Document Content:
+${fileContent}`;
+          } else {
+            content = `Document "${selectedFile.name}" uploaded. Please provide specific questions about this document for analysis.
+
+User Question: ${userMessage}`;
+          }
+        } else {
+          throw new Error("No document selected");
+        }
+        
+        // Stream the AI analysis with enhanced context
         await streamAnalysis({
-          content,
-          analysisType: "general",
-          onProgress: (content, done) => {
+          content: contextInfo || content,
+          analysisType: userMessage.toLowerCase().includes('risk') ? 'risk' : 
+                      userMessage.toLowerCase().includes('extract') || userMessage.toLowerCase().includes('key') ? 'extract' :
+                      userMessage.toLowerCase().includes('compare') ? 'compare' :
+                      userMessage.toLowerCase().includes('summary') || userMessage.toLowerCase().includes('summarize') ? 'summary' :
+                      'general',
+          onProgress: (aiContent, done) => {
             setMessages((msgs) => 
               msgs.map((msg, i) => 
                 i === msgs.length - 1 ? 
-                  { ...msg, content, isStreaming: !done } : 
+                  { ...msg, content: aiContent, isStreaming: !done } : 
                   msg
               )
             );
@@ -223,14 +260,37 @@ export default function ReamAI() {
           }
         });
       } else {
-        // Simulate an AI response (for general queries without document context)
+        // Handle general legal queries without specific document context
         setIsTyping(true);
         
-        // In a real app, this would call an API endpoint for general legal queries
-        simulateTypingResponse(
-          "I don't have a document to analyze. Please upload or select a document first, or ask me a general legal question.",
-          50
-        );
+        try {
+          // Use the AI for general legal questions
+          await streamAnalysis({
+            content: `Legal Question: ${userMessage}
+
+Please provide a helpful response to this legal question. If you need specific document context to provide a complete answer, let the user know they can upload or select a document for more detailed analysis.`,
+            analysisType: "general",
+            onProgress: (aiContent, done) => {
+              setMessages((msgs) => 
+                msgs.map((msg, i) => 
+                  i === msgs.length - 1 ? 
+                    { ...msg, content: aiContent, isStreaming: !done } : 
+                    msg
+                )
+              );
+              
+              if (done) {
+                setIsTyping(false);
+              }
+            }
+          });
+        } catch (error) {
+          console.error("Error with general query:", error);
+          simulateTypingResponse(
+            "I'm here to help with legal questions and document analysis. Please upload or select a document for detailed analysis, or ask me a general legal question.",
+            50
+          );
+        }
       }
     } catch (error) {
       console.error("Error processing request:", error);

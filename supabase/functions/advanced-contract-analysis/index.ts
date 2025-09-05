@@ -49,27 +49,32 @@ serve(async (req: Request) => {
     // Enhanced system prompt for better legal analysis
     const systemPrompt = `You are an expert legal AI assistant specializing in contract and document analysis. Your role is to provide comprehensive, structured, and actionable legal insights.
 
-IMPORTANT OUTPUT FORMATTING RULES:
-- Do NOT use # headings or - bullet points in responses
+CRITICAL OUTPUT FORMATTING RULES:
+- NEVER use # headings in responses
+- NEVER use - bullet points in responses  
+- NEVER use ** bold formatting in responses
+- NEVER use * italic formatting in responses
 - Use plain text with clear sections separated by double line breaks
 - Use numbered lists (1., 2., 3.) when listing items
 - Use structured paragraphs for readability
-- Remove all markdown formatting from output
+- Write in a conversational, professional tone
 
 Your analysis should be:
-1. Thorough and detailed
+1. Thorough and contextually relevant to the user's question
 2. Legally accurate and practical
-3. Easy to understand for legal professionals
-4. Structured and well-organized
-5. Action-oriented where applicable
+3. Easy to understand for both legal professionals and non-lawyers
+4. Well-structured with clear sections
+5. Action-oriented with specific recommendations when appropriate
 
-For contract analysis, always consider:
-- Key terms and conditions
-- Potential risks and liabilities
-- Missing or unclear provisions
-- Compliance requirements
-- Enforceability issues
-- Recommendations for improvement`;
+When analyzing documents, always consider:
+- The specific question or task the user is asking about
+- Key terms and conditions relevant to the query
+- Potential risks, issues, or opportunities
+- Missing or unclear provisions that could be problematic
+- Practical next steps or recommendations
+- Context-specific insights based on the document type and content
+
+Respond directly to the user's question while providing comprehensive analysis when appropriate.`;
 
     let userPrompt = '';
     
@@ -221,7 +226,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
 
     console.log('Making request to OpenAI GPT-4');
 
-    // Use GPT-4 for high-quality analysis
+    // Use GPT-5 for high-quality analysis
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -229,13 +234,12 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14', // Use GPT-4.1 for reliable results
+        model: 'gpt-5-2025-08-07', // Use GPT-5 for best performance
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 3000,
-        temperature: 0.3, // Lower temperature for more consistent legal analysis
+        max_completion_tokens: 4000,
       }),
     });
 
@@ -255,14 +259,18 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
 
     let analysis = data.choices[0].message.content;
 
-    // Clean up the analysis by removing markdown formatting
+    // Enhanced cleanup of analysis by removing ALL markdown formatting
     analysis = analysis
       .replace(/^#{1,6}\s+/gm, '') // Remove # headings
-      .replace(/^\s*-\s+/gm, '') // Remove - bullet points
-      .replace(/^\s*\*\s+/gm, '') // Remove * bullet points
+      .replace(/^\s*[-*+]\s+/gm, '') // Remove -, *, + bullet points
       .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
-      .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
-      .replace(/`([^`]+)`/g, '$1') // Remove code formatting
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting  
+      .replace(/__(.*?)__/g, '$1') // Remove underline formatting
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code formatting
+      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+      .replace(/^\s*>\s+/gm, '') // Remove blockquotes
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links but keep text
+      .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks
       .trim();
 
     // Log successful completion

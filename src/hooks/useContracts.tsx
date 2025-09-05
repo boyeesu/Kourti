@@ -55,6 +55,7 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
             currency,
             start_date,
             end_date,
+            terms,
             client_id,
             organization_id,
             created_at,
@@ -161,6 +162,7 @@ export function useContractsByClient(clientId: string, page = 1, pageSize = 5) {
           currency,
           start_date,
           end_date,
+          terms,
           created_at
         `, { count: 'exact' })
         .eq('client_id', clientId as any)
