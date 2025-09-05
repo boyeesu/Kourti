@@ -19,6 +19,8 @@ const TranscriptionsList: React.FC = () => {
   const navigate = useNavigate();
   const { data: transcriptions, isLoading, error } = useVoiceTranscriptions();
 
+  console.log('📋 TranscriptionsList - Loading:', isLoading, 'Error:', error, 'Data:', transcriptions?.length);
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
@@ -38,7 +40,10 @@ const TranscriptionsList: React.FC = () => {
           <Mic className="h-6 w-6 text-primary" />
           <h1 className="text-3xl font-bold">Voice Transcriptions</h1>
         </div>
-        <Button onClick={() => navigate('/voice-recorder')}>
+        <Button onClick={() => {
+          console.log('🔗 Navigating to voice-recorder');
+          navigate('/voice-recorder');
+        }}>
           <Plus className="h-4 w-4 mr-2" />
           New Recording
         </Button>
@@ -67,7 +72,10 @@ const TranscriptionsList: React.FC = () => {
               <p className="text-muted-foreground mb-4">
                 Start by creating your first voice recording to see transcriptions here.
               </p>
-              <Button onClick={() => navigate('/voice-recorder')}>
+              <Button onClick={() => {
+                console.log('🔗 Navigating to voice-recorder from empty state');
+                navigate('/voice-recorder');
+              }}>
                 <Mic className="h-4 w-4 mr-2" />
                 Create First Recording
               </Button>
@@ -80,7 +88,10 @@ const TranscriptionsList: React.FC = () => {
             <Card 
               key={transcription.id} 
               className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => navigate(`/transcriptions/${transcription.id}`)}
+              onClick={() => {
+                console.log('🔗 Navigating to transcription:', transcription.id);
+                navigate(`/transcriptions/${transcription.id}`);
+              }}
             >
               <CardHeader>
                 <div className="flex items-start justify-between">

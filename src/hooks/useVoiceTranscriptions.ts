@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface VoiceTranscription {
   id: string;
@@ -21,6 +21,7 @@ export function useVoiceTranscriptions() {
   return useQuery({
     queryKey: ['voice-transcriptions'],
     queryFn: async () => {
+      console.log('🎙️ Fetching voice transcriptions...');
       const { data, error } = await supabase
         .from('voice_transcriptions')
         .select(`
@@ -36,7 +37,12 @@ export function useVoiceTranscriptions() {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching transcriptions:', error);
+        throw error;
+      }
+      
+      console.log('✅ Fetched transcriptions:', data?.length || 0, 'items');
       return data as VoiceTranscription[];
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -50,6 +56,7 @@ export function useVoiceTranscription(id: string) {
   return useQuery({
     queryKey: ['voice-transcription', id],
     queryFn: async () => {
+      console.log('🎙️ Fetching single transcription:', id);
       const { data, error } = await supabase
         .from('voice_transcriptions')
         .select(`
@@ -66,7 +73,12 @@ export function useVoiceTranscription(id: string) {
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching transcription:', error);
+        throw error;
+      }
+      
+      console.log('✅ Fetched transcription:', data?.title);
       return data as VoiceTranscription;
     },
     enabled: !!id,

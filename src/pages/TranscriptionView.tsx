@@ -28,9 +28,13 @@ const TranscriptionView: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  console.log('🔍 TranscriptionView - ID:', id);
+  
   const { data: transcription, isLoading, error } = useVoiceTranscription(id!);
   const { data: casesData } = useCases();
   const cases = casesData?.cases || [];
+  
+  console.log('📄 TranscriptionView - Loading:', isLoading, 'Error:', error, 'Transcription:', transcription?.title);
   
   const updateTranscription = useUpdateVoiceTranscription();
   const deleteTranscription = useDeleteVoiceTranscription();
