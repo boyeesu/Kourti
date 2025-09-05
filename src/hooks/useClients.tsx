@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Client } from '@/types';
 
@@ -67,31 +67,27 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<{ items: Cli
 }
 
 export function useClient(id: string) {
+  const { user } = useAuth();
+  const { data: organizationId } = useUserOrganization();
+
   return useQuery({
     queryKey: ['client', id],
     queryFn: async () => {
-      const userId = await getCurrentUserId();
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId as any)
-        .single();
-
-      if (!(profile as any)?.organization_id) {
-        throw new Error('User organization not found');
+      if (!user?.id || !organizationId) {
+        throw new Error('User not authenticated or organization not found');
       }
 
       const { data, error } = await supabase
         .from('clients')
         .select('*')
         .eq('id', id as any)
-        .eq('organization_id', (profile as any)?.organization_id)
+        .eq('organization_id', organizationId)
         .single();
 
       if (error) throw error;
       return data as any as Client;
     },
-    enabled: !!id,
+    enabled: !!id && !!user?.id && !!organizationId,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -99,22 +95,21 @@ export function useClient(id: string) {
 export function useCreateClient() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async (clientData: CreateClientData) => {
-      const userId = await getCurrentUserId();
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId as any)
-        .single();
+      if (!user?.id || !organizationId) {
+        throw new Error('User not authenticated or organization not found');
+      }
 
       const { data, error } = await supabase
         .from('clients')
         .insert({
           ...clientData,
-          organization_id: (profile as any)?.organization_id,
-          created_by: userId,
+          organization_id: organizationId,
+          created_by: user.id,
         } as any)
         .select()
         .single();
