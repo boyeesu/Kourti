@@ -20,20 +20,31 @@ export type Database = {
           embedding: string
           id: string
           name: string
+          organization_id: string | null
         }
         Insert: {
           clause: string
           embedding: string
           id?: string
           name: string
+          organization_id?: string | null
         }
         Update: {
           clause?: string
           embedding?: string
           id?: string
           name?: string
+          organization_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "best_practices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       calendar_events: {
         Row: {
