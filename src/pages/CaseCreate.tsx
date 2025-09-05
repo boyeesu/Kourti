@@ -9,6 +9,8 @@ import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
 import { useCaseIssues } from "@/features/cases/api/useCaseIssues";
 import { useCreateNotification } from "@/hooks/useNotifications";
 import { useCaseFields } from "@/features/cases/api/useCaseFields";
+import { CaseTypeSelector } from "@/features/cases/components/CaseTypeSelector";
+import { CaseType } from "@/features/cases/types";
 import { DynamicForm, DynamicField } from "@/shared/components/DynamicForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -220,35 +222,34 @@ export default function CaseCreate() {
                   name="case_type_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Case Type *</FormLabel>
+                      <FormLabel className="flex items-center gap-1">
+                        Case Type <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Select 
-                          value={caseTypeId} 
-                          onValueChange={(value) => {
-                            console.log('Case type selected:', value);
+                        <CaseTypeSelector
+                          value={caseTypeId}
+                          onValueChange={(value, selectedCaseType) => {
+                            console.log('Case type selected:', selectedCaseType?.name);
                             setCaseTypeId(value);
                             field.onChange(value);
+                            
+                            // Reset case issue when case type changes
+                            setCaseIssueId("");
+                            form.setValue("case_issue_id", "");
                           }}
                           required
-                          disabled={isLoadingCaseTypes}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={isLoadingCaseTypes ? "Loading case types..." : "Select case type"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {isLoadingCaseTypes ? (
-                              <SelectItem value="loading" disabled>Loading...</SelectItem>
-                            ) : caseTypes.length > 0 ? (
-                              caseTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)
-                            ) : (
-                              <SelectItem value="none" disabled>No case types available</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                          renderItem={(caseType: CaseType) => (
+                            <>
+                              {caseType.name}
+                              {caseType.description && (
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  {caseType.description}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        />
                       </FormControl>
-                      {caseTypesError && (
-                        <p className="text-sm text-red-500">Error loading case types</p>
-                      )}
                       <FormMessage />
                     </FormItem>
                   )}
