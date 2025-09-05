@@ -551,6 +551,7 @@ export type Database = {
           created_by: string | null
           currency: string | null
           description: string | null
+          embedding: string | null
           end_date: string | null
           id: string
           organization_id: string | null
@@ -568,6 +569,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           description?: string | null
+          embedding?: string | null
           end_date?: string | null
           id?: string
           organization_id?: string | null
@@ -585,6 +587,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           description?: string | null
+          embedding?: string | null
           end_date?: string | null
           id?: string
           organization_id?: string | null
@@ -1545,6 +1548,54 @@ export type Database = {
           },
         ]
       }
+      voice_transcriptions: {
+        Row: {
+          audio_file_path: string | null
+          case_id: string | null
+          created_at: string
+          created_by: string
+          duration_seconds: number | null
+          id: string
+          metadata: Json | null
+          organization_id: string
+          status: string | null
+          summary: string | null
+          title: string
+          transcript: string
+          updated_at: string
+        }
+        Insert: {
+          audio_file_path?: string | null
+          case_id?: string | null
+          created_at?: string
+          created_by: string
+          duration_seconds?: number | null
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          status?: string | null
+          summary?: string | null
+          title: string
+          transcript: string
+          updated_at?: string
+        }
+        Update: {
+          audio_file_path?: string | null
+          case_id?: string | null
+          created_at?: string
+          created_by?: string
+          duration_seconds?: number | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          status?: string | null
+          summary?: string | null
+          title?: string
+          transcript?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1613,6 +1664,34 @@ export type Database = {
           clause: string
           id: string
           similarity: number
+        }[]
+      }
+      match_contracts: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          description: string
+          id: string
+          similarity: number
+          terms: string
+          title: string
+        }[]
+      }
+      match_documents: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          name: string
+          similarity: number
+          summary: string
         }[]
       }
     }
