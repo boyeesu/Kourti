@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Task } from '@/types';
+import { Tables, TablesInsert } from '@/integrations/supabase/types';
+import { AppError, handleSupabaseError, tryCatch } from '@/lib/error-handling';
+
+// Use Database type for type safety with Supabase
+type TaskRow = Tables<'tasks'>;
+type TaskInsert = TablesInsert<'tasks'>;
 
 export interface CreateTaskData {
   case_id: string;
@@ -17,19 +23,29 @@ export interface UpdateTaskData extends Partial<CreateTaskData> {
   id: string;
 }
 
+/**
+ * Hook to fetch tasks for a specific case
+ * @param caseId - The ID of the case to fetch tasks for
+ */
 export function useTasks(caseId: string) {
-  return useQuery({
+  return useQuery<Task[], AppError>({
     queryKey: ['tasks', caseId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('case_id', caseId as any)
-        .order('due_date', { ascending: true });
+      const [data, error] = await tryCatch(async () => {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('case_id', caseId)
+          .order('due_date', { ascending: true });
+        
+        if (error) throw error;
+        return data || [];
+      });
+      
       if (error) throw error;
       
       // Transform data to include organization_id (tasks table doesn't have this field)
-      return ((data || []) as any[]).map((task: any) => ({
+      return data!.map((task: TaskRow) => ({
         ...task,
         organization_id: '', // Add default value since tasks table doesn't have this field
       })) as Task[];
@@ -39,63 +55,124 @@ export function useTasks(caseId: string) {
   });
 }
 
+/**
+ * Hook to create a new task
+ */
 export function useCreateTask() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  return useMutation({
+  
+  return useMutation<TaskRow, AppError, CreateTaskData>({
     mutationFn: async (data: CreateTaskData) => {
       const userId = await getCurrentUserId();
-      const { data: created, error } = await supabase
-        .from('tasks')
-        .insert({ ...data, created_by: userId } as any)
-        .select()
-        .single();
+      
+      // Create properly typed task data
+      const taskData: TablesInsert<'tasks'> = {
+        ...data, 
+        created_by: userId,
+        completed: false,
+        updated_at: new Date().toISOString()
+      };
+      
+      const [result, error] = await tryCatch(async () => {
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert(taskData)
+          .select()
+          .single();
+          
+        if (error) throw error;
+        return data;
+      });
+      
       if (error) throw error;
-      return created;
+      return result!;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', variables.case_id] });
       toast({ title: 'Task created', description: 'Task successfully added.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Task creation failed', description: error.message || 'Unknown error.', variant: 'destructive' });
+    onError: (error: AppError) => {
+      toast({ 
+        title: 'Task creation failed', 
+        description: error.getUserMessage(), 
+        variant: 'destructive' 
+      });
     }
   });
 }
 
+/**
+ * Hook to update an existing task
+ */
 export function useUpdateTask() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  return useMutation({
+  
+  return useMutation<TaskRow, AppError, UpdateTaskData>({
     mutationFn: async ({ id, ...data }: UpdateTaskData) => {
-      const { data: updated, error } = await supabase
-        .from('tasks')
-        .update({ ...data } as any)
-        .eq('id', id as any)
-        .select()
-        .single();
+      // Create properly typed update data
+      const updateData: Partial<TablesInsert<'tasks'>> = {
+        ...data,
+        updated_at: new Date().toISOString()
+      };
+      
+      const [result, error] = await tryCatch(async () => {
+        const { data, error } = await supabase
+          .from('tasks')
+          .update(updateData)
+          .eq('id', id)
+          .select()
+          .single();
+          
+        if (error) throw error;
+        return data;
+      });
+      
       if (error) throw error;
-      return updated;
+      return result!;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', (updated as any).case_id] });
+      // Type-safe access to updated data
+      if (updated.case_id) {
+        queryClient.invalidateQueries({ queryKey: ['tasks', updated.case_id] });
+      }
       toast({ title: 'Task updated', description: 'Task changes saved.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Update failed', description: error.message || 'Unknown error', variant: 'destructive' });
+    onError: (error: AppError) => {
+      toast({ 
+        title: 'Update failed', 
+        description: error.getUserMessage(), 
+        variant: 'destructive' 
+      });
     }
   });
 }
 
+/**
+ * Hook to delete a task
+ */
 export function useDeleteTask() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  return useMutation({
-    mutationFn: async ({ id, case_id }: { id: string, case_id: string }) => {
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', id as any);
+  
+  interface DeleteParams {
+    id: string;
+    case_id: string;
+  }
+  
+  return useMutation<DeleteParams, AppError, DeleteParams>({
+    mutationFn: async ({ id, case_id }: DeleteParams) => {
+      const [_, error] = await tryCatch(async () => {
+        const { error } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('id', id);
+          
+        if (error) throw error;
+        return true;
+      });
+      
       if (error) throw error;
       return { id, case_id };
     },
@@ -103,8 +180,12 @@ export function useDeleteTask() {
       queryClient.invalidateQueries({ queryKey: ['tasks', case_id] });
       toast({ title: 'Task deleted', description: 'Task removed.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Delete failed', description: error.message || 'Unknown error', variant: 'destructive' });
+    onError: (error: AppError) => {
+      toast({ 
+        title: 'Delete failed', 
+        description: error.getUserMessage(), 
+        variant: 'destructive' 
+      });
     }
   });
 }

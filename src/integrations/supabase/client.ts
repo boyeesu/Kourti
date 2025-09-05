@@ -1,30 +1,42 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { env, validateEnv } from '@/lib/env';
 
-// Supabase configuration (hardcoded for Lovable)
-const SUPABASE_URL = 'https://zjbvnvydgsxqmmrrmvif.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqYnZudnlkZ3N4cW1tcnJtdmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODYzMTAsImV4cCI6MjA2OTY2MjMxMH0.-lE-O7iPZM_fxM93ddDapJVzcPdBArdCmN1HrwCHIH4';
+// Validate environment variables
+const envValidation = validateEnv();
+if (!envValidation.valid) {
+  console.error('Environment validation failed:', envValidation.errors.join(', '));
+}
 
-// Client configuration
-const supabaseConfig = {
+// Client configuration with proper typing
+const supabaseConfig: SupabaseClientOptions<'public'> = {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce' as any,
+    flowType: 'pkce',
   },
   realtime: {
     params: {
       eventsPerSecond: 10,
     },
   },
+  // Set global error handler to improve debugging
+  global: {
+    fetch: (...args) => {
+      return fetch(...args);
+    },
+  },
 };
 
-// Create and export the Supabase client
+/**
+ * Create and export the Supabase client
+ * Uses environment variables from env helper
+ */
 export const supabase = createClient<Database>(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
+  env.SUPABASE_URL,
+  env.SUPABASE_ANON_KEY,
   supabaseConfig
 );
 
