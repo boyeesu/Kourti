@@ -14,6 +14,7 @@ import {
   Receipt,
   Bot,
   Gauge,
+  Mic,
   LucideIcon
 } from "lucide-react";
 
@@ -82,6 +83,13 @@ const toolsNavigation: NavigationGroup = {
       title: "Ream AI", 
       url: "/ream-ai", 
       icon: Bot, 
+      badge: "New", 
+      badgeVariant: "default" 
+    },
+    { 
+      title: "Voice Recorder", 
+      url: "/voice-recorder", 
+      icon: Mic, 
       badge: "New", 
       badgeVariant: "default" 
     },
