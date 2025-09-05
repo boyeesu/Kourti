@@ -135,7 +135,7 @@ const TranscriptionView: React.FC = () => {
     );
   }
 
-  if (error || !transcription) {
+  if (error || (!transcription && !isLoading)) {
     return (
       <div className="container mx-auto p-6">
         <Card>
@@ -144,7 +144,10 @@ const TranscriptionView: React.FC = () => {
               <FileAudio className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">Transcription Not Found</h3>
               <p className="text-muted-foreground mb-4">
-                The transcription you're looking for doesn't exist or has been deleted.
+                {error 
+                  ? "There was an error loading this transcription." 
+                  : "The transcription you're looking for doesn't exist or has been deleted."
+                }
               </p>
               <Button onClick={() => navigate('/voice-recorder')}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -157,7 +160,7 @@ const TranscriptionView: React.FC = () => {
     );
   }
 
-  const linkedCase = cases.find(c => c.id === (selectedCaseId || transcription.case_id));
+  const linkedCase = cases.find(c => c.id === (selectedCaseId || transcription?.case_id));
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -168,24 +171,24 @@ const TranscriptionView: React.FC = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{transcription.title}</h1>
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-              <div className="flex items-center space-x-1">
-                <Calendar className="h-4 w-4" />
-                <span>{format(new Date(transcription.created_at), 'MMM d, yyyy at h:mm a')}</span>
-              </div>
-              {transcription.duration_seconds && (
-                <div className="flex items-center space-x-1">
-                  <Clock className="h-4 w-4" />
-                  <span>{transcription.duration_seconds}s</span>
-                </div>
-              )}
-              <Badge variant={transcription.status === 'completed' ? 'default' : 'secondary'}>
-                {transcription.status}
-              </Badge>
+        <div>
+          <h1 className="text-3xl font-bold">{transcription?.title}</h1>
+          <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+            <div className="flex items-center space-x-1">
+              <Calendar className="h-4 w-4" />
+              <span>{transcription && format(new Date(transcription.created_at), 'MMM d, yyyy at h:mm a')}</span>
             </div>
+            {transcription?.duration_seconds && (
+              <div className="flex items-center space-x-1">
+                <Clock className="h-4 w-4" />
+                <span>{transcription.duration_seconds}s</span>
+              </div>
+            )}
+            <Badge variant={transcription?.status === 'completed' ? 'default' : 'secondary'}>
+              {transcription?.status}
+            </Badge>
           </div>
+        </div>
         </div>
         
         <div className="flex items-center space-x-2">
@@ -289,7 +292,7 @@ const TranscriptionView: React.FC = () => {
           ) : (
             <div className="prose max-w-none">
               <div className="whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-lg">
-                {transcription.transcript || 'No transcript available'}
+                {transcription?.transcript || 'No transcript available'}
               </div>
             </div>
           )}
@@ -297,7 +300,7 @@ const TranscriptionView: React.FC = () => {
       </Card>
 
       {/* Summary */}
-      {(transcription.summary || isEditing) && (
+      {(transcription?.summary || isEditing) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -316,7 +319,7 @@ const TranscriptionView: React.FC = () => {
             ) : (
               <div className="prose max-w-none">
                 <div className="whitespace-pre-wrap p-4 bg-muted rounded-lg">
-                  {transcription.summary || 'No summary available'}
+                  {transcription?.summary || 'No summary available'}
                 </div>
               </div>
             )}

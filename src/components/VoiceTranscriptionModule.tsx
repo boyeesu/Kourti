@@ -170,43 +170,73 @@ const VoiceTranscriptionModule: React.FC = () => {
       // Convert blob to base64
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64Audio = reader.result?.toString().split(',')[1];
-        
-        if (!base64Audio) {
-          throw new Error('Failed to process audio');
-        }
-
-        const { data, error } = await supabase.functions.invoke('voice-transcription', {
-          body: {
-            audio: base64Audio,
-            action: 'transcribe'
+        try {
+          const base64Audio = reader.result?.toString().split(',')[1];
+          
+          if (!base64Audio) {
+            throw new Error('Failed to process audio file');
           }
-        });
 
-        if (error) throw error;
-        
-        if (data.error) {
-          throw new Error(data.error);
+          console.log('🎙️ Starting auto-transcription...');
+          const { data, error } = await supabase.functions.invoke('voice-transcription', {
+            body: {
+              audio: base64Audio,
+              action: 'transcribe'
+            }
+          });
+
+          if (error) {
+            console.error('❌ Supabase function error:', error);
+            throw error;
+          }
+          
+          if (data?.error) {
+            console.error('❌ Transcription service error:', data.error);
+            throw new Error(data.error);
+          }
+
+          if (!data?.transcript) {
+            throw new Error('No transcript returned from service');
+          }
+
+          setTranscript(data.transcript);
+          console.log('✅ Auto-transcription completed');
+          
+          toast({
+            title: "Transcription Complete",
+            description: "Audio has been transcribed successfully",
+          });
+        } catch (innerError: any) {
+          console.error('❌ Auto-transcription processing error:', innerError);
+          toast({
+            title: "Transcription Failed",
+            description: innerError.message || "Failed to transcribe audio automatically",
+            variant: "destructive",
+          });
+        } finally {
+          setIsTranscribing(false);
         }
-
-        setTranscript(data.transcript);
-        
+      };
+      
+      reader.onerror = () => {
+        console.error('❌ FileReader error');
+        setIsTranscribing(false);
         toast({
-          title: "Transcription Complete",
-          description: "Audio has been transcribed successfully",
+          title: "File Processing Error",
+          description: "Failed to process the audio file",
+          variant: "destructive",
         });
       };
       
       reader.readAsDataURL(blob);
     } catch (error: any) {
-      console.error('Auto-transcription error:', error);
+      console.error('❌ Auto-transcription setup error:', error);
+      setIsTranscribing(false);
       toast({
-        title: "Transcription Failed",
-        description: error.message || "Failed to transcribe audio",
+        title: "Transcription Setup Failed",
+        description: error.message || "Failed to set up transcription",
         variant: "destructive",
       });
-    } finally {
-      setIsTranscribing(false);
     }
   };
 

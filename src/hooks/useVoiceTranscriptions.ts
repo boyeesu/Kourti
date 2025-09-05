@@ -71,11 +71,16 @@ export function useVoiceTranscription(id: string) {
           updated_at
         `)
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('❌ Error fetching transcription:', error);
         throw error;
+      }
+      
+      if (!data) {
+        console.warn('⚠️ No transcription found with ID:', id);
+        return null;
       }
       
       console.log('✅ Fetched transcription:', data?.title);
