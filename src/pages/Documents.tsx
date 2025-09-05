@@ -221,25 +221,31 @@ export default function Documents() {
                      </TableCell>
                      <TableCell className="text-sm">{doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : 'Unknown'}</TableCell>
                      <TableCell>
-                       <Badge variant="secondary">{doc.case_id || 'No case'}</Badge>
-                     </TableCell>
+                        <Badge variant="secondary">
+                          {(doc as any).cases?.title || 'No case'}
+                        </Badge>
+                      </TableCell>
                      <TableCell>
                        <Badge className="bg-muted text-muted-foreground" variant="secondary">
                          {doc.status || 'Uploaded'}
                        </Badge>
                      </TableCell>
                      <TableCell>
-                       <div className="flex items-center gap-2">
-                         <User className="h-4 w-4 text-muted-foreground" />
-                         <div>
-                           <div className="text-sm">User</div>
-                           <div className="text-xs text-muted-foreground flex items-center gap-1">
-                             <Calendar className="h-3 w-3" />
-                             {new Date(doc.created_at).toLocaleDateString()}
-                           </div>
-                         </div>
-                       </div>
-                     </TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="text-sm">
+                              {(doc as any).profiles?.first_name && (doc as any).profiles?.last_name
+                                ? `${(doc as any).profiles.first_name} ${(doc as any).profiles.last_name}`
+                                : 'Unknown User'}
+                            </div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(doc.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
                      <TableCell>
                        <div className="flex items-center gap-1">
                          <MessageSquare className="h-4 w-4 text-muted-foreground" />

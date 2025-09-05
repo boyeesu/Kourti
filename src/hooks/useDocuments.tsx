@@ -42,7 +42,17 @@ export function useDocuments() {
 
       const { data, error } = await supabase
         .from('documents')
-        .select('*')
+        .select(`
+          *,
+          cases (
+            id,
+            title
+          ),
+          profiles!documents_created_by_fkey (
+            first_name,
+            last_name
+          )
+        `)
         .eq('organization_id', (profile as any)?.organization_id || '');
 
       if (error) throw error;
@@ -57,7 +67,17 @@ export function useDocument(id: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
-        .select('*')
+        .select(`
+          *,
+          cases (
+            id,
+            title
+          ),
+          profiles!documents_created_by_fkey (
+            first_name,
+            last_name
+          )
+        `)
         .eq('id', id as any)
         .single();
 
@@ -88,7 +108,17 @@ export function useDocumentsByClient(clientId: string) {
       queries.push(
         supabase
           .from('documents')
-          .select('*')
+          .select(`
+            *,
+            cases (
+              id,
+              title
+            ),
+            profiles!documents_created_by_fkey (
+              first_name,
+              last_name
+            )
+          `)
           .eq('client_id', clientId as any)
       );
 
@@ -98,7 +128,17 @@ export function useDocumentsByClient(clientId: string) {
           queries.push(
             supabase
               .from('documents')
-              .select('*')
+              .select(`
+                *,
+                cases (
+                  id,
+                  title
+                ),
+                profiles!documents_created_by_fkey (
+                  first_name,
+                  last_name
+                )
+              `)
               .contains('metadata', { case_id: caseId })
           );
         }
@@ -129,7 +169,17 @@ export function useDocumentsByCase(caseId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
-        .select('*')
+        .select(`
+          *,
+          cases (
+            id,
+            title
+          ),
+          profiles!documents_created_by_fkey (
+            first_name,
+            last_name
+          )
+        `)
         .contains('metadata', { case_id: caseId });
 
       if (error) throw error;

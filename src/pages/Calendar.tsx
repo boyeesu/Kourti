@@ -8,18 +8,22 @@ import {
   Calendar as CalendarIcon,
   Clock,
   MapPin,
-  Users
+  Users,
+  List,
+  Grid3X3
 } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendar";
 import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
 import { EventViewDialog } from "@/components/calendar/EventViewDialog";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { CalendarEvent } from "@/types";
+import { format } from "date-fns";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [calendarView, setCalendarView] = useState<'month' | 'list'>('month');
   const { data: events = [], isLoading } = useCalendarEvents();
 
   if (isLoading) {
@@ -81,12 +85,38 @@ export default function Calendar() {
 
   const getEventsForDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return events.filter(event => event.start_date.split('T')[0] === dateStr);
+    return events.filter(event => {
+      const startDate = new Date(event.start_date).toISOString().split('T')[0];
+      const endDate = new Date(event.end_date).toISOString().split('T')[0];
+      
+      // Check if the date falls within the event's date range
+      return dateStr >= startDate && dateStr <= endDate;
+    });
+  };
+
+  // Get events for list view - sorted by date
+  const getEventsForMonth = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    return events.filter(event => {
+      const eventStart = new Date(event.start_date);
+      const eventEnd = new Date(event.end_date);
+      
+      // Include events that start, end, or span within the month
+      return (eventStart <= lastDay && eventEnd >= firstDay);
+    }).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   };
 
   const todayEvents = events.filter(event => {
     const today = new Date().toISOString().split('T')[0];
-    return event.start_date.split('T')[0] === today;
+    const eventStart = new Date(event.start_date).toISOString().split('T')[0];
+    const eventEnd = new Date(event.end_date).toISOString().split('T')[0];
+    
+    // Include events that are happening today (start, end, or span today)
+    return today >= eventStart && today <= eventEnd;
   });
 
   const upcomingEvents = events.filter(event => {
@@ -120,6 +150,26 @@ export default function Calendar() {
                   {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                 </CardTitle>
                 <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 mr-2">
+                    <Button 
+                      variant={calendarView === 'month' ? 'default' : 'outline'} 
+                      size="sm" 
+                      onClick={() => setCalendarView('month')}
+                      className="gap-1"
+                    >
+                      <Grid3X3 className="h-4 w-4" />
+                      Month
+                    </Button>
+                    <Button 
+                      variant={calendarView === 'list' ? 'default' : 'outline'} 
+                      size="sm" 
+                      onClick={() => setCalendarView('list')}
+                      className="gap-1"
+                    >
+                      <List className="h-4 w-4" />
+                      List
+                    </Button>
+                  </div>
                   <Button variant="outline" size="icon" onClick={() => navigateMonth('prev')}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -130,54 +180,120 @@ export default function Calendar() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-7 gap-1 mb-4">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-                  <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {getDaysInMonth(currentDate).map((day, index) => {
-                  const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                  const isToday = day.toDateString() === new Date().toDateString();
-                  const dayEvents = getEventsForDate(day);
-                  
-                  return (
-                    <div
-                      key={index}
-                      className={`
-                        min-h-[80px] p-1 border rounded-lg transition-colors
-                        ${isCurrentMonth ? 'bg-card border-border' : 'bg-muted/30 border-transparent'}
-                        ${isToday ? 'ring-2 ring-primary' : ''}
-                        hover:bg-accent cursor-pointer
-                      `}
-                    >
-                      <div className={`text-sm font-medium mb-1 ${
-                        isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
-                      }`}>
-                        {day.getDate()}
+              {calendarView === 'month' ? (
+                <>
+                  <div className="grid grid-cols-7 gap-1 mb-4">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+                      <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
+                        {day}
                       </div>
-                      <div className="space-y-1">
-                        {dayEvents.slice(0, 2).map(event => (
-                          <div
-                            key={event.id}
-                            className={`text-xs p-1 rounded truncate cursor-pointer transition-opacity hover:opacity-80 ${getEventTypeColor(event.event_type)}`}
-                            onClick={() => handleEventClick(event)}
-                          >
-                            {event.title}
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {getDaysInMonth(currentDate).map((day, index) => {
+                      const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                      const isToday = day.toDateString() === new Date().toDateString();
+                      const dayEvents = getEventsForDate(day);
+                      
+                      return (
+                        <div
+                          key={index}
+                          className={`
+                            min-h-[80px] p-1 border rounded-lg transition-colors
+                            ${isCurrentMonth ? 'bg-card border-border' : 'bg-muted/30 border-transparent'}
+                            ${isToday ? 'ring-2 ring-primary' : ''}
+                            hover:bg-accent cursor-pointer
+                          `}
+                        >
+                          <div className={`text-sm font-medium mb-1 ${
+                            isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
+                          }`}>
+                            {day.getDate()}
                           </div>
-                        ))}
-                        {dayEvents.length > 2 && (
-                          <div className="text-xs text-muted-foreground">
-                            +{dayEvents.length - 2} more
+                          <div className="space-y-1">
+                            {dayEvents.slice(0, 2).map(event => (
+                              <div
+                                key={event.id}
+                                className={`text-xs p-1 rounded truncate cursor-pointer transition-opacity hover:opacity-80 ${getEventTypeColor(event.event_type)}`}
+                                onClick={() => handleEventClick(event)}
+                              >
+                                {event.title}
+                              </div>
+                            ))}
+                            {dayEvents.length > 2 && (
+                              <div className="text-xs text-muted-foreground">
+                                +{dayEvents.length - 2} more
+                              </div>
+                            )}
                           </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  {getEventsForMonth().length > 0 ? (
+                    getEventsForMonth().map(event => (
+                      <div 
+                        key={event.id} 
+                        className="p-4 rounded-lg border bg-card cursor-pointer transition-colors hover:bg-accent/50"
+                        onClick={() => handleEventClick(event)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-start gap-3">
+                            <div className="flex flex-col items-center gap-1 text-center min-w-[60px]">
+                              <div className="text-2xl font-bold text-primary">
+                                {format(new Date(event.start_date), 'd')}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {format(new Date(event.start_date), 'MMM')}
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-lg mb-1">{event.title}</h4>
+                              <div className="space-y-1 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4" />
+                                  <span>
+                                    {format(new Date(event.start_date), 'h:mm a')} - {format(new Date(event.end_date), 'h:mm a')}
+                                    {format(new Date(event.start_date), 'yyyy-MM-dd') !== format(new Date(event.end_date), 'yyyy-MM-dd') && 
+                                      ` (${format(new Date(event.end_date), 'MMM d')})`
+                                    }
+                                  </span>
+                                </div>
+                                {event.location && (
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-4 w-4" />
+                                    <span>{event.location}</span>
+                                  </div>
+                                )}
+                                {event.attendees && event.attendees.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <Users className="h-4 w-4" />
+                                    <span>{event.attendees.slice(0, 2).join(", ")}</span>
+                                    {event.attendees.length > 2 && <span>+{event.attendees.length - 2} more</span>}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge className={getEventTypeColor(event.event_type)}>
+                            {event.event_type}
+                          </Badge>
+                        </div>
+                        {event.description && (
+                          <p className="text-sm text-muted-foreground ml-16 mt-2">{event.description}</p>
                         )}
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No events scheduled for {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
