@@ -44,14 +44,14 @@ const TranscriptionView: React.FC = () => {
   const [editedTitle, setEditedTitle] = useState('');
   const [editedTranscript, setEditedTranscript] = useState('');
   const [editedSummary, setEditedSummary] = useState('');
-  const [selectedCaseId, setSelectedCaseId] = useState<string>('');
+  const [selectedCaseId, setSelectedCaseId] = useState<string>('none');
 
   React.useEffect(() => {
     if (transcription) {
       setEditedTitle(transcription.title);
       setEditedTranscript(transcription.transcript);
       setEditedSummary(transcription.summary || '');
-      setSelectedCaseId(transcription.case_id || '');
+      setSelectedCaseId(transcription.case_id || 'none');
     }
   }, [transcription]);
 
@@ -72,12 +72,12 @@ const TranscriptionView: React.FC = () => {
           title: editedTitle,
           transcript: editedTranscript,
           summary: editedSummary,
-          case_id: selectedCaseId || undefined
+          case_id: selectedCaseId === 'none' ? undefined : selectedCaseId
         }
       });
 
       // Create activity if case is linked and changed
-      if (selectedCaseId && selectedCaseId !== transcription.case_id) {
+      if (selectedCaseId && selectedCaseId !== 'none' && selectedCaseId !== transcription.case_id) {
         await createActivity.mutateAsync({
           caseId: selectedCaseId,
           payload: {
@@ -168,7 +168,7 @@ const TranscriptionView: React.FC = () => {
     );
   }
 
-  const linkedCase = cases.find(c => c.id === (selectedCaseId || transcription?.case_id));
+  const linkedCase = cases.find(c => c.id === (selectedCaseId !== 'none' ? selectedCaseId : transcription?.case_id));
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -268,7 +268,7 @@ const TranscriptionView: React.FC = () => {
                   <SelectValue placeholder="Select a case to link" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No case selected</SelectItem>
+                  <SelectItem value="none">No case selected</SelectItem>
                   {cases?.map((caseItem: any) => (
                     <SelectItem key={caseItem.id} value={caseItem.id}>
                       {caseItem.title} - {caseItem.case_number || 'No number'}

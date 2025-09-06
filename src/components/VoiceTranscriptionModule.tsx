@@ -25,7 +25,7 @@ const VoiceTranscriptionModule: React.FC = () => {
   const [transcript, setTranscript] = useState('');
   const [summary, setSummary] = useState('');
   const [title, setTitle] = useState('');
-  const [selectedCaseId, setSelectedCaseId] = useState<string>('');
+  const [selectedCaseId, setSelectedCaseId] = useState<string>('none');
   const [duration, setDuration] = useState<number | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -380,7 +380,7 @@ const VoiceTranscriptionModule: React.FC = () => {
           title,
           transcript: saveType === 'transcript' ? transcript : '',
           summary: saveType === 'summary' ? summary : '',
-          case_id: selectedCaseId || null,
+          case_id: selectedCaseId === 'none' ? null : selectedCaseId,
           duration_seconds: duration,
           status: 'completed' as const,
           organization_id: profile.organization_id,
@@ -390,7 +390,7 @@ const VoiceTranscriptionModule: React.FC = () => {
       if (transcriptionError) throw transcriptionError;
 
       // Create activity if case is selected
-      if (selectedCaseId) {
+      if (selectedCaseId && selectedCaseId !== 'none') {
         await createActivity.mutateAsync({
           caseId: selectedCaseId,
           payload: {
@@ -404,14 +404,14 @@ const VoiceTranscriptionModule: React.FC = () => {
 
       toast({
         title: "Saved Successfully",
-        description: `${saveType === 'summary' ? 'Summary' : 'Transcript'} has been saved${selectedCaseId ? ' and linked to the case' : ''}`,
+        description: `${saveType === 'summary' ? 'Summary' : 'Transcript'} has been saved${selectedCaseId && selectedCaseId !== 'none' ? ' and linked to the case' : ''}`,
       });
 
       // Reset form
       setTitle('');
       setTranscript('');
       setSummary('');
-      setSelectedCaseId('');
+      setSelectedCaseId('none');
       setAudioBlob(null);
       setDuration(null);
       
@@ -605,7 +605,7 @@ const VoiceTranscriptionModule: React.FC = () => {
                 <SelectValue placeholder="Link to case (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No case selected</SelectItem>
+                <SelectItem value="none">No case selected</SelectItem>
                 {cases?.map((caseItem: any) => (
                   <SelectItem key={caseItem.id} value={caseItem.id}>
                     {caseItem.title} - {caseItem.case_number || 'No number'}
