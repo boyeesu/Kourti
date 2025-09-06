@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useVectorSearch } from "@/hooks/useVectorSearch";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useContracts } from "@/hooks/useContracts";
 import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
@@ -56,6 +57,7 @@ export default function ReamAI() {
   const [search, setSearch] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("documents");
   const [isTyping, setIsTyping] = useState(false);
+  const [enableVectorSearch] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch documents and contracts
@@ -75,6 +77,9 @@ export default function ReamAI() {
     selectedDoc?.id || null,
     selectedDoc?.type || null
   );
+
+  // Use vector search to find relevant documents automatically
+  const { data: relevantDocs } = useVectorSearch(input, enableVectorSearch && input.length > 10);
 
   // Auto-select contract from URL params
   useEffect(() => {
@@ -183,13 +188,14 @@ export default function ReamAI() {
     ]);
     
     try {
-      // Handle document analysis if a document is selected or uploaded
-      if (selectedDoc || selectedFile) {
-        let content: string;
-        let contextInfo: string = "";
+      let content: string = "";
+      let contextInfo: string = "";
+      
+      // Check if we have selected document or relevant documents from vector search
+      if (selectedDoc || selectedFile || (relevantDocs && (relevantDocs.documents.length > 0 || relevantDocs.contracts.length > 0))) {
         
         if (selectedDoc && documentContent) {
-          // Use the full content from the document context hook
+          // Use the full content from the manually selected document
           content = documentContent.fullContent || "";
           
           // Add metadata for better context
@@ -222,7 +228,7 @@ ${content}`;
             }" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
           }
         } else if (selectedFile) {
-          // For uploaded files, handle different file types
+          // Handle uploaded files
           if (selectedFile.type === 'application/pdf') {
             content = `PDF file "${selectedFile.name}" uploaded. PDF text extraction is currently being processed. Please ask specific questions about this document, or upload a text-based document (.txt, .docx) for direct analysis.
 
@@ -243,10 +249,42 @@ ${fileContent}`;
 
 User Question: ${userMessage}`;
           }
-        } else {
-          // Allow queries without document selection
-          content = userMessage;
-          contextInfo = "General legal AI query (no specific document selected)";
+        } else if (relevantDocs && (relevantDocs.documents.length > 0 || relevantDocs.contracts.length > 0)) {
+          // Use relevant documents found through vector search
+          const relevantDocuments = relevantDocs.documents.slice(0, 3);
+          const relevantContracts = relevantDocs.contracts.slice(0, 3);
+          
+          let contextContent = '';
+          
+          if (relevantDocuments.length > 0) {
+            contextContent += '\\n\\nRELEVANT DOCUMENTS:\\n';
+            relevantDocuments.forEach((doc, i) => {
+              contextContent += `\\n${i + 1}. ${doc.name}`;
+              if (doc.summary) contextContent += `\\n   Summary: ${doc.summary}`;
+              if (doc.content) contextContent += `\\n   Content: ${doc.content.substring(0, 500)}${doc.content.length > 500 ? '...' : ''}`;
+              contextContent += `\\n   Similarity: ${(doc.similarity * 100).toFixed(1)}%\\n`;
+            });
+          }
+          
+          if (relevantContracts.length > 0) {
+            contextContent += '\\n\\nRELEVANT CONTRACTS:\\n';
+            relevantContracts.forEach((contract, i) => {
+              contextContent += `\\n${i + 1}. ${contract.title}`;
+              if (contract.description) contextContent += `\\n   Description: ${contract.description}`;
+              if (contract.terms) contextContent += `\\n   Terms: ${contract.terms.substring(0, 500)}${contract.terms.length > 500 ? '...' : ''}`;
+              contextContent += `\\n   Similarity: ${(contract.similarity * 100).toFixed(1)}%\\n`;
+            });
+          }
+          
+          contextInfo = `Based on your question, I found ${relevantDocuments.length + relevantContracts.length} relevant documents in your knowledge base:
+
+${contextContent}
+
+Your Question: ${userMessage}
+
+I'll answer based on the relevant information found above.`;
+          
+          content = contextInfo;
         }
         
         // Stream the AI analysis with enhanced context
