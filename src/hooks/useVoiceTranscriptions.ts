@@ -22,6 +22,13 @@ export function useVoiceTranscriptions() {
     queryKey: ['voice-transcriptions'],
     queryFn: async () => {
       console.log('🎙️ Fetching voice transcriptions...');
+      
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('voice_transcriptions')
         .select(`
@@ -46,6 +53,13 @@ export function useVoiceTranscriptions() {
       return data as VoiceTranscription[];
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
+    retry: (failureCount, error) => {
+      // Don't retry if it's an auth error
+      if (error?.message === 'User not authenticated') {
+        return false;
+      }
+      return failureCount < 3;
+    }
   });
 }
 
@@ -57,6 +71,13 @@ export function useVoiceTranscription(id: string) {
     queryKey: ['voice-transcription', id],
     queryFn: async () => {
       console.log('🎙️ Fetching single transcription:', id);
+      
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('voice_transcriptions')
         .select(`
@@ -87,6 +108,13 @@ export function useVoiceTranscription(id: string) {
       return data as VoiceTranscription;
     },
     enabled: !!id,
+    retry: (failureCount, error) => {
+      // Don't retry if it's an auth error
+      if (error?.message === 'User not authenticated') {
+        return false;
+      }
+      return failureCount < 3;
+    }
   });
 }
 

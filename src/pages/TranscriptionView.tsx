@@ -142,16 +142,24 @@ const TranscriptionView: React.FC = () => {
           <CardContent className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <FileAudio className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Transcription Not Found</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                {error?.message === 'User not authenticated' 
+                  ? 'Authentication Required'
+                  : error 
+                    ? 'Error Loading Transcription'
+                    : 'Transcription Not Found'}
+              </h3>
               <p className="text-muted-foreground mb-4">
-                {error 
-                  ? "There was an error loading this transcription." 
-                  : "The transcription you're looking for doesn't exist or has been deleted."
+                {error?.message === 'User not authenticated'
+                  ? 'Please log in to view your transcriptions.'
+                  : error 
+                    ? 'There was an error loading this transcription.' 
+                    : "The transcription you're looking for doesn't exist or has been deleted."
                 }
               </p>
-              <Button onClick={() => navigate('/voice-recorder')}>
+              <Button onClick={() => navigate(error?.message === 'User not authenticated' ? '/auth' : '/voice-recorder')}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Voice Recorder
+                {error?.message === 'User not authenticated' ? 'Go to Login' : 'Back to Voice Recorder'}
               </Button>
             </div>
           </CardContent>

@@ -49,19 +49,30 @@ const TranscriptionsList: React.FC = () => {
         </Button>
       </div>
 
-      {error && (
-        <Card>
-          <CardContent className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <FileAudio className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Error Loading Transcriptions</h3>
-              <p className="text-muted-foreground">
-                There was an error loading your transcriptions. Please try again.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+  {error && (
+    <Card>
+      <CardContent className="flex items-center justify-center py-8">
+        <div className="text-center">
+          <FileAudio className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">
+            {error.message === 'User not authenticated' 
+              ? 'Authentication Required' 
+              : 'Error Loading Transcriptions'}
+          </h3>
+          <p className="text-muted-foreground mb-4">
+            {error.message === 'User not authenticated'
+              ? 'Please log in to view your transcriptions.'
+              : 'There was an error loading your transcriptions. Please try again.'}
+          </p>
+          {error.message === 'User not authenticated' && (
+            <Button onClick={() => navigate('/auth')}>
+              Go to Login
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )}
 
       {!error && (!transcriptions || transcriptions.length === 0) ? (
         <Card>
