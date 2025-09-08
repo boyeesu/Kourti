@@ -263,8 +263,9 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_global: boolean | null
           name: string
-          organization_id: string
+          organization_id: string | null
           updated_at: string
         }
         Insert: {
@@ -272,8 +273,9 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_global?: boolean | null
           name: string
-          organization_id: string
+          organization_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -281,8 +283,9 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_global?: boolean | null
           name?: string
-          organization_id?: string
+          organization_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -309,8 +312,9 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          is_global: boolean | null
           name: string
-          organization_id: string
+          organization_id: string | null
           updated_at: string
         }
         Insert: {
@@ -319,8 +323,9 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_global?: boolean | null
           name: string
-          organization_id: string
+          organization_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -329,8 +334,9 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_global?: boolean | null
           name?: string
-          organization_id?: string
+          organization_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -536,6 +542,53 @@ export type Database = {
           },
           {
             foreignKeyName: "fk_communication_logs_org"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_templates: {
+        Row: {
+          contract_type: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          organization_id: string | null
+          template_content: string
+          updated_at: string | null
+        }
+        Insert: {
+          contract_type: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          organization_id?: string | null
+          template_content: string
+          updated_at?: string | null
+        }
+        Update: {
+          contract_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          organization_id?: string | null
+          template_content?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_templates_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1551,6 +1604,7 @@ export type Database = {
       voice_transcriptions: {
         Row: {
           audio_file_path: string | null
+          audio_file_url: string | null
           case_id: string | null
           created_at: string
           created_by: string
@@ -1566,6 +1620,7 @@ export type Database = {
         }
         Insert: {
           audio_file_path?: string | null
+          audio_file_url?: string | null
           case_id?: string | null
           created_at?: string
           created_by: string
@@ -1581,6 +1636,7 @@ export type Database = {
         }
         Update: {
           audio_file_path?: string | null
+          audio_file_url?: string | null
           case_id?: string | null
           created_at?: string
           created_by?: string

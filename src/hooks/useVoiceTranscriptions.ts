@@ -12,6 +12,7 @@ interface VoiceTranscription {
   status: string;
   created_at: string;
   updated_at: string;
+  audio_file_url?: string;
 }
 
 /**

@@ -21,7 +21,7 @@ export function useCreateCaseType() {
       
       const typeData = {
         ...newType,
-        organization_id: organizationId!,
+        organization_id: organizationId,
         created_by: userId,
       };
 

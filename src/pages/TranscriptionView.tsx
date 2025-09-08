@@ -13,13 +13,13 @@ import { useCreateActivity } from '@/features/activities/api/useCreateActivity';
 import { 
   ArrowLeft, 
   FileText, 
-  Save, 
-  Trash2, 
   Edit3, 
+  Trash2, 
+  Calendar, 
   Clock, 
-  Calendar,
-  Loader2,
-  FileAudio
+  Save, 
+  Loader2, 
+  Volume2 
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -141,7 +141,7 @@ const TranscriptionView: React.FC = () => {
         <Card>
           <CardContent className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <FileAudio className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">
                 {error?.message === 'User not authenticated' 
                   ? 'Authentication Required'
@@ -239,6 +239,33 @@ const TranscriptionView: React.FC = () => {
             <div className="flex items-center space-x-2">
               <Badge variant="outline">{linkedCase.case_number || 'No number'}</Badge>
               <span className="font-medium">{linkedCase.title}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Audio Playback Controls */}
+      {transcription?.audio_file_url && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Volume2 className="h-5 w-5" />
+              Audio Recording
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <audio 
+              controls 
+              className="w-full"
+              preload="metadata"
+            >
+              <source src={transcription.audio_file_url} type="audio/webm" />
+              <source src={transcription.audio_file_url} type="audio/mp3" />
+              Your browser does not support the audio element.
+            </audio>
+            <div className="flex justify-between text-sm text-muted-foreground mt-2">
+              <span>Duration: {transcription.duration_seconds ? `${Math.floor(transcription.duration_seconds / 60)}:${(transcription.duration_seconds % 60).toString().padStart(2, '0')}` : 'Unknown'}</span>
+              <span>Recorded: {format(new Date(transcription.created_at), 'PPP')}</span>
             </div>
           </CardContent>
         </Card>

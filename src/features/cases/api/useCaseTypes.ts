@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { CaseType } from '@/features/cases/types';
-import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { AppError, ErrorCode, tryCatch } from '@/lib/error-handling';
+import { AppError, tryCatch } from '@/lib/error-handling';
 import { Tables } from '@/integrations/supabase/types';
 
 /**
@@ -10,24 +9,18 @@ import { Tables } from '@/integrations/supabase/types';
  * @returns Case types query result
  */
 export function useCaseTypes() {
-  const { data: organizationId } = useUserOrganization();
-
   return useQuery<CaseType[], AppError>({
-    queryKey: ['caseTypes', organizationId],
+    queryKey: ['caseTypes'],
     queryFn: async () => {
-      if (!organizationId) {
-        console.log('No organization ID available for case types');
-        return [];
-      }
-      
-      console.log('Fetching case types for organization:', organizationId);
+      console.log('Fetching global and organization case types');
       
       // Use tryCatch to handle errors consistently
       const [data, error] = await tryCatch(async () => {
+        // Fetch global case types and organization-specific ones
         const { data, error } = await supabase
           .from('case_types')
           .select('*')
-          .eq('organization_id', organizationId)
+          .or('is_global.eq.true,organization_id.eq.' + await getCurrentOrgId())
           .eq('is_active', true)
           .order('name');
         
@@ -54,38 +47,51 @@ export function useCaseTypes() {
         updated_at: type.updated_at,
         is_active: type.is_active ?? false,
         organization_id: type.organization_id,
-        created_by: type.created_by
+        created_by: type.created_by,
+        is_global: type.is_global
       }));
       
       console.log('Case types retrieved:', caseTypes);
       return caseTypes;
     },
-    enabled: !!organizationId,
     staleTime: 5 * 60 * 1000,
   });
 }
 
+// Helper function to get current organization ID
+async function getCurrentOrgId(): Promise<string> {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user?.id) return '';
+  
+  const { data } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', userData.user.id)
+    .single();
+  
+  return data?.organization_id || '';
+}
+
 /**
  * Fetch all case types directly (for use outside of React components)
- * @param organizationId - The ID of the organization
+ * @param organizationId - The ID of the organization (optional, will fetch global + org-specific)
  * @returns A promise that resolves to an array of case types
  */
-export async function fetchCaseTypes(organizationId: string): Promise<CaseType[]> {
-  if (!organizationId) {
-    throw new AppError(
-      'Organization ID is required to fetch case types',
-      ErrorCode.VALIDATION_ERROR
-    );
-  }
-  
+export async function fetchCaseTypes(organizationId?: string): Promise<CaseType[]> {
   const [data, error] = await tryCatch(async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from('case_types')
       .select('*')
-      .eq('organization_id', organizationId)
       .eq('is_active', true)
       .order('name');
     
+    if (organizationId) {
+      query = query.or(`is_global.eq.true,organization_id.eq.${organizationId}`);
+    } else {
+      query = query.eq('is_global', true);
+    }
+    
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   });
@@ -103,6 +109,7 @@ export async function fetchCaseTypes(organizationId: string): Promise<CaseType[]
     updated_at: type.updated_at,
     is_active: type.is_active ?? false,
     organization_id: type.organization_id,
-    created_by: type.created_by
+    created_by: type.created_by,
+    is_global: type.is_global
   }));
 }

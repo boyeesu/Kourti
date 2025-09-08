@@ -63,7 +63,7 @@ interface CaseTypeSelectorProps {
   
   /**
    * Whether to show an option to add a new case type
-   * @default true
+   * @default false (disabled since case types are now global)
    */
   showAddOption?: boolean;
   
@@ -87,7 +87,7 @@ export function CaseTypeSelector({
   placeholder = "Select case type",
   errorMessage,
   renderItem,
-  showAddOption = true,
+  showAddOption = false, // Disabled since case types are now global
   addNewText = "Add new case type"
 }: CaseTypeSelectorProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -168,7 +168,7 @@ export function CaseTypeSelector({
       
       {!isLoading && caseTypes.length === 0 && !error && !isAddModalOpen && (
         <p className="text-xs text-amber-600">
-          No case types found. {showAddOption ? 'Use the dropdown to add a new case type.' : 'Please contact your administrator to set up case types.'}
+          No case types found. Please contact your administrator to set up global case types.
         </p>
       )}
       

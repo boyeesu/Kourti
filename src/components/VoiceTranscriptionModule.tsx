@@ -373,6 +373,35 @@ const VoiceTranscriptionModule: React.FC = () => {
         throw new Error('User organization not found');
       }
 
+      // Upload audio file to storage if available
+      let audioFileUrl = null;
+      if (audioBlob) {
+        const fileName = `audio_${Date.now()}.webm`;
+        const filePath = `${user.id}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, audioBlob, {
+            contentType: 'audio/webm',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error('Error uploading audio:', uploadError);
+          toast({
+            title: "Audio Upload Warning",
+            description: "Audio file could not be saved, but transcription will be saved.",
+            variant: "destructive",
+          });
+        } else {
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(filePath);
+          audioFileUrl = urlData.publicUrl;
+        }
+      }
+
       // Save to voice_transcriptions table
       const { error: transcriptionError } = await supabase
         .from('voice_transcriptions')
@@ -384,7 +413,13 @@ const VoiceTranscriptionModule: React.FC = () => {
           duration_seconds: duration,
           status: 'completed' as const,
           organization_id: profile.organization_id,
-          created_by: user.id
+          created_by: user.id,
+          audio_file_url: audioFileUrl,
+          metadata: {
+            recordingDate: new Date().toISOString(),
+            fileType: 'webm',
+            source: 'voice_recorder'
+          }
         });
 
       if (transcriptionError) throw transcriptionError;
