@@ -188,8 +188,9 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground text-[0.95rem];
     font-feature-settings: "rlig" 1, "calt" 1;
+    line-height: 1.4;
   }
 
   /* Improved scrollbars */
@@ -220,5 +221,61 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   /* Smooth transitions */
   * {
     transition: var(--transition-fast);
+  }
+  
+  /* Compact UI */
+  .compact-ui {
+    --compact-scale: 0.85;
+  }
+
+  /* Make tables more compact */
+  table {
+    line-height: 1.2;
+  }
+
+  /* Reduce padding in various components */
+  .p-4 {
+    padding: 0.75rem;
+  }
+
+  .p-6 {
+    padding: 1rem;
+  }
+  
+  .py-4 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  
+  .px-4 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  /* Make form inputs more compact */
+  input, select, textarea {
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+  }
+  
+  /* Reduce gaps between elements */
+  .gap-4 {
+    gap: 0.75rem;
+  }
+  
+  .gap-6 {
+    gap: 1rem;
+  }
+  
+  .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(0.75rem * var(--tw-space-y-reverse));
+  }
+  
+  /* Reduce margin in typography */
+  h1, h2, h3, h4, h5, h6, p {
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
   }
 }

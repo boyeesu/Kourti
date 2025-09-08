@@ -214,14 +214,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <CommandPalette />
-      <div className="flex h-screen w-screen overflow-hidden bg-background">
+      <div className="flex h-screen w-screen overflow-hidden bg-background compact-ui">
         {/* Sidebar - hidden on mobile */}
         <aside className="hidden md:block w-64 border-r border-border">
           <AppSidebar />
         </aside>
         
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex h-16 items-center justify-between px-4 md:px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-10">
+          <header className="flex h-12 items-center justify-between px-2 md:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-10">
             <div className="flex items-center gap-2">
               {/* Mobile menu */}
               <MobileNavigation />
@@ -341,7 +341,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto bg-background">{children}</main>
+          <main className="flex-1 overflow-auto bg-background p-2">{children}</main>
         </div>
       </div>
     </SidebarProvider>

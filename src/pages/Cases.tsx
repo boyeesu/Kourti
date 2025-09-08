@@ -239,13 +239,13 @@ export default function App() { // Changed to App for React component export
   const handleNextPage = () => setPage((prev: number) => Math.min(totalPages, prev + 1));
 
   return (
-    <div className="px-4 py-6 space-y-6 max-w-7xl mx-auto">
+    <div className="px-3 py-4 space-y-4 max-w-7xl mx-auto">
       <Breadcrumbs />
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Cases</h1>
-          <p className="text-muted-foreground">Manage and track all your legal cases</p>
+          <h1 className="text-2xl font-bold text-foreground leading-tight">Cases</h1>
+          <p className="text-sm text-muted-foreground">Manage and track all your legal cases</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <Button variant="outline" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=cases")}>
@@ -261,8 +261,8 @@ export default function App() { // Changed to App for React component export
 
       {/* Filters */}
       <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Filter Cases</CardTitle>
+        <CardHeader className="py-2">
+          <CardTitle className="text-lg font-semibold">Filter Cases</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -312,9 +312,9 @@ export default function App() { // Changed to App for React component export
 
       {/* Cases Table */}
       <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">All Cases ({totalCount})</CardTitle>
-          <CardDescription>
+        <CardHeader className="py-2">
+          <CardTitle className="text-lg font-semibold">All Cases ({totalCount})</CardTitle>
+          <CardDescription className="text-xs">
             Overview of all cases in your organization
           </CardDescription>
         </CardHeader>
@@ -336,11 +336,11 @@ export default function App() { // Changed to App for React component export
               <TableBody>
                 {filteredCases.length > 0 ? (
                   filteredCases.map((case_item) => (
-                    <TableRow key={case_item.id} className="hover:bg-muted/50">
+                    <TableRow key={case_item.id} className="hover:bg-muted/50 h-14">
                       <TableCell>
                         <div>
-                          <div className="font-medium text-foreground">{case_item.name}</div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="font-medium text-foreground leading-tight">{case_item.name}</div>
+                          <div className="text-xs text-muted-foreground">
                             Started {case_item.startDate}
                           </div>
                         </div>
