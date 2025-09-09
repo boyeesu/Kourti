@@ -214,20 +214,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <CommandPalette />
-      <div className="min-h-screen flex flex-row w-full bg-background">
-        {/* Sidebar - fixed width */}
-        <AppSidebar />
+      <div className="flex h-screen w-screen overflow-hidden bg-background">
+        {/* Sidebar - hidden on mobile */}
+        <aside className="hidden md:block w-64 border-r border-border">
+          <AppSidebar />
+        </aside>
         
-        {/* Main content area - takes remaining space to the right */}
-        <div className="flex-1 flex flex-col min-h-screen overflow-hidden min-w-0">
-          <header className="flex h-14 items-center justify-between px-2 md:px-4 bg-background border-b border-border flex-shrink-0 z-10">
+        <div className="flex flex-col flex-1 min-w-0">
+          <header className="flex h-16 items-center justify-between px-4 md:px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-10">
             <div className="flex items-center gap-2">
               {/* Mobile menu */}
               <MobileNavigation />
               
               {/* Sidebar toggle - visible only on desktop */}
               <div className="hidden md:block">
-                <SidebarTrigger />
+                <SidebarTrigger className="mr-2" />
               </div>
               
               {/* Path/Breadcrumb would go here */}
@@ -340,10 +341,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          {/* Main content area - properly positioned to the right of sidebar */}
-          <main className="flex-1 overflow-auto bg-background p-4 md:p-6 w-full">
-            {children}
-          </main>
+          <main className="flex-1 overflow-auto bg-background">{children}</main>
         </div>
       </div>
     </SidebarProvider>
