@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TemplateDownloader } from "@/components/TemplateDownloader";
-import { ArrowLeft, Upload, Download, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Download, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
@@ -98,16 +98,18 @@ export default function BulkImport() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <TemplateDownloader
-              title="Clients Template"
-              description="Import clients with contact details"
               entityType="clients"
-              icon={<Upload className="h-5 w-5" />}
+              fields={["name", "email", "phone", "address", "company", "notes", "status"]}
+              sampleData={[
+                { name: "John Doe", email: "john@example.com", phone: "+1234567890", address: "123 Main St", company: "Acme Corp", notes: "Important client", status: "active" }
+              ]}
             />
             <TemplateDownloader
-              title="Cases Template"
-              description="Import cases with client references"
               entityType="cases"
-              icon={<Upload className="h-5 w-5" />}
+              fields={["name", "client", "status", "description", "priority", "due_date"]}
+              sampleData={[
+                { name: "Contract Review", client: "John Doe", status: "open", description: "Review employment contract", priority: "high", due_date: "2024-02-15" }
+              ]}
             />
           </div>
         </CardContent>

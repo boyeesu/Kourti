@@ -219,15 +219,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <AppSidebar />
         
         {/* Main content area - takes remaining space */}
-        <div className="flex-1 flex flex-col min-h-screen min-w-0">
-          <header className="flex h-12 items-center justify-between px-2 md:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-10">
+        <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+          <header className="flex h-14 items-center justify-between px-2 md:px-4 bg-background border-b border-border flex-shrink-0 z-10">
             <div className="flex items-center gap-2">
               {/* Mobile menu */}
               <MobileNavigation />
               
               {/* Sidebar toggle - visible only on desktop */}
               <div className="hidden md:block">
-                <SidebarTrigger className="mr-2" />
+                <SidebarTrigger />
               </div>
               
               {/* Path/Breadcrumb would go here */}
@@ -341,7 +341,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </header>
 
           {/* Main content area */}
-          <main className="flex-1 overflow-auto bg-background p-2 md:p-4">
+          <main className="flex-1 overflow-auto bg-background p-4 md:p-6">
             {children}
           </main>
         </div>
