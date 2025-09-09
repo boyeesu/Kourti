@@ -250,8 +250,8 @@ export function AppSidebar() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <Sidebar variant="sidebar" collapsible="icon" className="border-r">
-        <SidebarHeader className="border-b border-border h-14 flex items-center px-4">
+      <Sidebar variant="sidebar" collapsible="icon" className="border-r border-border h-screen flex flex-col">
+        <SidebarHeader className="border-b border-border h-14 flex items-center px-4 flex-shrink-0">
           <div className="flex items-center gap-3">
             <img src={logo} alt="Kouti Legal" className="h-8 w-8 flex-shrink-0" />
             {!collapsed && (
@@ -273,14 +273,14 @@ export function AppSidebar() {
           </Button>
         </SidebarHeader>
 
-        <SidebarContent className="p-1">
+        <SidebarContent className="flex-1 overflow-auto py-2">
           {navigationGroups.map((group) => (
-            <SidebarGroup key={group.label} className="mt-1">
-              <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-3 mb-1"}>
+            <SidebarGroup key={group.label} className="mb-4">
+              <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-3 mb-2"}>
                 {group.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu className="space-y-0.5">
+                <SidebarMenu className="space-y-1 px-2">
                   {group.items.map(item => (
                     <Tooltip key={item.title}>
                       <TooltipTrigger asChild>
@@ -299,10 +299,10 @@ export function AppSidebar() {
           ))}
 
           {/* User profile section at bottom */}
-          <div className="mt-auto pt-2">
-            <Separator className="mb-2" />
+          <div className="mt-auto pt-4 flex-shrink-0">
+            <Separator className="mb-4" />
             
-            <div className={`px-2 py-1 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
+            <div className={`px-4 py-2 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
               {collapsed ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
