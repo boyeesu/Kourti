@@ -250,8 +250,8 @@ export function AppSidebar() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <Sidebar variant="sidebar" collapsible="icon" className="h-screen bg-card/30">
-        <SidebarHeader className="border-b border-border p-4">
+      <Sidebar variant="sidebar" collapsible="icon" className="border-r">
+        <SidebarHeader className="border-b border-border h-14 flex items-center px-4">
           <div className="flex items-center gap-3">
             <img src={logo} alt="Kouti Legal" className="h-8 w-8 flex-shrink-0" />
             {!collapsed && (
