@@ -214,12 +214,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <CommandPalette />
-      <div className="min-h-screen flex w-full bg-background">
-        {/* Sidebar - properly integrated with layout */}
+      <div className="min-h-screen flex flex-row w-full bg-background">
+        {/* Sidebar - fixed width */}
         <AppSidebar />
         
-        {/* Main content area - takes remaining space */}
-        <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+        {/* Main content area - takes remaining space to the right */}
+        <div className="flex-1 flex flex-col min-h-screen overflow-hidden min-w-0">
           <header className="flex h-14 items-center justify-between px-2 md:px-4 bg-background border-b border-border flex-shrink-0 z-10">
             <div className="flex items-center gap-2">
               {/* Mobile menu */}
@@ -340,8 +340,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          {/* Main content area */}
-          <main className="flex-1 overflow-auto bg-background p-4 md:p-6">
+          {/* Main content area - properly positioned to the right of sidebar */}
+          <main className="flex-1 overflow-auto bg-background p-4 md:p-6 w-full">
             {children}
           </main>
         </div>
