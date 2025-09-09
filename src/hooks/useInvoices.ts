@@ -29,12 +29,12 @@ export interface Invoice {
 }
 
 export interface CreateInvoiceData {
+  title: string;
   client_id: string;
   case_id?: string;
-  amount: number;
   vat: number;
-  total: number;
   status: 'draft' | 'sent' | 'paid' | 'overdue';
+  issue_date?: string;
   due_date?: string;
   notes?: string;
   items: InvoiceItem[];
@@ -68,9 +68,7 @@ export function useCreateInvoice() {
   return useMutation({
     mutationFn: async (data: CreateInvoiceData) => {
       const userId = await getCurrentUserId();
-      // Auto-generate total
-      const total = data.amount + (data.vat ?? 0);
-      // Ensure required fields for Invoice type
+      
       // Get organization ID from user profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -81,28 +79,62 @@ export function useCreateInvoice() {
       if (profileError) throw new Error("Could not retrieve user profile information.");
       if (!(profile as any)?.organization_id) throw new Error("No organization associated with your account.");
 
-      const invoiceData = {
-        invoice_number: `INV-${Date.now()}`,
-        title: `Invoice for ${data.amount}`,
-        organization_id: (profile as any).organization_id,
-        client_id: data.client_id,
-        case_id: data.case_id,
-        amount: data.amount,
-        tax_rate: data.vat ? (data.vat / data.amount) * 100 : 0,
-        tax_amount: data.vat ?? 0,
-        total,
-        status: data.status,
-        due_date: data.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        notes: data.notes,
-        created_by: userId || '',
-      };
+      // Calculate totals from items
+      const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+      const total = subtotal + (data.vat ?? 0);
+
+      // Generate invoice number using database function
+      const { data: invoiceNumber, error: numberError } = await supabase
+        .rpc('generate_invoice_number', { org_id: (profile as any).organization_id });
       
+      if (numberError) throw new Error("Could not generate invoice number.");
+
+  // Fix the client_id assignment issue
+  const invoiceData = {
+    invoice_number: invoiceNumber,
+    title: data.title || `Invoice for ${data.client_id}`,
+    organization_id: (profile as any).organization_id,
+    client_id: data.client_id, // Use the correct client_id
+    case_id: data.case_id,
+    subtotal,
+    tax_rate: subtotal > 0 ? (data.vat / subtotal) * 100 : 0,
+    tax_amount: data.vat ?? 0,
+    total_amount: total,
+    amount: total, // For backwards compatibility
+    status: data.status,
+    issue_date: data.issue_date || new Date().toISOString().split('T')[0],
+    due_date: data.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    notes: data.notes,
+    created_by: userId || '',
+  };
+      
+      // Create invoice and items in a transaction
       const { data: newInvoice, error } = await supabase
         .from('invoices')
         .insert(invoiceData as any)
         .select()
         .single();
+      
       if (error) throw error;
+
+      // Insert invoice items if any
+      if (data.items && data.items.length > 0) {
+        const itemsToInsert = data.items.map(item => ({
+          invoice_id: newInvoice.id,
+          organization_id: (profile as any).organization_id,
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.unit_price,
+          amount: item.quantity * item.unit_price,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('invoice_items')
+          .insert(itemsToInsert);
+        
+        if (itemsError) throw new Error("Invoice created but items failed to save: " + itemsError.message);
+      }
+
       return newInvoice;
     },
     onSuccess: () => {
@@ -120,8 +152,59 @@ export function useUpdateInvoice() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<CreateInvoiceData> & { id: string }) => {
-      const total = (typeof data.amount === 'number' && typeof data.vat === 'number') ? (data.amount + data.vat) : undefined;
-      const updateData = total ? { ...data, total } : data;
+      // Calculate totals from items if provided
+      let updateData: any = { ...data };
+      
+      if (data.items && data.items.length > 0) {
+        const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+        const total = subtotal + (data.vat ?? 0);
+        
+        updateData = {
+          ...data,
+          subtotal,
+          tax_rate: subtotal > 0 ? ((data.vat ?? 0) / subtotal) * 100 : 0,
+          tax_amount: data.vat ?? 0,
+          total_amount: total,
+          amount: total, // For backwards compatibility
+        };
+
+        // Update invoice items
+        if (data.items) {
+          // Get organization ID from user profile
+          const userId = await getCurrentUserId();
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('organization_id')
+            .eq('user_id', userId as any)
+            .single();
+
+          if (profile?.organization_id) {
+            // Delete existing items
+            await supabase
+              .from('invoice_items')
+              .delete()
+              .eq('invoice_id', id);
+
+            // Insert new items
+            const itemsToInsert = data.items.map(item => ({
+              invoice_id: id,
+              organization_id: profile.organization_id,
+              description: item.description,
+              quantity: item.quantity,
+              rate: item.unit_price,
+              amount: item.quantity * item.unit_price,
+            }));
+
+            await supabase
+              .from('invoice_items')
+              .insert(itemsToInsert);
+          }
+        }
+
+        // Remove items from update data as they're handled separately
+        delete updateData.items;
+      }
+
       const { data: updated, error } = await supabase
         .from('invoices')
         .update(updateData as any)

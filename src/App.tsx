@@ -50,6 +50,7 @@ import { logInfo } from "./lib/logger";
 
 // Lazy load pages for better performance
 const Invoices = lazy(() => import('./pages/Invoices'));
+const InvoiceCreate = lazy(() => import('./pages/InvoiceCreate'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 
@@ -263,6 +264,13 @@ const App = () => (
                                 <ModuleErrorBoundary name="Invoices">
                                   <Suspense fallback={<LoadingFallback />}>
                                     <Invoices />
+                                  </Suspense>
+                                </ModuleErrorBoundary>
+                              } />
+                              <Route path="/invoices/create" element={
+                                <ModuleErrorBoundary name="Invoice Create">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    <InvoiceCreate />
                                   </Suspense>
                                 </ModuleErrorBoundary>
                               } />
