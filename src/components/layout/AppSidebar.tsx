@@ -1,3 +1,5 @@
+import React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -101,7 +103,9 @@ const toolsNavigation: NavigationGroup = {
     { 
       title: "Invoicing", 
       url: "/invoices", 
-      icon: Receipt, 
+      icon: Receipt,
+      badge: "Soon",
+      badgeVariant: "outline"
     }
   ]
 };
@@ -206,50 +210,89 @@ export function AppSidebar() {
   
   const navigationGroups = getFilteredNavigation();
 
-  // Render a navigation item
-  const renderNavItem = (item: NavigationItem) => (
-    <SidebarMenuItem key={item.title}>
-      <SidebarMenuButton asChild className="h-8 w-full relative text-sm">
-        <NavLink 
-          to={item.url} 
-          end={item.end} 
-          className={getNavCls(item.url, item.end)}
-        >
-          <item.icon className="h-5 w-5 flex-shrink-0" />
-          {!collapsed && (
-            <>
-              <span className="ml-3 font-medium">{item.title}</span>
-              
-              {/* Badge */}
-              {item.badge && (
-                <Badge variant={item.badgeVariant} className="ml-auto">
-                  {item.badge}
-                </Badge>
-              )}
-              
-              {/* Active indicator */}
-              {isActive(item.url, item.end) && (
-                <ChevronRight className="h-4 w-4 ml-auto text-primary" />
-              )}
-            </>
-          )}
-          
-          {/* Show badge in collapsed mode */}
-          {collapsed && item.badge && (
-            <Badge 
-              variant={item.badgeVariant} 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
-            >
-              {item.badge}
-            </Badge>
-          )}
-        </NavLink>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
+// Render a navigation item
+  const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
+
+  const renderNavItem = (item: NavigationItem) => {
+    // Intercept Invoicing
+    if (item.url === "/invoices") {
+      return (
+        <SidebarMenuItem key={item.title}>
+          <SidebarMenuButton
+            className="h-8 w-full relative text-sm cursor-pointer"
+            onClick={e => {
+              e.preventDefault();
+              setShowInvoiceSoon(true);
+            }}
+          >
+            <item.icon className="h-5 w-5 flex-shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="ml-3 font-medium">{item.title}</span>
+                <Badge variant={item.badgeVariant} className="ml-auto">{item.badge}</Badge>
+              </>
+            )}
+            {collapsed && item.badge && (
+              <Badge 
+                variant={item.badgeVariant} 
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+              >
+                {item.badge}
+              </Badge>
+            )}
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
+    }
+    return (
+      <SidebarMenuItem key={item.title}>
+        <SidebarMenuButton asChild className="h-8 w-full relative text-sm">
+          <NavLink 
+            to={item.url} 
+            end={item.end} 
+            className={getNavCls(item.url, item.end)}
+          >
+            <item.icon className="h-5 w-5 flex-shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="ml-3 font-medium">{item.title}</span>
+                {item.badge && (
+                  <Badge variant={item.badgeVariant} className="ml-auto">
+                    {item.badge}
+                  </Badge>
+                )}
+                {isActive(item.url, item.end) && (
+                  <ChevronRight className="h-4 w-4 ml-auto text-primary" />
+                )}
+              </>
+            )}
+            {collapsed && item.badge && (
+              <Badge 
+                variant={item.badgeVariant} 
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+              >
+                {item.badge}
+              </Badge>
+            )}
+          </NavLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
     <TooltipProvider delayDuration={300}>
+      <Dialog open={showInvoiceSoon} onOpenChange={setShowInvoiceSoon}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Coming Soon</DialogTitle>
+            <DialogDescription>
+              The invoicing & billing module will be available in an upcoming release!
+            </DialogDescription>
+          </DialogHeader>
+          <Button className="mt-2 w-full" onClick={() => setShowInvoiceSoon(false)} autoFocus>Close</Button>
+        </DialogContent>
+      </Dialog>
       <Sidebar variant="sidebar" collapsible="icon" className="h-screen bg-card/30">
         <SidebarHeader className="border-b border-border p-2">
           <div className="flex items-center gap-2">
@@ -273,7 +316,10 @@ export function AppSidebar() {
           </Button>
         </SidebarHeader>
 
-        <SidebarContent className="p-1">
+        <SidebarContent
+          className="p-1 sm:p-2 md:p-3 overflow-y-auto max-h-[100dvh] scrollbar-thin scrollbar-thumb-muted-foreground/30"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {navigationGroups.map((group) => (
             <SidebarGroup key={group.label} className="mt-0.5">
               <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-2 mb-0.5"}>
@@ -301,7 +347,6 @@ export function AppSidebar() {
           {/* User profile section at bottom */}
           <div className="mt-auto pt-1">
             <Separator className="mb-1" />
-            
             <div className={`px-1 py-0.5 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
               {collapsed ? (
                 <Tooltip>

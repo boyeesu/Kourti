@@ -60,63 +60,25 @@ import { useDownloadInvoicePDF } from "@/hooks/useInvoicePDF";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 export default function Invoices() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const navigate = useNavigate();
-  const downloadPDF = useDownloadInvoicePDF();
-
-  // Use proper invoice hooks
-  const { data: invoicesData, isLoading, error, refetch } = useInvoices();
-  const createInvoice = useCreateInvoice();
-  const updateInvoice = useUpdateInvoice();
-  const deleteInvoice = useDeleteInvoice();
-
-  // Handle form submission
-  const handleSubmitInvoice = async (formData: any) => {
-    const payload = {
-      title: formData.title,
-      client_id: formData.client_id,
-      case_id: formData.case_id,
-      vat: formData.vat,
-      status: formData.status,
-      issue_date: formData.issue_date.toISOString().split('T')[0],
-      due_date: formData.due_date.toISOString().split('T')[0],
-      notes: formData.notes,
-      items: formData.items,
-    };
-
-    if (editingInvoice) {
-      await updateInvoice.mutateAsync({ id: editingInvoice.id, ...payload });
-      setEditingInvoice(null);
-    } else {
-      await createInvoice.mutateAsync(payload);
-    }
-    
-    setIsCreateDialogOpen(false);
-  };
-
-  // Handle invoice deletion
-  const handleDeleteInvoice = async (id: string) => {
-    await deleteInvoice.mutateAsync(id);
-  };
-
-  // Filter invoices by search term and status
-  const filteredInvoices = invoicesData ? invoicesData.filter((invoice: any) => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = (
-      (invoice.title && invoice.title.toLowerCase().includes(searchLower)) ||
-      (invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(searchLower)) ||
-      (invoice.client?.name && invoice.client.name.toLowerCase().includes(searchLower))
-    );
-    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  }) : [];
-
+  // Only show coming soon, do not serve real content
   return (
-    <div className="px-4 py-6 space-y-6 animate-fade-in">
-      <Breadcrumbs />
+    <div className="w-full h-[70vh] flex flex-col items-center justify-center animate-fade-in">
+      <div className="bg-blue-100 text-blue-700 py-3 px-6 rounded-md text-center text-lg font-bold shadow mb-4">
+        🚧 Invoicing & Billing Module is Coming Soon
+      </div>
+      <p className="text-muted-foreground text-center max-w-sm">
+        The invoicing and revenue features will be available in a future release. Thank you for your patience!
+      </p>
+    </div>
+  );
+}
+
+      {/* Coming Soon Banner */}
+      <div className="mb-4">
+        <div className="bg-blue-100 text-blue-700 py-2 px-4 rounded-md text-center text-sm font-medium shadow-sm">
+          <span role="img" aria-label="Soon">🚧</span> Invoicing & Revenue features are coming soon!
+        </div>
+      </div>
 
       <div className="flex items-center justify-between">
         <div>

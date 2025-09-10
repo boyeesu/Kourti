@@ -118,76 +118,166 @@ function DeadlineReminders() {
 }
 
 // Mobile navigation for small screens
+import { useUserRole } from '@/hooks/useUserManagement';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
 function MobileNavigation() {
   const [open, setOpen] = useState(false);
+  const [showInvoiceSoon, setShowInvoiceSoon] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const handleNavigation = (href: string) => {
-    navigate(href);
-    setOpen(false);
+  const { data: userRoleData } = useUserRole();
+  const role = userRoleData && 'role' in userRoleData ? userRoleData.role : null;
+  const isAdmin = role === "superadmin" || role === "admin";
+
+  // Sidebar navigation groups and filtering (from AppSidebar)
+  const primaryNavigation = {
+    label: "Main",
+    items: [
+      { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
+      { title: "Cases", url: "/cases", icon: Briefcase },
+      { title: "Clients", url: "/clients", icon: UserCheck },
+      { title: "Calendar", url: "/calendar", icon: Calendar }
+    ]
   };
-  
-  const isActive = (path: string) => {
-    if (path === "/") return location.pathname === "/";
+  const documentsNavigation = {
+    label: "Legal Documents",
+    items: [
+      { title: "Documents", url: "/documents", icon: FileText },
+      { title: "Contracts", url: "/contracts", icon: FileCheck }
+    ]
+  };
+  const toolsNavigation = {
+    label: "Tools",
+    items: [
+      { title: "Ream AI", url: "/ream-ai", icon: Bot, badge: "New", badgeVariant: "default" },
+      { title: "Voice Recorder", url: "/voice-recorder", icon: Mic, badge: "New", badgeVariant: "default" },
+      { title: "Transcriptions", url: "/transcriptions", icon: FileText },
+      { title: "Invoicing", url: "/invoices", icon: Receipt, badge: "Soon", badgeVariant: "outline" }
+    ]
+  };
+  const managementNavigation = {
+    label: "Management",
+    items: [
+      { title: "Users", url: "/users", icon: Users },
+      { title: "Analytics", url: "/analytics", icon: Gauge },
+      { title: "Settings", url: "/settings", icon: Settings }
+    ]
+  };
+  // Filter logic
+  const getFilteredNavigation = () => {
+    const navigation = [primaryNavigation, documentsNavigation];
+    const filteredTools = {
+      ...toolsNavigation,
+      items: toolsNavigation.items.filter(item => {
+        if (item.url === "/invoices" && !isAdmin) {
+          return false;
+        }
+        return true;
+      })
+    };
+    if (filteredTools.items.length > 0) navigation.push(filteredTools);
+    if (isAdmin) {
+      navigation.push(managementNavigation);
+    } else {
+      navigation.push({ label: "Management", items: [managementNavigation.items.find(i => i.url === "/settings")!] });
+    }
+    return navigation;
+  };
+
+  const navigationGroups = getFilteredNavigation();
+  const isActive = (path: string, end?: boolean) => {
+    if (end) return location.pathname === path;
     return location.pathname.startsWith(path);
   };
-  
-  const navigationItems = [
-    { label: 'Dashboard', icon: <Home className="h-5 w-5" />, href: '/' },
-    { label: 'Cases', icon: <Briefcase className="h-5 w-5" />, href: '/cases' },
-    { label: 'Clients', icon: <UserCheck className="h-5 w-5" />, href: '/clients' },
-    { label: 'Calendar', icon: <Calendar className="h-5 w-5" />, href: '/calendar' },
-    { label: 'Documents', icon: <FileText className="h-5 w-5" />, href: '/documents' },
-  ];
-  
+
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="w-[280px] p-0">
-        <div className="flex flex-col h-full">
-          <div className="p-4 border-b">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Kouti Legal</h2>
-              <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
-                <X className="h-4 w-4" />
+    <>
+      <Dialog open={showInvoiceSoon} onOpenChange={setShowInvoiceSoon}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Coming Soon</DialogTitle>
+            <DialogDescription>
+              The invoicing & billing module will be available in an upcoming release!
+            </DialogDescription>
+          </DialogHeader>
+          <Button className="mt-2 w-full" onClick={() => setShowInvoiceSoon(false)} autoFocus>Close</Button>
+        </DialogContent>
+      </Dialog>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="md:hidden">
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-[280px] p-0">
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Kouti Legal</h2>
+                <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="px-2 py-4 flex-1 overflow-y-auto">
+              {navigationGroups.map(group => (
+                <div key={group.label} className="mb-3">
+                  <div className="text-xs text-muted-foreground font-semibold px-2 mb-1">
+                    {group.label}
+                  </div>
+                  <nav className="space-y-1">
+                    {group.items.map(item => {
+                      if (!item) return null;
+                      const isInvoice = item.url === "/invoices";
+                      return (
+                        <Button
+                          key={item.url}
+                          variant={isActive(item.url, item.end) ? "default" : "ghost"}
+                          className="w-full justify-start h-11 flex items-center text-base"
+                          onClick={e => {
+                            setOpen(false);
+                            if (isInvoice) {
+                              e.preventDefault();
+                              setShowInvoiceSoon(true);
+                              return;
+                            } else {
+                              navigate(item.url);
+                            }
+                          }}
+                        >
+                          <item.icon className="h-5 w-5 mr-2" />
+                          <span>{item.title}</span>
+                          {item.badge && (
+                            <Badge variant={item.badgeVariant} className="ml-auto">
+                              {item.badge}
+                            </Badge>
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </nav>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t mt-auto">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/settings')
+                }}
+              >
+                <Settings className="h-5 w-5 mr-3" />
+                Settings
               </Button>
             </div>
           </div>
-          
-          <div className="px-2 py-4 flex-1">
-            <nav className="space-y-1">
-              {navigationItems.map((item) => (
-                <Button
-                  key={item.href}
-                  variant={isActive(item.href) ? "default" : "ghost"}
-                  className="w-full justify-start h-12"
-                  onClick={() => handleNavigation(item.href)}
-                >
-                  {item.icon}
-                  <span className="ml-3">{item.label}</span>
-                </Button>
-              ))}
-            </nav>
-          </div>
-          
-          <div className="p-4 border-t mt-auto">
-            <Button 
-              variant="outline" 
-              className="w-full justify-start"
-              onClick={() => handleNavigation('/settings')}
-            >
-              <Settings className="h-5 w-5 mr-3" />
-              Settings
-            </Button>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
@@ -341,7 +431,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto bg-background">{children}</main>
+          <main className="flex-1 overflow-auto bg-background px-1.5 py-2 sm:px-4 sm:py-6">{children}</main>
         </div>
       </div>
     </SidebarProvider>

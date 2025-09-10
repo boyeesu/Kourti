@@ -576,9 +576,10 @@ Please provide a helpful response to this legal question. If you need specific d
                 </Badge>
               </CardTitle>
             </CardHeader>
-            
-            <CardContent className="flex-1 p-0 overflow-y-auto">
-              <ScrollArea className="h-full">
+
+            {/* Main chat/message area with its own scrolling */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto">
                 <div className="flex flex-col p-4 space-y-4">
                   {messages.map((msg, i) => (
                     <div
@@ -602,7 +603,6 @@ Please provide a helpful response to this legal question. If you need specific d
                           }`}
                         >
                           {msg.content || (msg.isStreaming && <span className="animate-pulse">▋</span>)}
-                          
                           {/* Add timestamp if available */}
                           {msg.timestamp && (
                             <div className="text-[10px] opacity-70 mt-1 text-right">
@@ -613,68 +613,67 @@ Please provide a helpful response to this legal question. If you need specific d
                       )}
                     </div>
                   ))}
-                  
                   {/* For auto-scrolling */}
                   <div ref={messagesEndRef} />
                 </div>
-              </ScrollArea>
-            </CardContent>
-            
-            {/* Example prompts */}
-            {messages.length <= 2 && (
-              <div className="px-4 py-2 border-t">
-                <p className="text-sm text-muted-foreground mb-2">Try asking:</p>
-                <div className="flex flex-wrap gap-2">
-                  {EXAMPLE_PROMPTS.map((prompt, i) => (
-                    <Button
-                      key={i}
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => useExamplePrompt(prompt)}
-                    >
-                      {prompt}
-                    </Button>
-                  ))}
-                </div>
               </div>
-            )}
-            
-            {/* Input form */}
-            <form 
-              className="flex gap-2 p-4 border-t"
-              onSubmit={sendMessage}
-            >
-              <Input
-                className="flex-1"
-                placeholder={
-                  selectedDoc || selectedFile
-                    ? "Ask about this document or request analysis..."
-                    : "Select a document first or ask a general legal question..."
-                }
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                disabled={isStreaming || isTyping}
-              />
-              
-              {isStreaming ? (
-                <Button 
-                  type="button" 
-                  variant="destructive"
-                  onClick={cancelStreaming}
-                >
-                  <StopCircle className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button type="submit" disabled={isTyping}>
-                  {isTyping ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
+
+              {/* Example prompts */}
+              {messages.length <= 2 && (
+                <div className="px-4 py-2 border-t bg-background/95">
+                  <p className="text-sm text-muted-foreground mb-2">Try asking:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {EXAMPLE_PROMPTS.map((prompt, i) => (
+                      <Button
+                        key={i}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => useExamplePrompt(prompt)}
+                      >
+                        {prompt}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               )}
-            </form>
+
+              {/* Input form always at the very bottom, never scrolled */}
+              <form 
+                className="flex gap-2 p-4 border-t bg-background sticky bottom-0 left-0 right-0 z-10"
+                onSubmit={sendMessage}
+                style={{ boxShadow: '0 -2px 8px -4px rgba(0,0,0,0.04)' }}
+              >
+                <Input
+                  className="flex-1"
+                  placeholder={
+                    selectedDoc || selectedFile
+                      ? "Ask about this document or request analysis..."
+                      : "Select a document first or ask a general legal question..."
+                  }
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  disabled={isStreaming || isTyping}
+                />
+                {isStreaming ? (
+                  <Button 
+                    type="button" 
+                    variant="destructive"
+                    onClick={cancelStreaming}
+                  >
+                    <StopCircle className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={isTyping}>
+                    {isTyping ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </form>
+            </div>
           </Card>
         </ModuleErrorBoundary>
       </main>

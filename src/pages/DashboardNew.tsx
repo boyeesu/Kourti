@@ -73,7 +73,7 @@ const StatCard = ({
       <CardContent className="p-6">
         <div className="flex justify-between items-start">
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
+            <div className="text-sm font-medium text-muted-foreground mb-1">{title}</div>
             {loading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
@@ -362,15 +362,26 @@ export default function Dashboard() {
         />
         
         {isAdmin && (
-          <StatCard
-            title="Revenue"
-            value={dashboardLoading ? "—" : formatCurrency(dashboardData?.totalRevenue || 0)}
-            icon={<DollarSign className="h-5 w-5" />}
-            trend={{ value: 15, label: "increase" }}
-            loading={dashboardLoading}
-            iconColor="text-purple-500"
-            iconBgColor="bg-purple-500/10"
-          />
+          <div className="relative">
+            <StatCard
+              title={
+                <div className="flex items-center gap-2">
+                  Revenue
+                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold ml-1">Coming Soon</span>
+                </div>
+              }
+              value={
+                <span style={{ filter: 'blur(3px)', opacity: 0.7 }} className="select-none">
+                  {dashboardLoading ? "—" : formatCurrency(dashboardData?.totalRevenue || 0)}
+                </span>
+              }
+              icon={<DollarSign className="h-5 w-5" />}
+              trend={{ value: 15, label: "increase" }}
+              loading={dashboardLoading}
+              iconColor="text-purple-500"
+              iconBgColor="bg-purple-500/10"
+            />
+          </div>
         )}
       </div>
 

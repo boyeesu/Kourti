@@ -269,8 +269,11 @@ export default function Dashboard() {
                   <DollarSign className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Revenue</p>
-                  <p className="text-2xl font-bold">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">Revenue</p>
+                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold ml-2">Coming Soon</span>
+                  </div>
+                  <p className="text-2xl font-bold select-none" style={{ filter: 'blur(3px)', opacity: 0.7 }}>
                     {dashboardLoading ? (
                       <span className="animate-pulse">—</span>
                     ) : (
