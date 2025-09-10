@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --- Compatibility fixes --- */
+html {
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+.noselect, .unselectable, [data-user-select="none"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* Kouti Legal Design System - Professional legal management interface
 All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 */

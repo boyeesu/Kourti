@@ -18,24 +18,41 @@ import { useAuth } from '@/hooks/useAuth';
 import { useInsights } from '@/hooks/useInsights';
 import { NotificationIcon } from '@/components/ui/notifications';
 import { 
-  User, 
-  Settings, 
-  Plus, 
-  Search as SearchIcon, 
-  FileText, 
-  Briefcase, 
-  Calendar, 
-  UserCheck, 
+  User,
+  Settings,
+  Plus,
+  Search as SearchIcon,
+  FileText,
+  Briefcase,
+  Calendar,
+  UserCheck,
   Home,
   X,
   Menu,
-  HelpCircle
+  HelpCircle,
+  LayoutDashboard,
+  Users,
+  FileCheck,
+  Receipt,
+  Bot,
+  Gauge,
+  Mic
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
+
+// Navigation item type
+export type NavItem = {
+  title: string;
+  url: string;
+  icon: any;
+  end: boolean;
+  badge?: string;
+  badgeVariant?: "default" | "outline" | "destructive" | "secondary";
+};
 
 // Types - can be removed as we're using the database-backed notifications now
 
@@ -136,38 +153,38 @@ function MobileNavigation() {
     label: "Main",
     items: [
       { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
-      { title: "Cases", url: "/cases", icon: Briefcase },
-      { title: "Clients", url: "/clients", icon: UserCheck },
-      { title: "Calendar", url: "/calendar", icon: Calendar }
+      { title: "Cases", url: "/cases", icon: Briefcase, end: false },
+      { title: "Clients", url: "/clients", icon: UserCheck, end: false },
+      { title: "Calendar", url: "/calendar", icon: Calendar, end: false }
     ]
   };
   const documentsNavigation = {
     label: "Legal Documents",
     items: [
-      { title: "Documents", url: "/documents", icon: FileText },
-      { title: "Contracts", url: "/contracts", icon: FileCheck }
+      { title: "Documents", url: "/documents", icon: FileText, end: false },
+      { title: "Contracts", url: "/contracts", icon: FileCheck, end: false }
     ]
   };
   const toolsNavigation = {
     label: "Tools",
     items: [
-      { title: "Ream AI", url: "/ream-ai", icon: Bot, badge: "New", badgeVariant: "default" },
-      { title: "Voice Recorder", url: "/voice-recorder", icon: Mic, badge: "New", badgeVariant: "default" },
-      { title: "Transcriptions", url: "/transcriptions", icon: FileText },
-      { title: "Invoicing", url: "/invoices", icon: Receipt, badge: "Soon", badgeVariant: "outline" }
+      { title: "Ream AI", url: "/ream-ai", icon: Bot, end: false, badge: "New", badgeVariant: "default" as const },
+      { title: "Voice Recorder", url: "/voice-recorder", icon: Mic, end: false, badge: "New", badgeVariant: "default" as const },
+      { title: "Transcriptions", url: "/transcriptions", icon: FileText, end: false },
+      { title: "Invoicing", url: "/invoices", icon: Receipt, end: false, badge: "Soon", badgeVariant: "outline" as const }
     ]
   };
   const managementNavigation = {
     label: "Management",
     items: [
-      { title: "Users", url: "/users", icon: Users },
-      { title: "Analytics", url: "/analytics", icon: Gauge },
-      { title: "Settings", url: "/settings", icon: Settings }
+      { title: "Users", url: "/users", icon: Users, end: false },
+      { title: "Analytics", url: "/analytics", icon: Gauge, end: false },
+      { title: "Settings", url: "/settings", icon: Settings, end: false }
     ]
   };
   // Filter logic
   const getFilteredNavigation = () => {
-    const navigation = [primaryNavigation, documentsNavigation];
+    const navigation: { label: string; items: NavItem[] }[] = [primaryNavigation, documentsNavigation];
     const filteredTools = {
       ...toolsNavigation,
       items: toolsNavigation.items.filter(item => {
@@ -207,9 +224,15 @@ function MobileNavigation() {
       </Dialog>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden">
-            <Menu className="h-5 w-5" />
-          </Button>
+<Button
+  variant="ghost"
+  size="icon"
+  className="md:hidden"
+  aria-label="Open main navigation menu"
+  title="Open main navigation menu"
+>
+  <Menu className="h-5 w-5" />
+</Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-[280px] p-0">
           <div className="flex flex-col h-full">

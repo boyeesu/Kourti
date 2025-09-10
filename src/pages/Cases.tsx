@@ -259,56 +259,55 @@ export default function App() { // Changed to App for React component export
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Filter Cases</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search cases, clients, or case IDs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 rounded-md border border-input focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[180px] h-10">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                {/* Dynamically render statuses from context if available, otherwise use hardcoded */}
-                {statuses && statuses.length > 0 ? (
-                  statuses.map((statusOption: string) => (
-                    <SelectItem key={statusOption} value={statusOption.toLowerCase()}>
-                      {statusOption}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="review">Review</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          {clientQuery && (
-            <div className="mt-4">
-              <Badge variant="secondary" className="px-3 py-1 text-base rounded-full">
-                Client: <span className="font-semibold ml-1">{clientFilterName}</span>
-              </Badge>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Compact Filters Toolbar */}
+      <div className="flex flex-wrap gap-2 items-center justify-between bg-transparent py-2">
+        <div className="relative w-full sm:w-[320px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search cases, clients, or IDs..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-2 rounded-md border border-input focus:ring-primary focus:border-primary/30"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[150px] h-10">
+            <Filter className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            {statuses && statuses.length > 0 ? (
+              statuses.map((s: string) => (
+                <SelectItem key={s} value={s.toLowerCase()}>{s}</SelectItem>
+              ))
+            ) : (
+              <>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="review">Review</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </>
+            )}
+          </SelectContent>
+        </Select>
+        {/* Fate Filter Example */}
+        <Select>
+          <SelectTrigger className="w-[140px] h-10">
+            <SelectValue placeholder="Fate" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Fates</SelectItem>
+            <SelectItem value="fulfilled">Fulfilled</SelectItem>
+            <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
+          </SelectContent>
+        </Select>
+        {clientQuery && (
+          <Badge variant="secondary" className="ml-2 px-3 py-1 text-base rounded-full">
+            Client: <span className="font-semibold ml-1">{clientFilterName}</span>
+          </Badge>
+        )}
+      </div>
 
       {/* Cases Table */}
       <Card className="shadow-lg rounded-lg">

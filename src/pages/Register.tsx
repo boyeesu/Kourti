@@ -72,26 +72,30 @@ export default function Register() {
                 <Label htmlFor="firstName">First Name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="firstName"
-                    placeholder="John"
-                    className="pl-10"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    required
-                  />
+<Input
+  id="firstName"
+  name="firstName"
+  autoComplete="given-name"
+  placeholder="John"
+  className="pl-10"
+  value={formData.firstName}
+  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+  required
+/>
                 </div>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  required
-                />
+<Input
+  id="lastName"
+  name="lastName"
+  autoComplete="family-name"
+  placeholder="Doe"
+  value={formData.lastName}
+  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+  required
+/>
               </div>
             </div>
             
@@ -99,15 +103,17 @@ export default function Register() {
               <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  className="pl-10"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                />
+<Input
+  id="email"
+  name="email"
+  type="email"
+  placeholder="john@example.com"
+  className="pl-10"
+  autoComplete="email"
+  value={formData.email}
+  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+  required
+/>
               </div>
             </div>
             
@@ -115,65 +121,71 @@ export default function Register() {
               <Label htmlFor="organization">Organization</Label>
               <div className="relative">
                 <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="organization"
-                  placeholder="Your law firm"
-                  className="pl-10"
-                  value={formData.organization}
-                  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                  required
-                />
+<Input
+  id="organization"
+  name="organization"
+  autoComplete="organization"
+  placeholder="Your law firm"
+  className="pl-10"
+  value={formData.organization}
+  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+  required
+/>
               </div>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allRoles
-                    .filter(r => r.role && r.role !== 'superadmin') // Remove superadmin from public signup
-                    .map(r => (
-                      <SelectItem
-                        key={r.role || r.role_name}
-                        value={r.role || r.role_name}
-                      >
-                        {r.display_name || r.role_name || r.role}
-                        {r.source === 'custom' && ' (Custom)'}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+<Select name="role" value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+  <SelectTrigger>
+    <SelectValue placeholder="Select your role" />
+  </SelectTrigger>
+  <SelectContent>
+    {allRoles
+      .filter(r => r.role && r.role !== 'superadmin') // Remove superadmin from public signup
+      .map(r => (
+        <SelectItem
+          key={r.role || r.role_name}
+          value={r.role || r.role_name}
+        >
+          {r.display_name || r.role_name || r.role}
+          {r.source === 'custom' && ' (Custom)'}
+        </SelectItem>
+      ))}
+  </SelectContent>
+</Select>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create a password"
-                  className="pl-10 pr-10"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
+<Input
+  id="password"
+  name="password"
+  type={showPassword ? "text" : "password"}
+  placeholder="Create a password"
+  className="pl-10 pr-10"
+  autoComplete="new-password"
+  value={formData.password}
+  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+  required
+/>
+<Button
+  type="button"
+  variant="ghost"
+  size="sm"
+  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+  onClick={() => setShowPassword(!showPassword)}
+  aria-label={showPassword ? "Hide password" : "Show password"}
+  title={showPassword ? "Hide password" : "Show password"}
+>
+  {showPassword ? (
+    <EyeOff className="h-4 w-4 text-muted-foreground" />
+  ) : (
+    <Eye className="h-4 w-4 text-muted-foreground" />
+  )}
+</Button>
               </div>
             </div>
             
@@ -181,28 +193,32 @@ export default function Register() {
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm your password"
-                  className="pl-10 pr-10"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
+<Input
+  id="confirmPassword"
+  name="confirmPassword"
+  type={showConfirmPassword ? "text" : "password"}
+  placeholder="Confirm your password"
+  className="pl-10 pr-10"
+  autoComplete="new-password"
+  value={formData.confirmPassword}
+  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+  required
+/>
+<Button
+  type="button"
+  variant="ghost"
+  size="sm"
+  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+  title={showConfirmPassword ? "Hide password" : "Show password"}
+>
+  {showConfirmPassword ? (
+    <EyeOff className="h-4 w-4 text-muted-foreground" />
+  ) : (
+    <Eye className="h-4 w-4 text-muted-foreground" />
+  )}
+</Button>
               </div>
             </div>
             

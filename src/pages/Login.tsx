@@ -51,15 +51,17 @@ export default function Login() {
               <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  className="pl-10"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                />
+<Input
+  id="email"
+  name="email"
+  type="email"
+  placeholder="Enter your email"
+  className="pl-10"
+  autoComplete="email"
+  value={formData.email}
+  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+  required
+/>
               </div>
             </div>
             
@@ -67,28 +69,32 @@ export default function Login() {
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  className="pl-10 pr-10"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
+<Input
+  id="password"
+  name="password"
+  type={showPassword ? "text" : "password"}
+  placeholder="Enter your password"
+  className="pl-10 pr-10"
+  autoComplete="current-password"
+  value={formData.password}
+  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+  required
+/>
+<Button
+  type="button"
+  variant="ghost"
+  size="sm"
+  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+  onClick={() => setShowPassword(!showPassword)}
+  aria-label={showPassword ? "Hide password" : "Show password"}
+  title={showPassword ? "Hide password" : "Show password"}
+>
+  {showPassword ? (
+    <EyeOff className="h-4 w-4 text-muted-foreground" />
+  ) : (
+    <Eye className="h-4 w-4 text-muted-foreground" />
+  )}
+</Button>
               </div>
             </div>
             
