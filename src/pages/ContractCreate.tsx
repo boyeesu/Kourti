@@ -290,7 +290,7 @@ export default function ContractCreate() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="py-[10px]">
-                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="USD" className="py-[10px]">USD</SelectItem>
                           <SelectItem value="EUR">EUR</SelectItem>
                           <SelectItem value="GBP">GBP</SelectItem>
                           <SelectItem value="CAD">CAD</SelectItem>
