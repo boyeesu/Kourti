@@ -110,6 +110,7 @@ export function useCreateClient() {
           ...clientData,
           organization_id: organizationId,
           created_by: user.id,
+          user_id: user.id,
         } as any)
         .select()
         .single();

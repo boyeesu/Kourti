@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useCreateClient } from "@/hooks/useClients";
+import { useCreateCase } from "@/hooks/useCases";
 import { parseCSV } from "@/lib/csv";
 import * as z from "zod";
 
@@ -29,6 +30,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const createClient = useCreateClient();
+  const createCase = useCreateCase();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -70,7 +72,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
   const schemas: Record<BulkImportFormProps["entityType"], z.ZodSchema<any>> = {
     clients: z.object({
       name: z.string().min(1),
-      email: z.string().optional(),
+      email: z.string().email().optional().or(z.literal("")),
       phone: z.string().optional(),
       address: z.string().optional(),
       company: z.string().optional(),
@@ -78,9 +80,11 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
       status: z.string().optional(),
     }),
     cases: z.object({
-      name: z.string().min(1),
-      client: z.string().min(1),
-      status: z.string().min(1),
+      title: z.string().min(1),
+      description: z.string().optional(),
+      status: z.string().optional(),
+      priority: z.string().optional(),
+      client_name: z.string().optional(),
     }),
   };
 
@@ -104,8 +108,15 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
             notes: item.notes || undefined,
             status: item.status || "active",
           });
+        } else if (entityType === "cases") {
+          await createCase.mutateAsync({
+            title: item.title,
+            description: item.description || undefined,
+            status: item.status || "active",
+            priority: item.priority || "medium",
+            // Note: client_name would need to be resolved to client_id in a real implementation
+          });
         }
-        // Add other entity types here when implemented
         successful++;
       } catch (error) {
         failed++;

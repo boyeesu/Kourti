@@ -225,6 +225,7 @@ export function useCreateCase() {
           ...caseData,
           organization_id: (profile as any).organization_id,
           created_by: userId,
+          user_id: userId,
         } as any)
         .select()
         .single();
