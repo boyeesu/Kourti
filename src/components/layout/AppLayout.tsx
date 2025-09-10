@@ -16,7 +16,7 @@ import {
 import { useSearch } from '@/hooks/use-search';
 import { useAuth } from '@/hooks/useAuth';
 import { useInsights } from '@/hooks/useInsights';
-import { NotificationIcon } from '@/components/ui/notifications';
+// import { NotificationIcon } from '@/components/ui/notifications';
 import NotificationsDropdown from "./NotificationsDropdown";
 import { 
   User,
@@ -390,7 +390,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </Tooltip>
               </TooltipProvider>
               
-              <NotificationIcon />
+              {/* Notification Bell + Dropdown (uses Supabase hooks) */}
+              <NotificationsDropdown />
               
               <DeadlineReminders />
 
