@@ -42,6 +42,7 @@ import ReamAI from "./pages/ReamAI";
 import VoiceRecorder from "./pages/VoiceRecorder";
 import TranscriptionView from "./pages/TranscriptionView";
 import TranscriptionsList from "./pages/TranscriptionsList";
+import BulkImport from "./pages/BulkImport";
 import NotFound from "./pages/NotFound";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Suspense, lazy, useEffect } from "react";
@@ -315,6 +316,13 @@ const App = () => (
                               <Route path="/transcriptions/:id" element={
                                 <ModuleErrorBoundary name="Transcription View">
                                   <TranscriptionView />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Bulk Import */}
+                              <Route path="/bulk-import" element={
+                                <ModuleErrorBoundary name="Bulk Import">
+                                  <BulkImport />
                                 </ModuleErrorBoundary>
                               } />
                               

@@ -206,7 +206,6 @@ export default function Clients() {
                         >
                           {client.name}
                         </button>
-                        <p className="text-sm text-muted-foreground">{client.id}</p>
                       </div>
                     </div>
                   </TableCell>

@@ -334,7 +334,6 @@ export default function Contracts() {
                         <TableCell>
                           <div>
                             <div className="font-medium">{contract.title}</div>
-                            <div className="text-sm text-muted-foreground">{contract.id}</div>
                             {contract.description && (
                               <div className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
                                 {contract.description}
