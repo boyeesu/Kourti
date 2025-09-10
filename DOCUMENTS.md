@@ -57,60 +57,65 @@ RLS: each table has `auth.uid() = user_id` or `organisation_id` policy.
 | **case_activities**   | activity logs on cases (case_id, title, description, date) |
 
 ---
-## 9. Module Reference
+## 9. Module Reference (including AI & Export Features)
 
-Below is a summary of the key code modules and their responsibilities.
+Below is a summary of key code modules and their responsibilities, including advanced AI and document export workflows.
 
 ### 9.1 Pages (`src/pages`)
-- **Dashboard.tsx**: main landing page; shows stats, recent cases, upcoming events, and actionable insights.
-- **Documents.tsx**: lists documents; supports upload, AI summarization, filtering.
-- **DocumentUpload.tsx**: UI for uploading and annotating new documents.
-- **Contracts.tsx** / **ContractView.tsx** / **ContractEdit.tsx** / **ContractHistory.tsx**: contract CRUD, viewing, editing, version history, AI reviews.
-- **Cases.tsx** / **CaseCreate.tsx** / **CaseDetails.tsx** / **CaseActivities.tsx**: case management and activities.
-- **Clients.tsx** / **ClientCreate.tsx** / **ClientDetails.tsx** / **ClientEdit.tsx**: client profiles and communication logs.
-- **Calendar.tsx**: interactive calendar of case hearings and events.
-- **Settings.tsx** / **UserManagement.tsx** / **Profile.tsx**: user, role, and application settings.
-- **Auth.tsx**, **Login.tsx**, **Register.tsx**, **Onboarding.tsx**: authentication flows.
-- **BulkImport.tsx**: CSV/Excel import for clients, cases, documents.
+- **Dashboard.tsx**: main landing page; stats, recent cases, upcoming events, actionable insights.
+- **Documents.tsx**: lists documents; supports upload, AI-powered summarization, clause extraction, filtering, export (PDF/DOCX).
+- **DocumentUpload.tsx**: upload & annotate new documents.
+- **Contracts.tsx** / **ContractView.tsx** / **ContractEdit.tsx** / **ContractHistory.tsx**: contract CRUD, version control, AI redlines/comparison, risk analysis, export.
+- **ContractCompare.tsx**: compare two documents/contracts using AI; shows clause-level diff, semantic similarity, and AI commentary.
+- **Cases.tsx** / **CaseCreate.tsx** / **CaseDetails.tsx** / **CaseActivitiesNew.tsx**: manage cases, issues, activities, with export support.
+- **Clients.tsx** / **ClientCreate.tsx** / **ClientDetails.tsx** / **ClientEdit.tsx**: client profiles, comm logs.
+- **Calendar.tsx**: case hearings/events calendar.
+- **Settings.tsx**, **UserManagement.tsx**, **Profile.tsx**: settings, roles, and app preferences.
+- **BulkImport.tsx**: CSV/Excel import for clients/cases/docs.
+- **ReamAI.tsx**: AI insights hub; manage/run advanced AI tasks (generation, analysis, Q&A coming soon).
 
 ### 9.2 Hooks (`src/hooks`)
-- **useAuth**: authentication state and helpers (signIn, signOut).
-- **useCurrentUser**: get current user's profile.
-- **useUserOrganization**: fetch user's org ID (RLS context).
-- **useDashboardStats**: aggregates counts and recent items for Dashboard.
-- **useInsights**: computes upcoming cases and contracts within window.
-- **useDashboardPrefs** / **useSaveDashboardPrefs**: read/write dashboard widget settings.
-- **useNotificationsDb**: fetch notifications from Supabase.
-- **useAnalyzeDocument**: mutation for AI-powered document summarization.
-- **useAnalyzeContract**: mutation for AI-driven risk analysis.
-- **useCases**, **useCase**, **useCreateCase**, **useUpdateCase**, **useDeleteCase**: case data hooks.
-- **useCaseTypes** / **useCaseFields**: dynamic case-type field hooks.
-- **useClients**, **useClient**, **useCreateClient**: client data hooks.
-- **useDocuments**, **useDocument**, **useCreateDocument**, **useUpdateDocument**, **useDeleteDocument**: document data hooks.
-- **useContracts**, **useContract**, **useCreateContract**, etc.: contract data hooks.
+- **useAuth, useCurrentUser, useUserOrganization, ...**: auth & org context.
+- **useAnalyzeDocument**: AI summarization, clause extraction, risk analysis of any document.
+- **useAnalyzeContract**: AI-driven redlines/comparison, risk or anomaly detection in contracts.
+- **useAIContractGenerator**: prompts OpenAI API to auto-draft contracts per user input/selected templates.
+- **useEnhancedDocumentAnalysis**: batch multi-operation AI (summary, extract, compare, risk assess).
+- **useDocuments, useContracts, useCases, etc.**: fetch/save/query main domain objects (with export capability).
+- **useVectorSearch**: semantic/AI search on uploaded documents.
+- **useInvoicePDF**: create/download invoice PDFs.
 
 ### 9.3 Components (`src/components`)
-- **ui/**: design primitives (Button, Input, Select, Tabs, Dialog, Popover, Sidebar, etc.)
-- **layout/**: application layout (AppLayout, AppSidebar, ProtectedRoute).
-- **shared/components/**: reusable low-level components.
+- **ContractUploadDialog.tsx, ShareDocumentDialog.tsx**: dialog-driven upload/export/share.
+- **DocumentViewer.tsx, ContractSuccess.tsx**: smart previews with AI-driven highlights & export buttons.
+- **VoiceRecorder.tsx, VoiceTranscriptionModule.tsx**: audio-to-text AI transcription.
+- **UI primitives (in `ui/`), layouts, shared/**: as before.
 
 ### 9.4 Lib (`src/lib`)
-- **openaiService.ts**: wrapper around Supabase Edge Functions for AI tasks.
-- **openaiWorkflows.ts**: high-level functions orchestrating AI calls + DB writes.
-- **utils.ts** / **csv.ts**: utility functions for CSV parsing, logging, etc.
+- **openaiService.ts, openaiWorkflows.ts**: wrappers for all OpenAI/Supabase AI-driven document and contract tasks (generation, summarization, comparison, redline, extraction).
+- **documensoClient.ts**: facilitate e-sign/internal AI document flows.
+- **utils/**: formatting, export, and utility helpers.
 
 ---
-Hope this detailed map helps you get oriented. Happy coding!
-
+Hope this detailed map helps you get oriented — with full AI, export, and doc smart workflows.
 
 ---
-## 3. Edge Functions (supabase/functions)
+## 3. Edge Functions (supabase/functions) — AI, Comparison, and Export
 | function | description |
 |----------|-------------|
-| **contract-analysis** | POST body `{text, analysisType}` → calls OpenAI<br>analysisType: `summarize` | `extractClauses` | `redline` |
-| **scheduled-date-alerts** | Cron daily. Extracts dates (GPT-4o function call), updates `documents`, inserts due-date notifications based on `dashboard_prefs.reminder_window_days`. |
+| **ai-contract-generator** | POST body `{ prompt, contractType }` → returns auto-generated contract draft (LLM-powered, customizable by user prompt/template). |
+| **advanced-contract-analysis** | `{ text, analysisType }` → OpenAI-powered summary, extract-clauses, risk, or anomaly detection for any legal doc/contract. |
+| **generate-embeddings** | bulk vector embeddings for rapid vector/semantic search & comparisons. |
+| **generate-invoice-pdf** | generates/export invoices in PDF. |
+| **voice-transcription** | converts voice notes into legal text or case notes, then allows summary/export. |
+| **contract-analysis** | legacy: `{text, analysisType}` → summarization, clause extraction, redline. |
+| **scheduled-date-alerts** | cron for key contract/case deadlines. |
 
-Schedule YAML (or dashboard):
+Examples:
+- Upload any document → run AI summary or risk analysis.
+- Compare/Redline two contract versions and download diff as PDF.
+- Use the "Generate Contract" tool (AI) to create a draft; review, edit, then export as PDF/DOCX.
+
+YAML Scheduler Example:
 ```yaml
 schedules:
   - name: contract-date-reminders
@@ -119,30 +124,42 @@ schedules:
 ```
 
 ---
-## 4. Front-end Key Hooks
-- `useDocuments`, `useAnalyzeDocument` – list & summarise
-- `useAnalyzeContract` – risk/anomaly redline
+## 4. Key Front-end/Workflow Hooks
+- `useDocuments`, `useAnalyzeDocument`, `useAnalyzeContract`, `useAIContractGenerator` — all AI-based contract/doc flows.
 - `useDashboardPrefs` / `useSaveDashboardPrefs`
 - `useNotificationsDb` (pop-over list)
-- `useInsights` – derives upcoming hearings / expirations (7-day window)
+- `useInsights` — AI + rules-driven insights for upcoming actions.
+- `useVectorSearch` — high-speed semantic search of doc content.
+- Export context/actions always available from document/contract details pages.
 
 ---
-## 5. UI Workflows
-1. **Upload doc** → Documents page → click “Summarize” → saves summary.
-2. **Open contract** → ContractView → “Run Risk Analysis” → analysis stored in metadata.
-3. Daily cron inserts notifications for renewal/termination dates within `reminder_window_days`.
-4. Top-bar bell shows unread count. Pop-over lists notifications; user can mark-read / clear.
-5. Settings → Dashboard Widgets card: toggle two insight widgets & choose 30/60/90-day reminder window.
+## 5. UI User Workflows
+1. **Upload doc** → Documents page → click "Summarize" or "Analyze" (AI) → result is saved/exportable.
+2. **Open contract** → ContractView → "Run Risk Analysis" or "Redline/Compare" (AI) → highlights saved/available for export.
+3. **Generate contract** → input requirements → AI creates draft → edit/download as DOCX/PDF.
+4. **Compare versions** → ContractCompare page → AI clause-level diff → export side-by-side comparison.
+5. Daily/cron: notifications for key due dates.
+6. Top-bar bell: notification hub. Pop-over shows activity/reminder AI prompts. Users can mark-read/clear.
+7. Settings: configure dashboard, AI widget toggles, reminder window, export defaults.
 
 ---
-## 6. Dev Scripts
+## 6. Document & Contract Export Features
+
+All document and contract views support exporting to the following formats:
+- PDF (preserves legal format, clause numbers)
+- DOCX (editable, for Microsoft Word)
+
+Exports always available after generation/upload, analysis, or AI-edit.
+
+---
+## 7. Dev Scripts
 ```
 # install deps
 npm install
-# dev server (vite + tsx src)
+# dev server
 npm run dev
-# deploy edge function
-supabase functions deploy contract-analysis
+# deploy edge function (AI, export, etc)
+supabase functions deploy <function>
 # run migrations
 supabase db push
 ```

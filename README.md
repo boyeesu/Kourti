@@ -1,4 +1,20 @@
-Welcome to your **Lovable** project\!
+# Kouti Legal Hub – Next-Gen Legal Operations Platform
+
+Unlock the power of AI and automation in your legal workflows. Kouti Legal Hub delivers advanced case, contract, and document management for legal professionals — now with seamless AI document analysis, smart contract generation, and one-click document export.
+
+-----
+
+## Key Features
+
+- **AI-Powered Contract Generation**: Instantly draft new contracts based on user prompts utilizing embedded OpenAI models (via Supabase Edge Functions).
+- **AI Document & Contract Analysis**: Summarize, extract clauses, surface risks, or generate redlines using the latest LLMs.
+- **AI Document Comparison**: Compare two legal documents/contracts side-by-side with clause-level highlights, similarity scoring, and AI change detection.
+- **Smart Document Export**: Export contracts, cases, and documents to PDF or Word (DOCX) with a single click — all versions supported.
+- **Case & Client Management**: Organize, search, and manage all legal case data, clients, and client interactions securely.
+- **Role-Based Dashboards**: Customized dashboards and widgets per user role (admin, lawyer, staff, client).
+- **Smart Notifications & Reminders**: Automated reminders, due dates, and case activity notifications.
+- **Modern UI/UX**: Built with React, shadcn-ui, TypeScript, and Tailwind CSS.
+- **Seamless Integrations**: Native OpenAI, Supabase Edge Functions, embeddable API for e-signature, and more.
 
 -----
 
@@ -69,13 +85,31 @@ If you prefer an online IDE, you can use GitHub Codespaces.
 
 ## What Technologies Are Used?
 
-This project is built with:
+- **Vite**
+- **TypeScript**
+- **React**
+- **shadcn-ui**
+- **Tailwind CSS**
+- **Supabase/Postgres** (for data & authentication)
+- **OpenAI API / LLMs** (for all contract/document AI and NLP tasks)
 
-  - **Vite**
-  - **TypeScript**
-  - **React**
-  - **shadcn-ui**
-  - **Tailwind CSS**
+-----
+
+## AI-Enabled Workflows in Kouti Legal Hub
+
+### AI Contract Generation
+Draft standard or custom legal agreements powered by OpenAI. Input your requirements; the app outputs a ready-to-edit contract draft, which you can further analyze, review, and export.
+
+### AI Document & Clause Analysis
+Run a risk review, summary, or automate due diligence on any uploaded document or contract. AI surfaces missing clauses, renewal deadlines, or non-standard terms.
+
+### AI Document Comparison
+Select two documents (or versions) to see highlighted clause changes, AI similarity scores, and a list of key differences (redlines or summaries).
+
+### Document Export
+Export any document, contract, or generated content in PDF or DOCX. All export jobs preserve original structure and versioning information.
+
+-----
 
 -----
 
