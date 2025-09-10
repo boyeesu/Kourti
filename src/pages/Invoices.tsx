@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useFetchData, useCreateItem, useUpdateItem, useDeleteItem } from "@/lib/api";
+import { useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice } from "@/hooks/useInvoices";
 import { InvoiceForm } from "@/components/invoices/InvoiceForm";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { 
@@ -64,53 +64,27 @@ export default function Invoices() {
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
   const navigate = useNavigate();
   const downloadPDF = useDownloadInvoicePDF();
 
-  // Fetch invoices with pagination
-  const { data: apiResponse, isLoading, error, refetch } = useFetchData<any[]>({
-    table: 'invoices',
-    queryKey: ['invoices', page.toString(), statusFilter],
-    select: '*, client:client_id(id, name), case:case_id(id, title)',
-    filters: statusFilter !== 'all' ? { status: statusFilter } : {},
-    page,
-    pageSize: 10,
-  });
-
-  // Setup mutations
-  const createInvoice = useCreateItem({
-    table: 'invoices',
-    onSuccess: () => refetch(),
-  });
-
-  const updateInvoice = useUpdateItem({
-    table: 'invoices',
-    onSuccess: () => refetch(),
-  });
-
-  const deleteInvoice = useDeleteItem({
-    table: 'invoices',
-    onSuccess: () => refetch(),
-  });
+  // Use proper invoice hooks
+  const { data: invoicesData, isLoading, error, refetch } = useInvoices();
+  const createInvoice = useCreateInvoice();
+  const updateInvoice = useUpdateInvoice();
+  const deleteInvoice = useDeleteInvoice();
 
   // Handle form submission
   const handleSubmitInvoice = async (formData: any) => {
-    // Calculate totals
-    const subtotal = formData.items.reduce(
-      (sum: number, item: any) => sum + (item.quantity * item.unit_price), 
-      0
-    );
-    
     const payload = {
-      ...formData,
-      issue_date: formData.issue_date.toISOString(),
-      due_date: formData.due_date.toISOString(),
-      subtotal,
-      tax_amount: formData.vat,
-      tax_rate: subtotal > 0 ? (formData.vat / subtotal) * 100 : 0,
-      total_amount: subtotal + formData.vat,
-      items: formData.items, // Will be handled in edge function/trigger
+      title: formData.title,
+      client_id: formData.client_id,
+      case_id: formData.case_id,
+      vat: formData.vat,
+      status: formData.status,
+      issue_date: formData.issue_date.toISOString().split('T')[0],
+      due_date: formData.due_date.toISOString().split('T')[0],
+      notes: formData.notes,
+      items: formData.items,
     };
 
     if (editingInvoice) {
@@ -128,17 +102,16 @@ export default function Invoices() {
     await deleteInvoice.mutateAsync(id);
   };
 
-  // Type assertion for TypeScript
-  const invoiceData = apiResponse as unknown as { data: any[]; count: number };
-  
-  // Filter invoices by search term
-  const filteredInvoices = invoiceData?.data ? invoiceData.data.filter((invoice: any) => {
+  // Filter invoices by search term and status
+  const filteredInvoices = invoicesData ? invoicesData.filter((invoice: any) => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       (invoice.title && invoice.title.toLowerCase().includes(searchLower)) ||
       (invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(searchLower)) ||
       (invoice.client?.name && invoice.client.name.toLowerCase().includes(searchLower))
     );
+    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
+    return matchesSearch && matchesStatus;
   }) : [];
 
   return (
@@ -150,7 +123,7 @@ export default function Invoices() {
           <h1 className="text-3xl font-bold text-foreground">Invoicing & Billing</h1>
           <p className="text-muted-foreground">Manage invoices and track payments</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="shadow-md">
+        <Button onClick={() => navigate("/invoices/create")} className="shadow-md">
           <Plus className="h-4 w-4 mr-2" />
           New Invoice
         </Button>
@@ -166,7 +139,7 @@ export default function Invoices() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Invoices</p>
-                <p className="text-2xl font-bold">{isLoading ? "—" : invoiceData?.count || 0}</p>
+                <p className="text-2xl font-bold">{isLoading ? "—" : invoicesData?.length || 0}</p>
               </div>
             </div>
           </CardContent>
@@ -181,7 +154,7 @@ export default function Invoices() {
               <div>
                 <p className="text-sm text-muted-foreground">Paid</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : 
-                  invoiceData?.data?.filter((inv: any) => inv.status === 'paid').length || 0}
+                  invoicesData?.filter((inv: any) => inv.status === 'paid').length || 0}
                 </p>
               </div>
             </div>
@@ -197,7 +170,7 @@ export default function Invoices() {
               <div>
                 <p className="text-sm text-muted-foreground">Pending</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : 
-                  invoiceData?.data?.filter((inv: any) => ['draft', 'sent'].includes(inv.status)).length || 0}
+                  invoicesData?.filter((inv: any) => ['draft', 'sent'].includes(inv.status)).length || 0}
                 </p>
               </div>
             </div>
@@ -213,7 +186,7 @@ export default function Invoices() {
               <div>
                 <p className="text-sm text-muted-foreground">Overdue</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : 
-                  invoiceData?.data?.filter((inv: any) => inv.status === 'overdue').length || 0}
+                  invoicesData?.filter((inv: any) => inv.status === 'overdue').length || 0}
                 </p>
               </div>
             </div>
@@ -285,7 +258,7 @@ export default function Invoices() {
                     ? "No invoices match your search criteria" 
                     : "No invoices created yet"}
                 </p>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Button onClick={() => navigate("/invoices/create")}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create First Invoice
                 </Button>
@@ -416,33 +389,11 @@ export default function Invoices() {
               </div>
             )}
 
-            {/* Pagination */}
-            {!isLoading && !error && invoiceData?.count > 0 && (
+            {/* Stats */}
+            {!isLoading && !error && invoicesData && invoicesData.length > 0 && (
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
-                  Showing <span className="font-medium">{(page - 1) * 10 + 1}</span> to{" "}
-                  <span className="font-medium">
-                    {Math.min(page * 10, invoiceData.count)}
-                  </span> of{" "}
-                  <span className="font-medium">{invoiceData.count}</span> invoices
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === 1}
-                    onClick={() => setPage(page - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page * 10 >= (invoiceData?.count || 0)}
-                    onClick={() => setPage(page + 1)}
-                  >
-                    Next
-                  </Button>
+                  Showing {filteredInvoices.length} of {invoicesData.length} invoices
                 </div>
               </div>
             )}

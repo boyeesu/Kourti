@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { InvoiceForm } from "@/components/invoices/InvoiceForm";
+import { useInvoiceItems } from "@/hooks/useInvoiceItems";
 import { useGetItemById, useUpdateItem } from "@/lib/api";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { formatDate, formatCurrency, getStatusColor } from "@/lib/utils";
@@ -58,15 +59,8 @@ export default function InvoiceDetails() {
     `,
   });
 
-  // Fetch invoice items
-  const { 
-    data: invoiceItems = [], 
-    isLoading: itemsLoading 
-  } = useGetItemById({
-    table: 'invoice_items',
-    id: id || '',
-    select: '*',
-  });
+  // Fetch invoice items using new hook
+  const { data: invoiceItems = [], isLoading: itemsLoading } = useInvoiceItems(id || '');
   
   // Update invoice mutation
   const updateInvoice = useUpdateItem({

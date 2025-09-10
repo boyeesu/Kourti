@@ -209,7 +209,7 @@ export function AppSidebar() {
   // Render a navigation item
   const renderNavItem = (item: NavigationItem) => (
     <SidebarMenuItem key={item.title}>
-      <SidebarMenuButton asChild className="h-10 w-full relative">
+      <SidebarMenuButton asChild className="h-8 w-full relative text-sm">
         <NavLink 
           to={item.url} 
           end={item.end} 
@@ -250,13 +250,13 @@ export function AppSidebar() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <Sidebar variant="sidebar" collapsible="icon" className="border-r">
-        <SidebarHeader className="border-b border-border h-14 flex items-center px-4">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="Kouti Legal" className="h-8 w-8 flex-shrink-0" />
+      <Sidebar variant="sidebar" collapsible="icon" className="h-screen bg-card/30">
+        <SidebarHeader className="border-b border-border p-2">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="Kouti Legal" className="h-6 w-6 flex-shrink-0" />
             {!collapsed && (
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Kouti Legal</h2>
+                <h2 className="text-sm font-semibold text-foreground">Kouti Legal</h2>
                 <p className="text-xs text-muted-foreground">Legal Management</p>
               </div>
             )}
@@ -267,7 +267,7 @@ export function AppSidebar() {
             variant="ghost" 
             size="icon"
             onClick={toggleSidebar}
-            className="md:hidden absolute top-4 right-4 h-8 w-8"
+            className="md:hidden absolute top-2 right-2 h-6 w-6"
           >
             <Menu className="h-4 w-4" />
           </Button>
@@ -275,12 +275,12 @@ export function AppSidebar() {
 
         <SidebarContent className="p-1">
           {navigationGroups.map((group) => (
-            <SidebarGroup key={group.label} className="mt-1">
-              <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-3 mb-1"}>
+            <SidebarGroup key={group.label} className="mt-0.5">
+              <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-2 mb-0.5"}>
                 {group.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu className="space-y-0.5">
+                <SidebarMenu className="space-y-0">
                   {group.items.map(item => (
                     <Tooltip key={item.title}>
                       <TooltipTrigger asChild>
@@ -299,10 +299,10 @@ export function AppSidebar() {
           ))}
 
           {/* User profile section at bottom */}
-          <div className="mt-auto pt-2">
-            <Separator className="mb-2" />
+          <div className="mt-auto pt-1">
+            <Separator className="mb-1" />
             
-            <div className={`px-2 py-1 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
+            <div className={`px-1 py-0.5 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
               {collapsed ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
