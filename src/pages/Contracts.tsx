@@ -259,46 +259,47 @@ export default function Contracts() {
       </div>
 
       {/* Filters */}
-      <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">Filter Contracts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search contracts, clients, or contract IDs..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                  aria-label="Search contracts"
-                />
-              </div>
-            </div>
-            <Select 
-              value={statusFilter} 
-              onValueChange={(value) => {
-                setStatusFilter(value);
-                setPage(1); // Reset to first page when filter changes
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                {CONTRACT_STATUSES.map(status => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2 py-2">
+        {/* Search */}
+        <div className="relative w-full sm:w-[260px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search contracts, clients, or IDs..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {/* Status */}
+        <div className="sm:w-[130px] w-full">
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-full h-10">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTRACT_STATUSES.map(s => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Status Type */}
+        <div className="sm:w-[150px] w-full">
+          <select defaultValue="all" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm">
+            <option value="all">All Status Types</option>
+            <option value="fulfilled">Fulfilled</option>
+            <option value="unfulfilled">Unfulfilled</option>
+          </select>
+        </div>
+        {/* Date Created */}
+        <div className="flex gap-1 items-center">
+          <label className="text-xs text-muted-foreground">Created:</label>
+          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
+          <span className="px-1 text-xs text-muted-foreground">-</span>
+          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
+        </div>
+      </div>
 
       {/* Contracts Table */}
       <Card className="shadow-md">

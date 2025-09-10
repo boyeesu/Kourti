@@ -179,38 +179,53 @@ export default function Documents() {
       </div>
 
       {/* Filters */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="text-lg">Filter Documents</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search documents, cases, or file names..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="pdf">PDF</SelectItem>
-                <SelectItem value="docx">Word Documents</SelectItem>
-                <SelectItem value="jpg">Images</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2 py-2">
+        {/* Search */}
+        <div className="relative w-full sm:w-[260px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search documents, cases, or file names..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {/* Type */}
+        <div className="sm:w-[130px] w-full">
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-full h-10">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+              <SelectItem value="docx">Word</SelectItem>
+              <SelectItem value="jpg">Images</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Status Type */}
+        <div className="sm:w-[150px] w-full">
+          <Select defaultValue="all">
+            <SelectTrigger className="w-full h-10">
+              <SelectValue placeholder="Status Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status Types</SelectItem>
+              <SelectItem value="fulfilled">Fulfilled</SelectItem>
+              <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Date Created */}
+        <div className="flex gap-1 items-center">
+          <label className="text-xs text-muted-foreground">Created:</label>
+          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
+          <span className="px-1 text-xs text-muted-foreground">-</span>
+          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
+        </div>
+      </div>
 
       {/* Documents Table */}
       <Card className="shadow-card">

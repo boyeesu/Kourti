@@ -17,6 +17,7 @@ import { useSearch } from '@/hooks/use-search';
 import { useAuth } from '@/hooks/useAuth';
 import { useInsights } from '@/hooks/useInsights';
 import { NotificationIcon } from '@/components/ui/notifications';
+import NotificationsDropdown from "./NotificationsDropdown";
 import { 
   User,
   Settings,

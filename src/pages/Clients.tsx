@@ -139,35 +139,45 @@ export default function Clients() {
       </div>
 
       {/* Filters ---------------------------------------------------------- */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="text-lg">Filter Clients</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search clients, contacts, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="md:w-48">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2 py-2">
+        {/* Search */}
+        <div className="relative w-full sm:w-[260px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search clients, contacts, or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {/* Status */}
+        <div className="sm:w-[130px] w-full">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        {/* Status Type */}
+        <div className="sm:w-[150px] w-full">
+          <select defaultValue="all" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm">
+            <option value="all">All Status Types</option>
+            <option value="fulfilled">Fulfilled</option>
+            <option value="unfulfilled">Unfulfilled</option>
+          </select>
+        </div>
+        {/* Date Created */}
+        <div className="flex gap-1 items-center">
+          <label className="text-xs text-muted-foreground">Created:</label>
+          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
+          <span className="px-1 text-xs text-muted-foreground">-</span>
+          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
+        </div>
+      </div>
 
       {/* Table ------------------------------------------------------------ */}
       <Card className="shadow-card">
