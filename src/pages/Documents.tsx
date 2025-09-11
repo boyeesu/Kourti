@@ -211,11 +211,7 @@ export default function Documents() {
             <SelectTrigger className="w-full h-10">
               <SelectValue placeholder="Status Type" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status Types</SelectItem>
-              <SelectItem value="fulfilled">Fulfilled</SelectItem>
-              <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
-            </SelectContent>
+          
           </Select>
         </div>
         {/* Date Created */}
