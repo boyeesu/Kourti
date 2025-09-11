@@ -2,7 +2,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Notification, NotificationType } from '@/components/ui/notifications';
+import type { Notification } from '@/components/ui/notifications';
 
 export function useNotificationsDb(orgId: string) {
   const queryClient = useQueryClient();
@@ -20,7 +20,7 @@ export function useNotificationsDb(orgId: string) {
         ...item,
         date: item.created_at || new Date().toISOString(),
         read: item.status === 'read',
-        type: (item.type || 'info') as NotificationType,
+        type: item.type || 'info',
       })) as Notification[];
     },
     enabled: !!orgId,

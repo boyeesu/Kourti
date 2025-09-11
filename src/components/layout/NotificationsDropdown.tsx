@@ -31,9 +31,9 @@ const NotificationsDropdown: React.FC = () => {
             </div>
             <div className="flex flex-col space-y-1 ml-2">
               {n.status === 'unread' && (
-                <Button size="xs" variant="link" onClick={() => updateNotification.mutate({ id: n.id, status: 'read' })}>Read</Button>
+                <Button size="sm" variant="link" onClick={() => updateNotification.mutate({ id: n.id, status: 'read' })}>Read</Button>
               )}
-              <Button size="xs" variant="link" onClick={() => deleteNotification.mutate(n.id)}>Delete</Button>
+              <Button size="sm" variant="link" onClick={() => deleteNotification.mutate(n.id)}>Delete</Button>
             </div>
           </li>
         ))}

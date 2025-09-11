@@ -364,23 +364,19 @@ export default function Dashboard() {
         {isAdmin && (
           <div className="relative">
             <StatCard
-              title={
-                <div className="flex items-center gap-2">
-                  Revenue
-                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold ml-1">Coming Soon</span>
-                </div>
-              }
-              value={
-                <span style={{ filter: 'blur(3px)', opacity: 0.7 }} className="select-none">
-                  {dashboardLoading ? "—" : formatCurrency(dashboardData?.totalRevenue || 0)}
-                </span>
-              }
+              title="Revenue"
+              value="Coming Soon"
               icon={<DollarSign className="h-5 w-5" />}
-              trend={{ value: 15, label: "increase" }}
+              trend={{ value: 0, label: "increase" }}
               loading={dashboardLoading}
               iconColor="text-purple-500"
               iconBgColor="bg-purple-500/10"
             />
+            <div className="absolute inset-0 bg-card/50 backdrop-blur-sm rounded-lg pointer-events-none flex items-center justify-center">
+              <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
+                Coming Soon
+              </span>
+            </div>
           </div>
         )}
       </div>

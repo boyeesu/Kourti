@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNotifications, Notification } from "@/components/ui/notifications";
+import { useNotifications as useNotificationsHook } from "@/hooks/useNotifications";
+import { Notification } from '@/components/ui/notifications';
 import { 
   Bell, 
   CheckCircle, 
@@ -17,15 +18,25 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 export default function Notifications() {
-  const { notifications, markAsRead, clearAll } = useNotifications();
+  const { data: notifications = [] } = useNotificationsHook();
+  
+  const markAsRead = (id: string) => {
+    // Implement mark as read functionality
+    console.log('Mark as read:', id);
+  };
+  
+  const clearAll = () => {
+    // Implement clear all functionality
+    console.log('Clear all notifications');
+  };
   const [activeTab, setActiveTab] = useState("all");
   
   // Group notifications by type
   const allNotifications = [...notifications];
-  const unreadNotifications = notifications.filter(n => !n.read);
-  const caseNotifications = notifications.filter(n => n.type === 'case');
-  const documentNotifications = notifications.filter(n => n.type === 'document');
-  const eventNotifications = notifications.filter(n => n.type === 'event');
+  const unreadNotifications = notifications.filter((n: any) => n.status === 'unread');
+  const caseNotifications = notifications.filter((n: any) => n.type === 'case');
+  const documentNotifications = notifications.filter((n: any) => n.type === 'document');
+  const eventNotifications = notifications.filter((n: any) => n.type === 'calendar');
   
   // Sort notifications by date (newest first)
   const sortedNotifications = (notifs: Notification[]) => {
@@ -83,13 +94,13 @@ export default function Notifications() {
         notificationsToMark = unreadNotifications;
         break;
       case 'cases':
-        notificationsToMark = caseNotifications.filter(n => !n.read);
+        notificationsToMark = caseNotifications.filter((n: any) => n.status === 'unread');
         break;
       case 'documents':
-        notificationsToMark = documentNotifications.filter(n => !n.read);
+        notificationsToMark = documentNotifications.filter((n: any) => n.status === 'unread');
         break;
       case 'events':
-        notificationsToMark = eventNotifications.filter(n => !n.read);
+        notificationsToMark = eventNotifications.filter((n: any) => n.status === 'unread');
         break;
       default:
         notificationsToMark = unreadNotifications;
@@ -251,23 +262,23 @@ export default function Notifications() {
             </TabsList>
             
             <TabsContent value="all">
-              {renderNotificationList(allNotifications)}
+              {renderNotificationList(allNotifications as any)}
             </TabsContent>
             
             <TabsContent value="unread">
-              {renderNotificationList(unreadNotifications)}
+              {renderNotificationList(unreadNotifications as any)}
             </TabsContent>
             
             <TabsContent value="cases">
-              {renderNotificationList(caseNotifications)}
+              {renderNotificationList(caseNotifications as any)}
             </TabsContent>
             
             <TabsContent value="documents">
-              {renderNotificationList(documentNotifications)}
+              {renderNotificationList(documentNotifications as any)}
             </TabsContent>
             
             <TabsContent value="events">
-              {renderNotificationList(eventNotifications)}
+              {renderNotificationList(eventNotifications as any)}
             </TabsContent>
           </Tabs>
         </CardContent>
