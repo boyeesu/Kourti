@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PlusCircleIcon, TrashIcon, UserIcon, UserPlus2Icon } from 'lucide-react';
+import { PlusCircleIcon, TrashIcon, UserIcon } from 'lucide-react';
 import {
   Card,
   CardHeader,
@@ -48,6 +48,7 @@ import {
   useCreateUserRole,
   useDeleteUserRole
 } from '@/hooks/useUserRoles';
+import { useInviteUser } from '@/hooks/useUserManagement';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -59,6 +60,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { InviteUserDialog } from '@/components/InviteUserDialog';
 
 const roleSchema = z.object({
   role_name: z.string().min(3, "Role name must be at least 3 characters"),
@@ -86,6 +88,7 @@ export default function RolesTab() {
   const createRole = useCreateUserRole();
   const deleteRole = useDeleteUserRole();
   const updateUserRole = useUpdateUserRole();
+  const inviteUser = useInviteUser();
 
   const handleSubmit = async (data: RoleFormData) => {
     try {
@@ -352,10 +355,7 @@ export default function RolesTab() {
             </div>
             
             {isCurrentUserAdmin && (
-              <Button size="sm" disabled>
-                <UserPlus2Icon className="h-4 w-4 mr-2" />
-                Invite User
-              </Button>
+              <InviteUserDialog onInvite={inviteUser.mutateAsync} />
             )}
           </CardHeader>
           

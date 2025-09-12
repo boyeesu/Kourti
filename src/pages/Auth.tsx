@@ -5,9 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Lock, Eye, EyeOff, User, Building } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/kouti-legal-logo.png";
 
 export default function Auth() {
@@ -19,8 +22,49 @@ export default function Auth() {
     password: "",
     firstName: "",
     lastName: "",
-    organization: "",
+    organization: {
+      name: "",
+      type: "",
+      size: "",
+      description: "",
+      address: "",
+      state: "",
+      country: "",
+      phone: "",
+      email: "",
+    },
   });
+
+  const countries = [
+    { value: 'US', label: 'United States' },
+    { value: 'CA', label: 'Canada' },
+    { value: 'GB', label: 'United Kingdom' },
+    { value: 'AU', label: 'Australia' },
+    { value: 'DE', label: 'Germany' },
+    { value: 'FR', label: 'France' },
+    { value: 'IT', label: 'Italy' },
+    { value: 'ES', label: 'Spain' },
+    { value: 'NL', label: 'Netherlands' },
+    { value: 'SE', label: 'Sweden' },
+    { value: 'NO', label: 'Norway' },
+    { value: 'DK', label: 'Denmark' },
+    { value: 'FI', label: 'Finland' },
+    { value: 'CH', label: 'Switzerland' },
+    { value: 'AT', label: 'Austria' },
+    { value: 'BE', label: 'Belgium' },
+    { value: 'IE', label: 'Ireland' },
+    { value: 'PT', label: 'Portugal' },
+    { value: 'NZ', label: 'New Zealand' },
+    { value: 'SG', label: 'Singapore' },
+    { value: 'JP', label: 'Japan' },
+    { value: 'KR', label: 'South Korea' },
+    { value: 'IN', label: 'India' },
+    { value: 'BR', label: 'Brazil' },
+    { value: 'MX', label: 'Mexico' },
+    { value: 'AR', label: 'Argentina' },
+    { value: 'CL', label: 'Chile' },
+    { value: 'ZA', label: 'South Africa' },
+  ];
 
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
@@ -42,11 +86,29 @@ export default function Auth() {
     try {
       let result;
       if (isSignUp) {
+        // Create organization first
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .insert({
+            name: formData.organization.name,
+            description: formData.organization.description,
+            address: formData.organization.address,
+            state: formData.organization.state,
+            country: formData.organization.country,
+            phone: formData.organization.phone,
+            email: formData.organization.email,
+          })
+          .select()
+          .single();
+
+        if (orgError) throw orgError;
+
         result = await signUp(formData.email, formData.password, {
           email: formData.email,
           first_name: formData.firstName,
           last_name: formData.lastName,
-          organization: formData.organization,
+          organization: formData.organization.name,
+          organization_id: orgData.id,
         });
         
         if (!result.error) {
@@ -121,51 +183,182 @@ export default function Auth() {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="firstName"
-                        type="text"
-                        placeholder="First name"
-                        className="pl-10"
-                        value={formData.firstName}
-                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                        required={isSignUp}
-                      />
-                    </div>
+                    <Label htmlFor="firstName">First Name *</Label>
+                    <Input
+                      id="firstName"
+                      placeholder="Enter your first name"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      required
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="lastName"
-                        type="text"
-                        placeholder="Last name"
-                        className="pl-10"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                        required={isSignUp}
-                      />
-                    </div>
+                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Input
+                      id="lastName"
+                      placeholder="Enter your last name"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      required
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="organization">Organization</Label>
-                  <div className="relative">
-                    <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="orgName">Organization Name *</Label>
+                  <Input
+                    id="orgName"
+                    placeholder="Enter your organization name"
+                    value={formData.organization.name}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, name: e.target.value }
+                    })}
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Organization Type *</Label>
+                    <Select 
+                      value={formData.organization.type}
+                      onValueChange={(value) => setFormData({
+                        ...formData,
+                        organization: { ...formData.organization, type: value }
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="law-firm">Law Firm</SelectItem>
+                        <SelectItem value="corporate-legal">Corporate Legal Department</SelectItem>
+                        <SelectItem value="government">Government Agency</SelectItem>
+                        <SelectItem value="nonprofit">Nonprofit Organization</SelectItem>
+                        <SelectItem value="solo">Solo Practice</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Organization Size *</Label>
+                    <Select 
+                      value={formData.organization.size}
+                      onValueChange={(value) => setFormData({
+                        ...formData,
+                        organization: { ...formData.organization, size: value }
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1-5">1-5 employees</SelectItem>
+                        <SelectItem value="6-20">6-20 employees</SelectItem>
+                        <SelectItem value="21-50">21-50 employees</SelectItem>
+                        <SelectItem value="51-200">51-200 employees</SelectItem>
+                        <SelectItem value="200+">200+ employees</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="orgAddress">Business Address *</Label>
+                  <Input
+                    id="orgAddress"
+                    placeholder="Enter your business address"
+                    value={formData.organization.address}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, address: e.target.value }
+                    })}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="orgState">State/Province *</Label>
                     <Input
-                      id="organization"
-                      type="text"
-                      placeholder="Law firm or organization name"
-                      className="pl-10"
-                      value={formData.organization}
-                      onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                      required={isSignUp}
+                      id="orgState"
+                      placeholder="Enter state or province"
+                      value={formData.organization.state}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        organization: { ...formData.organization, state: e.target.value }
+                      })}
+                      required
                     />
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Country *</Label>
+                    <Select 
+                      value={formData.organization.country}
+                      onValueChange={(value) => setFormData({
+                        ...formData,
+                        organization: { ...formData.organization, country: value }
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[200px]">
+                        {countries.map((country) => (
+                          <SelectItem key={country.value} value={country.value}>
+                            {country.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="orgPhone">Official Phone Number *</Label>
+                    <Input
+                      id="orgPhone"
+                      type="tel"
+                      placeholder="+1 (555) 123-4567"
+                      value={formData.organization.phone}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        organization: { ...formData.organization, phone: e.target.value }
+                      })}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="orgEmail">Organization Email *</Label>
+                    <Input
+                      id="orgEmail"
+                      type="email"
+                      placeholder="contact@yourfirm.com"
+                      value={formData.organization.email}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        organization: { ...formData.organization, email: e.target.value }
+                      })}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="orgDescription">Description (Optional)</Label>
+                  <Textarea
+                    id="orgDescription"
+                    placeholder="Brief description of your organization"
+                    value={formData.organization.description}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, description: e.target.value }
+                    })}
+                  />
                 </div>
               </>
             )}
@@ -216,7 +409,12 @@ export default function Auth() {
             </div>
             
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Loading..." : (isSignUp ? "Create Account" : "Sign In")}
+              {loading ? "Loading..." : (isSignUp ? (
+                <>
+                  Create Account & Organization
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              ) : "Sign In")}
             </Button>
           </form>
           

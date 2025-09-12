@@ -56,6 +56,7 @@ const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceCreate = lazy(() => import('./pages/InvoiceCreate'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const Analytics = lazy(() => import('./pages/Analytics'));
+const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 
 // Component to track page views for analytics
 function PageViewTracker() {
@@ -332,6 +333,15 @@ const App = () => (
                               <Route path="/bulk-import" element={
                                 <ModuleErrorBoundary name="Bulk Import">
                                   <BulkImport />
+                                </ModuleErrorBoundary>
+                              } />
+                              
+                              {/* Help Center */}
+                              <Route path="/help-center" element={
+                                <ModuleErrorBoundary name="Help Center">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    <HelpCenter />
+                                  </Suspense>
                                 </ModuleErrorBoundary>
                               } />
                               

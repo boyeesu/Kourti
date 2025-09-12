@@ -205,20 +205,8 @@ export default function Documents() {
             </SelectContent>
           </Select>
         </div>
-        {/* Status Type */}
-        <div className="sm:w-[150px] w-full">
-          <Select defaultValue="all">
-            <SelectTrigger className="w-full h-10">
-              <SelectValue placeholder="Status Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status Types</SelectItem>
-              <SelectItem value="fulfilled">Fulfilled</SelectItem>
-              <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {/* Date Created */}
+       
+       {/* Date Created */}
         <div className="flex gap-1 items-center">
           <label className="text-xs text-muted-foreground">Created:</label>
           <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />

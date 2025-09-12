@@ -7,7 +7,7 @@ import { useCreateCase, type CreateCaseData } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
 import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
 import { useCaseIssues } from "@/features/cases/api/useCaseIssues";
-import { useCreateNotification } from "@/hooks/useNotifications";
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { useCaseFields } from "@/features/cases/api/useCaseFields";
 import { CaseTypeSelector } from "@/features/cases/components/CaseTypeSelector";
 import { CaseType } from "@/features/cases/types";
@@ -58,7 +58,7 @@ export default function CaseCreate() {
   const { data } = useClients();
   const clients = data?.items ?? [];
   const createCase = useCreateCase();
-  const createNotification = useCreateNotification();
+  const { createCaseNotification } = useNotificationTriggers();
 
   // hooks for case types, issues & fields
   const { data: caseTypes = [] } = useCaseTypes();
@@ -121,11 +121,7 @@ export default function CaseCreate() {
       const newCase = await createCase.mutateAsync(caseData);
       
       // Create notification for case creation
-      await createNotification.mutateAsync({
-        title: "New Case Created",
-        description: `Case "${data.title}" has been created successfully.`,
-        type: "case",
-      });
+      await createCaseNotification(newCase, 'created');
       
       navigate(`/cases/${newCase.id}`);
     } catch (error) {

@@ -1388,6 +1388,42 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          action: string
+          created_at: string
+          created_by: string
+          granted: boolean
+          id: string
+          organization_id: string
+          resource: string
+          role_name: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          created_by: string
+          granted?: boolean
+          id?: string
+          organization_id: string
+          resource: string
+          role_name: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          created_by?: string
+          granted?: boolean
+          id?: string
+          organization_id?: string
+          resource?: string
+          role_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           category: string | null
@@ -1755,6 +1791,10 @@ export type Database = {
           similarity: number
           summary: string
         }[]
+      }
+      user_has_permission: {
+        Args: { p_action: string; p_resource: string; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {

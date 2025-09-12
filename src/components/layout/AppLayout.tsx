@@ -401,8 +401,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      onClick={() => window.open('/help', '_blank')} 
-                      aria-label="Help"
+                      onClick={() => navigate('/help-center')} 
+                      aria-label="Help Center"
                       className="hidden sm:flex"
                     >
                       <HelpCircle className="h-5 w-5" />

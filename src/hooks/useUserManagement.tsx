@@ -35,6 +35,22 @@ export function useInviteUser() {
         throw new Error(data.error as string);
       }
 
+        // Send invitation email if invitation was successful  
+        try {
+          await supabase.functions.invoke('send-invitation-email', {
+            body: {
+              email: userData.email,
+              firstName: userData.firstName,
+              role: userData.role ?? 'user',
+              organizationName: 'Your Organization', // You might want to fetch this
+              inviterName: 'Admin' // You might want to fetch current user's name
+            }
+          });
+        } catch (emailError) {
+          console.warn('Failed to send invitation email:', emailError);
+          // Don't fail the invitation if email fails
+        }
+
       return data;
     },
     onSuccess: (data) => {
