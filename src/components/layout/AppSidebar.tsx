@@ -19,6 +19,8 @@ import {
   Mic,
   LucideIcon
 } from "lucide-react";
+import { PermissionGate } from "@/components/PermissionGate";
+import { Resource, Action } from "@/hooks/usePermissions";
 
 import {
   Sidebar,
@@ -50,6 +52,8 @@ type NavigationItem = {
   end?: boolean;
   badge?: string;
   badgeVariant?: "default" | "secondary" | "destructive" | "outline";
+  // Permission required to show the item (defaults to { resource, action: 'read' })
+  permission?: { resource: Resource; action: Action };
 };
 
 type NavigationGroup = {
@@ -62,7 +66,7 @@ const primaryNavigation: NavigationGroup = {
   label: "Main",
   items: [
     { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
-    { title: "Cases", url: "/cases", icon: Briefcase },
+    { title: "Cases", url: "/cases", icon: Briefcase, permission: { resource: 'cases', action: 'read' } },
     { title: "Clients", url: "/clients", icon: UserCheck },
     { title: "Calendar", url: "/calendar", icon: Calendar },
   ]
@@ -214,69 +218,76 @@ export function AppSidebar() {
   const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
 
   const renderNavItem = (item: NavigationItem) => {
-    // Intercept Invoicing
-    if (item.url === "/invoices") {
-      return (
-        <SidebarMenuItem key={item.title}>
-          <SidebarMenuButton
-            className="h-8 w-full relative text-sm cursor-pointer"
-            onClick={e => {
-              e.preventDefault();
-              setShowInvoiceSoon(true);
-            }}
-          >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="ml-3 font-medium">{item.title}</span>
-                <Badge variant={item.badgeVariant} className="ml-auto">{item.badge}</Badge>
-              </>
-            )}
-            {collapsed && item.badge && (
-              <Badge 
-                variant={item.badgeVariant} 
-                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
-              >
-                {item.badge}
-              </Badge>
-            )}
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    }
-    return (
-      <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton asChild className="h-8 w-full relative text-sm">
-          <NavLink 
-            to={item.url} 
-            end={item.end} 
-            className={getNavCls(item.url, item.end)}
-          >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="ml-3 font-medium">{item.title}</span>
-                {item.badge && (
+    const perm = item.permission ?? { resource: item.url.split("/")[1] as Resource, action: "read" as Action };
+
+    const core = () => {
+      // Intercept Invoicing (beta banner)
+      if (item.url === "/invoices") {
+        return (
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton
+              className="h-8 w-full relative text-sm cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowInvoiceSoon(true);
+              }}
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && (
+                <>
+                  <span className="ml-3 font-medium">{item.title}</span>
                   <Badge variant={item.badgeVariant} className="ml-auto">
                     {item.badge}
                   </Badge>
-                )}
-                {isActive(item.url, item.end) && (
-                  <ChevronRight className="h-4 w-4 ml-auto text-primary" />
-                )}
-              </>
-            )}
-            {collapsed && item.badge && (
-              <Badge 
-                variant={item.badgeVariant} 
-                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
-              >
-                {item.badge}
-              </Badge>
-            )}
-          </NavLink>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+                </>
+              )}
+              {collapsed && item.badge && (
+                <Badge
+                  variant={item.badgeVariant}
+                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+                >
+                  {item.badge}
+                </Badge>
+              )}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      }
+
+      return (
+        <SidebarMenuItem key={item.title}>
+          <SidebarMenuButton asChild className="h-8 w-full relative text-sm">
+            <NavLink to={item.url} end={item.end} className={getNavCls(item.url, item.end)}>
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && (
+                <>
+                  <span className="ml-3 font-medium">{item.title}</span>
+                  {item.badge && (
+                    <Badge variant={item.badgeVariant} className="ml-auto">
+                      {item.badge}
+                    </Badge>
+                  )}
+                  {isActive(item.url, item.end) && <ChevronRight className="h-4 w-4 ml-auto text-primary" />}
+                </>
+              )}
+              {collapsed && item.badge && (
+                <Badge
+                  variant={item.badgeVariant}
+                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+                >
+                  {item.badge}
+                </Badge>
+              )}
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
+    };
+
+    return (
+      <PermissionGate resource={perm.resource} action={perm.action} fallback={null}>
+        {core()}
+      </PermissionGate>
     );
   };
 
