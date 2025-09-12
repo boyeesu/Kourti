@@ -9,6 +9,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { CasesProvider } from "@/context/CasesContext";
 import { SearchProvider } from "@/hooks/use-search";
 import { AuthProvider } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import OrganizationSetup from "@/components/OrganizationSetup";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
@@ -108,6 +110,12 @@ function LoadingFallback() {
 }
 
 // App Component
+function InactivityHandler() {
+  const { signOut } = useAuth();
+  useInactivityLogout({ onLogout: signOut });
+  return null;
+}
+
 const App = () => (
   <TooltipProvider>
     <Toaster />
@@ -116,6 +124,7 @@ const App = () => (
       <BrowserRouter>
         <PageViewTracker />
         <AuthProvider>
+          <InactivityHandler />
               <Routes>
                 {/* Public routes */}
                 <Route path="/auth" element={<Auth />} />
