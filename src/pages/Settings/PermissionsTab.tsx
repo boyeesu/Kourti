@@ -1,17 +1,14 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { 
   useRolePermissions, 
   useUpdatePermission, 
   RESOURCES, 
   ACTIONS,
   Resource,
-  Action,
-  RolePermission 
+  Action 
 } from '@/hooks/usePermissions';
 import { useAllRoles } from '@/hooks/useAllRoles';
 import { useProfile } from '@/hooks/useProfile';

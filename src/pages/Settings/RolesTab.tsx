@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PlusCircleIcon, TrashIcon, UserIcon, UserPlus2Icon } from 'lucide-react';
+import { PlusCircleIcon, TrashIcon, UserIcon } from 'lucide-react';
 import {
   Card,
   CardHeader,
