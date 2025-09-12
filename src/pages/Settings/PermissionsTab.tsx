@@ -170,45 +170,71 @@ export default function PermissionsTab() {
               <Badge variant="outline">{selectedRole}</Badge>
             </div>
 
-            <div className="grid gap-6">
-              {RESOURCES.map((resource) => (
-                <Card key={resource} className="border-l-4 border-l-primary/20">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <span className="text-lg">{getResourceIcon(resource)}</span>
-                      {resource.charAt(0).toUpperCase() + resource.slice(1)}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      {ACTIONS.map((action) => {
-                        const hasPermission = getPermissionValue(resource, action);
-                        const isDisabled = selectedRole === 'superadmin'; // Superadmin always has all permissions
-                        
-                        return (
-                          <div key={action} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Badge 
-                                variant="outline" 
-                                className={`${getActionColor(action)} text-xs`}
-                              >
-                                {action}
-                              </Badge>
-                              <Switch
-                                checked={hasPermission}
-                                disabled={isDisabled}
-                                onCheckedChange={(checked) => 
-                                  handlePermissionChange(resource, action, checked)
-                                }
-                              />
-                            </div>
+            {/* Permission matrix */}
+            <div className="overflow-auto border rounded-md">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/40 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Resource</th>
+                    {ACTIONS.map((action) => (
+                      <th key={action} className="px-3 py-2 text-center font-medium">
+                        <div className="flex items-center justify-center gap-1">
+                          <Badge variant="outline" className={`${getActionColor(action)} text-xs capitalize`}>
+                            {action}
+                          </Badge>
+                          {/* Toggle entire column */}
+                          <Switch
+                            aria-label={`Toggle all ${action}`}
+                            disabled={selectedRole === 'superadmin'}
+                            checked={RESOURCES.every((r) => getPermissionValue(r, action))}
+                            onCheckedChange={(checked) => {
+                              RESOURCES.forEach((r) => handlePermissionChange(r, action, checked));
+                            }}
+                          />
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {RESOURCES.map((resource) => {
+                    const allActionsGranted = ACTIONS.every((a) => getPermissionValue(resource, a));
+                    return (
+                      <tr key={resource} className="border-t">
+                        <td className="px-3 py-2 whitespace-nowrap font-medium">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{getResourceIcon(resource)}</span>
+                            {resource.charAt(0).toUpperCase() + resource.slice(1)}
+                            {/* Toggle entire row */}
+                            <Switch
+                              aria-label={`Toggle all for ${resource}`}
+                              className="ml-auto"
+                              disabled={selectedRole === 'superadmin'}
+                              checked={allActionsGranted}
+                              onCheckedChange={(checked) => {
+                                ACTIONS.forEach((a) => handlePermissionChange(resource, a, checked));
+                              }}
+                            />
                           </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        </td>
+                        {ACTIONS.map((action) => {
+                          const hasPermission = getPermissionValue(resource, action);
+                          return (
+                            <td key={action} className="px-3 py-2 text-center">
+                              <Switch
+                                aria-label={`${action} ${resource}`}
+                                checked={hasPermission}
+                                disabled={selectedRole === 'superadmin'}
+                                onCheckedChange={(checked) => handlePermissionChange(resource, action, checked)}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
             {selectedRole === 'superadmin' && (
