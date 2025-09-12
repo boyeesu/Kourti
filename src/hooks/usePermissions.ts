@@ -50,12 +50,17 @@ export function useRolePermissions(roleName?: string) {
     queryKey: ['role-permissions', roleName],
     queryFn: async () => {
       try {
-        // Use supabase.sql to execute raw SQL queries
-        const sql = roleName 
-          ? `SELECT * FROM role_permissions WHERE role_name = '${roleName}' AND organization_id = get_current_user_organization_id() ORDER BY resource, action`
-          : `SELECT * FROM role_permissions WHERE organization_id = get_current_user_organization_id() ORDER BY resource, action`;
-        
-        const { data, error } = await (supabase as any).sql(sql);
+        // Query via PostgREST instead of raw SQL. RLS policies on the table
+        // will automatically scope results to the current user's organization.
+        let q = supabase
+          .from('role_permissions')
+          .select('*')
+          .order('resource', { ascending: true })
+          .order('action', { ascending: true });
+
+        if (roleName) q = q.eq('role_name', roleName);
+
+        const { data, error } = await q;
         if (error) throw error;
         return (data || []) as RolePermission[];
       } catch (error) {
@@ -72,15 +77,13 @@ export function useAllRolePermissions() {
     queryKey: ['all-role-permissions'],
     queryFn: async () => {
       try {
-        const sql = `
-          SELECT id, role_name, organization_id, resource, action, granted, 
-                 created_at, updated_at, created_by 
-          FROM role_permissions 
-          WHERE organization_id = get_current_user_organization_id()
-          ORDER BY role_name, resource, action
-        `;
-        
-        const { data, error } = await (supabase as any).sql(sql);
+        // Fetch all role permissions in the current organization (enforced by RLS)
+        const { data, error } = await supabase
+          .from('role_permissions')
+          .select('*')
+          .order('role_name', { ascending: true })
+          .order('resource', { ascending: true })
+          .order('action', { ascending: true });
         if (error) throw error;
         return (data || []) as RolePermission[];
       } catch (error) {
@@ -109,15 +112,21 @@ export function useUpdatePermission() {
       if (!profile) throw new Error('Profile not found');
 
       try {
-        // Use supabase.sql for the upsert
-        const sql = `
-          INSERT INTO role_permissions (role_name, organization_id, resource, action, granted, created_by)
-          VALUES ('${permissionData.role_name}', '${profile.organization_id}', '${permissionData.resource}', '${permissionData.action}', ${permissionData.granted}, '${userId}')
-          ON CONFLICT (role_name, organization_id, resource, action) 
-          DO UPDATE SET granted = ${permissionData.granted}, updated_at = now()
-        `;
-
-        const { error } = await (supabase as any).sql(sql);
+        // Upsert using PostgREST
+        const { error } = await supabase.from('role_permissions').upsert(
+          {
+            role_name: permissionData.role_name,
+            organization_id: profile.organization_id,
+            resource: permissionData.resource,
+            action: permissionData.action,
+            granted: permissionData.granted,
+            created_by: userId,
+          },
+          {
+            onConflict: 'role_name,organization_id,resource,action',
+            ignoreDuplicates: false,
+          }
+        );
         if (error) throw error;
       } catch (error) {
         console.error('Permission update error:', error);
