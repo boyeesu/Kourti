@@ -928,6 +928,27 @@ export type Database = {
         }
         Relationships: []
       }
+      invitation_custom_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          invitation_id: string
+          role_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          invitation_id: string
+          role_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          invitation_id?: string
+          role_name?: string
+        }
+        Relationships: []
+      }
       invitations: {
         Row: {
           created_at: string
@@ -1602,6 +1623,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_role_assignments: {
+        Row: {
+          assigned_by: string
+          created_at: string | null
+          id: string
+          organization_id: string
+          role_name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          assigned_by: string
+          created_at?: string | null
+          id?: string
+          organization_id: string
+          role_name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string | null
+          id?: string
+          organization_id?: string
+          role_name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1798,7 +1849,13 @@ export type Database = {
       }
     }
     Enums: {
-      user_role: "superadmin" | "admin" | "user"
+      user_role:
+        | "superadmin"
+        | "admin"
+        | "user"
+        | "finance"
+        | "administrator"
+        | "legal"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1926,7 +1983,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      user_role: ["superadmin", "admin", "user"],
+      user_role: [
+        "superadmin",
+        "admin",
+        "user",
+        "finance",
+        "administrator",
+        "legal",
+      ],
     },
   },
 } as const

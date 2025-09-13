@@ -31,21 +31,12 @@ export default function PermissionsTab() {
 
   const isCurrentUserSuperAdmin = profile?.role === 'superadmin';
 
-  // Get available roles (system + custom)
-  const availableRoles = [
-    ...['superadmin', 'admin', 'user'].map(role => ({
-      value: role,
-      label: role.charAt(0).toUpperCase() + role.slice(1),
-      source: 'system' as const
-    })),
-    ...allRoles
-      .filter(role => role.source === 'custom')
-      .map(role => ({
-        value: role.role || role.role_name,
-        label: role.display_name || role.role_name || role.role,
-        source: 'custom' as const
-      }))
-  ];
+  // Get available roles (global + custom)
+  const availableRoles = allRoles.map(role => ({
+    value: role.role || role.role_name,
+    label: role.display_name || role.role_name || role.role,
+    source: role.source
+  }));
 
   // Create a permission map for easy lookup
   const permissionMap = new Map<string, boolean>();
@@ -149,7 +140,7 @@ export default function PermissionsTab() {
                     <div className="flex items-center gap-2">
                       {role.label}
                       <Badge 
-                        variant={role.source === 'system' ? 'default' : 'secondary'}
+                        variant={role.source === 'global' ? 'default' : 'secondary'}
                         className="text-xs"
                       >
                         {role.source}
