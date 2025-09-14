@@ -1793,6 +1793,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      initialize_custom_role_permissions: {
+        Args: {
+          p_created_by: string
+          p_organization_id: string
+          p_role_name: string
+        }
+        Returns: undefined
+      }
       invite_user_to_organization: {
         Args: {
           p_department?: string
