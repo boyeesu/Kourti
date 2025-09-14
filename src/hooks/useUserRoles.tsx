@@ -55,10 +55,11 @@ export function useCreateUserRole() {
       const { data, error } = await supabase
         .from('user_roles')
         .insert({
-          ...roleData,
+          role_name: roleData.role_name,
+          description: roleData.description,
           organization_id: (profile as any).organization_id,
           created_by: userId,
-          permissions: roleData.permissions || [],
+          permissions: [], // Permissions will be initialized by trigger
         } as any)
         .select()
         .single();

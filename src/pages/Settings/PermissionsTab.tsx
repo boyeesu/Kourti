@@ -46,23 +46,26 @@ export default function PermissionsTab() {
   });
 
   const getPermissionValue = (resource: Resource, action: Action): boolean => {
-    const key = `${resource}-${action}`;
-    const explicit = permissionMap.get(key);
-    
-    if (explicit !== undefined) {
-      return explicit;
+    // For global roles, use built-in logic (not stored in role_permissions)
+    if (['superadmin', 'admin', 'user'].includes(selectedRole || '')) {
+      if (selectedRole === 'superadmin') return true;
+      if (selectedRole === 'admin') return true;
+      if (selectedRole === 'user') return action !== 'delete';
+      return false;
     }
-
-    // Default permissions for system roles
-    if (selectedRole === 'superadmin') return true;
-    if (selectedRole === 'admin') return ['create', 'read', 'update', 'delete'].includes(action);
-    if (selectedRole === 'user') return action === 'read';
     
-    return false;
+    // For custom roles, use explicit permissions or default to false
+    const key = `${resource}-${action}`;
+    return permissionMap.get(key) || false;
   };
 
   const handlePermissionChange = (resource: Resource, action: Action, granted: boolean) => {
     if (!selectedRole) return;
+    
+    // Don't allow changing permissions for global roles
+    if (['superadmin', 'admin', 'user'].includes(selectedRole)) {
+      return;
+    }
     
     updatePermission.mutate({
       role_name: selectedRole,
@@ -176,7 +179,7 @@ export default function PermissionsTab() {
                           {/* Toggle entire column */}
                           <Switch
                             aria-label={`Toggle all ${action}`}
-                            disabled={selectedRole === 'superadmin'}
+                            disabled={['superadmin', 'admin', 'user'].includes(selectedRole || '')}
                             checked={RESOURCES.every((r) => getPermissionValue(r, action))}
                             onCheckedChange={(checked) => {
                               RESOURCES.forEach((r) => handlePermissionChange(r, action, checked));
@@ -200,7 +203,7 @@ export default function PermissionsTab() {
                             <Switch
                               aria-label={`Toggle all for ${resource}`}
                               className="ml-auto"
-                              disabled={selectedRole === 'superadmin'}
+                              disabled={['superadmin', 'admin', 'user'].includes(selectedRole || '')}
                               checked={allActionsGranted}
                               onCheckedChange={(checked) => {
                                 ACTIONS.forEach((a) => handlePermissionChange(resource, a, checked));
@@ -215,7 +218,7 @@ export default function PermissionsTab() {
                               <Switch
                                 aria-label={`${action} ${resource}`}
                                 checked={hasPermission}
-                                disabled={selectedRole === 'superadmin'}
+                                disabled={['superadmin', 'admin', 'user'].includes(selectedRole || '')}
                                 onCheckedChange={(checked) => handlePermissionChange(resource, action, checked)}
                               />
                             </td>
@@ -228,11 +231,13 @@ export default function PermissionsTab() {
               </table>
             </div>
 
-            {selectedRole === 'superadmin' && (
+            {['superadmin', 'admin', 'user'].includes(selectedRole || '') && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Super administrators have full access to all resources and actions by default. These permissions cannot be modified.
+                  {selectedRole === 'superadmin' && "Super Administrator has all permissions by default and cannot be modified."}
+                  {selectedRole === 'admin' && "Administrator has full CRUD permissions by default and cannot be modified."}
+                  {selectedRole === 'user' && "User has create, read, and update permissions by default (no delete) and cannot be modified."}
                 </AlertDescription>
               </Alert>
             )}
