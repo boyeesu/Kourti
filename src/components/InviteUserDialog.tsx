@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { UserPlus2Icon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useAllRoles } from '@/hooks/useAllRoles';
 
 const inviteSchema = z.object({
@@ -60,10 +61,16 @@ export function InviteUserDialog({ onInvite }: InviteUserDialogProps) {
     },
   });
 
-  // Get available roles
+  // Get available roles (all global roles + custom roles)
   const availableRoles = [
-    { value: 'admin', label: 'Admin' },
-    { value: 'user', label: 'User' },
+    // Global roles
+    ...allRoles
+      .filter(role => role.source === 'global')
+      .map(role => ({
+        value: role.role || role.role_name,
+        label: role.display_name || role.role_name || role.role,
+      })),
+    // Custom roles
     ...allRoles
       .filter(role => role.source === 'custom')
       .map(role => ({
@@ -156,13 +163,25 @@ export function InviteUserDialog({ onInvite }: InviteUserDialogProps) {
                         <SelectValue placeholder="Select a role" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      {availableRoles.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
+                  <SelectContent>
+                    {availableRoles.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        <div className="flex items-center gap-2">
                           {role.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                          {['superadmin', 'admin', 'user'].includes(role.value) && (
+                            <Badge variant="secondary" className="text-xs">
+                              Global
+                            </Badge>
+                          )}
+                          {!['superadmin', 'admin', 'user'].includes(role.value) && (
+                            <Badge variant="outline" className="text-xs">
+                              Custom
+                            </Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>

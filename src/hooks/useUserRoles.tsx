@@ -129,12 +129,18 @@ export function useUsersWithRoles() {
           role,
           department,
           title,
-          avatar_url
+          avatar_url,
+          user_role_assignments(role_name)
         `)
         .order('first_name');
 
       if (error) throw error;
-      return data;
+      
+      // Transform data to include custom roles
+      return data.map((user: any) => ({
+        ...user,
+        custom_roles: user.user_role_assignments?.map((assignment: any) => assignment.role_name) || []
+      }));
     },
   });
 }
@@ -145,12 +151,41 @@ export function useUpdateUserRole() {
 
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const { error } = await supabase
+      // First update the user's primary role in profiles
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ role: role as 'user' | 'admin' | 'superadmin' } as any)
         .eq('user_id', userId as any);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // If it's a custom role, also create a role assignment
+      const isCustomRole = !['superadmin', 'admin', 'user'].includes(role);
+      if (isCustomRole) {
+        const currentUserId = await getCurrentUserId();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('user_id', currentUserId as any)
+          .single();
+
+        if (profile) {
+          await supabase
+            .from('user_role_assignments')
+            .upsert({
+              user_id: userId,
+              role_name: role,
+              organization_id: (profile as any).organization_id,
+              assigned_by: currentUserId,
+            } as any);
+        }
+      } else {
+        // Remove any custom role assignments for global roles
+        await supabase
+          .from('user_role_assignments')
+          .delete()
+          .eq('user_id', userId as any);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });

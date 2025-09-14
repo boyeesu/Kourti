@@ -18,6 +18,7 @@ export function useInviteUser() {
 
   return useMutation({
     mutationFn: async (userData: InviteUserData) => {
+      // First create the invitation record in the database
       const params: Record<string, any> = {
         p_email: userData.email,
         p_first_name: userData.firstName,
@@ -35,31 +36,43 @@ export function useInviteUser() {
         throw new Error(data.error as string);
       }
 
-        // Send invitation email if invitation was successful  
-        try {
-          await supabase.functions.invoke('send-invitation-email', {
-            body: {
-              email: userData.email,
-              firstName: userData.firstName,
-              role: userData.role ?? 'user',
-              organizationName: 'Your Organization', // You might want to fetch this
-              inviterName: 'Admin' // You might want to fetch current user's name
-            }
-          });
-        } catch (emailError) {
+      // Send invitation email using the new edge function
+      try {
+        const { error: emailError } = await supabase.functions.invoke('send-invitation', {
+          body: {
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            role: userData.role ?? 'user',
+            department: userData.department,
+            organizationName: 'Your Organization', // TODO: Get from organization
+            inviterName: 'Team Admin' // TODO: Get from current user
+          }
+        });
+
+        if (emailError) {
           console.warn('Failed to send invitation email:', emailError);
-          // Don't fail the invitation if email fails
+          // Don't fail the invitation if email fails, but show a warning
+          toast({
+            title: "Invitation created with warning",
+            description: "The invitation was created but email delivery may have failed. Please check with the user.",
+            variant: "default",
+          });
         }
+      } catch (emailError) {
+        console.warn('Failed to send invitation email:', emailError);
+      }
 
       return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['organization-members'] });
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
       toast({
         title: "User invited successfully",
-        description: "The user invitation has been created.",
+        description: "The user invitation has been created and they will receive an email to join.",
       });
-      return data; // Return role information
+      return data;
     },
     onError: (error: Error) => {
       toast({

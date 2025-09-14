@@ -1750,6 +1750,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invitation_and_assign_roles: {
+        Args: { p_invitation_id: string; p_user_id: string }
+        Returns: Json
+      }
       analyze_document: {
         Args: {
           p_analysis_type?: string
