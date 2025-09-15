@@ -36,9 +36,9 @@ export function useInviteUser() {
         throw new Error(data.error as string);
       }
 
-      // Send invitation email using the new edge function
+      // Send invitation email using the proper email function
       try {
-        const { error: emailError } = await supabase.functions.invoke('send-invitation', {
+        const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
           body: {
             email: userData.email,
             firstName: userData.firstName,
@@ -58,9 +58,17 @@ export function useInviteUser() {
             description: "The invitation was created but email delivery may have failed. Please check with the user.",
             variant: "default",
           });
+        } else {
+          console.log('Invitation email sent successfully');
         }
       } catch (emailError) {
         console.warn('Failed to send invitation email:', emailError);
+        // Still show warning but don't fail the process
+        toast({
+          title: "Invitation created with warning",
+          description: "The invitation was created but email delivery may have failed.",
+          variant: "default",
+        });
       }
 
       return data;
