@@ -9,17 +9,44 @@ max_rows = 1000
 
 [auth]
 enabled = true
+port = 54323
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+refresh_token_rotation_enabled = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[functions]
+verify_jwt = false
 
 [functions.advanced-contract-analysis]
-verify_jwt = true
+verify_jwt = false
 
-[functions.contract-analysis]
-verify_jwt = true
+[functions.ai-contract-generator]
+verify_jwt = false
 
-[functions.contract-analysis-ai]
-verify_jwt = true
+[functions.generate-embeddings]
+verify_jwt = false
 
 [functions.generate-invoice-pdf]
-verify_jwt = true
+verify_jwt = false
+
+[functions.voice-transcription]
+verify_jwt = false
+
+[functions.send-invitation]
+verify_jwt = false
+
+[functions.send-invitation-email]
+verify_jwt = false

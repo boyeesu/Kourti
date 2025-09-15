@@ -1,124 +1,125 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
-import { Resend } from "npm:resend@2.0.0";
+import { Resend } from "npm:resend@4.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface InvitationEmailRequest {
   email: string;
   firstName: string;
+  lastName: string;
   role: string;
+  department?: string;
   organizationName: string;
   inviterName: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { 
-      email, 
-      firstName, 
-      role, 
-      organizationName, 
-      inviterName 
+    const {
+      email,
+      firstName,
+      lastName,
+      role,
+      department,
+      organizationName,
+      inviterName
     }: InvitationEmailRequest = await req.json();
 
-    const emailResponse = await resend.emails.send({
-      from: "Legal Manager <noreply@resend.dev>",
-      to: [email],
-      subject: `You're invited to join ${organizationName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
+    console.log('Sending invitation email to:', email);
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
         <head>
           <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Join ${organizationName}</title>
+          <title>Invitation to Join ${organizationName}</title>
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            .header { text-align: center; margin-bottom: 30px; }
-            .logo { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px; }
-            .content { color: #333; }
-            .role-badge { background: #e3f2fd; color: #1976d2; padding: 4px 12px; border-radius: 20px; font-size: 14px; display: inline-block; margin: 10px 0; }
-            .cta-button { display: inline-block; background: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
-            .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #f8f9fa; padding: 30px; }
+            .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { background: #e9ecef; padding: 20px; text-align: center; font-size: 14px; color: #6c757d; border-radius: 0 0 8px 8px; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">⚖️ Legal Manager</div>
-              <h1>You're invited to join ${organizationName}</h1>
+              <h1>You're Invited!</h1>
+              <p>Join ${organizationName} as a ${role}</p>
             </div>
             
             <div class="content">
-              <p>Hi ${firstName},</p>
+              <h2>Hello ${firstName} ${lastName},</h2>
               
-              <p><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <span class="role-badge">${role}</span> on Legal Manager.</p>
+              <p><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> with the role of <strong>${role}</strong>.</p>
               
-              <p>Legal Manager is a comprehensive legal case management platform that helps law firms and legal departments:</p>
+              ${department ? `<p>You'll be working in the <strong>${department}</strong> department.</p>` : ''}
               
-              <ul>
-                <li>📋 Manage cases and client information</li>
-                <li>📄 Handle documents and contracts</li>
-                <li>📅 Track important dates and deadlines</li>
-                <li>💰 Generate and manage invoices</li>
-                <li>👥 Collaborate with team members</li>
-              </ul>
+              <p>To accept this invitation and create your account, click the button below:</p>
               
-              <p>To get started, simply create your account and you'll be automatically added to ${organizationName}:</p>
+              <a href="https://de948aa9-e5dc-4423-b2ff-e8465e6b4092.lovableproject.com/auth" class="button">
+                Accept Invitation & Sign Up
+              </a>
               
-              <div style="text-align: center;">
-                <a href="${Deno.env.get("SITE_URL") || "https://legal-manager.lovable.app"}/auth" class="cta-button">
-                  Accept Invitation & Sign Up
-                </a>
-              </div>
+              <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+              <p style="word-break: break-all; color: #667eea;">
+                https://de948aa9-e5dc-4423-b2ff-e8465e6b4092.lovableproject.com/auth
+              </p>
               
-              <p><strong>Your role:</strong> ${role}<br>
-                 <strong>Organization:</strong> ${organizationName}</p>
+              <p>This invitation will expire in 14 days.</p>
               
-              <p>If you have any questions, feel free to reply to this email or contact ${inviterName} directly.</p>
-              
-              <p>Welcome to the team!</p>
+              <p>If you have any questions, please contact ${inviterName} or your system administrator.</p>
             </div>
             
             <div class="footer">
-              <p>This invitation was sent by ${inviterName} from ${organizationName}.</p>
-              <p>If you didn't expect this invitation, you can safely ignore this email.</p>
+              <p>This is an automated message from ${organizationName}.</p>
+              <p>If you didn't expect this invitation, please ignore this email.</p>
             </div>
           </div>
         </body>
-        </html>
-      `,
+      </html>
+    `;
+
+    const emailResponse = await resend.emails.send({
+      from: `${organizationName} <onboarding@resend.dev>`,
+      to: [email],
+      subject: `Invitation to join ${organizationName} as ${role}`,
+      html: emailHtml,
     });
 
-    console.log("Invitation email sent successfully:", emailResponse);
+    console.log('Email sent successfully:', emailResponse);
 
-    return new Response(JSON.stringify(emailResponse), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Invitation email sent successfully',
+        emailId: emailResponse.data?.id
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
+    );
+
   } catch (error: any) {
-    console.error("Error in send-invitation-email function:", error);
+    console.error('Error in send-invitation-email function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     );
   }

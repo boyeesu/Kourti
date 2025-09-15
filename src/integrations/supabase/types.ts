@@ -1763,6 +1763,16 @@ export type Database = {
         }
         Returns: Json
       }
+      create_notification: {
+        Args: {
+          p_description: string
+          p_organization_id: string
+          p_title: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       current_user_is_org_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
