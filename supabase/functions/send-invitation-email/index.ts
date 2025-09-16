@@ -93,7 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: `${organizationName} <onboarding@resend.dev>`,
+      from: `Kouti Legal <noreply@resend.dev>`,
       to: [email],
       subject: `Invitation to join ${organizationName} as ${role}`,
       html: emailHtml,

@@ -6,11 +6,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useInviteUser, useUserRole } from "@/hooks/useUserManagement";
 import { useAllRoles } from "@/hooks/useAllRoles";
-import { useOrganizationMembers } from "@/hooks/useOrganization";
-import { UserPlus, Users, Shield, User } from "lucide-react";
+import { useOrganizationUsers, useToggleUserStatus, useDeleteInvitation, useResendInvitation } from "@/hooks/useOrganizationUsers";
+import { UserPlus, Users, Shield, User, UserMinus, UserCheck, Trash2, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator 
+} from "@/components/ui/dropdown-menu";
 
 export default function UserManagement() {
   const [email, setEmail] = useState("");
@@ -21,8 +28,11 @@ export default function UserManagement() {
 
   const { data: userRole } = useUserRole();
   const { data: roles = [] } = useAllRoles();
-  const { data: members = [], isLoading } = useOrganizationMembers();
+  const { data: users = [], isLoading } = useOrganizationUsers();
   const inviteUser = useInviteUser();
+  const toggleUserStatus = useToggleUserStatus();
+  const deleteInvitation = useDeleteInvitation();
+  const resendInvitation = useResendInvitation();
 
   useEffect(() => {
     if (!role && roles.length > 0) {
@@ -36,6 +46,7 @@ export default function UserManagement() {
   }, [roles, role, userRole]);
 
   const canInviteUsers = userRole?.role === 'superadmin' || userRole?.role === 'admin';
+  const isSuperAdmin = userRole?.role === 'superadmin';
 
   const handleInviteUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +99,38 @@ export default function UserManagement() {
   };
 
   const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+    return `${firstName?.charAt(0) || 'U'}${lastName?.charAt(0) || 'U'}`.toUpperCase();
+  };
+
+  const getVerificationBadge = (verificationStatus: string) => {
+    switch (verificationStatus) {
+      case 'verified':
+        return <Badge variant="secondary" className="bg-green-100 text-green-800">Verified</Badge>;
+      case 'pending':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      case 'unverified':
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Unverified</Badge>;
+      case 'expired':
+        return <Badge variant="secondary" className="bg-red-100 text-red-800">Expired</Badge>;
+      default:
+        return <Badge variant="secondary">Unknown</Badge>;
+    }
+  };
+
+  const handleDisableUser = (userId: string) => {
+    toggleUserStatus.mutate({ userId, disable: true });
+  };
+
+  const handleEnableUser = (userId: string) => {
+    toggleUserStatus.mutate({ userId, disable: false });
+  };
+
+  const handleDeleteInvitation = (invitationId: string) => {
+    deleteInvitation.mutate(invitationId);
+  };
+
+  const handleResendInvitation = (user: any) => {
+    resendInvitation.mutate(user);
   };
 
   if (isLoading) {
@@ -205,10 +247,10 @@ export default function UserManagement() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
-              Organization Members ({members.length})
+              Organization Users ({users.length})
             </CardTitle>
             <CardDescription>
-              All members of your organization
+              All users and pending invitations in your organization
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -216,51 +258,112 @@ export default function UserManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Member</TableHead>
+                    <TableHead>User</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Department</TableHead>
-                    <TableHead>Joined</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Added</TableHead>
+                    {isSuperAdmin && <TableHead>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {members.map((member) => {
-                    const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim();
-                    const initials = getInitials(member.first_name || 'U', member.last_name || 'U');
+                  {users.map((user) => {
+                    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                    const initials = getInitials(user.first_name || 'U', user.last_name || 'U');
+                    const isDisabled = user.status === 'disabled';
+                    const isPendingInvitation = user.user_type === 'invitation';
                     
                     return (
-                      <TableRow key={member.id}>
+                      <TableRow key={user.id} className={isDisabled ? 'opacity-60' : ''}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8">
-                              <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                              <AvatarFallback className={`bg-primary/10 text-primary font-medium ${isDisabled ? 'opacity-50' : ''}`}>
                                 {initials}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="font-medium">{fullName || 'No name'}</span>
+                            <div>
+                              <div className="font-medium">{fullName || 'No name'}</div>
+                              {isDisabled && <div className="text-xs text-muted-foreground">Disabled</div>}
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell>{member.email}</TableCell>
+                        <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          <Badge className={getRoleColor(member.role)} variant="secondary">
+                          <Badge className={getRoleColor(user.role)} variant="secondary">
                             <div className="flex items-center gap-1">
-                              {getRoleIcon(member.role)}
-                              {member.role}
+                              {getRoleIcon(user.role)}
+                              {user.role}
                             </div>
                           </Badge>
                         </TableCell>
-                        <TableCell>{member.department || 'Not specified'}</TableCell>
-                        <TableCell>{new Date(member.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>{user.department || 'Not specified'}</TableCell>
+                        <TableCell>{getVerificationBadge(user.verification_status)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {isPendingInvitation ? 'Invitation' : 'User'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                        {isSuperAdmin && (
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <Users className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {isPendingInvitation ? (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleResendInvitation(user)}>
+                                      <Mail className="mr-2 h-4 w-4" />
+                                      Resend Invitation
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => handleDeleteInvitation(user.id)}
+                                      className="text-destructive"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete Invitation
+                                    </DropdownMenuItem>
+                                  </>
+                                ) : (
+                                  <>
+                                    {isDisabled ? (
+                                      <DropdownMenuItem onClick={() => handleEnableUser(user.user_id!)}>
+                                        <UserCheck className="mr-2 h-4 w-4" />
+                                        Enable User
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem 
+                                        onClick={() => handleDisableUser(user.user_id!)}
+                                        className="text-destructive"
+                                      >
+                                        <UserMinus className="mr-2 h-4 w-4" />
+                                        Disable User
+                                      </DropdownMenuItem>
+                                    )}
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
 
-              {members.length === 0 && (
+              {users.length === 0 && (
                 <div className="text-center py-8">
                   <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No members found</h3>
+                  <h3 className="text-lg font-semibold mb-2">No users found</h3>
                   <p className="text-muted-foreground">
                     Start by inviting your first team member
                   </p>

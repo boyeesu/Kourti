@@ -1750,27 +1750,7 @@ export type Database = {
       }
     }
     Views: {
-      organization_users: {
-        Row: {
-          created_at: string | null
-          department: string | null
-          disabled_at: string | null
-          disabled_by: string | null
-          email: string | null
-          first_name: string | null
-          id: string | null
-          last_login_at: string | null
-          last_name: string | null
-          organization_id: string | null
-          role: string | null
-          status: string | null
-          user_id: string | null
-          user_type: string | null
-          verification_status: string | null
-          verified_at: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       accept_invitation_and_assign_roles: {
@@ -1824,6 +1804,27 @@ export type Database = {
           error: string
           id: string
           status: string
+        }[]
+      }
+      get_organization_users: {
+        Args: { org_id: string }
+        Returns: {
+          created_at: string
+          department: string
+          disabled_at: string
+          disabled_by: string
+          email: string
+          first_name: string
+          id: string
+          last_login_at: string
+          last_name: string
+          organization_id: string
+          role: string
+          status: string
+          user_id: string
+          user_type: string
+          verification_status: string
+          verified_at: string
         }[]
       }
       get_user_organization_id: {

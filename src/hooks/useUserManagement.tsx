@@ -38,7 +38,7 @@ export function useInviteUser() {
 
       // Send invitation email using the proper email function
       try {
-        const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
           body: {
             email: userData.email,
             firstName: userData.firstName,
@@ -55,18 +55,25 @@ export function useInviteUser() {
           // Don't fail the invitation if email fails, but show a warning
           toast({
             title: "Invitation created with warning",
-            description: "The invitation was created but email delivery may have failed. Please check with the user.",
+            description: `The invitation was created but email delivery failed: ${emailError.message}`,
+            variant: "default",
+          });
+        } else if (emailData?.error) {
+          console.warn('Email function returned error:', emailData.error);
+          toast({
+            title: "Invitation created with warning", 
+            description: `The invitation was created but there was an email issue: ${emailData.error}`,
             variant: "default",
           });
         } else {
-          console.log('Invitation email sent successfully');
+          console.log('Invitation email sent successfully:', emailData);
         }
-      } catch (emailError) {
+      } catch (emailError: any) {
         console.warn('Failed to send invitation email:', emailError);
         // Still show warning but don't fail the process
         toast({
           title: "Invitation created with warning",
-          description: "The invitation was created but email delivery may have failed.",
+          description: `The invitation was created but email delivery may have failed: ${emailError.message || 'Unknown error'}`,
           variant: "default",
         });
       }
@@ -75,6 +82,7 @@ export function useInviteUser() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['organization-members'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] });
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
       toast({
         title: "User invited successfully",
