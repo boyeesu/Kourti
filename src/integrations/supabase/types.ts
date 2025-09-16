@@ -1345,6 +1345,7 @@ export type Database = {
           title: string | null
           updated_at: string
           user_id: string
+          verified_at: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1368,6 +1369,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           user_id: string
+          verified_at?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -1391,6 +1393,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           user_id?: string
+          verified_at?: string | null
         }
         Relationships: [
           {
@@ -1747,7 +1750,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      organization_users: {
+        Row: {
+          created_at: string | null
+          department: string | null
+          disabled_at: string | null
+          disabled_by: string | null
+          email: string | null
+          first_name: string | null
+          id: string | null
+          last_login_at: string | null
+          last_name: string | null
+          organization_id: string | null
+          role: string | null
+          status: string | null
+          user_id: string | null
+          user_type: string | null
+          verification_status: string | null
+          verified_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_invitation_and_assign_roles: {
@@ -1864,6 +1887,10 @@ export type Database = {
           similarity: number
           summary: string
         }[]
+      }
+      toggle_user_status: {
+        Args: { disable?: boolean; target_user_id: string }
+        Returns: Json
       }
       user_has_permission: {
         Args: { p_action: string; p_resource: string; p_user_id: string }
