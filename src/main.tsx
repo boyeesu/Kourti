@@ -97,6 +97,8 @@ logInfo('Application initialized', {
   buildTime: import.meta.env.VITE_BUILD_TIME || new Date().toISOString()
 });
 
+// Force rebuild to resolve dependency timeout issue
+
 // Find and validate root element with proper error handling
 const container = document.getElementById('root');
 if (!container) {
