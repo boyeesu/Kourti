@@ -81,6 +81,16 @@ export function useEnhancedDocumentAnalysis() {
       setIsStreaming(true);
       setStreamingContent('');
       
+      // Check if content is too short for meaningful analysis
+      if (content.trim().length < 50) {
+        const shortMessage = 'Document content is too short for detailed analysis. Please provide a document with more substantial content.';
+        setStreamingContent(shortMessage);
+        onProgress(shortMessage, true);
+        setIsStreaming(false);
+        setAbortController(null);
+        return;
+      }
+      
       // Create a new abort controller for this request
       const controller = new AbortController();
       setAbortController(controller);

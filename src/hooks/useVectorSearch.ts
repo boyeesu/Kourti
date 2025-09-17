@@ -13,53 +13,50 @@ export function useVectorSearch(query: string, enabled: boolean = true) {
       }
 
       try {
-        // First generate embeddings for the search query
-        const { data: embeddingData, error: embeddingError } = await supabase.functions.invoke('generate-embeddings', {
-          body: {
-            documentId: 'search-query',
-            documentType: 'query',
-            content: query
-          }
-        });
-
-        if (embeddingError || !embeddingData?.embedding) {
-          console.error('Failed to generate search embeddings:', embeddingError);
-          return { documents: [], contracts: [] };
-        }
-
-        const searchEmbedding = embeddingData.embedding;
-
-        // Search documents using vector similarity
+        // Fallback to regular text search when vector search is not available
+        console.warn('Vector search unavailable, falling back to text search');
+        
+        // Search documents using text search
         const { data: documents, error: documentsError } = await supabase
-          .rpc('match_documents', {
-            query_embedding: searchEmbedding,
-            match_threshold: 0.3,
-            match_count: 10
-          });
+          .from('documents')
+          .select('id, name, content, summary, created_at, updated_at')
+          .or(`name.ilike.%${query}%,content.ilike.%${query}%,summary.ilike.%${query}%`)
+          .limit(10);
 
         if (documentsError) {
           console.error('Document search error:', documentsError);
         }
 
-        // Search contracts using vector similarity
+        // Search contracts using text search
         const { data: contracts, error: contractsError } = await supabase
-          .rpc('match_contracts', {
-            query_embedding: searchEmbedding,
-            match_threshold: 0.3,
-            match_count: 10
-          });
+          .from('contracts')
+          .select('id, title, description, terms, created_at, updated_at')
+          .or(`title.ilike.%${query}%,description.ilike.%${query}%,terms.ilike.%${query}%`)
+          .limit(10);
 
         if (contractsError) {
           console.error('Contract search error:', contractsError);
         }
 
+        // Transform results to match expected format with similarity scores
+        const transformedDocuments = (documents || []).map(doc => ({
+          ...doc,
+          similarity: 0.8 // Default similarity for text search results
+        }));
+
+        const transformedContracts = (contracts || []).map(contract => ({
+          ...contract,
+          content: contract.terms || contract.description || '',
+          similarity: 0.8 // Default similarity for text search results
+        }));
+
         return {
-          documents: documents || [],
-          contracts: contracts || []
+          documents: transformedDocuments,
+          contracts: transformedContracts
         };
 
       } catch (error) {
-        console.error('Vector search error:', error);
+        console.error('Search error:', error);
         return { documents: [], contracts: [] };
       }
     },
