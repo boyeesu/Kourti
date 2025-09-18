@@ -1,69 +1,42 @@
-import { useQuery } from '@tanstack/react-query';
+import { useRAGSearch } from './useRAGSearch';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Hook for performing vector similarity search on documents
+ * Now uses the new RAG search with document chunks
  */
 export function useVectorSearch(query: string, enabled: boolean = true) {
-  return useQuery({
+  // Use the new RAG search instead of the old vector search
+  const { data: ragResults, ...rest } = useRAGSearch(query, enabled);
+
+  return {
+    ...rest,
     queryKey: ['vector-search', query],
-    queryFn: async () => {
-      if (!query || query.trim().length < 2) {
-        return { documents: [], contracts: [] };
-      }
-
-      try {
-        // Fallback to regular text search when vector search is not available
-        console.warn('Vector search unavailable, falling back to text search');
-        
-        // Search documents using text search
-        const { data: documents, error: documentsError } = await supabase
-          .from('documents')
-          .select('id, name, content, summary, created_at, updated_at')
-          .or(`name.ilike.%${query}%,content.ilike.%${query}%,summary.ilike.%${query}%`)
-          .limit(10);
-
-        if (documentsError) {
-          console.error('Document search error:', documentsError);
-        }
-
-        // Search contracts using text search
-        const { data: contracts, error: contractsError } = await supabase
-          .from('contracts')
-          .select('id, title, description, terms, created_at, updated_at')
-          .or(`title.ilike.%${query}%,description.ilike.%${query}%,terms.ilike.%${query}%`)
-          .limit(10);
-
-        if (contractsError) {
-          console.error('Contract search error:', contractsError);
-        }
-
-        // Transform results to match expected format with similarity scores
-        const transformedDocuments = (documents || []).map(doc => ({
-          ...doc,
-          similarity: 0.8 // Default similarity for text search results
-        }));
-
-        const transformedContracts = (contracts || []).map(contract => ({
-          ...contract,
-          content: contract.terms || contract.description || '',
-          similarity: 0.8 // Default similarity for text search results
-        }));
-
-        return {
-          documents: transformedDocuments,
-          contracts: transformedContracts
-        };
-
-      } catch (error) {
-        console.error('Search error:', error);
-        return { documents: [], contracts: [] };
-      }
-    },
-    enabled: enabled && !!query && query.trim().length >= 2,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-  });
+    data: ragResults ? {
+      documents: ragResults
+        .filter(result => result.documentType === 'document')
+        .map(result => ({
+          id: result.documentId,
+          name: result.documentName,
+          content: result.content,
+          summary: result.content.substring(0, 200) + '...',
+          similarity: result.similarity,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })),
+      contracts: ragResults
+        .filter(result => result.documentType === 'contract')
+        .map(result => ({
+          id: result.contractId,
+          title: result.documentName,
+          description: result.content.substring(0, 200) + '...',
+          terms: result.content,
+          similarity: result.similarity,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }))
+    } : { documents: [], contracts: [] }
+  };
 }
 
 /**

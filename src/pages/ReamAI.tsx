@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useVectorSearch } from "@/hooks/useVectorSearch";
+import { useRAGSearch, useProcessDocument } from "@/hooks/useRAGSearch";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useContracts } from "@/hooks/useContracts";
 import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
 import { useDocumentContent } from "@/hooks/useDocumentContext";
+import { useOrganization } from "@/hooks/useOrganization";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,7 +49,7 @@ export default function ReamAI() {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: "system", 
-      content: "Welcome to Ream AI! Select or upload a document/contract, or ask me anything legal. I'm here to help analyze your documents and answer legal questions.",
+      content: "Welcome to Ream AI with RAG! Select or upload a document/contract, and I'll process it for intelligent retrieval. Your documents will be chunked and embedded for better context-aware responses.",
       timestamp: new Date()
     },
   ]);
@@ -60,6 +62,9 @@ export default function ReamAI() {
   const [enableVectorSearch] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Get current organization for document processing
+  const { data: organization } = useOrganization();
+  
   // Fetch documents and contracts
   const { data: documents = [], isLoading: docsLoading } = useDocuments();
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
@@ -72,13 +77,22 @@ export default function ReamAI() {
     isStreaming,
   } = useEnhancedDocumentAnalysis();
 
+  // Document processing for RAG
+  const processDocument = useProcessDocument();
+
   // Get full document content for AI context
   const { data: documentContent } = useDocumentContent(
     selectedDoc?.id || null,
     selectedDoc?.type || null
   );
 
-  // Use vector search to find relevant documents automatically
+  // Use RAG search to find relevant document chunks
+  const { data: ragResults } = useRAGSearch(
+    input, 
+    enableVectorSearch && input.length > 10
+  );
+
+  // Use legacy vector search as fallback
   const { data: relevantDocs } = useVectorSearch(input, enableVectorSearch && input.length > 10);
 
   // Auto-select contract from URL params
@@ -138,7 +152,7 @@ export default function ReamAI() {
   });
 
   // Handle document/contract selection
-  function handleSelectDoc(doc: any, isContract: boolean) {
+  async function handleSelectDoc(doc: any, isContract: boolean) {
     setSelectedDoc({ ...doc, type: isContract ? "contract" : "document" });
     setSelectedFile(null); // Clear any uploaded file
     
@@ -156,10 +170,58 @@ export default function ReamAI() {
       ...msgs,
       { 
         role: "assistant", 
-        content: `I've loaded "${doc.title || doc.name}" for analysis. What would you like to know about it?`, 
+        content: `I'm processing "${doc.title || doc.name}" for RAG analysis. This may take a moment as I chunk and embed the content for better retrieval...`, 
         timestamp: new Date() 
       }
     ]);
+
+    // Process document for RAG if we have organization context
+    if (organization?.id && doc.content) {
+      try {
+        await processDocument.mutateAsync({
+          documentId: !isContract ? doc.id : undefined,
+          contractId: isContract ? doc.id : undefined,
+          content: isContract ? (doc.terms || doc.description || '') : (doc.content || ''),
+          organizationId: organization.id,
+          documentType: isContract ? 'contract' : 'document'
+        });
+        
+        // Update the message to show processing is complete
+        setMessages((msgs) => 
+          msgs.map((msg, i) => 
+            i === msgs.length - 1 ? 
+              { 
+                ...msg, 
+                content: `✅ Successfully processed "${doc.title || doc.name}" for RAG analysis! The document has been chunked and embedded. You can now ask detailed questions about its content.`
+              } : 
+              msg
+          )
+        );
+      } catch (error) {
+        console.error('Error processing document:', error);
+        setMessages((msgs) => 
+          msgs.map((msg, i) => 
+            i === msgs.length - 1 ? 
+              { 
+                ...msg, 
+                content: `⚠️ Loaded "${doc.title || doc.name}" but RAG processing failed. I can still analyze the document, but responses may be less contextual.`
+              } : 
+              msg
+          )
+        );
+      }
+    } else {
+      setMessages((msgs) => 
+        msgs.map((msg, i) => 
+          i === msgs.length - 1 ? 
+            { 
+              ...msg, 
+              content: `📄 Loaded "${doc.title || doc.name}" for analysis. What would you like to know about it?`
+            } : 
+            msg
+        )
+      );
+    }
   }
 
   // Handle sending a message
@@ -191,8 +253,8 @@ export default function ReamAI() {
       let content: string = "";
       let contextInfo: string = "";
       
-      // Check if we have selected document or relevant documents from vector search
-      if (selectedDoc || selectedFile || (relevantDocs && (relevantDocs.documents.length > 0 || relevantDocs.contracts.length > 0))) {
+      // Check if we have selected document or relevant documents from RAG/vector search
+      if (selectedDoc || selectedFile || (ragResults && ragResults.length > 0) || (relevantDocs && (relevantDocs.documents.length > 0 || relevantDocs.contracts.length > 0))) {
         
         if (selectedDoc && documentContent) {
           // Use the full content from the manually selected document
@@ -249,6 +311,25 @@ ${fileContent}`;
 
 User Question: ${userMessage}`;
           }
+        } else if (ragResults && ragResults.length > 0) {
+          // Use RAG results for enhanced context
+          const topResults = ragResults.slice(0, 5); // Use top 5 most relevant chunks
+          
+          let contextContent = `Found ${topResults.length} relevant document chunks from your knowledge base:\n\n`;
+          
+          topResults.forEach((result, i) => {
+            contextContent += `${i + 1}. From "${result.documentName}" (${result.documentType}):\n`;
+            contextContent += `   ${result.content.substring(0, 300)}${result.content.length > 300 ? '...' : ''}\n`;
+            contextContent += `   Relevance: ${(result.similarity * 100).toFixed(1)}%\n\n`;
+          });
+          
+          contextInfo = `Based on your question: "${userMessage}"
+
+${contextContent}
+
+Please provide a comprehensive answer based on the relevant document content above.`;
+          
+          content = contextInfo;
         } else if (relevantDocs && (relevantDocs.documents.length > 0 || relevantDocs.contracts.length > 0)) {
           // Use relevant documents found through vector search
           const relevantDocuments = relevantDocs.documents.slice(0, 3);

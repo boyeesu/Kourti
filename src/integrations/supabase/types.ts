@@ -816,6 +816,63 @@ export type Database = {
           },
         ]
       }
+      document_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          contract_id: string | null
+          created_at: string
+          document_id: string | null
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string
+          token_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          contract_id?: string | null
+          created_at?: string
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          token_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          contract_id?: string | null
+          created_at?: string
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          token_count?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           client_id: string | null
