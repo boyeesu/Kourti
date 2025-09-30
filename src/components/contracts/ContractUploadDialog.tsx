@@ -12,6 +12,8 @@ import { useCreateContract } from '@/hooks/useContracts';
 import { useCases } from '@/hooks/useCases';
 import { useClients } from '@/hooks/useClients';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useProfile } from '@/hooks/useProfile';
 
 interface ContractUploadDialogProps {
   open: boolean;
@@ -35,6 +37,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
   const createContract = useCreateContract();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
+  const { data: profile } = useProfile();
   
   const cases = Array.isArray(casesData) ? casesData : casesData?.cases || [];
   const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
@@ -112,10 +115,45 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
       return;
     }
 
+    if (!profile?.organization_id) {
+      toast({
+        title: 'Error',
+        description: 'Organization not found',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsUploading(true);
 
     try {
-      // Create contract with file
+      // Upload file to Supabase storage
+      const fileExt = uploadedFile.name.split('.').pop();
+      const fileName = `${profile.organization_id}/${Date.now()}_${uploadedFile.name}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, uploadedFile, {
+          contentType: uploadedFile.type,
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error(`File upload failed: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(fileName);
+
+      // Extract text content for searchability
+      let extractedText = '';
+      if (uploadedFile.type === 'text/plain') {
+        extractedText = await uploadedFile.text();
+      }
+
+      // Create contract with file path
       const contractPayload = {
         title: contractData.title,
         description: contractData.description,
@@ -125,9 +163,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
         value: contractData.value ? parseFloat(contractData.value) : undefined,
         currency: contractData.currency,
         status: 'draft',
-        // In a real implementation, you would upload the file to storage first
-        // and then save the file path to the contract
-        terms: `Uploaded file: ${uploadedFile.name}`,
+        terms: extractedText || `Contract document uploaded: ${uploadedFile.name}\n\nFile: ${publicUrl}`,
       };
 
       await createContract.mutateAsync(contractPayload);
@@ -154,7 +190,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
       console.error('Upload error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to upload contract',
+        description: error instanceof Error ? error.message : 'Failed to upload contract',
         variant: 'destructive',
       });
     } finally {

@@ -105,6 +105,7 @@ export default function ReamAI() {
         setActiveTab('contracts');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, contracts]);
 
   // Scroll to bottom of messages when new messages arrive

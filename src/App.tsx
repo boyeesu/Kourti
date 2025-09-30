@@ -244,6 +244,13 @@ const App = () => (
                                   <ContractCreate />
                                 </ModuleErrorBoundary>
                               } />
+                              <Route path="/contracts/upload" element={
+                                <ModuleErrorBoundary name="Contract Upload">
+                                  <Suspense fallback={<LoadingFallback />}>
+                                    {React.createElement(lazy(() => import('./pages/ContractUpload')))}
+                                  </Suspense>
+                                </ModuleErrorBoundary>
+                              } />
                               <Route path="/contracts/compare" element={
                                 <ModuleErrorBoundary name="Contract Compare">
                                   <ContractCompare />
