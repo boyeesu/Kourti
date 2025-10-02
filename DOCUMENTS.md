@@ -1,11 +1,11 @@
-# Kouti Legal Hub – Developer Guide
+# Kourti Legal Hub – Developer Guide
 
 This document is a high-level map of the project structure, key API routes, database schema, and AI workflows so a new developer can get productive quickly.
 
 ---
 ## 1. Repository Layout
 ```
-kouti-legal-hub-41/
+kourti-legal-hub-41/
 ├── src/                 # React (Vite) front-end
 │   ├── pages/           # Page-level components (Dashboard, Documents, etc.)
 │   ├── components/ui/   # ShadCN UI primitives & wrappers

@@ -12,7 +12,7 @@ import { Building, Users, FileText, CheckCircle, ArrowRight, ArrowLeft } from "l
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/kouti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo.png";
 
 const steps = [
   {
@@ -169,7 +169,7 @@ export default function Onboarding() {
 
       toast({
         title: "Onboarding completed!",
-        description: "Welcome to Kouti Legal. You're all set to get started.",
+        description: "Welcome to Kourti Legal. You're all set to get started.",
       });
 
       navigate("/dashboard", { replace: true });
@@ -441,7 +441,7 @@ export default function Onboarding() {
               <CheckCircle className="w-10 h-10 text-primary" />
             </div>
             <div>
-              <h3 className="text-2xl font-semibold">Welcome to Kouti Legal!</h3>
+              <h3 className="text-2xl font-semibold">Welcome to Kourti Legal!</h3>
               <p className="text-muted-foreground mt-2">
                 Your organization has been set up successfully. You can now start managing your cases, documents, and team.
               </p>
@@ -468,7 +468,7 @@ export default function Onboarding() {
       <Card className="w-full max-w-2xl shadow-card">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">
-            <img src={logo} alt="Kouti Legal" className="h-12 w-12" />
+            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
           </div>
           <Progress value={progress} className="w-full mb-6" />
           <div className="flex justify-center space-x-4 mb-6">

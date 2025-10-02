@@ -169,7 +169,7 @@ root.render(
       fallbackRender={(props) => <ErrorBoundaryFallback {...props} />}
     >
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="light" storageKey="kouti-legal-theme">
+        <ThemeProvider defaultTheme="light" storageKey="kourti-legal-theme">
           <App />
         </ThemeProvider>
       </QueryClientProvider>

@@ -13,7 +13,7 @@ import { useCases } from '@/hooks/useCases';
 import { useClients } from '@/hooks/useClients';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useProfile } from '@/hooks/useProfile';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 interface ContractUploadDialogProps {
   open: boolean;
@@ -37,7 +37,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
   const createContract = useCreateContract();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
-  const { data: profile } = useProfile();
+  const { data: organizationId } = useUserOrganization();
   
   const cases = Array.isArray(casesData) ? casesData : casesData?.cases || [];
   const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
@@ -115,7 +115,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
       return;
     }
 
-    if (!profile?.organization_id) {
+    if (!organizationId) {
       toast({
         title: 'Error',
         description: 'Organization not found',
@@ -128,8 +128,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
 
     try {
       // Upload file to Supabase storage
-      const fileExt = uploadedFile.name.split('.').pop();
-      const fileName = `${profile.organization_id}/${Date.now()}_${uploadedFile.name}`;
+      const fileName = `${organizationId}/${Date.now()}_${uploadedFile.name}`;
       
       const { error: uploadError } = await supabase.storage
         .from('documents')

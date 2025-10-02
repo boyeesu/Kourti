@@ -11,7 +11,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/kouti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo.png";
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -162,7 +162,7 @@ export default function Auth() {
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kouti Legal" className="h-12 w-12" />
+            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">
@@ -170,8 +170,8 @@ export default function Auth() {
             </CardTitle>
             <p className="text-muted-foreground mt-2">
               {isSignUp 
-                ? "Join Kouti Legal to manage your practice" 
-                : "Sign in to your Kouti Legal account"
+                ? "Join Kourti Legal to manage your practice" 
+                : "Sign in to your Kourti Legal account"
               }
             </p>
           </div>

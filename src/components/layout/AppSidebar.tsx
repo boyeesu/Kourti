@@ -42,7 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import logo from "@/assets/kouti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo.png";
 
 // Sidebar navigation type definition
 type NavigationItem = {
@@ -307,10 +307,10 @@ export function AppSidebar() {
       <Sidebar variant="sidebar" collapsible="icon" className="h-screen bg-card/30">
         <SidebarHeader className="border-b border-border p-2">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Kouti Legal" className="h-6 w-6 flex-shrink-0" />
+            <img src={logo} alt="Kourti Legal" className="h-6 w-6 flex-shrink-0" />
             {!collapsed && (
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Kouti Legal</h2>
+                <h2 className="text-sm font-semibold text-foreground">Kourti Legal</h2>
                 <p className="text-xs text-muted-foreground">Legal Management</p>
               </div>
             )}

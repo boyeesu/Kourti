@@ -45,7 +45,7 @@ export default function HelpCenter() {
   ];
   
   const videos = [
-    { title: "Getting Started with Kouti Legal", duration: "5:24", url: "#" },
+    { title: "Getting Started with Kourti Legal", duration: "5:24", url: "#" },
     { title: "Managing Cases Effectively", duration: "8:15", url: "#" },
     { title: "Document Management Best Practices", duration: "6:42", url: "#" },
     { title: "Using the AI Assistant for Research", duration: "10:18", url: "#" },
@@ -94,7 +94,7 @@ export default function HelpCenter() {
         <h1 className="text-3xl font-bold text-foreground mb-2">Help Center</h1>
         <p className="text-muted-foreground max-w-2xl mx-auto">
           Find answers to common questions, video tutorials, and comprehensive guides
-          to help you make the most of Kouti Legal
+          to help you make the most of Kourti Legal
         </p>
       </div>
       
@@ -139,7 +139,7 @@ export default function HelpCenter() {
                 Frequently Asked Questions
               </CardTitle>
               <CardDescription>
-                Quick answers to common questions about using Kouti Legal
+                Quick answers to common questions about using Kourti Legal
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -178,7 +178,7 @@ export default function HelpCenter() {
                 Video Tutorials
               </CardTitle>
               <CardDescription>
-                Step-by-step video guides for using Kouti Legal features
+                Step-by-step video guides for using Kourti Legal features
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -210,7 +210,7 @@ export default function HelpCenter() {
                 User Guides &amp; Documentation
               </CardTitle>
               <CardDescription>
-                Comprehensive documentation and guides for Kouti Legal
+                Comprehensive documentation and guides for Kourti Legal
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -254,7 +254,7 @@ export default function HelpCenter() {
                       <Mail className="h-5 w-5 text-primary" />
                       <div>
                         <div className="font-medium">Email Support</div>
-                        <div className="text-sm text-muted-foreground">support@koutilegal.com</div>
+                        <div className="text-sm text-muted-foreground">support@kourtilegal.com</div>
                         <div className="text-xs text-muted-foreground">Response within 24 hours</div>
                       </div>
                     </div>

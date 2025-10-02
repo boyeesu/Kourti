@@ -284,12 +284,12 @@ export default function InvoiceDetails() {
                 <div>
                   <h3 className="font-medium mb-2">From</h3>
                   <div className="space-y-1 text-sm">
-                    <p className="font-medium">Kouti Legal Hub</p>
+                    <p className="font-medium">Kourti Legal Hub</p>
                     <p>123 Legal Street</p>
                     <p>Suite 500</p>
                     <p>New York, NY 10001</p>
                     <p>United States</p>
-                    <p className="mt-2">contact@koutilegal.com</p>
+                    <p className="mt-2">contact@kourtilegal.com</p>
                     <p>+1 (555) 123-4567</p>
                   </div>
                 </div>

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Lock, Eye, EyeOff, User, Building } from "lucide-react";
-import logo from "@/assets/kouti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo.png";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Register() {
@@ -55,12 +55,12 @@ export default function Register() {
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kouti Legal" className="h-12 w-12" />
+            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>
             <p className="text-muted-foreground mt-2">
-              Join Kouti Legal to manage your cases
+              Join Kourti Legal to manage your cases
             </p>
           </div>
         </CardHeader>

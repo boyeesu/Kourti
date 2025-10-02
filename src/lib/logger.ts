@@ -19,7 +19,7 @@ export interface LogEntry {
 
 // Constants for logger configuration
 const MAX_LOGS = 200; // Reduced to prevent excessive localStorage usage
-const LOG_STORAGE_KEY = 'kouti_legal_logs';
+const LOG_STORAGE_KEY = 'kourti_legal_logs';
 const SHOULD_PERSIST_TO_LOCAL = true;
 const SHOULD_SEND_TO_SERVER = true;
 const SERVER_LOG_ENDPOINT = import.meta.env.VITE_LOG_API_ENDPOINT || null;
@@ -28,12 +28,12 @@ const ENABLE_CONSOLE_LOGS = import.meta.env.MODE !== 'production';
 
 // Generate a unique session ID for better tracking
 const SESSION_ID = (() => {
-  const storedId = localStorage.getItem('kouti_session_id');
+  const storedId = localStorage.getItem('kourti_session_id');
   if (storedId) return storedId;
   
   const newId = Math.random().toString(36).substring(2, 15) + 
                Math.random().toString(36).substring(2, 15);
-  localStorage.setItem('kouti_session_id', newId);
+  localStorage.setItem('kourti_session_id', newId);
   return newId;
 })();
 
@@ -306,7 +306,7 @@ persistToLocalStorage();
 
 // Expose logs for debugging in non-production environments
 if (typeof window !== 'undefined' && import.meta.env.MODE !== 'production') {
-  (window as any).__KOUTI_LOGS__ = {
+  (window as any).__KOURTI_LOGS__ = {
     getLogs,
     clearLogs,
     sendLogsToServer

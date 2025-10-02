@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-import logo from "@/assets/kouti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo.png";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Login() {
@@ -35,12 +35,12 @@ export default function Login() {
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kouti Legal" className="h-12 w-12" />
+            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Welcome Back</CardTitle>
             <p className="text-muted-foreground mt-2">
-              Sign in to your Kouti Legal account
+              Sign in to your Kourti Legal account
             </p>
           </div>
         </CardHeader>

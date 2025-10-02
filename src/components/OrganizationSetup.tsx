@@ -28,7 +28,7 @@ export default function OrganizationSetup() {
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Welcome to Kouti Legal</CardTitle>
+          <CardTitle>Welcome to Kourti Legal</CardTitle>
           <CardDescription>
             To get started, please create your organization.
           </CardDescription>
