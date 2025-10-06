@@ -20,24 +20,39 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
+function getStoredTheme(storageKey: string, fallback: Theme): Theme {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(storageKey) as Theme | null;
+    return stored ?? fallback;
+  } catch (error) {
+    console.warn("Unable to read theme from localStorage", error);
+    return fallback;
+  }
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
   storageKey = "kourti-legal-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+  const [theme, setTheme] = useState<Theme>(() => getStoredTheme(storageKey, defaultTheme));
 
   useEffect(() => {
-    const root = window.document.documentElement;
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const root = document.documentElement;
 
     root.classList.remove("light", "dark");
 
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
+      const systemTheme = typeof window !== "undefined" && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches
         ? "dark"
         : "light";
 
@@ -50,9 +65,15 @@ export function ThemeProvider({
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
+    setTheme: (nextTheme: Theme) => {
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(storageKey, nextTheme);
+        } catch (error) {
+          console.warn("Unable to persist theme to localStorage", error);
+        }
+      }
+      setTheme(nextTheme);
     },
   };
 

@@ -23,8 +23,13 @@ import {
   FileCheck,
   Search,
   Loader2,
-  StopCircle
+  StopCircle,
+  Sparkles,
+  ShieldAlert,
+  ListChecks
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -42,9 +47,43 @@ const EXAMPLE_PROMPTS = [
   "Is there anything unusual about this contract?"
 ];
 
+type QuickAction = {
+  label: string;
+  prompt: string;
+  requiresDocument?: boolean;
+  icon: LucideIcon;
+};
+
+const QUICK_ACTIONS: QuickAction[] = [
+  {
+    label: "Summarize",
+    prompt: "Provide an executive summary that highlights the purpose, parties, and the three most important obligations in this document.",
+    requiresDocument: true,
+    icon: Sparkles
+  },
+  {
+    label: "Risk Review",
+    prompt: "Identify the top risks, liabilities, or unusual clauses in this document. Explain why they matter and recommend follow-up actions.",
+    requiresDocument: true,
+    icon: ShieldAlert
+  },
+  {
+    label: "Key Obligations",
+    prompt: "List all material obligations, deadlines, and compliance requirements in this document with clear bullet points.",
+    requiresDocument: true,
+    icon: ListChecks
+  },
+  {
+    label: "Draft Follow-up Email",
+    prompt: "Draft a professional follow-up email summarizing the current findings and next steps for the client.",
+    requiresDocument: false,
+    icon: Send
+  }
+];
+
 export default function ReamAI() {
   const [searchParams] = useSearchParams();
-  
+
   // State for chat and document selection
   const [messages, setMessages] = useState<Message[]>([
     { 
@@ -60,7 +99,9 @@ export default function ReamAI() {
   const [activeTab, setActiveTab] = useState<string>("documents");
   const [isTyping, setIsTyping] = useState(false);
   const [enableVectorSearch] = useState(true);
+  const [activeQuery, setActiveQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   // Get current organization for document processing
   const { data: organization } = useOrganization();
@@ -88,12 +129,12 @@ export default function ReamAI() {
 
   // Use RAG search to find relevant document chunks
   const { data: ragResults } = useRAGSearch(
-    input, 
-    enableVectorSearch && input.length > 10
+    activeQuery,
+    enableVectorSearch && activeQuery.length > 10
   );
 
-  // Use legacy vector search as fallback
-  const { data: relevantDocs } = useVectorSearch(input, enableVectorSearch && input.length > 10);
+  // Use legacy vector search as fallback for broader summaries
+  const { data: relevantDocs } = useVectorSearch(activeQuery, enableVectorSearch && activeQuery.length > 10);
 
   // Auto-select contract from URL params
   useEffect(() => {
@@ -119,7 +160,7 @@ export default function ReamAI() {
       const file = acceptedFiles[0];
       setSelectedFile(file);
       setSelectedDoc(null); // Clear any selected document
-      
+
       // Add message about the upload
       setMessages((msgs) => [
         ...msgs,
@@ -226,16 +267,21 @@ export default function ReamAI() {
   }
 
   // Handle sending a message
-  async function sendMessage(e?: React.FormEvent) {
+  async function sendMessage(e?: React.FormEvent, presetMessage?: string) {
     e?.preventDefault();
-    
-    if (!input.trim() && !selectedDoc && !selectedFile) {
+
+    const userMessage = (presetMessage ?? input).trim();
+
+    if (!userMessage && !selectedDoc && !selectedFile) {
       return;
     }
-    
-    const userMessage = input.trim();
+
     setInput("");
-    
+
+    if (userMessage) {
+      setActiveQuery(userMessage);
+    }
+
     // Add user message to chat
     if (userMessage) {
       setMessages((msgs) => [
@@ -443,7 +489,7 @@ Please provide a helpful response to this legal question. If you need specific d
       setIsTyping(false);
     }
   }
-  
+
   // Simulate typing for demo purposes (would be replaced by actual streaming in production)
   function simulateTypingResponse(text: string, speed: number = 30) {
     let i = 0;
@@ -468,6 +514,40 @@ Please provide a helpful response to this legal question. If you need specific d
   function useExamplePrompt(prompt: string) {
     setInput(prompt);
   }
+
+  const handleQuickAction = (action: QuickAction) => {
+    if (isStreaming || isTyping) {
+      toast({
+        title: "Please wait",
+        description: "Allow the current analysis to finish before starting a new one.",
+      });
+      return;
+    }
+
+    if (action.requiresDocument && !selectedDoc && !selectedFile) {
+      toast({
+        title: "Select a document",
+        description: "Choose or upload a document so Ream AI can ground its analysis.",
+      });
+      return;
+    }
+
+    if (action.requiresDocument && documentContent && !documentContent.fullContent) {
+      toast({
+        title: "No extracted text",
+        description: "This file doesn't have extracted text yet. Ask a general question or upload a text-based document.",
+      });
+    }
+
+    void sendMessage(undefined, action.prompt);
+  };
+
+  const activeDocumentLabel = selectedDoc
+    ? `${selectedDoc.type === 'contract' ? 'Contract' : 'Document'}: ${selectedDoc.title || selectedDoc.name}`
+    : selectedFile
+      ? `Uploaded file: ${selectedFile.name}`
+      : null;
+  const hasDocumentContext = Boolean(selectedDoc || selectedFile);
 
   // Filter documents based on search term
   const filteredDocuments = documents.filter(doc => 
@@ -648,7 +728,7 @@ Please provide a helpful response to this legal question. If you need specific d
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         <ModuleErrorBoundary name="Ream AI Chat">
           <Card className="flex-1 flex flex-col w-full h-full rounded-none border-0 border-l-0 border-r-0 border-t-0">
-            <CardHeader className="border-b py-3">
+            <CardHeader className="border-b py-3 space-y-3">
               <CardTitle className="flex items-center">
                 <span className="bg-gradient-to-r from-primary to-blue-500 text-transparent bg-clip-text font-bold mr-2">
                   Ream AI
@@ -657,10 +737,72 @@ Please provide a helpful response to this legal question. If you need specific d
                   Beta
                 </Badge>
               </CardTitle>
+              {activeDocumentLabel && (
+                <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
+                  <span className="font-medium text-foreground/80">{activeDocumentLabel}</span>
+                  {documentContent?.contract_type && (
+                    <Badge variant="secondary" className="text-[10px]">{documentContent.contract_type}</Badge>
+                  )}
+                  {documentContent?.type === 'contract' && documentContent.status && (
+                    <Badge variant="secondary" className="text-[10px]">Status: {documentContent.status}</Badge>
+                  )}
+                  {documentContent?.value && (
+                    <span>Value: {documentContent.currency || 'USD'} {documentContent.value}</span>
+                  )}
+                  {documentContent?.type === 'document' && documentContent.effective_date && (
+                    <span>Effective: {formatDate(documentContent.effective_date)}</span>
+                  )}
+                  {documentContent?.type === 'document' && documentContent.termination_date && (
+                    <span>Termination: {formatDate(documentContent.termination_date)}</span>
+                  )}
+                  {documentContent?.type === 'contract' && documentContent.start_date && (
+                    <span>Start: {formatDate(documentContent.start_date)}</span>
+                  )}
+                  {documentContent?.type === 'contract' && documentContent.end_date && (
+                    <span>Ends: {formatDate(documentContent.end_date)}</span>
+                  )}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {QUICK_ACTIONS.map((action) => {
+                  const Icon = action.icon;
+                  const disabled = action.requiresDocument && !hasDocumentContext;
+                  return (
+                    <Button
+                      key={action.label}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={disabled}
+                      onClick={() => handleQuickAction(action)}
+                      className="text-xs"
+                      title={disabled ? "Select a document to enable" : undefined}
+                    >
+                      <Icon className="h-3.5 w-3.5 mr-1" />
+                      {action.label}
+                    </Button>
+                  );
+                })}
+              </div>
             </CardHeader>
 
             {/* Main chat/message area with its own scrolling */}
             <div className="flex-1 flex flex-col min-h-0">
+              {(ragResults && ragResults.length > 0) && (
+                <div className="px-4 py-3 border-b bg-muted/40">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Context matches
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {ragResults.slice(0, 3).map((result, index) => (
+                      <div key={`${result.chunkId}-${index}`} className="text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground">{result.documentName} ({result.documentType})</p>
+                        <p className="line-clamp-2">{result.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto">
                 <div className="flex flex-col p-4 space-y-4">
                   {messages.map((msg, i) => (
@@ -721,9 +863,9 @@ Please provide a helpful response to this legal question. If you need specific d
               )}
 
               {/* Input form always at the very bottom, never scrolled */}
-              <form 
+              <form
                 className="flex gap-2 p-4 border-t bg-background sticky bottom-0 left-0 right-0 z-10"
-                onSubmit={sendMessage}
+                onSubmit={(event) => sendMessage(event)}
                 style={{ boxShadow: '0 -2px 8px -4px rgba(0,0,0,0.04)' }}
               >
                 <Input
@@ -738,8 +880,8 @@ Please provide a helpful response to this legal question. If you need specific d
                   disabled={isStreaming || isTyping}
                 />
                 {isStreaming ? (
-                  <Button 
-                    type="button" 
+                  <Button
+                    type="button"
                     variant="destructive"
                     onClick={cancelStreaming}
                   >

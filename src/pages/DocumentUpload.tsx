@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { v4 as uuidv4 } from 'uuid';
 import { z } from "zod";
 
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +26,7 @@ import {
 } from "@/components/ui/card";
 import { UploadCloud } from "lucide-react";
 import { useCases } from "@/hooks/useCases";
-import { useCreateDocument } from "@/hooks/useDocuments";
+import { useUploadDocument } from "@/hooks/useDocuments";
 import { Case } from "@/types";
 
 const formSchema = z.object({
@@ -40,7 +39,12 @@ const formSchema = z.object({
   effective_date: z.string().optional(),
   renewal_date: z.string().optional(),
   termination_date: z.string().optional(),
-  value: z.number().optional(),
+  value: z
+    .string()
+    .optional()
+    .refine((val) => !val || !Number.isNaN(Number(val)), {
+      message: "Value must be a number",
+    }),
   contract_type: z.string().optional(),
   currency: z.string().optional(),
   terms: z.string().optional(),
@@ -50,8 +54,9 @@ export default function DocumentUpload() {
   const navigate = useNavigate();
   const [selectedCase, setSelectedCase] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
-  const createDocument = useCreateDocument();
+  const uploadDocument = useUploadDocument();
 
   const { data: casesData = { cases: [], count: 0 } } = useCases();
 
@@ -73,14 +78,25 @@ export default function DocumentUpload() {
       return;
     }
 
-    const fileId = uuidv4();
-    const fileName = `${fileId}-${file.name}`;
-
     try {
-      // Create the document in the database
-      await createDocument.mutateAsync({
-        ...values,
-        content: fileName, // Store the file name in the content field
+      const numericValue = values.value ? Number(values.value) : undefined;
+
+      await uploadDocument.mutateAsync({
+        name: values.name,
+        file,
+        case_id: selectedCase || undefined,
+        summary: values.summary?.trim() || undefined,
+        contract_type: values.contract_type?.trim() || undefined,
+        effective_date: values.effective_date || undefined,
+        renewal_date: values.renewal_date || undefined,
+        termination_date: values.termination_date || undefined,
+        value: numericValue,
+        currency: values.currency?.trim() || undefined,
+        terms: values.terms?.trim() || undefined,
+        metadata: {
+          ...(values.metadata ? { custom: values.metadata } : {}),
+          ...(selectedCase ? { case_id: selectedCase } : {}),
+        },
       });
 
       toast({
@@ -103,9 +119,12 @@ export default function DocumentUpload() {
     onDrop: (acceptedFiles: File[]) => {
       if (acceptedFiles && acceptedFiles.length > 0) {
         setFile(acceptedFiles[0]);
+        setIsDragging(false);
       }
     },
     multiple: false,
+    onDragEnter: () => setIsDragging(true),
+    onDragLeave: () => setIsDragging(false),
   });
 
   return (
@@ -132,12 +151,25 @@ export default function DocumentUpload() {
               <Label htmlFor="file">
                 Document File
               </Label>
-              <div {...getRootProps()} className="relative border rounded-md p-4 flex items-center justify-center bg-muted hover:bg-accent cursor-pointer">
+              <div
+                {...getRootProps()}
+                className={`relative border rounded-md p-4 flex flex-col items-center justify-center gap-2 bg-muted hover:bg-accent cursor-pointer transition-colors ${isDragging ? "border-primary bg-primary/10" : ""}`}
+              >
                 <input {...getInputProps()} id="file" />
-                <UploadCloud className="h-6 w-6 mr-2 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {file ? file.name : "Click or drag file to upload"}
-                </span>
+                <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                <div className="text-center">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {file ? file.name : "Click or drag file to upload"}
+                  </p>
+                  <p className="text-xs text-muted-foreground/80">
+                    Supported formats: PDF, DOCX, TXT, images
+                  </p>
+                  {file && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {(file.size / 1024).toFixed(1)} KB • {file.type || "Unknown type"}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -165,6 +197,63 @@ export default function DocumentUpload() {
               />
             </div>
 
+            {/* Dates & Financial Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="effective_date">Effective Date</Label>
+                <Input type="date" id="effective_date" {...register("effective_date")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="termination_date">Termination Date</Label>
+                <Input type="date" id="termination_date" {...register("termination_date")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="renewal_date">Renewal Date</Label>
+                <Input type="date" id="renewal_date" {...register("renewal_date")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="value">Contract Value</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="value"
+                    placeholder="0.00"
+                    type="number"
+                    step="0.01"
+                    {...register("value")}
+                  />
+                  <Input
+                    id="currency"
+                    placeholder="Currency"
+                    className="max-w-[120px]"
+                    {...register("currency")}
+                  />
+                </div>
+                {errors.value && (
+                  <p className="text-xs text-destructive">{errors.value.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Contract metadata */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="contract_type">Document Type</Label>
+                <Input
+                  id="contract_type"
+                  placeholder="e.g. Master Service Agreement"
+                  {...register("contract_type")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="terms">Key Terms (Optional)</Label>
+                <Textarea
+                  id="terms"
+                  placeholder="Notable clauses, parties, obligations..."
+                  {...register("terms")}
+                />
+              </div>
+            </div>
+
             {/* Related Case */}
             <div className="space-y-2">
               <Label htmlFor="case">Related Case (Optional)</Label>
@@ -183,8 +272,8 @@ export default function DocumentUpload() {
             </div>
 
             {/* Submit Button */}
-            <Button type="submit" className="shadow-md w-full">
-              Upload Document
+            <Button type="submit" className="shadow-md w-full" disabled={uploadDocument.isPending}>
+              {uploadDocument.isPending ? "Uploading…" : "Upload Document"}
             </Button>
           </form>
         </CardContent>
