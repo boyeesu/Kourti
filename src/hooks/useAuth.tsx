@@ -1,6 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { logError, logInfo } from '@/lib/logger';
+import { env } from '@/lib/env';
+import { getAuthRedirectUrl } from '@/utils/auth-helpers';
 
 interface UserData {
   first_name?: string;
@@ -36,14 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('🔐 Auth useEffect: Starting authentication check...');
-    // Set loading state
     setLoading(true);
-    
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
-        console.log('🔐 Auth state change:', event, currentSession ? 'Session exists' : 'No session');
+        logInfo('Auth state change detected', { event, hasSession: Boolean(currentSession) });
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
@@ -51,18 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     // Check for existing session
-    console.log('🔐 Checking for existing session...');
     supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
       if (error) {
-        console.error('🔐 Error getting session:', error);
-      } else {
-        console.log('🔐 Got session:', currentSession ? 'Session exists' : 'No session');
+        logError('Error retrieving existing session', { error });
       }
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
     }).catch((error) => {
-      console.error('🔐 Session check failed:', error);
+      logError('Session check failed', { error });
       setLoading(false);
     });
 
@@ -75,8 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, userData?: UserData) => {
     try {
       // Use origin + path as redirect URL for better UX
-      const redirectUrl = `${window.location.origin}/auth/confirm`;
-      
+      const redirectUrl = getAuthRedirectUrl('/auth/confirm', env.APP_URL);
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -96,10 +94,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         success: !error 
       };
     } catch (error) {
-      console.error('Sign up error:', error);
-      return { 
-        error: new AuthError('An unexpected error occurred during sign up.'), 
-        success: false 
+      logError('Sign up error', { error });
+      return {
+        error: new AuthError('An unexpected error occurred during sign up.'),
+        success: false
       };
     }
   };
@@ -110,16 +108,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
       });
-      
-      return { 
-        error, 
-        success: !error 
+
+      return {
+        error,
+        success: !error
       };
     } catch (error) {
-      console.error('Sign in error:', error);
-      return { 
-        error: new AuthError('An unexpected error occurred during sign in.'), 
-        success: false 
+      logError('Sign in error', { error });
+      return {
+        error: new AuthError('An unexpected error occurred during sign in.'),
+        success: false
       };
     }
   };
@@ -128,27 +126,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      console.error('Sign out error:', error);
+      logError('Sign out error', { error });
     }
   };
-  
+
   const resetPassword = async (email: string) => {
     try {
-      const redirectUrl = `${window.location.origin}/auth/reset-password`;
-      
+      const redirectUrl = getAuthRedirectUrl('/auth/reset-password', env.APP_URL);
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
       });
-      
-      return { 
-        error, 
-        success: !error 
+
+      return {
+        error,
+        success: !error
       };
     } catch (error) {
-      console.error('Reset password error:', error);
-      return { 
-        error: new AuthError('An unexpected error occurred during password reset.'), 
-        success: false 
+      logError('Reset password error', { error });
+      return {
+        error: new AuthError('An unexpected error occurred during password reset.'),
+        success: false
       };
     }
   };

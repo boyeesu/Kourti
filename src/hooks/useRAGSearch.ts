@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { logError, logInfo, logWarn } from '@/lib/logger';
 
 export interface RAGSearchResult {
   chunkId: string;
@@ -35,18 +36,18 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
         });
 
         if (embeddingError) {
-          console.error('Failed to generate query embedding:', embeddingError);
+          logError('Failed to generate query embedding', { error: embeddingError });
           // Fall back to text search
           return performTextFallbackSearch(query);
         }
 
         if (!embeddingData?.embedding) {
-          console.warn('No embedding returned, falling back to text search');
+          logWarn('No embedding returned for query embedding generation');
           return performTextFallbackSearch(query);
         }
 
         // Step 2: For now, fall back to text search until we fix the vector function
-        console.log('Vector function not yet available, using text search');
+        logInfo('Vector function not yet available, using text search fallback');
         return performTextFallbackSearch(query);
 
         /*
@@ -77,7 +78,7 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
         */
 
       } catch (error) {
-        console.error('RAG search error:', error);
+        logError('RAG search error', { error });
         return performTextFallbackSearch(query);
       }
     },
@@ -90,8 +91,6 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
 // Fallback text search when vector search is unavailable
 async function performTextFallbackSearch(query: string): Promise<RAGSearchResult[]> {
   try {
-    console.log('Performing fallback text search');
-    
     // Search document chunks with text search
     const { data: chunkResults, error: chunkError } = await supabase
       .from('document_chunks')
@@ -106,37 +105,51 @@ async function performTextFallbackSearch(query: string): Promise<RAGSearchResult
       .limit(10);
 
     if (chunkError) {
-      console.error('Chunk text search error:', chunkError);
+      logError('Chunk text search error', { error: chunkError });
       return [];
     }
 
     // Transform to RAGSearchResult format
     const results: RAGSearchResult[] = [];
-    
+    const documentIds = Array.from(new Set((chunkResults || [])
+      .map((chunk) => chunk.document_id)
+      .filter(Boolean))) as string[];
+
+    const contractIds = Array.from(new Set((chunkResults || [])
+      .map((chunk) => chunk.contract_id)
+      .filter(Boolean))) as string[];
+
+    const [documentsResponse, contractsResponse] = await Promise.all([
+      documentIds.length
+        ? supabase.from('documents').select('id, name').in('id', documentIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
+      contractIds.length
+        ? supabase.from('contracts').select('id, title').in('id', contractIds)
+        : Promise.resolve({ data: [] as { id: string; title: string }[], error: null })
+    ]);
+
+    if (documentsResponse.error) {
+      logWarn('Unable to load document names for fallback search', { error: documentsResponse.error });
+    }
+
+    if (contractsResponse.error) {
+      logWarn('Unable to load contract names for fallback search', { error: contractsResponse.error });
+    }
+
+    const documentNameMap = new Map<string, string>(
+      (documentsResponse.data || []).map((doc) => [doc.id, doc.name || 'Unknown Document'])
+    );
+    const contractNameMap = new Map<string, string>(
+      (contractsResponse.data || []).map((contract) => [contract.id, contract.title || 'Unknown Contract'])
+    );
+
     for (const chunk of chunkResults || []) {
-      let documentName = 'Unknown Document';
-      let documentType: 'document' | 'contract' = 'document';
-      
-      if (chunk.document_id) {
-        const { data: docData } = await supabase
-          .from('documents')
-          .select('name')
-          .eq('id', chunk.document_id)
-          .single();
-        
-        documentName = docData?.name || 'Unknown Document';
-        documentType = 'document';
-      } else if (chunk.contract_id) {
-        const { data: contractData } = await supabase
-          .from('contracts')
-          .select('title')
-          .eq('id', chunk.contract_id)
-          .single();
-        
-        documentName = contractData?.title || 'Unknown Contract';
-        documentType = 'contract';
-      }
-      
+      const hasDocument = Boolean(chunk.document_id);
+      const documentName = hasDocument
+        ? documentNameMap.get(chunk.document_id as string) || 'Unknown Document'
+        : contractNameMap.get(chunk.contract_id as string) || 'Unknown Contract';
+      const documentType: 'document' | 'contract' = hasDocument ? 'document' : 'contract';
+
       results.push({
         chunkId: chunk.id,
         documentId: chunk.document_id || undefined,
@@ -149,11 +162,11 @@ async function performTextFallbackSearch(query: string): Promise<RAGSearchResult
       });
     }
 
-    console.log(`Fallback text search found ${results.length} results`);
+    logInfo('Fallback text search completed', { resultCount: results.length });
     return results;
 
   } catch (error) {
-    console.error('Fallback search error:', error);
+    logError('Fallback search error', { error });
     return [];
   }
 }

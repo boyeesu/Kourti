@@ -1,19 +1,10 @@
 import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from './types';
-import { validateEnv } from '@/lib/env';
+import { env } from '@/lib/env';
+import { logInfo } from '@/lib/logger';
 
-// Directly access environment variables as a fallback
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 
-                     "https://zjbvnvydgsxqmmrrmvif.supabase.co";
-                     
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
-                         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqYnZudnlkZ3N4cW1tcnJtdmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODYzMTAsImV4cCI6MjA2OTY2MjMxMH0.-lE-O7iPZM_fxM93ddDapJVzcPdBArdCmN1HrwCHIH4";
-
-// Validate environment variables - log but don't block initialization
-const envValidation = validateEnv();
-if (!envValidation.valid) {
-  console.warn('Environment validation issue (using fallback values):', envValidation.errors.join(', '));
-}
+const SUPABASE_URL = env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY;
 
 // Client configuration with proper typing
 const supabaseConfig: SupabaseClientOptions<'public'> = {
@@ -39,9 +30,10 @@ const supabaseConfig: SupabaseClientOptions<'public'> = {
 
 // Log the values we're using (development only)
 if (import.meta.env.DEV) {
-  console.log('Supabase URL:', SUPABASE_URL);
-  console.log('Using Supabase credentials (anonymized):', 
-    SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 8)}...` : 'Not set');
+  logInfo('Supabase client initialized', {
+    supabaseUrl: SUPABASE_URL,
+    anonKeyPrefix: SUPABASE_ANON_KEY.substring(0, 8),
+  });
 }
 
 /**
@@ -61,10 +53,9 @@ supabase.auth.onAuthStateChange((event) => {
     // Clear any cached data when user signs out
     localStorage.removeItem('app_cache');
   } else if (event === 'SIGNED_IN') {
-    // Initialize user data when signed in
-    console.info('User signed in successfully');
+    logInfo('User signed in successfully');
   } else if (event === 'TOKEN_REFRESHED') {
-    console.info('Auth token refreshed');
+    logInfo('Auth token refreshed');
   }
 });
 

@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { buildQueryKey } from '@/utils/query-helpers';
+import { logError } from '@/lib/logger';
 
 // Types for the API hooks
 type FetchDataOptions = {
@@ -13,6 +15,7 @@ type FetchDataOptions = {
   pageSize?: number;
   orderBy?: { column: string; ascending?: boolean };
   queryKey?: string[];
+  organizationColumn?: string | false;
 };
 
 type ItemData = Record<string, any>;
@@ -34,17 +37,24 @@ export function useFetchData<T = any>({
   pageSize = 10,
   orderBy = { column: 'created_at', ascending: false },
   queryKey = [table],
+  organizationColumn = 'organization_id',
 }: FetchDataOptions) {
   const { data: organizationId } = useUserOrganization();
   const { toast } = useToast();
 
+  const shouldFilterByOrganization = typeof organizationColumn === 'string' && organizationColumn.length > 0;
+  const queryKeyValue = buildQueryKey(queryKey, {
+    page,
+    pageSize,
+    filters,
+    organizationId: shouldFilterByOrganization ? organizationId : undefined,
+  });
+
   return useQuery({
-    queryKey: [...queryKey, page, pageSize, JSON.stringify(filters), organizationId],
+    queryKey: queryKeyValue,
     queryFn: async () => {
       try {
-        // No mock data - always fetch from database
-
-        if (!organizationId) {
+        if (shouldFilterByOrganization && !organizationId) {
           throw new Error('No organization ID found');
         }
 
@@ -56,7 +66,9 @@ export function useFetchData<T = any>({
         let query = supabase.from(table as any).select(select, { count: 'exact' });
 
         // Add organization filter by default
-        query = query.eq('organization_id', organizationId);
+        if (shouldFilterByOrganization && organizationId) {
+          query = query.eq(organizationColumn, organizationId);
+        }
 
         // Add any custom filters
         Object.entries(filters).forEach(([key, value]) => {
@@ -117,7 +129,7 @@ export function useFetchData<T = any>({
 
         return { data: data as T[], count: count || 0, error: null };
       } catch (error) {
-        console.error(`Error fetching ${table}:`, error);
+        logError(`Error fetching ${table}`, { error });
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -128,7 +140,7 @@ export function useFetchData<T = any>({
         return { data: [], count: 0, error };
       }
     },
-    enabled: !!organizationId,
+    enabled: shouldFilterByOrganization ? !!organizationId : true,
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
   });

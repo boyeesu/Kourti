@@ -17,6 +17,7 @@ interface InvitationEmailRequest {
   department?: string;
   organizationName: string;
   inviterName: string;
+  invitationUrl: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -33,10 +34,20 @@ const handler = async (req: Request): Promise<Response> => {
       role,
       department,
       organizationName,
-      inviterName
+      inviterName,
+      invitationUrl
     }: InvitationEmailRequest = await req.json();
 
     console.log('Sending invitation email to:', email);
+
+    let safeInvitationUrl = invitationUrl;
+    try {
+      safeInvitationUrl = new URL(invitationUrl).toString();
+    } catch (_err) {
+      console.warn('Invalid invitation URL provided, falling back to default /auth path');
+      const baseUrl = new URL('/auth', req.headers.get('origin') ?? 'https://example.com');
+      safeInvitationUrl = baseUrl.toString();
+    }
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -69,13 +80,13 @@ const handler = async (req: Request): Promise<Response> => {
               
               <p>To accept this invitation and create your account, click the button below:</p>
               
-              <a href="https://de948aa9-e5dc-4423-b2ff-e8465e6b4092.lovableproject.com/auth" class="button">
+              <a href="${safeInvitationUrl}" class="button">
                 Accept Invitation & Sign Up
               </a>
-              
+
               <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
               <p style="word-break: break-all; color: #667eea;">
-                https://de948aa9-e5dc-4423-b2ff-e8465e6b4092.lovableproject.com/auth
+                ${safeInvitationUrl}
               </p>
               
               <p>This invitation will expire in 14 days.</p>

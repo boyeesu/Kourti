@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearch } from "@/hooks/use-search";
 import { useDocuments } from "@/hooks/useDocuments";
@@ -107,16 +106,20 @@ export default function Documents() {
     }
   };
 
-  const filteredDocuments = documents.filter((doc: Document) => {
-    const docTitle = doc.title || doc.name || '';
-    const termMatches = (t: string) =>
-      docTitle.toLowerCase().includes(t.toLowerCase());
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((doc: Document) => {
+      const docTitle = doc.title || doc.name || '';
+      const matchesTerm = (t: string) =>
+        docTitle.toLowerCase().includes(t.toLowerCase());
 
-    const matchesLocal = searchTerm === "" || termMatches(searchTerm);
-    const matchesGlobal = globalSearch === "" || termMatches(globalSearch);
-    const matchesType = typeFilter === "all" || (doc.file_type && doc.file_type.toLowerCase() === typeFilter);
-    return matchesLocal && matchesGlobal && matchesType;
-  });
+      const matchesLocal = searchTerm === "" || matchesTerm(searchTerm);
+      const matchesGlobal = globalSearch === "" || matchesTerm(globalSearch);
+      const matchesType =
+        typeFilter === "all" || (doc.file_type && doc.file_type.toLowerCase() === typeFilter);
+
+      return matchesLocal && matchesGlobal && matchesType;
+    });
+  }, [documents, globalSearch, searchTerm, typeFilter]);
 
   return (
     <div className="px-4 py-6 space-y-6">

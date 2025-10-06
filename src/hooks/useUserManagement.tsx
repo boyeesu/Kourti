@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { env } from '@/lib/env';
+import { logError, logInfo, logWarn } from '@/lib/logger';
+import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
 
 export interface InviteUserData {
   email: string;
@@ -36,6 +39,52 @@ export function useInviteUser() {
         throw new Error(data.error as string);
       }
 
+      const currentUserId = await getCurrentUserId();
+
+      if (!currentUserId) {
+        throw new Error('Unable to determine current user');
+      }
+
+      const [{ data: profile, error: profileError }, { data: authUser, error: authError }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('first_name,last_name,organization_id')
+          .eq('user_id', currentUserId as any)
+          .single(),
+        supabase.auth.getUser(),
+      ]);
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (!(profile as any)?.organization_id) {
+        throw new Error('Current user is not associated with an organization');
+      }
+
+      const { data: organizationData, error: organizationError } = await supabase
+        .from('organizations')
+        .select('name')
+        .eq('id', (profile as any).organization_id)
+        .single();
+
+      if (organizationError) {
+        throw organizationError;
+      }
+
+      const organizationName = organizationData?.name || 'Organization';
+      const inviterName = buildDisplayName(
+        (profile as any)?.first_name as string | null,
+        (profile as any)?.last_name as string | null,
+        authUser.user?.email ?? undefined
+      );
+
+      const invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
+
       // Send invitation email using the proper email function
       try {
         const { data: emailData, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
@@ -45,13 +94,14 @@ export function useInviteUser() {
             lastName: userData.lastName,
             role: userData.role ?? 'user',
             department: userData.department,
-            organizationName: 'Your Organization', // TODO: Get from organization
-            inviterName: 'Team Admin' // TODO: Get from current user
+            organizationName,
+            inviterName,
+            invitationUrl,
           }
         });
 
         if (emailError) {
-          console.warn('Failed to send invitation email:', emailError);
+          logWarn('Failed to send invitation email', { error: emailError });
           // Don't fail the invitation if email fails, but show a warning
           toast({
             title: "Invitation created with warning",
@@ -59,17 +109,18 @@ export function useInviteUser() {
             variant: "default",
           });
         } else if (emailData?.error) {
-          console.warn('Email function returned error:', emailData.error);
+          logWarn('Invitation email function returned error', { error: emailData.error });
           toast({
-            title: "Invitation created with warning", 
+            title: "Invitation created with warning",
             description: `The invitation was created but there was an email issue: ${emailData.error}`,
             variant: "default",
           });
         } else {
-          console.log('Invitation email sent successfully:', emailData);
+          const invitationId = (data as { invitation_id?: string | number } | null | undefined)?.invitation_id;
+          logInfo('Invitation email sent successfully', { invitationId });
         }
       } catch (emailError: any) {
-        console.warn('Failed to send invitation email:', emailError);
+        logWarn('Failed to send invitation email', { error: emailError });
         // Still show warning but don't fail the process
         toast({
           title: "Invitation created with warning",
@@ -91,6 +142,7 @@ export function useInviteUser() {
       return data;
     },
     onError: (error: Error) => {
+      logError('Failed to invite user', { error });
       toast({
         title: "Failed to invite user",
         description: error.message,
