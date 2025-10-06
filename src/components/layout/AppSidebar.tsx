@@ -142,15 +142,6 @@ export function AppSidebar() {
     return currentPath.startsWith(path);
   };
 
-  // Get navigation item class based on active state
-  const getNavCls = (path: string, end = false) => {
-    const active = isActive(path, end);
-    
-    return active 
-      ? "bg-primary/10 text-primary font-medium hover:bg-primary/15" 
-      : "text-muted-foreground hover:bg-muted hover:text-foreground transition-colors";
-  };
-
   // Handle sign out
   const handleSignOut = async () => {
     try {
@@ -226,7 +217,7 @@ export function AppSidebar() {
         return (
           <SidebarMenuItem key={item.title}>
             <SidebarMenuButton
-              className="h-8 w-full relative text-sm cursor-pointer"
+              className="relative h-11 cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setShowInvoiceSoon(true);
@@ -254,10 +245,12 @@ export function AppSidebar() {
         );
       }
 
+      const active = isActive(item.url, item.end);
+
       return (
         <SidebarMenuItem key={item.title}>
-          <SidebarMenuButton asChild className="h-8 w-full relative text-sm">
-            <NavLink to={item.url} end={item.end} className={getNavCls(item.url, item.end)}>
+          <SidebarMenuButton asChild className="relative h-11" isActive={active}>
+            <NavLink to={item.url} end={item.end} className="flex w-full items-center">
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && (
                 <>
@@ -267,7 +260,7 @@ export function AppSidebar() {
                       {item.badge}
                     </Badge>
                   )}
-                  {isActive(item.url, item.end) && <ChevronRight className="h-4 w-4 ml-auto text-primary" />}
+                  {active && <ChevronRight className="ml-auto h-4 w-4 text-primary" />}
                 </>
               )}
               {collapsed && item.badge && (
@@ -304,9 +297,9 @@ export function AppSidebar() {
           <Button className="mt-2 w-full" onClick={() => setShowInvoiceSoon(false)} autoFocus>Close</Button>
         </DialogContent>
       </Dialog>
-      <Sidebar variant="sidebar" collapsible="icon" className="h-screen bg-card/30">
-        <SidebarHeader className="border-b border-border p-2">
-          <div className="flex items-center gap-2">
+      <Sidebar variant="sidebar" collapsible="icon" className="h-full bg-transparent">
+        <SidebarHeader className="border-none px-3 py-4">
+          <div className="flex items-center gap-3">
             <img src={logo} alt="Kourti Legal" className="h-6 w-6 flex-shrink-0" />
             {!collapsed && (
               <div>
@@ -315,20 +308,20 @@ export function AppSidebar() {
               </div>
             )}
           </div>
-          
+
           {/* Mobile trigger button */}
           <Button
-            variant="ghost" 
+            variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="md:hidden absolute top-2 right-2 h-6 w-6"
+            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground shadow-sm hover:border-primary/50 hover:text-foreground md:hidden"
           >
             <Menu className="h-4 w-4" />
           </Button>
         </SidebarHeader>
 
         <SidebarContent
-          className="p-1 sm:p-2 md:p-3 overflow-y-auto max-h-[100dvh] scrollbar-thin scrollbar-thumb-muted-foreground/30"
+          className="max-h-[100dvh] overflow-y-auto px-2 pb-6 pt-2 sm:px-3 md:px-4 scrollbar-thin scrollbar-thumb-muted-foreground/30"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {navigationGroups.map((group) => (
@@ -356,13 +349,13 @@ export function AppSidebar() {
           ))}
 
           {/* User profile section at bottom */}
-          <div className="mt-auto pt-1">
-            <Separator className="mb-1" />
+          <div className="mt-auto pt-2">
+            <Separator className="mb-2 bg-border/60" />
             <div className={`px-1 py-0.5 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
               {collapsed ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full" onClick={handleSignOut}>
+                    <Button variant="ghost" size="icon" className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground hover:border-primary/50 hover:text-foreground" onClick={handleSignOut}>
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={user?.user_metadata?.avatar_url} />
                         <AvatarFallback>{userInitials}</AvatarFallback>
@@ -377,7 +370,7 @@ export function AppSidebar() {
                 <Button
                   variant="ghost"
                   onClick={handleSignOut}
-                  className="w-full justify-start px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  className="w-full justify-start rounded-full border border-transparent px-3 py-2 text-sm font-medium text-muted-foreground hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                 >
                   <LogOut className="h-5 w-5 flex-shrink-0" />
                   <span className="ml-3 font-medium">Sign Out</span>
