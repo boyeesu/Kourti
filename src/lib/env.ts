@@ -40,35 +40,22 @@ type EnvConfig = {
   NODE_ENV: 'development' | 'production' | 'test';
 };
 
-const envSource = import.meta.env;
-
-function requireEnvVar(key: keyof ImportMetaEnv, friendlyName: string) {
-  const value = envSource[key];
-
-  if (!value) {
-    const errorMessage = `Missing required environment variable: ${friendlyName}`;
-    console.error(errorMessage);
-    throw new Error(errorMessage);
-  }
-
-  return value;
-}
-
-function optionalEnvVar<T extends keyof ImportMetaEnv>(key: T, fallback?: string) {
-  return envSource[key] || fallback || '';
-}
+// Hardcoded Supabase configuration - do not use VITE_ env vars
+const SUPABASE_PROJECT_ID = 'zjbvnvydgsxqmmrrmvif';
+const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqYnZudnlkZ3N4cW1tcnJtdmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODYzMTAsImV4cCI6MjA2OTY2MjMxMH0.-lE-O7iPZM_fxM93ddDapJVzcPdBArdCmN1HrwCHIH4';
 
 /**
- * Environment configuration object - validates required values eagerly
+ * Environment configuration object
  */
 export const env: EnvConfig = {
-  SUPABASE_URL: requireEnvVar('VITE_SUPABASE_URL', 'VITE_SUPABASE_URL'),
-  SUPABASE_ANON_KEY: requireEnvVar('VITE_SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY'),
-  SUPABASE_PUBLISHABLE_KEY: requireEnvVar('VITE_SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY'),
-  OPENAI_API_KEY: optionalEnvVar('VITE_OPENAI_API_KEY'),
-  APP_URL: optionalEnvVar('VITE_APP_URL', typeof window !== 'undefined' ? window.location.origin : ''),
-  API_TIMEOUT: Number(optionalEnvVar('VITE_API_TIMEOUT', '30000')),
-  NODE_ENV: (envSource.MODE || 'development') as 'development' | 'production' | 'test',
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  SUPABASE_PUBLISHABLE_KEY: SUPABASE_ANON_KEY,
+  OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY,
+  APP_URL: typeof window !== 'undefined' ? window.location.origin : '',
+  API_TIMEOUT: 30000,
+  NODE_ENV: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',
 };
 
 /**
@@ -94,16 +81,12 @@ export const isTest = env.NODE_ENV === 'test';
 export function validateEnv(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (!envSource.VITE_SUPABASE_URL) {
-    errors.push('VITE_SUPABASE_URL is not set');
+  if (!env.SUPABASE_URL) {
+    errors.push('SUPABASE_URL is not set');
   }
 
-  if (!envSource.VITE_SUPABASE_PUBLISHABLE_KEY) {
-    errors.push('VITE_SUPABASE_PUBLISHABLE_KEY is not set');
-  }
-
-  if (!env.APP_URL) {
-    errors.push('VITE_APP_URL is not set');
+  if (!env.SUPABASE_ANON_KEY) {
+    errors.push('SUPABASE_ANON_KEY is not set');
   }
 
   return {
