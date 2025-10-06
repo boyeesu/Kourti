@@ -1,7 +1,6 @@
 import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { env } from '@/lib/env';
-import { logInfo } from '@/lib/logger';
 
 const SUPABASE_URL = env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY;
@@ -28,13 +27,7 @@ const supabaseConfig: SupabaseClientOptions<'public'> = {
   },
 };
 
-// Log the values we're using (development only)
-if (import.meta.env.DEV) {
-  logInfo('Supabase client initialized', {
-    supabaseUrl: SUPABASE_URL,
-    anonKeyPrefix: SUPABASE_ANON_KEY.substring(0, 8),
-  });
-}
+// Supabase client will be initialized below
 
 /**
  * Create and export the Supabase client
@@ -52,10 +45,6 @@ supabase.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') {
     // Clear any cached data when user signs out
     localStorage.removeItem('app_cache');
-  } else if (event === 'SIGNED_IN') {
-    logInfo('User signed in successfully');
-  } else if (event === 'TOKEN_REFRESHED') {
-    logInfo('Auth token refreshed');
   }
 });
 
