@@ -22,6 +22,12 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --background: 210 20% 98%;
     --foreground: 215 25% 15%;
 
+    /* Elevated surfaces */
+    --surface: 0 0% 100%;
+    --surface-foreground: 215 25% 15%;
+    --surface-muted: 215 16% 94%;
+    --surface-border: 215 15% 88%;
+
     /* Card system for content containers */
     --card: 0 0% 100%;
     --card-foreground: 215 25% 15%;
@@ -67,9 +73,11 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(215 20% 99%));
 
     /* Elegant shadows */
-    --shadow-elegant: 0 4px 20px -2px hsl(var(--primary) / 0.1);
-    --shadow-card: 0 2px 12px -1px hsl(215 25% 15% / 0.08);
-    --shadow-glow: 0 0 40px hsl(var(--primary-glow) / 0.3);
+    --shadow-elegant: 0 25px 60px -35px rgba(15, 23, 42, 0.35);
+    --shadow-card: 0 18px 45px -30px rgba(15, 23, 42, 0.28);
+    --shadow-glow: 0 0 35px hsl(var(--primary-glow) / 0.35);
+
+    --header-height: 3.75rem;
 
     /* Professional animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -198,8 +206,15 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(circle at 12% 8%, hsl(var(--primary) / 0.08), transparent 55%),
+      radial-gradient(circle at 88% 14%, hsl(var(--primary-glow) / 0.06), transparent 58%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
+    background-attachment: fixed;
+    min-height: 100vh;
   }
 
   /* Improved scrollbars */
@@ -229,6 +244,53 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 
   /* Smooth transitions */
   * {
-    transition: var(--transition-fast);
+    transition-property: color, background-color, border-color, box-shadow, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer components {
+  .app-shell {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(160deg, hsl(var(--background)), hsl(var(--muted)) 55%, hsl(var(--secondary)) 100%);
+    z-index: 0;
+  }
+
+  .app-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(1200px circle at 0% 0%, hsl(var(--primary) / 0.08), transparent 60%),
+      radial-gradient(1100px circle at 90% 5%, hsl(var(--primary-glow) / 0.08), transparent 65%);
+    opacity: 0.9;
+    z-index: 0;
+  }
+
+  .app-shell > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .surface-panel {
+    border-radius: 1.1rem;
+    background: linear-gradient(155deg, hsl(var(--surface)) 0%, hsl(var(--surface-muted)) 100%);
+    border: 1px solid hsl(var(--surface-border) / 0.65);
+    box-shadow: var(--shadow-card);
+  }
+
+  .surface-popover {
+    border-radius: 0.9rem;
+    background: linear-gradient(160deg, hsl(var(--surface)) 0%, hsl(var(--surface-muted)) 95%);
+    border: 1px solid hsl(var(--surface-border) / 0.6);
+    box-shadow: 0 22px 65px -32px rgba(15, 23, 42, 0.32);
+  }
+
+  .surface-muted {
+    background: linear-gradient(180deg, hsl(var(--muted)), hsl(var(--background)) 85%);
+    border-radius: 1rem;
   }
 }

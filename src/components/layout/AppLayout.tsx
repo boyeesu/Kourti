@@ -225,17 +225,17 @@ function MobileNavigation() {
       </Dialog>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-<Button
-  variant="ghost"
-  size="icon"
-  className="md:hidden"
-  aria-label="Open main navigation menu"
-  title="Open main navigation menu"
->
-  <Menu className="h-5 w-5" />
-</Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground hover:border-primary/50 hover:text-foreground md:hidden"
+            aria-label="Open main navigation menu"
+            title="Open main navigation menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-[280px] p-0">
+        <SheetContent side="left" className="w-[280px] border-none bg-[hsl(var(--surface))] p-0">
           <div className="flex flex-col h-full">
             <div className="p-4 border-b">
               <div className="flex items-center justify-between">
@@ -328,34 +328,36 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <CommandPalette />
-      <div className="flex h-screen w-screen overflow-hidden bg-background">
+      <div className="app-shell flex h-screen w-screen overflow-hidden">
         {/* Sidebar - hidden on mobile */}
-        <aside className="hidden md:block w-64 border-r border-border">
-          <AppSidebar />
+        <aside className="hidden md:block w-64 border-r border-border/60 bg-[hsl(var(--surface))/0.88] px-2 py-3">
+          <div className="surface-panel h-full w-full overflow-hidden">
+            <AppSidebar />
+          </div>
         </aside>
-        
-        <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex h-12 items-center justify-between px-4 md:px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-10">
+
+        <div className="flex flex-col flex-1 min-w-0 gap-4 px-3 py-4 sm:px-6 sm:py-6">
+          <header className="surface-panel flex min-h-[var(--header-height)] flex-wrap items-center justify-between gap-3 px-3 py-3 sm:flex-nowrap sm:px-5 lg:px-6">
             <div className="flex items-center gap-2">
               {/* Mobile menu */}
               <MobileNavigation />
-              
+
               {/* Sidebar toggle - visible only on desktop */}
-              <div className="hidden md:block">
-                <SidebarTrigger className="mr-2" />
-              </div>
-              
-              {/* Path/Breadcrumb would go here */}
+              <SidebarTrigger className="mr-2 hidden rounded-full border border-border/60 bg-[hsl(var(--surface))] p-2 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground md:flex" />
             </div>
 
             {/* Search bar */}
-            <div 
-              className="flex-1 max-w-md mx-4 cursor-pointer"
+            <div
+              className="flex-1 basis-full cursor-pointer sm:basis-auto sm:max-w-xl"
               onClick={() => setSearchDialogOpen(true)}
             >
-              <div className="relative w-full bg-muted rounded-md border border-input h-9 px-3 flex items-center text-muted-foreground text-sm">
-                <SearchIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                <span>Search... <span className="hidden sm:inline">or press</span> <kbd className="ml-1 text-xs bg-background px-1 py-0.5 rounded border">⌘K</kbd></span>
+              <div className="group relative flex h-11 w-full items-center gap-3 rounded-full border border-border/60 bg-[hsl(var(--surface))] px-4 text-sm text-muted-foreground shadow-sm transition-colors hover:border-primary/50 hover:text-foreground">
+                <SearchIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                <span className="truncate">Search the workspace</span>
+                <span className="ml-auto hidden items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground/70 sm:flex">
+                  Press
+                  <kbd className="rounded-md border border-border/70 bg-[hsl(var(--surface-muted))] px-2 py-0.5 text-[10px] font-semibold text-foreground">⌘K</kbd>
+                </span>
               </div>
             </div>
 
@@ -373,15 +375,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </CommandDialog>
 
             {/* Actions */}
-            <div className="flex items-center gap-1 md:gap-2">
+            <div className="flex items-center gap-2 md:gap-3">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => navigate('/cases/create')} 
-                      className="hidden sm:flex"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate('/cases/create')}
+                      className="hidden h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground hover:border-primary/50 hover:text-foreground sm:flex"
                     >
                       <Plus className="h-5 w-5" />
                     </Button>
@@ -398,12 +400,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => navigate('/help-center')} 
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate('/help-center')}
                       aria-label="Help Center"
-                      className="hidden sm:flex"
+                      className="hidden h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground hover:border-primary/50 hover:text-foreground sm:flex"
                     >
                       <HelpCircle className="h-5 w-5" />
                     </Button>
@@ -414,8 +416,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 p-0 ml-1">
-                    <Avatar className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="ml-1 flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] p-0 text-foreground shadow-sm hover:border-primary/50">
+                    <Avatar className="h-9 w-9">
                       <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
                       <AvatarFallback className="bg-primary/10 text-primary text-sm">
                         {userInitials}
@@ -456,7 +458,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto bg-background px-1.5 py-2 sm:px-4 sm:py-6">{children}</main>
+          <main className="flex-1 overflow-auto rounded-[1.5rem] border border-border/60 bg-[hsl(var(--surface))]/92 shadow-[0_22px_65px_-32px_rgba(15,23,42,0.32)] backdrop-blur-sm">
+            <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col px-4 py-5 sm:px-6 lg:px-10">
+              {children}
+            </div>
+          </main>
         </div>
       </div>
     </SidebarProvider>
