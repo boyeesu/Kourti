@@ -1,6 +1,6 @@
 import { sanitizeErrorForLogging } from '@/lib/error';
 import { addCSRFToRequest } from '@/lib/csrf';
-import { supabase } from '@/integrations/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
@@ -28,6 +28,24 @@ const ENABLE_CONSOLE_LOGS = import.meta.env.MODE !== 'production';
 
 // Generate a unique session ID for better tracking (lazy-loaded to avoid initialization issues)
 let _sessionId: string | null = null;
+let supabaseClientPromise: Promise<SupabaseClient | null> | null = null;
+
+async function getSupabaseClient(): Promise<SupabaseClient | null> {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  if (!supabaseClientPromise) {
+    supabaseClientPromise = import('@/integrations/supabase/client')
+      .then(module => module.supabase as SupabaseClient)
+      .catch(err => {
+        console.warn('Failed to load Supabase client for logging', err);
+        return null;
+      });
+  }
+
+  return supabaseClientPromise;
+}
 function getSessionId(): string {
   if (_sessionId) return _sessionId;
   
@@ -156,13 +174,21 @@ async function sendPendingLogsToServer() {
   pendingServerLogs = [];
   
   try {
-    // Get current user info
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    // Add user ID if available
-    if (user?.id) {
+    const supabase = await getSupabaseClient();
+    let userId: string | undefined;
+
+    if (supabase) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id;
+      } catch (err) {
+        console.warn('Failed to fetch user for logging', err);
+      }
+    }
+
+    if (userId) {
       logsToSend.forEach(log => {
-        log.userId = user.id;
+        log.userId = userId;
       });
     }
     
