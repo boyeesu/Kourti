@@ -27,6 +27,14 @@ export interface UploadDocumentData {
   file: File;
   case_id?: string;
   metadata?: any;
+  summary?: string;
+  contract_type?: string;
+  effective_date?: string;
+  renewal_date?: string;
+  termination_date?: string;
+  value?: number;
+  currency?: string;
+  terms?: string;
 }
 
 export function useDocuments() {
@@ -277,7 +285,20 @@ export function useUploadDocument() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ name, file, case_id, metadata }: UploadDocumentData) => {
+    mutationFn: async ({
+      name,
+      file,
+      case_id,
+      metadata,
+      summary,
+      contract_type,
+      effective_date,
+      renewal_date,
+      termination_date,
+      value,
+      currency,
+      terms
+    }: UploadDocumentData) => {
       const userId = await getCurrentUserId();
       const { data: profile } = await supabase
         .from('profiles')
@@ -308,8 +329,16 @@ export function useUploadDocument() {
         file_path: uploadData.path,
         file_size: file.size,
         mime_type: file.type,
+        ...(summary ? { summary } : {}),
+        ...(contract_type ? { contract_type } : {}),
+        ...(effective_date ? { effective_date } : {}),
+        ...(renewal_date ? { renewal_date } : {}),
+        ...(termination_date ? { termination_date } : {}),
+        ...(value !== undefined ? { value } : {}),
+        ...(currency ? { currency } : {}),
+        ...(terms ? { terms } : {}),
         metadata: {
-          ...metadata,
+          ...(metadata ?? {}),
           ...(case_id && { case_id }),
           original_filename: file.name,
         },

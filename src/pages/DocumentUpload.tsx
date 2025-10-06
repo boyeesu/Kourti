@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { v4 as uuidv4 } from 'uuid';
 import { z } from "zod";
 
 import { useToast } from "@/hooks/use-toast";
@@ -33,7 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { UploadCloud, Sparkles, Bot, Bell, ShieldCheck, FileText } from "lucide-react";
 import { useCases } from "@/hooks/useCases";
-import { useCreateDocument } from "@/hooks/useDocuments";
+import { useUploadDocument } from "@/hooks/useDocuments";
 import { Case } from "@/types";
 
 const formSchema = z.object({
@@ -46,7 +45,12 @@ const formSchema = z.object({
   effective_date: z.string().optional(),
   renewal_date: z.string().optional(),
   termination_date: z.string().optional(),
-  value: z.number().optional(),
+  value: z
+    .string()
+    .optional()
+    .refine((val) => !val || !Number.isNaN(Number(val)), {
+      message: "Value must be a number",
+    }),
   contract_type: z.string().optional(),
   currency: z.string().optional(),
   terms: z.string().optional(),
@@ -56,10 +60,13 @@ export default function DocumentUpload() {
   const navigate = useNavigate();
   const [selectedCase, setSelectedCase] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  // Merged state from both branches
+  const [isDragging, setIsDragging] = useState(false);
   const [autoSummarize, setAutoSummarize] = useState(true);
   const [notifyTeam, setNotifyTeam] = useState(false);
   const { toast } = useToast();
-  const createDocument = useCreateDocument();
+  // Assuming useUploadDocument returns a mutation object like useMutation
+  const uploadDocument = useUploadDocument();
 
   const { data: casesData = { cases: [], count: 0 } } = useCases();
 
@@ -87,6 +94,8 @@ export default function DocumentUpload() {
   }, [readinessSteps]);
 
   const handleGenerateSummary = useCallback(() => {
+    // This logic seems a bit redundant as autoSummarize is already true by default, 
+    // but we'll keep it as it's part of the original logic in `main`.
     toast({
       title: autoSummarize ? "AI summary already enabled" : "AI summary requested",
       description: file ? "We'll include a generated summary when the upload completes." : "Add a document first so we know what to summarize.",
@@ -104,18 +113,28 @@ export default function DocumentUpload() {
       return;
     }
 
-    const fileId = uuidv4();
-    const fileName = `${fileId}-${file.name}`;
-
     try {
-      // Create the document in the database
-      await createDocument.mutateAsync({
-        ...values,
-        content: fileName, // Store the file name in the content field
+      const numericValue = values.value ? Number(values.value) : undefined;
+
+      // Use the logic from `codex` as it seems more complete for the document upload
+      // and integrates all the fields from `formSchema`.
+      await uploadDocument.mutateAsync({
+        name: values.name,
+        file,
+        case_id: selectedCase || undefined,
+        summary: values.summary?.trim() || undefined,
+        contract_type: values.contract_type?.trim() || undefined,
+        effective_date: values.effective_date || undefined,
+        renewal_date: values.renewal_date || undefined,
+        termination_date: values.termination_date || undefined,
+        value: numericValue,
+        currency: values.currency?.trim() || undefined,
+        terms: values.terms?.trim() || undefined,
         metadata: {
-          ...(values.metadata || {}),
+          // Merge metadata logic from both branches for completeness
+          ...(values.metadata ? { custom: values.metadata } : {}),
           ...(selectedCase ? { case_id: selectedCase } : {}),
-          ai_preferences: {
+          ai_preferences: { // Keep AI preferences from `main`
             autoSummarize,
             notifyTeam,
           },
@@ -143,9 +162,12 @@ export default function DocumentUpload() {
     onDrop: (acceptedFiles: File[]) => {
       if (acceptedFiles && acceptedFiles.length > 0) {
         setFile(acceptedFiles[0]);
+        setIsDragging(false);
       }
     },
     multiple: false,
+    onDragEnter: () => setIsDragging(true),
+    onDragLeave: () => setIsDragging(false),
   });
 
   return (
@@ -165,6 +187,7 @@ export default function DocumentUpload() {
             <CardDescription>Prepare a file, add the context our AI needs, and share it with your workspace.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Readiness Checklist (from main) */}
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -203,9 +226,10 @@ export default function DocumentUpload() {
             </Alert>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* File Upload (merged with isDragging class) */}
               <section className="space-y-3">
                 <Label htmlFor="file">Document file</Label>
-                <div {...getRootProps()} className="group relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted/60 p-6 text-center transition hover:border-primary hover:bg-primary/5">
+                <div {...getRootProps()} className={`group relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted/60 p-6 text-center transition hover:border-primary hover:bg-primary/5 ${isDragging ? "border-primary bg-primary/10" : ""}`}>
                   <input {...getInputProps()} id="file" />
                   <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <UploadCloud className="h-6 w-6" />
@@ -213,6 +237,11 @@ export default function DocumentUpload() {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">{file ? file.name : "Click or drag file to upload"}</p>
                     <p className="text-xs text-muted-foreground">Supported: PDF, DOCX, TXT up to 10MB</p>
+                    {file && (
+                      <p className="text-xs text-muted-foreground/80 mt-1">
+                        {(file.size / 1024).toFixed(1)} KB • {file.type || "Unknown type"}
+                      </p>
+                    )}
                   </div>
                   {file && <Button variant="ghost" size="sm" type="button" onClick={e => {
                     e.stopPropagation();
@@ -223,6 +252,7 @@ export default function DocumentUpload() {
                 </div>
               </section>
 
+              {/* Document Name and Related Case (from main) */}
               <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Document name</Label>
@@ -253,17 +283,90 @@ export default function DocumentUpload() {
                   </Select>
                 </div>
               </section>
+              
+              <Separator />
 
-              <section className="space-y-2">
-                <Label htmlFor="summary">Summary (optional)</Label>
-                <Textarea
-                  id="summary"
-                  placeholder="Add any context or highlights you already know"
-                  rows={4}
-                  {...register("summary")}
-                />
+              {/* Dates & Financial Details (from codex) */}
+              <section className="space-y-4">
+                <p className="text-lg font-semibold">Contract & Financial Details (Optional)</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="effective_date">Effective Date</Label>
+                    <Input type="date" id="effective_date" {...register("effective_date")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="renewal_date">Renewal Date</Label>
+                    <Input type="date" id="renewal_date" {...register("renewal_date")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="termination_date">Termination Date</Label>
+                    <Input type="date" id="termination_date" {...register("termination_date")} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="value">Contract Value</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="value"
+                        placeholder="0.00"
+                        type="number"
+                        step="0.01"
+                        {...register("value")}
+                      />
+                      <Input
+                        id="currency"
+                        placeholder="Currency"
+                        className="max-w-[120px]"
+                        {...register("currency")}
+                      />
+                    </div>
+                    {errors.value && (
+                      <p className="text-xs text-destructive">{errors.value.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contract_type">Document Type</Label>
+                    <Input
+                      id="contract_type"
+                      placeholder="e.g. Master Service Agreement"
+                      {...register("contract_type")}
+                    />
+                  </div>
+                </div>
               </section>
 
+              <Separator />
+
+              {/* Summary and Key Terms */}
+              <section className="space-y-4">
+                <p className="text-lg font-semibold">Context and Summary</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="summary">Summary (optional)</Label>
+                    <Textarea
+                      id="summary"
+                      placeholder="Add any context or highlights you already know"
+                      rows={4}
+                      {...register("summary")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="terms">Key Terms (Optional)</Label>
+                    <Textarea
+                      id="terms"
+                      placeholder="Notable clauses, parties, obligations..."
+                      rows={4}
+                      {...register("terms")}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <Separator />
+
+              {/* AI Workflow (from main) */}
               <section className="space-y-3 rounded-lg border bg-muted/40 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -295,8 +398,8 @@ export default function DocumentUpload() {
               </section>
 
               <CardFooter className="flex flex-col gap-2 p-0">
-                <Button type="submit" className="w-full shadow-md">
-                  Upload document
+                <Button type="submit" className="w-full shadow-md" disabled={uploadDocument.isPending || !file}>
+                  {uploadDocument.isPending ? "Uploading…" : "Upload document"}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">Files are encrypted at rest and automatically versioned.</p>
               </CardFooter>
@@ -304,6 +407,7 @@ export default function DocumentUpload() {
           </CardContent>
         </Card>
 
+        {/* AI Preview and Checklist Sidebar (from main) */}
         <div className="space-y-4">
           <Card className="shadow-card">
             <CardHeader className="pb-3">
