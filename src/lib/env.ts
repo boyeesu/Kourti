@@ -40,10 +40,9 @@ type EnvConfig = {
   NODE_ENV: 'development' | 'production' | 'test';
 };
 
-// Supabase configuration with fallback values
-// These are PUBLIC credentials safe to expose in frontend
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://zjbvnvydgsxqmmrrmvif.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqYnZudnlkZ3N4cW1tcnJtdmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODYzMTAsImV4cCI6MjA2OTY2MjMxMH0.-lE-O7iPZM_fxM93ddDapJVzcPdBArdCmN1HrwCHIH4';
+// Supabase public credentials - safe to expose in frontend code
+const SUPABASE_URL = 'https://zjbvnvydgsxqmmrrmvif.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqYnZudnlkZ3N4cW1tcnJtdmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODYzMTAsImV4cCI6MjA2OTY2MjMxMH0.-lE-O7iPZM_fxM93ddDapJVzcPdBArdCmN1HrwCHIH4';
 
 /**
  * Environment configuration object
@@ -52,7 +51,7 @@ export const env: EnvConfig = {
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
   SUPABASE_PUBLISHABLE_KEY: SUPABASE_ANON_KEY,
-  OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY,
+  OPENAI_API_KEY: undefined,
   APP_URL: typeof window !== 'undefined' ? window.location.origin : '',
   API_TIMEOUT: 30000,
   NODE_ENV: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',
