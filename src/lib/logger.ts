@@ -26,16 +26,28 @@ const SERVER_LOG_ENDPOINT = import.meta.env.VITE_LOG_API_ENDPOINT || null;
 const LOG_BATCH_SIZE = 20; // Number of logs to collect before sending to server
 const ENABLE_CONSOLE_LOGS = import.meta.env.MODE !== 'production';
 
-// Generate a unique session ID for better tracking
-const SESSION_ID = (() => {
+// Generate a unique session ID for better tracking (lazy-loaded to avoid initialization issues)
+let _sessionId: string | null = null;
+function getSessionId(): string {
+  if (_sessionId) return _sessionId;
+  
+  if (typeof window === 'undefined') {
+    _sessionId = 'server-session';
+    return _sessionId;
+  }
+  
   const storedId = localStorage.getItem('kourti_session_id');
-  if (storedId) return storedId;
+  if (storedId) {
+    _sessionId = storedId;
+    return _sessionId;
+  }
   
   const newId = Math.random().toString(36).substring(2, 15) + 
                Math.random().toString(36).substring(2, 15);
   localStorage.setItem('kourti_session_id', newId);
-  return newId;
-})();
+  _sessionId = newId;
+  return _sessionId;
+}
 
 // In-memory log collection
 const logs: LogEntry[] = (() => {
@@ -88,7 +100,7 @@ function addEntry(entry: LogEntry) {
   // Add contextual information
   const enhancedEntry: LogEntry = {
     ...entry,
-    sessionId: SESSION_ID,
+    sessionId: getSessionId(),
     url: typeof window !== 'undefined' ? window.location.href : undefined,
     userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
   };
@@ -164,7 +176,7 @@ async function sendPendingLogsToServer() {
       body: JSON.stringify({
         logs: logsToSend,
         timestamp: new Date().toISOString(),
-        sessionId: SESSION_ID
+        sessionId: getSessionId()
       }),
     });
   } catch (err) {
@@ -294,7 +306,7 @@ if (typeof window !== 'undefined' && SHOULD_SEND_TO_SERVER && SERVER_LOG_ENDPOIN
         JSON.stringify({
           logs: pendingServerLogs,
           timestamp: new Date().toISOString(),
-          sessionId: SESSION_ID
+          sessionId: getSessionId()
         })
       );
     }
