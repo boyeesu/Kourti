@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 import { useForm } from "react-hook-form";
@@ -24,8 +24,14 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
-import { UploadCloud } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { UploadCloud, Sparkles, Bot, Bell, ShieldCheck, FileText } from "lucide-react";
 import { useCases } from "@/hooks/useCases";
 import { useCreateDocument } from "@/hooks/useDocuments";
 import { Case } from "@/types";
@@ -50,6 +56,8 @@ export default function DocumentUpload() {
   const navigate = useNavigate();
   const [selectedCase, setSelectedCase] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [autoSummarize, setAutoSummarize] = useState(true);
+  const [notifyTeam, setNotifyTeam] = useState(false);
   const { toast } = useToast();
   const createDocument = useCreateDocument();
 
@@ -58,10 +66,33 @@ export default function DocumentUpload() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
   });
+
+  const watchName = watch("name");
+  const watchSummary = watch("summary");
+
+  const readinessSteps = useMemo(() => [
+    { title: "Upload file", description: "Drop a contract, agreement, or supporting document.", completed: Boolean(file) },
+    { title: "Add context", description: "Name the document and optionally tag a related case.", completed: Boolean(watchName) || Boolean(selectedCase) },
+    { title: "Configure AI", description: "Choose if the AI should summarize and notify the team.", completed: autoSummarize || notifyTeam },
+  ], [autoSummarize, file, notifyTeam, selectedCase, watchName]);
+
+  const readinessProgress = useMemo(() => {
+    const completed = readinessSteps.filter(step => step.completed).length;
+    return Math.round((completed / readinessSteps.length) * 100);
+  }, [readinessSteps]);
+
+  const handleGenerateSummary = useCallback(() => {
+    toast({
+      title: autoSummarize ? "AI summary already enabled" : "AI summary requested",
+      description: file ? "We'll include a generated summary when the upload completes." : "Add a document first so we know what to summarize.",
+    });
+    setAutoSummarize(true);
+  }, [autoSummarize, file, toast]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!file) {
@@ -81,6 +112,15 @@ export default function DocumentUpload() {
       await createDocument.mutateAsync({
         ...values,
         content: fileName, // Store the file name in the content field
+        metadata: {
+          ...(values.metadata || {}),
+          ...(selectedCase ? { case_id: selectedCase } : {}),
+          ai_preferences: {
+            autoSummarize,
+            notifyTeam,
+          },
+          original_filename: file.name,
+        },
       });
 
       toast({
@@ -109,7 +149,7 @@ export default function DocumentUpload() {
   });
 
   return (
-    <div className="px-4 py-6 space-y-6 max-w-4xl mx-auto">
+    <div className="px-4 py-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -118,77 +158,203 @@ export default function DocumentUpload() {
         </div>
       </div>
 
-      <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Document Details</CardTitle>
-          <CardDescription>
-            Fill in the details about the document you are uploading
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* File Upload */}
-            <div className="space-y-2">
-              <Label htmlFor="file">
-                Document File
-              </Label>
-              <div {...getRootProps()} className="relative border rounded-md p-4 flex items-center justify-center bg-muted hover:bg-accent cursor-pointer">
-                <input {...getInputProps()} id="file" />
-                <UploadCloud className="h-6 w-6 mr-2 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {file ? file.name : "Click or drag file to upload"}
-                </span>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <Card className="shadow-card">
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-xl font-semibold">Document details</CardTitle>
+            <CardDescription>Prepare a file, add the context our AI needs, and share it with your workspace.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Upload readiness</p>
+                  <h2 className="text-lg font-semibold">{readinessProgress === 100 ? "Ready to process" : "Complete these steps"}</h2>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-semibold">{readinessProgress}%</span>
+                  <p className="text-xs text-muted-foreground">complete</p>
+                </div>
+              </div>
+              <Progress value={readinessProgress} className="h-2" />
+              <div className="grid gap-3 md:grid-cols-3">
+                {readinessSteps.map(step => (
+                  <div key={step.title} className={`rounded-lg border p-3 text-sm transition ${step.completed ? "border-primary bg-primary/5" : "border-dashed"}`}>
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">{step.title}</p>
+                      <Badge variant={step.completed ? "default" : "outline"} className="text-[10px] uppercase tracking-wide">
+                        {step.completed ? "Done" : "Pending"}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{step.description}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Document Name */}
-            <div className="space-y-2">
-              <Label htmlFor="name">Document Name</Label>
-              <Input
-                id="name"
-                placeholder="Enter document name"
-                type="text"
-                {...register("name")}
-              />
-              {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
-              )}
-            </div>
+            <Alert className="border-primary/40 bg-primary/5">
+              <AlertTitle className="flex items-center gap-2 text-sm font-semibold">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Boost AI accuracy
+              </AlertTitle>
+              <AlertDescription className="text-xs text-muted-foreground">
+                Include case links, contract values, and renewal expectations so summaries highlight the most relevant insights.
+              </AlertDescription>
+            </Alert>
 
-            {/* Summary */}
-            <div className="space-y-2">
-              <Label htmlFor="summary">Summary (Optional)</Label>
-              <Textarea
-                id="summary"
-                placeholder="Enter a brief summary of the document"
-                {...register("summary")}
-              />
-            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <section className="space-y-3">
+                <Label htmlFor="file">Document file</Label>
+                <div {...getRootProps()} className="group relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted/60 p-6 text-center transition hover:border-primary hover:bg-primary/5">
+                  <input {...getInputProps()} id="file" />
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <UploadCloud className="h-6 w-6" />
+                  </span>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{file ? file.name : "Click or drag file to upload"}</p>
+                    <p className="text-xs text-muted-foreground">Supported: PDF, DOCX, TXT up to 10MB</p>
+                  </div>
+                  {file && <Button variant="ghost" size="sm" type="button" onClick={e => {
+                    e.stopPropagation();
+                    setFile(null);
+                  }}>
+                      Clear file
+                    </Button>}
+                </div>
+              </section>
 
-            {/* Related Case */}
-            <div className="space-y-2">
-              <Label htmlFor="case">Related Case (Optional)</Label>
-              <Select value={selectedCase} onValueChange={setSelectedCase}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a case..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {casesData.cases.map((case_: Case) => (
-                    <SelectItem key={case_.id} value={case_.id}>
-                      {case_.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Document name</Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g., Vendor agreement Q2"
+                    type="text"
+                    {...register("name")}
+                  />
+                  {errors.name && (
+                    <p className="text-xs text-destructive">{errors.name.message}</p>
+                  )}
+                </div>
 
-            {/* Submit Button */}
-            <Button type="submit" className="shadow-md w-full">
-              Upload Document
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+                <div className="space-y-2">
+                  <Label htmlFor="case">Related case (optional)</Label>
+                  <Select value={selectedCase} onValueChange={setSelectedCase}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a case..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {casesData.cases.map((case_: Case) => (
+                        <SelectItem key={case_.id} value={case_.id}>
+                          {case_.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <Label htmlFor="summary">Summary (optional)</Label>
+                <Textarea
+                  id="summary"
+                  placeholder="Add any context or highlights you already know"
+                  rows={4}
+                  {...register("summary")}
+                />
+              </section>
+
+              <section className="space-y-3 rounded-lg border bg-muted/40 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold">AI workflow</p>
+                    <p className="text-xs text-muted-foreground">Choose what should happen once the file is processed.</p>
+                  </div>
+                  <Badge variant={autoSummarize ? "default" : "secondary"} className="text-[10px] uppercase">{autoSummarize ? "AI enabled" : "Manual"}</Badge>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="flex items-start gap-3 rounded-md border bg-background/80 p-3 text-sm">
+                    <Checkbox checked={autoSummarize} onCheckedChange={value => setAutoSummarize(Boolean(value))} />
+                    <span>
+                      <span className="flex items-center gap-2 font-medium"><Bot className="h-4 w-4 text-primary" />Generate AI summary</span>
+                      <span className="text-xs text-muted-foreground">Receive a concise overview and key clauses within seconds.</span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-3 rounded-md border bg-background/80 p-3 text-sm">
+                    <Checkbox checked={notifyTeam} onCheckedChange={value => setNotifyTeam(Boolean(value))} />
+                    <span>
+                      <span className="flex items-center gap-2 font-medium"><Bell className="h-4 w-4 text-primary" />Notify legal team</span>
+                      <span className="text-xs text-muted-foreground">Send a digest to collaborators when the AI finishes processing.</span>
+                    </span>
+                  </label>
+                </div>
+                <Button type="button" variant="outline" size="sm" className="w-fit" onClick={handleGenerateSummary}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Ask AI for a smarter summary
+                </Button>
+              </section>
+
+              <CardFooter className="flex flex-col gap-2 p-0">
+                <Button type="submit" className="w-full shadow-md">
+                  Upload document
+                </Button>
+                <p className="text-center text-xs text-muted-foreground">Files are encrypted at rest and automatically versioned.</p>
+              </CardFooter>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">AI preview</CardTitle>
+              <CardDescription>Review what will be shared once processing is complete.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Document name</p>
+                <p className="font-medium text-foreground">{watchName || (file ? file.name : "Untitled document")}</p>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <p className="text-xs uppercase text-muted-foreground">AI summary</p>
+                <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  {watchSummary ? watchSummary : autoSummarize ? "We will generate a short executive summary and highlight the top risks once the upload finishes." : "Enable AI summarization to get quick talking points for your team."}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs uppercase text-muted-foreground">Workflow</p>
+                <div className="flex flex-wrap gap-2">
+                  {autoSummarize && <Badge variant="secondary" className="flex items-center gap-1 text-[10px] uppercase"><Bot className="h-3 w-3" /> Summary</Badge>}
+                  {notifyTeam && <Badge variant="secondary" className="flex items-center gap-1 text-[10px] uppercase"><Bell className="h-3 w-3" /> Notify team</Badge>}
+                  {selectedCase && <Badge variant="outline" className="flex items-center gap-1 text-[10px] uppercase"><FileText className="h-3 w-3" /> Linked case</Badge>}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Upload checklist</CardTitle>
+              <CardDescription>Confirm these best practices before sharing with clients.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs text-muted-foreground">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 h-4 w-4 text-primary" />
+                <span>Remove sensitive data or apply redactions if this file leaves your organization.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <FileText className="mt-0.5 h-4 w-4 text-primary" />
+                <span>Include renewal dates, contract values, and related matters so automated tracking stays accurate.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Sparkles className="mt-0.5 h-4 w-4 text-primary" />
+                <span>Turn on AI summaries to help stakeholders review documents faster.</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
