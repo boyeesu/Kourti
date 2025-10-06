@@ -52,7 +52,7 @@ type NavigationItem = {
   end?: boolean;
   badge?: string;
   badgeVariant?: "default" | "secondary" | "destructive" | "outline";
-  // Permission required to show the item (defaults to { resource, action: 'read' })
+  // Optional permission required to show the item
   permission?: { resource: Resource; action: Action };
 };
 
@@ -67,8 +67,8 @@ const primaryNavigation: NavigationGroup = {
   items: [
     { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
     { title: "Cases", url: "/cases", icon: Briefcase, permission: { resource: 'cases', action: 'read' } },
-    { title: "Clients", url: "/clients", icon: UserCheck },
-    { title: "Calendar", url: "/calendar", icon: Calendar },
+    { title: "Clients", url: "/clients", icon: UserCheck, permission: { resource: 'clients', action: 'read' } },
+    { title: "Calendar", url: "/calendar", icon: Calendar, permission: { resource: 'calendars', action: 'read' } },
   ]
 };
 
@@ -76,8 +76,8 @@ const primaryNavigation: NavigationGroup = {
 const documentsNavigation: NavigationGroup = {
   label: "Legal Documents",
   items: [
-    { title: "Documents", url: "/documents", icon: FileText },
-    { title: "Contracts", url: "/contracts", icon: FileCheck },
+    { title: "Documents", url: "/documents", icon: FileText, permission: { resource: 'documents', action: 'read' } },
+    { title: "Contracts", url: "/contracts", icon: FileCheck, permission: { resource: 'contracts', action: 'read' } },
   ]
 };
 
@@ -85,31 +85,35 @@ const documentsNavigation: NavigationGroup = {
 const toolsNavigation: NavigationGroup = {
   label: "Tools",
   items: [
-    { 
-      title: "Ream AI", 
-      url: "/ream-ai", 
-      icon: Bot, 
-      badge: "New", 
-      badgeVariant: "default" 
+    {
+      title: "Ream AI",
+      url: "/ream-ai",
+      icon: Bot,
+      badge: "New",
+      badgeVariant: "default",
+      permission: { resource: 'documents', action: 'read' }
     },
-    { 
-      title: "Voice Recorder", 
-      url: "/voice-recorder", 
-      icon: Mic, 
-      badge: "New", 
-      badgeVariant: "default" 
+    {
+      title: "Voice Recorder",
+      url: "/voice-recorder",
+      icon: Mic,
+      badge: "New",
+      badgeVariant: "default",
+      permission: { resource: 'documents', action: 'create' }
     },
-    { 
-      title: "Transcriptions", 
-      url: "/transcriptions", 
-      icon: FileText
+    {
+      title: "Transcriptions",
+      url: "/transcriptions",
+      icon: FileText,
+      permission: { resource: 'documents', action: 'read' }
     },
-    { 
-      title: "Invoicing", 
-      url: "/invoices", 
+    {
+      title: "Invoicing",
+      url: "/invoices",
       icon: Receipt,
       badge: "Soon",
-      badgeVariant: "outline"
+      badgeVariant: "outline",
+      permission: { resource: 'invoices', action: 'read' }
     }
   ]
 };
@@ -118,9 +122,9 @@ const toolsNavigation: NavigationGroup = {
 const managementNavigation: NavigationGroup = {
   label: "Management",
   items: [
-    { title: "Users", url: "/users", icon: Users },
-    { title: "Analytics", url: "/analytics", icon: Gauge },
-    { title: "Settings", url: "/settings", icon: Settings },
+    { title: "Users", url: "/users", icon: Users, permission: { resource: 'users', action: 'manage' } },
+    { title: "Analytics", url: "/analytics", icon: Gauge, permission: { resource: 'cases', action: 'manage' } },
+    { title: "Settings", url: "/settings", icon: Settings, permission: { resource: 'settings', action: 'manage' } },
   ]
 };
 
@@ -218,8 +222,6 @@ export function AppSidebar() {
   const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
 
   const renderNavItem = (item: NavigationItem) => {
-    const perm = item.permission ?? { resource: item.url.split("/")[1] as Resource, action: "read" as Action };
-
     const core = () => {
       // Intercept Invoicing (beta banner)
       if (item.url === "/invoices") {
@@ -284,9 +286,15 @@ export function AppSidebar() {
       );
     };
 
+    const content = core();
+
+    if (!item.permission) {
+      return content;
+    }
+
     return (
-      <PermissionGate resource={perm.resource} action={perm.action} fallback={null}>
-        {core()}
+      <PermissionGate resource={item.permission.resource} action={item.permission.action} fallback={null}>
+        {content}
       </PermissionGate>
     );
   };

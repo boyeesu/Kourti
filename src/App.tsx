@@ -7,6 +7,8 @@ import { NotificationsProvider } from "@/components/ui/notifications";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PermissionGate } from "@/components/PermissionGate";
+import { Action, Resource } from "@/hooks/usePermissions";
 import OrganizationSetup from "@/components/OrganizationSetup";
 import { CasesProvider } from "@/context/CasesContext";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -44,6 +46,7 @@ import TranscriptionView from "./pages/TranscriptionView";
 import TranscriptionsList from "./pages/TranscriptionsList";
 import BulkImport from "./pages/BulkImport";
 import NotFound from "./pages/NotFound";
+import Unauthorized from "./pages/Unauthorized";
 import { logInfo, logWarn } from "./lib/logger";
 // ThemeProvider removed - now handled in main.tsx
 
@@ -60,48 +63,52 @@ type ProtectedRouteConfig = {
   component: React.ComponentType;
   boundaryName?: string;
   suspense?: boolean;
+  permission?: {
+    resource: Resource;
+    action: Action;
+  };
 };
 
 const protectedRoutes: ProtectedRouteConfig[] = [
-  { path: '/', component: DashboardNew, boundaryName: 'Dashboard' },
-  { path: '/dashboard', component: DashboardNew, boundaryName: 'Dashboard' },
-  { path: '/cases', component: Cases, boundaryName: 'Cases' },
-  { path: '/cases/create', component: CaseCreate, boundaryName: 'Case Create' },
-  { path: '/cases/:id', component: CaseDetails, boundaryName: 'Case Details' },
-  { path: '/cases/:id/edit', component: CaseEdit, boundaryName: 'Case Edit' },
-  { path: '/cases/:id/activities', component: CaseActivities, boundaryName: 'Case Activities' },
-  { path: '/clients', component: Clients, boundaryName: 'Clients' },
-  { path: '/clients/create', component: ClientCreate, boundaryName: 'Client Create' },
-  { path: '/clients/:clientId', component: ClientDetails, boundaryName: 'Client Details' },
-  { path: '/clients/:clientId/edit', component: ClientEdit, boundaryName: 'Client Edit' },
-  { path: '/calendar', component: Calendar, boundaryName: 'Calendar' },
-  { path: '/documents', component: Documents, boundaryName: 'Documents' },
-  { path: '/documents/upload', component: DocumentUpload, boundaryName: 'Document Upload' },
-  { path: '/documents/review', component: DocumentReview, boundaryName: 'Document Review' },
-  { path: '/contracts', component: Contracts, boundaryName: 'Contracts' },
-  { path: '/contracts/create', component: ContractCreate, boundaryName: 'Contract Create' },
-  { path: '/contracts/upload', component: ContractUpload, boundaryName: 'Contract Upload', suspense: true },
-  { path: '/contracts/compare', component: ContractCompare, boundaryName: 'Contract Compare' },
-  { path: '/contracts/:id', component: ContractView, boundaryName: 'Contract View' },
-  { path: '/contracts/:id/edit', component: ContractEdit, boundaryName: 'Contract Edit' },
-  { path: '/contracts/:id/history', component: ContractHistory, boundaryName: 'Contract History' },
-  { path: '/contracts/review', component: ContractReview, boundaryName: 'Contract Review' },
-  { path: '/invoices', component: Invoices, boundaryName: 'Invoices', suspense: true },
-  { path: '/invoices/create', component: InvoiceCreate, boundaryName: 'Invoice Create', suspense: true },
-  { path: '/invoices/:id', component: InvoiceDetails, boundaryName: 'Invoice Details', suspense: true },
-  { path: '/analytics', component: Analytics, boundaryName: 'Analytics', suspense: true },
-  { path: '/ream-ai', component: ReamAI, boundaryName: 'Ream AI' },
-  { path: '/voice-recorder', component: VoiceRecorder, boundaryName: 'Voice Recorder' },
-  { path: '/transcriptions', component: TranscriptionsList, boundaryName: 'Transcriptions List' },
-  { path: '/transcriptions/:id', component: TranscriptionView, boundaryName: 'Transcription View' },
-  { path: '/bulk-import', component: BulkImport, boundaryName: 'Bulk Import' },
+  { path: '/', component: DashboardNew, boundaryName: 'Dashboard', permission: { resource: 'cases', action: 'read' } },
+  { path: '/dashboard', component: DashboardNew, boundaryName: 'Dashboard', permission: { resource: 'cases', action: 'read' } },
+  { path: '/cases', component: Cases, boundaryName: 'Cases', permission: { resource: 'cases', action: 'read' } },
+  { path: '/cases/create', component: CaseCreate, boundaryName: 'Case Create', permission: { resource: 'cases', action: 'create' } },
+  { path: '/cases/:id', component: CaseDetails, boundaryName: 'Case Details', permission: { resource: 'cases', action: 'read' } },
+  { path: '/cases/:id/edit', component: CaseEdit, boundaryName: 'Case Edit', permission: { resource: 'cases', action: 'update' } },
+  { path: '/cases/:id/activities', component: CaseActivities, boundaryName: 'Case Activities', permission: { resource: 'cases', action: 'read' } },
+  { path: '/clients', component: Clients, boundaryName: 'Clients', permission: { resource: 'clients', action: 'read' } },
+  { path: '/clients/create', component: ClientCreate, boundaryName: 'Client Create', permission: { resource: 'clients', action: 'create' } },
+  { path: '/clients/:clientId', component: ClientDetails, boundaryName: 'Client Details', permission: { resource: 'clients', action: 'read' } },
+  { path: '/clients/:clientId/edit', component: ClientEdit, boundaryName: 'Client Edit', permission: { resource: 'clients', action: 'update' } },
+  { path: '/calendar', component: Calendar, boundaryName: 'Calendar', permission: { resource: 'calendars', action: 'read' } },
+  { path: '/documents', component: Documents, boundaryName: 'Documents', permission: { resource: 'documents', action: 'read' } },
+  { path: '/documents/upload', component: DocumentUpload, boundaryName: 'Document Upload', permission: { resource: 'documents', action: 'create' } },
+  { path: '/documents/review', component: DocumentReview, boundaryName: 'Document Review', permission: { resource: 'documents', action: 'update' } },
+  { path: '/contracts', component: Contracts, boundaryName: 'Contracts', permission: { resource: 'contracts', action: 'read' } },
+  { path: '/contracts/create', component: ContractCreate, boundaryName: 'Contract Create', permission: { resource: 'contracts', action: 'create' } },
+  { path: '/contracts/upload', component: ContractUpload, boundaryName: 'Contract Upload', suspense: true, permission: { resource: 'contracts', action: 'create' } },
+  { path: '/contracts/compare', component: ContractCompare, boundaryName: 'Contract Compare', permission: { resource: 'contracts', action: 'read' } },
+  { path: '/contracts/:id', component: ContractView, boundaryName: 'Contract View', permission: { resource: 'contracts', action: 'read' } },
+  { path: '/contracts/:id/edit', component: ContractEdit, boundaryName: 'Contract Edit', permission: { resource: 'contracts', action: 'update' } },
+  { path: '/contracts/:id/history', component: ContractHistory, boundaryName: 'Contract History', permission: { resource: 'contracts', action: 'read' } },
+  { path: '/contracts/review', component: ContractReview, boundaryName: 'Contract Review', permission: { resource: 'contracts', action: 'update' } },
+  { path: '/invoices', component: Invoices, boundaryName: 'Invoices', suspense: true, permission: { resource: 'invoices', action: 'read' } },
+  { path: '/invoices/create', component: InvoiceCreate, boundaryName: 'Invoice Create', suspense: true, permission: { resource: 'invoices', action: 'create' } },
+  { path: '/invoices/:id', component: InvoiceDetails, boundaryName: 'Invoice Details', suspense: true, permission: { resource: 'invoices', action: 'read' } },
+  { path: '/analytics', component: Analytics, boundaryName: 'Analytics', suspense: true, permission: { resource: 'cases', action: 'manage' } },
+  { path: '/ream-ai', component: ReamAI, boundaryName: 'Ream AI', permission: { resource: 'documents', action: 'read' } },
+  { path: '/voice-recorder', component: VoiceRecorder, boundaryName: 'Voice Recorder', permission: { resource: 'documents', action: 'create' } },
+  { path: '/transcriptions', component: TranscriptionsList, boundaryName: 'Transcriptions List', permission: { resource: 'documents', action: 'read' } },
+  { path: '/transcriptions/:id', component: TranscriptionView, boundaryName: 'Transcription View', permission: { resource: 'documents', action: 'read' } },
+  { path: '/bulk-import', component: BulkImport, boundaryName: 'Bulk Import', permission: { resource: 'documents', action: 'manage' } },
   { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center', suspense: true },
-  { path: '/users', component: UserManagement, boundaryName: 'User Management' },
-  { path: '/settings', component: Settings, boundaryName: 'Settings' },
+  { path: '/users', component: UserManagement, boundaryName: 'User Management', permission: { resource: 'users', action: 'manage' } },
+  { path: '/settings', component: Settings, boundaryName: 'Settings', permission: { resource: 'settings', action: 'manage' } },
   { path: '*', component: NotFound },
 ];
 
-function createRouteElement({ component: Component, boundaryName, suspense }: ProtectedRouteConfig) {
+function createRouteElement({ component: Component, boundaryName, suspense, permission }: ProtectedRouteConfig) {
   const content = suspense ? (
     <Suspense fallback={<LoadingFallback />}>
       <Component />
@@ -110,14 +117,24 @@ function createRouteElement({ component: Component, boundaryName, suspense }: Pr
     <Component />
   );
 
-  if (!boundaryName) {
-    return content;
-  }
-
-  return (
+  const wrappedContent = boundaryName ? (
     <ModuleErrorBoundary name={boundaryName}>
       {content}
     </ModuleErrorBoundary>
+  ) : content;
+
+  if (!permission) {
+    return wrappedContent;
+  }
+
+  return (
+    <PermissionGate
+      resource={permission.resource}
+      action={permission.action}
+      fallback={<Unauthorized />}
+    >
+      {wrappedContent}
+    </PermissionGate>
   );
 }
 
