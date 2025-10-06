@@ -33,7 +33,8 @@
       "@/context/*": ["./src/context/*"],
       "@/lib/*": ["./src/lib/*"],
       "@/features/*": ["./src/features/*"],
-      "@/integrations/*": ["./src/integrations/*"]
+      "@/integrations/*": ["./src/integrations/*"],
+      "@/utils/*": ["./src/utils/*"]
     }
   },
 }

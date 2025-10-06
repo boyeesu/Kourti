@@ -40,17 +40,35 @@ type EnvConfig = {
   NODE_ENV: 'development' | 'production' | 'test';
 };
 
+const envSource = import.meta.env;
+
+function requireEnvVar(key: keyof ImportMetaEnv, friendlyName: string) {
+  const value = envSource[key];
+
+  if (!value) {
+    const errorMessage = `Missing required environment variable: ${friendlyName}`;
+    console.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  return value;
+}
+
+function optionalEnvVar<T extends keyof ImportMetaEnv>(key: T, fallback?: string) {
+  return envSource[key] || fallback || '';
+}
+
 /**
- * Environment configuration object - using direct access to import.meta.env
+ * Environment configuration object - validates required values eagerly
  */
 export const env: EnvConfig = {
-  SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
-  SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '', // Using publishable key as anon key
-  SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
-  OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY || '',
-  APP_URL: import.meta.env.VITE_APP_URL || 'http://localhost:5173',
-  API_TIMEOUT: Number(import.meta.env.VITE_API_TIMEOUT || 30000),
-  NODE_ENV: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',
+  SUPABASE_URL: requireEnvVar('VITE_SUPABASE_URL', 'VITE_SUPABASE_URL'),
+  SUPABASE_ANON_KEY: requireEnvVar('VITE_SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY'),
+  SUPABASE_PUBLISHABLE_KEY: requireEnvVar('VITE_SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY'),
+  OPENAI_API_KEY: optionalEnvVar('VITE_OPENAI_API_KEY'),
+  APP_URL: optionalEnvVar('VITE_APP_URL', typeof window !== 'undefined' ? window.location.origin : ''),
+  API_TIMEOUT: Number(optionalEnvVar('VITE_API_TIMEOUT', '30000')),
+  NODE_ENV: (envSource.MODE || 'development') as 'development' | 'production' | 'test',
 };
 
 /**
@@ -74,31 +92,22 @@ export const isTest = env.NODE_ENV === 'test';
  * In production, we enforce strict validation
  */
 export function validateEnv(): { valid: boolean; errors: string[] } {
-  const isDevelopment = env.NODE_ENV === 'development';
   const errors: string[] = [];
-  const warnings: string[] = [];
-  
-  // Check Supabase URL
-  if (!import.meta.env.VITE_SUPABASE_URL) {
-    const message = 'VITE_SUPABASE_URL is not set';
-    isDevelopment ? warnings.push(message) : errors.push(message);
+
+  if (!envSource.VITE_SUPABASE_URL) {
+    errors.push('VITE_SUPABASE_URL is not set');
   }
-  
-  // Check Supabase key (using the actual env var name from .env)
-  if (!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
-    const message = 'VITE_SUPABASE_PUBLISHABLE_KEY is not set';
-    isDevelopment ? warnings.push(message) : errors.push(message);
+
+  if (!envSource.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    errors.push('VITE_SUPABASE_PUBLISHABLE_KEY is not set');
   }
-  
-  // Log warnings in development
-  if (isDevelopment && warnings.length > 0) {
-    console.warn('Environment variable warnings:', warnings);
+
+  if (!env.APP_URL) {
+    errors.push('VITE_APP_URL is not set');
   }
-  
+
   return {
-    // In development, we consider validation "valid" even with warnings
-    // In production, we require all variables to be set
-    valid: isDevelopment || errors.length === 0,
-    errors: isDevelopment ? [] : errors
+    valid: errors.length === 0,
+    errors,
   };
 }

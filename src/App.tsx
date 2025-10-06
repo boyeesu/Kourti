@@ -1,18 +1,17 @@
-import React from "react";
+import React, { Suspense, lazy, useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-// QueryClient removed - now handled in main.tsx
 import { NotificationsProvider } from "@/components/ui/notifications";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { CasesProvider } from "@/context/CasesContext";
-import { SearchProvider } from "@/hooks/use-search";
-import { AuthProvider } from "@/hooks/useAuth";
-import { useAuth } from "@/hooks/useAuth";
-import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import OrganizationSetup from "@/components/OrganizationSetup";
+import { CasesProvider } from "@/context/CasesContext";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { SearchProvider } from "@/hooks/use-search";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
 import DashboardNew from "./pages/DashboardNew";
 import Auth from "./pages/Auth";
@@ -26,7 +25,6 @@ import ClientEdit from "./pages/ClientEdit";
 import CaseActivities from "./pages/CaseActivitiesNew";
 import Clients from "./pages/Clients";
 import ClientDetails from "./pages/ClientDetails";
-
 import Calendar from "./pages/Calendar";
 import Documents from "./pages/Documents";
 import DocumentUpload from "./pages/DocumentUpload";
@@ -46,9 +44,7 @@ import TranscriptionView from "./pages/TranscriptionView";
 import TranscriptionsList from "./pages/TranscriptionsList";
 import BulkImport from "./pages/BulkImport";
 import NotFound from "./pages/NotFound";
-import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
-import { Suspense, lazy, useEffect } from "react";
-import { logInfo } from "./lib/logger";
+import { logInfo, logWarn } from "./lib/logger";
 // ThemeProvider removed - now handled in main.tsx
 
 // Lazy load pages for better performance
@@ -57,6 +53,73 @@ const InvoiceCreate = lazy(() => import('./pages/InvoiceCreate'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
+const ContractUpload = lazy(() => import('./pages/ContractUpload'));
+
+type ProtectedRouteConfig = {
+  path: string;
+  component: React.ComponentType;
+  boundaryName?: string;
+  suspense?: boolean;
+};
+
+const protectedRoutes: ProtectedRouteConfig[] = [
+  { path: '/', component: DashboardNew, boundaryName: 'Dashboard' },
+  { path: '/dashboard', component: DashboardNew, boundaryName: 'Dashboard' },
+  { path: '/cases', component: Cases, boundaryName: 'Cases' },
+  { path: '/cases/create', component: CaseCreate, boundaryName: 'Case Create' },
+  { path: '/cases/:id', component: CaseDetails, boundaryName: 'Case Details' },
+  { path: '/cases/:id/edit', component: CaseEdit, boundaryName: 'Case Edit' },
+  { path: '/cases/:id/activities', component: CaseActivities, boundaryName: 'Case Activities' },
+  { path: '/clients', component: Clients, boundaryName: 'Clients' },
+  { path: '/clients/create', component: ClientCreate, boundaryName: 'Client Create' },
+  { path: '/clients/:clientId', component: ClientDetails, boundaryName: 'Client Details' },
+  { path: '/clients/:clientId/edit', component: ClientEdit, boundaryName: 'Client Edit' },
+  { path: '/calendar', component: Calendar, boundaryName: 'Calendar' },
+  { path: '/documents', component: Documents, boundaryName: 'Documents' },
+  { path: '/documents/upload', component: DocumentUpload, boundaryName: 'Document Upload' },
+  { path: '/documents/review', component: DocumentReview, boundaryName: 'Document Review' },
+  { path: '/contracts', component: Contracts, boundaryName: 'Contracts' },
+  { path: '/contracts/create', component: ContractCreate, boundaryName: 'Contract Create' },
+  { path: '/contracts/upload', component: ContractUpload, boundaryName: 'Contract Upload', suspense: true },
+  { path: '/contracts/compare', component: ContractCompare, boundaryName: 'Contract Compare' },
+  { path: '/contracts/:id', component: ContractView, boundaryName: 'Contract View' },
+  { path: '/contracts/:id/edit', component: ContractEdit, boundaryName: 'Contract Edit' },
+  { path: '/contracts/:id/history', component: ContractHistory, boundaryName: 'Contract History' },
+  { path: '/contracts/review', component: ContractReview, boundaryName: 'Contract Review' },
+  { path: '/invoices', component: Invoices, boundaryName: 'Invoices', suspense: true },
+  { path: '/invoices/create', component: InvoiceCreate, boundaryName: 'Invoice Create', suspense: true },
+  { path: '/invoices/:id', component: InvoiceDetails, boundaryName: 'Invoice Details', suspense: true },
+  { path: '/analytics', component: Analytics, boundaryName: 'Analytics', suspense: true },
+  { path: '/ream-ai', component: ReamAI, boundaryName: 'Ream AI' },
+  { path: '/voice-recorder', component: VoiceRecorder, boundaryName: 'Voice Recorder' },
+  { path: '/transcriptions', component: TranscriptionsList, boundaryName: 'Transcriptions List' },
+  { path: '/transcriptions/:id', component: TranscriptionView, boundaryName: 'Transcription View' },
+  { path: '/bulk-import', component: BulkImport, boundaryName: 'Bulk Import' },
+  { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center', suspense: true },
+  { path: '/users', component: UserManagement, boundaryName: 'User Management' },
+  { path: '/settings', component: Settings, boundaryName: 'Settings' },
+  { path: '*', component: NotFound },
+];
+
+function createRouteElement({ component: Component, boundaryName, suspense }: ProtectedRouteConfig) {
+  const content = suspense ? (
+    <Suspense fallback={<LoadingFallback />}>
+      <Component />
+    </Suspense>
+  ) : (
+    <Component />
+  );
+
+  if (!boundaryName) {
+    return content;
+  }
+
+  return (
+    <ModuleErrorBoundary name={boundaryName}>
+      {content}
+    </ModuleErrorBoundary>
+  );
+}
 
 // Component to track page views for analytics
 function PageViewTracker() {
@@ -75,25 +138,29 @@ function PageViewTracker() {
 // Organization check component
 function OrganizationCheck({ children }: { children: React.ReactNode }) {
   const { data: organizationId, isLoading, error } = useUserOrganization();
-  
-  console.log('🏢 OrganizationCheck - Loading:', isLoading, 'OrgId:', organizationId, 'Error:', error);
-  
+
+  if (import.meta.env.DEV) {
+    logInfo('Organization check status', {
+      isLoading,
+      organizationId,
+      hasError: Boolean(error),
+    });
+  }
+
   if (isLoading) {
-    console.log('🏢 OrganizationCheck: Showing loading fallback');
     return <LoadingFallback />;
   }
 
   if (error) {
-    console.log('🏢 OrganizationCheck: Error detected, showing organization setup');
+    logWarn('Organization check failed', { error });
     return <OrganizationSetup />;
   }
-  
+
   if (!organizationId) {
-    console.log('🏢 OrganizationCheck: No organization ID, showing setup');
+    logWarn('Organization missing for current user');
     return <OrganizationSetup />;
   }
-  
-  console.log('🏢 OrganizationCheck: Organization found, rendering children');
+
   return <>{children}</>;
 }
 
@@ -127,252 +194,41 @@ const App = () => (
         <AuthProvider>
           <InactivityHandler />
               <Routes>
-                {/* Public routes */}
                 <Route path="/auth" element={<Auth />} />
-                
-                {/* Onboarding */}
-                <Route path="/onboarding" element={
-                  <ProtectedRoute>
-                    <ModuleErrorBoundary name="Onboarding">
-                      <Onboarding />
-                    </ModuleErrorBoundary>
-                  </ProtectedRoute>
-                } />
-                
-                {/* Protected routes */}
-                <Route path="/*" element={
-                  <ProtectedRoute>
-                    <OrganizationCheck>
-                      <SearchProvider>
-                        <CasesProvider>
-                          <AppLayout>
-                            <Routes>
-                              {/* Dashboard */}
-                              <Route path="/" element={
-                                <ModuleErrorBoundary name="Dashboard">
-                                  <DashboardNew />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/dashboard" element={
-                                <ModuleErrorBoundary name="Dashboard">
-                                  <DashboardNew />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Cases Module */}
-                              <Route path="/cases" element={
-                                <ModuleErrorBoundary name="Cases">
-                                  <Cases />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/cases/create" element={
-                                <ModuleErrorBoundary name="Case Create">
-                                  <CaseCreate />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/cases/:id" element={
-                                <ModuleErrorBoundary name="Case Details">
-                                  <CaseDetails />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/cases/:id/edit" element={
-                                <ModuleErrorBoundary name="Case Edit">
-                                  <CaseEdit />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/cases/:id/activities" element={
-                                <ModuleErrorBoundary name="Case Activities">
-                                  <CaseActivities />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Clients Module */}
-                              <Route path="/clients" element={
-                                <ModuleErrorBoundary name="Clients">
-                                  <Clients />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/clients/create" element={
-                                <ModuleErrorBoundary name="Client Create">
-                                  <ClientCreate />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/clients/:clientId" element={
-                                <ModuleErrorBoundary name="Client Details">
-                                  <ClientDetails />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/clients/:clientId/edit" element={
-                                <ModuleErrorBoundary name="Client Edit">
-                                  <ClientEdit />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Calendar Module */}
-                              <Route path="/calendar" element={
-                                <ModuleErrorBoundary name="Calendar">
-                                  <Calendar />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              
-                              {/* Documents Module */}
-                              <Route path="/documents" element={
-                                <ModuleErrorBoundary name="Documents">
-                                  <Documents />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/documents/upload" element={
-                                <ModuleErrorBoundary name="Document Upload">
-                                  <DocumentUpload />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/documents/review" element={
-                                <ModuleErrorBoundary name="Document Review">
-                                  <DocumentReview />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Contracts Module */}
-                              <Route path="/contracts" element={
-                                <ModuleErrorBoundary name="Contracts">
-                                  <Contracts />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/contracts/create" element={
-                                <ModuleErrorBoundary name="Contract Create">
-                                  <ContractCreate />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/contracts/upload" element={
-                                <ModuleErrorBoundary name="Contract Upload">
-                                  <Suspense fallback={<LoadingFallback />}>
-                                    {React.createElement(lazy(() => import('./pages/ContractUpload')))}
-                                  </Suspense>
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/contracts/compare" element={
-                                <ModuleErrorBoundary name="Contract Compare">
-                                  <ContractCompare />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/contracts/:id" element={
-                                <ModuleErrorBoundary name="Contract View">
-                                  <ContractView />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/contracts/:id/edit" element={
-                                <ModuleErrorBoundary name="Contract Edit">
-                                  <ContractEdit />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/contracts/:id/history" element={
-                                <ModuleErrorBoundary name="Contract History">
-                                  <ContractHistory />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/contracts/review" element={
-                                <ModuleErrorBoundary name="Contract Review">
-                                  <ContractReview />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Invoices Module (Lazy loaded) */}
-                              <Route path="/invoices" element={
-                                <ModuleErrorBoundary name="Invoices">
-                                  <Suspense fallback={<LoadingFallback />}>
-                                    <Invoices />
-                                  </Suspense>
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/invoices/create" element={
-                                <ModuleErrorBoundary name="Invoice Create">
-                                  <Suspense fallback={<LoadingFallback />}>
-                                    <InvoiceCreate />
-                                  </Suspense>
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/invoices/:id" element={
-                                <ModuleErrorBoundary name="Invoice Details">
-                                  <Suspense fallback={<LoadingFallback />}>
-                                    <InvoiceDetails />
-                                  </Suspense>
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                               {/* Analytics */}
-                              <Route path="/analytics" element={
-                                <ModuleErrorBoundary name="Analytics">
-                                  <Suspense fallback={<LoadingFallback />}>
-                                    <Analytics />
-                                  </Suspense>
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* AI Assistant */}
-                              <Route path="/ream-ai" element={
-                                <ModuleErrorBoundary name="Ream AI">
-                                  <ReamAI />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Voice Recorder */}
-                              <Route path="/voice-recorder" element={
-                                <ModuleErrorBoundary name="Voice Recorder">
-                                  <VoiceRecorder />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Transcriptions */}
-                              <Route path="/transcriptions" element={
-                                <ModuleErrorBoundary name="Transcriptions List">
-                                  <TranscriptionsList />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              <Route path="/transcriptions/:id" element={
-                                <ModuleErrorBoundary name="Transcription View">
-                                  <TranscriptionView />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Bulk Import */}
-                              <Route path="/bulk-import" element={
-                                <ModuleErrorBoundary name="Bulk Import">
-                                  <BulkImport />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* Help Center */}
-                              <Route path="/help-center" element={
-                                <ModuleErrorBoundary name="Help Center">
-                                  <Suspense fallback={<LoadingFallback />}>
-                                    <HelpCenter />
-                                  </Suspense>
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* User Management & Settings */}
-                              <Route path="/users" element={
-                                <ModuleErrorBoundary name="User Management">
-                                  <UserManagement />
-                                </ModuleErrorBoundary>
-                              } />
-                              <Route path="/settings" element={
-                                <ModuleErrorBoundary name="Settings">
-                                  <Settings />
-                                </ModuleErrorBoundary>
-                              } />
-                              
-                              {/* 404 Not Found */}
-                              <Route path="*" element={<NotFound />} />
-                            </Routes>
-                          </AppLayout>
-                        </CasesProvider>
-                      </SearchProvider>
-                    </OrganizationCheck>
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/onboarding"
+                  element={(
+                    <ProtectedRoute>
+                      <ModuleErrorBoundary name="Onboarding">
+                        <Onboarding />
+                      </ModuleErrorBoundary>
+                    </ProtectedRoute>
+                  )}
+                />
+                <Route
+                  path="/*"
+                  element={(
+                    <ProtectedRoute>
+                      <OrganizationCheck>
+                        <SearchProvider>
+                          <CasesProvider>
+                            <AppLayout>
+                              <Routes>
+                                {protectedRoutes.map((route) => (
+                                  <Route
+                                    key={route.path}
+                                    path={route.path}
+                                    element={createRouteElement(route)}
+                                  />
+                                ))}
+                              </Routes>
+                            </AppLayout>
+                          </CasesProvider>
+                        </SearchProvider>
+                      </OrganizationCheck>
+                    </ProtectedRoute>
+                  )}
+                />
               </Routes>
             </AuthProvider>
           </BrowserRouter>
