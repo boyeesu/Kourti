@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,13 +10,17 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarIcon, Plus, X, FileText, Users, Clock, Upload, Bot, Sparkles } from "lucide-react";
+import { CalendarIcon, Plus, X, FileText, Users, Clock, Upload, Bot, Sparkles, ListChecks, Lightbulb, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useOrganizationMembers } from "@/hooks/useOrganization";
 import { useAIContractGenerator } from "@/hooks/useAIContractGenerator";
 import { ContractSuccess } from "@/components/ContractSuccess";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 interface ContractParty {
   id: string;
   name: string;
@@ -31,9 +35,11 @@ interface ContractClause {
   content: string;
   required: boolean;
 }
+
+type ContractTab = "basic" | "parties" | "terms" | "clauses" | "success";
 export default function ContractCreate() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("basic");
+  const [activeTab, setActiveTab] = useState<ContractTab>("basic");
   const generateContract = useAIContractGenerator();
   const [template, setTemplate] = useState<string>("");
   const [additionalTerms, setAdditionalTerms] = useState<string>("");
@@ -131,6 +137,78 @@ export default function ContractCreate() {
       });
     }
   };
+  const tabsOrder = useMemo<ContractTab[]>(() => ["basic", "parties", "terms", "clauses"], []);
+  const completionStatus = useMemo(() => ({
+    basic: Boolean(contractData.title && contractData.type && contractData.description),
+    parties: parties.length > 0,
+    terms: Boolean(additionalTerms.trim() || template.trim() || contractData.startDate || contractData.endDate),
+    clauses: clauses.length > 0,
+  }), [
+    contractData.description,
+    contractData.endDate,
+    contractData.startDate,
+    contractData.title,
+    contractData.type,
+    parties.length,
+    additionalTerms,
+    template,
+    clauses.length,
+  ]);
+  const completedCount = useMemo(() => Object.values(completionStatus).filter(Boolean).length, [completionStatus]);
+  const progressValue = useMemo(() => {
+    const baseProgress = (completedCount / tabsOrder.length) * 100;
+    const currentIndex = tabsOrder.indexOf(activeTab as ContractTab);
+    if (currentIndex === -1) return baseProgress;
+    const activeProgress = ((currentIndex + 1) / tabsOrder.length) * 100;
+    return Math.max(baseProgress, activeProgress);
+  }, [activeTab, completedCount, tabsOrder]);
+
+  const stepDetails = useMemo(() => ({
+    basic: {
+      title: "Basic Details",
+      description: "Name the agreement and set its core metadata.",
+      icon: FileText,
+    },
+    parties: {
+      title: "Parties",
+      description: "Identify everyone involved and their roles.",
+      icon: Users,
+    },
+    terms: {
+      title: "Terms & Timeline",
+      description: "Capture milestones, value, and supporting context.",
+      icon: Clock,
+    },
+    clauses: {
+      title: "Clauses",
+      description: "Fine tune obligations and key protections.",
+      icon: ListChecks,
+    },
+  }), []);
+
+  const handleUploadContract = useCallback(() => {
+    navigate("/contracts/upload");
+  }, [navigate]);
+  const handleUseReamAI = useCallback(() => {
+    navigate("/contracts/review");
+  }, [navigate]);
+  const nextActions = useMemo(() => [
+    { title: "Upload existing contract", description: "Import a legacy agreement to compare or redline against the AI output.", icon: Upload, onClick: handleUploadContract },
+    { title: "Use Ream AI reviewer", description: "Send a draft to Ream AI for compliance and risk checks before sharing.", icon: Sparkles, onClick: handleUseReamAI },
+  ], [handleUploadContract, handleUseReamAI]);
+
+  const clauseHighlights = useMemo(() => [
+    {
+      title: "Risk & compliance",
+      description: "Add non-compete, liability, or privacy clauses to align with industry and local regulations.",
+      icon: ShieldCheck,
+    },
+    {
+      title: "AI drafting tips",
+      description: "Reference governing law, deliverables, and review cycles so the AI can generate precise obligations.",
+      icon: Lightbulb,
+    },
+  ], []);
   const addStandardClause = (standardClause: typeof standardClauses[0]) => {
     const clause: ContractClause = {
       id: `clause-${Date.now()}`,
@@ -180,54 +258,93 @@ export default function ContractCreate() {
         <ContractSuccess contract={generatedContract} onViewContract={() => navigate(`/contracts/${generatedContract.id}`)} />
       </div>;
   }
-  const handleUploadContract = () => {
-    navigate("/contracts/upload");
-  };
-  const handleUseReamAI = () => {
-    navigate("/contracts/review");
-  };
   return <div className="p-6 space-y-6">
       <Breadcrumbs />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Create New Contract</h1>
           <p className="text-muted-foreground">Generate a professional contract using AI with your custom details</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleUploadContract}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Contract
-          </Button>
-          <Button variant="secondary" onClick={handleUseReamAI}>
-            <Sparkles className="h-4 w-4 mr-2" />
-            Use Ream AI
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          {nextActions.map(action => <Button key={action.title} variant="outline" onClick={action.onClick} className="flex items-center">
+              <action.icon className="mr-2 h-4 w-4" />
+              {action.title}
+            </Button>)}
         </div>
       </div>
 
-      <Card className="shadow-card">
-        <CardContent className="p-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 bg-muted/50">
-              <TabsTrigger value="basic" className="flex items-center gap-2 data-[state=active]:bg-background">
-                <FileText className="h-4 w-4" />
-                Basic Info
-              </TabsTrigger>
-              <TabsTrigger value="parties" className="flex items-center gap-2 data-[state=active]:bg-background">
-                <Users className="h-4 w-4" />
-                Parties
-              </TabsTrigger>
-              <TabsTrigger value="terms" className="flex items-center gap-2 data-[state=active]:bg-background">
-                <Clock className="h-4 w-4" />
-                Terms
-              </TabsTrigger>
-              <TabsTrigger value="clauses" className="flex items-center gap-2 data-[state=active]:bg-background">
-                <FileText className="h-4 w-4" />
-                Clauses
-              </TabsTrigger>
-            </TabsList>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <Card className="shadow-card">
+          <CardContent className="p-6 space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">AI readiness</p>
+                  <h2 className="text-lg font-semibold">{completedCount === tabsOrder.length ? "Ready to generate" : "Complete each step to generate"}</h2>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-semibold">{Math.round(progressValue)}%</span>
+                  <p className="text-xs text-muted-foreground">completion</p>
+                </div>
+              </div>
+              <Progress value={progressValue} className="h-2" />
 
-            <form onSubmit={handleSubmit}>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {tabsOrder.map(step => {
+                const stepInfo = stepDetails[step];
+                const Icon = stepInfo.icon;
+                const stepIndex = tabsOrder.indexOf(step);
+                const activeIndex = tabsOrder.indexOf(activeTab as ContractTab);
+                const isCompleted = completionStatus[step as keyof typeof completionStatus];
+                const isActive = step === activeTab;
+                const isPast = stepIndex < activeIndex;
+                return <button key={step} type="button" onClick={() => setActiveTab(step)} className={`group rounded-xl border p-4 text-left transition hover:border-primary/60 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${isActive ? "border-primary bg-primary/5" : isCompleted || isPast ? "border-primary/40 bg-muted" : "border-border"}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${isCompleted || isPast ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <Badge variant={isCompleted ? "default" : isActive ? "secondary" : "outline"}>{isCompleted ? "Done" : isActive ? "Active" : "Pending"}</Badge>
+                    </div>
+                    <div className="mt-3 space-y-1">
+                      <p className="text-sm font-semibold leading-none">{stepInfo.title}</p>
+                      <p className="text-xs text-muted-foreground leading-snug">{stepInfo.description}</p>
+                    </div>
+                  </button>;
+              })}
+              </div>
+            </div>
+
+            <Alert className="border-primary/40 bg-primary/5">
+              <AlertTitle className="flex items-center gap-2 text-sm font-semibold">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Tip for better drafts
+              </AlertTitle>
+              <AlertDescription className="text-sm text-muted-foreground">
+                Share deliverables, payment cadence, and any approval checkpoints. Our AI blends this with your template to produce a tailored first draft.
+              </AlertDescription>
+            </Alert>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="w-full justify-start gap-2 overflow-x-auto rounded-lg border bg-muted/30 p-1">
+                <TabsTrigger value="basic" className="flex items-center gap-2 whitespace-nowrap px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <FileText className="h-4 w-4" />
+                  Basic Info
+                </TabsTrigger>
+                <TabsTrigger value="parties" className="flex items-center gap-2 whitespace-nowrap px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Users className="h-4 w-4" />
+                  Parties
+                </TabsTrigger>
+                <TabsTrigger value="terms" className="flex items-center gap-2 whitespace-nowrap px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Clock className="h-4 w-4" />
+                  Terms
+                </TabsTrigger>
+                <TabsTrigger value="clauses" className="flex items-center gap-2 whitespace-nowrap px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <ListChecks className="h-4 w-4" />
+                  Clauses
+                </TabsTrigger>
+              </TabsList>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
               <TabsContent value="basic" className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -416,7 +533,7 @@ export default function ContractCreate() {
                       })} />
                       </div>
 
-                      <Button type="button" onClick={addParty}>
+                        <Button type="button" onClick={addParty}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Party
                       </Button>
@@ -425,58 +542,79 @@ export default function ContractCreate() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="terms" className="space-y-4">
+              <TabsContent value="terms" className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="additionalTerms">Additional Terms & Conditions</Label>
                     <Textarea id="additionalTerms" placeholder="Enter any specific terms, conditions, or requirements for this contract..." value={additionalTerms} onChange={e => setAdditionalTerms(e.target.value)} rows={6} />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="template">Contract Template (Optional)</Label>
-                    <Textarea id="template" placeholder="Paste an existing contract template here for the AI to use as a reference..." value={template} onChange={e => setTemplate(e.target.value)} rows={8} />
-                    <p className="text-sm text-muted-foreground">
-                      Upload or paste a contract template to help the AI generate a contract that follows your preferred structure and style.
-                    </p>
-                  </div>
-                
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                       <Label>Start Date</Label>
-                       <Popover>
-                         <PopoverTrigger asChild>
-                           <Button variant="outline" className="w-full justify-start text-left font-normal">
-                             <CalendarIcon className="mr-2 h-4 w-4" />
-                           {contractData.startDate ? format(contractData.startDate, "PPP") : "Select start date"}
-                         </Button>
-                       </PopoverTrigger>
-                       <PopoverContent className="w-auto p-0">
-                         <Calendar mode="single" selected={contractData.startDate} onSelect={date => setContractData({
-                          ...contractData,
-                          startDate: date
-                        })} initialFocus />
-                       </PopoverContent>
-                     </Popover>
-                   </div>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Reference Material</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="template">Contract Template (Optional)</Label>
+                        <Textarea id="template" placeholder="Paste an existing contract template here for the AI to use as a reference..." value={template} onChange={e => setTemplate(e.target.value)} rows={6} />
+                        <p className="text-xs text-muted-foreground">
+                          Upload or paste a contract template to help the AI generate a contract that follows your preferred structure and style.
+                        </p>
+                      </div>
+                      <Separator />
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Start Date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {contractData.startDate ? format(contractData.startDate, "PPP") : "Select start date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar mode="single" selected={contractData.startDate} onSelect={date => setContractData({
+                              ...contractData,
+                              startDate: date
+                            })} initialFocus />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>End Date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {contractData.endDate ? format(contractData.endDate, "PPP") : "Select end date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar mode="single" selected={contractData.endDate} onSelect={date => setContractData({
+                              ...contractData,
+                              endDate: date
+                            })} initialFocus />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                   <div className="space-y-2">
-                     <Label>End Date</Label>
-                     <Popover>
-                       <PopoverTrigger asChild>
-                         <Button variant="outline" className="w-full justify-start text-left font-normal">
-                           <CalendarIcon className="mr-2 h-4 w-4" />
-                           {contractData.endDate ? format(contractData.endDate, "PPP") : "Select end date"}
-                         </Button>
-                       </PopoverTrigger>
-                       <PopoverContent className="w-auto p-0">
-                         <Calendar mode="single" selected={contractData.endDate} onSelect={date => setContractData({
-                          ...contractData,
-                          endDate: date
-                        })} initialFocus />
-                       </PopoverContent>
-                     </Popover>
-                   </div>
-                 </div>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">AI Suggestions</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 md:grid-cols-2">
+                      {clauseHighlights.map(({ title, description, icon: Icon }, index) => <div key={index} className="rounded-lg border bg-muted/40 p-3 text-sm">
+                          <div className="mb-2 flex items-center gap-2 font-medium">
+                            <Icon className="h-4 w-4 text-primary" />
+                            {title}
+                          </div>
+                          <p className="text-muted-foreground text-xs leading-relaxed">{description}</p>
+                        </div>)}
+                    </CardContent>
+                  </Card>
                 </div>
               </TabsContent>
 
@@ -533,9 +671,9 @@ export default function ContractCreate() {
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          <input type="checkbox" id="clauseRequired" checked={newClause.required} onChange={e => setNewClause({
+                          <Checkbox id="clauseRequired" checked={newClause.required} onCheckedChange={checked => setNewClause({
                           ...newClause,
-                          required: e.target.checked
+                          required: Boolean(checked)
                         })} />
                           <Label htmlFor="clauseRequired">Required clause</Label>
                         </div>
@@ -606,9 +744,77 @@ export default function ContractCreate() {
                      </Button>}
                 </div>
               </div>
-            </form>
-          </Tabs>
-        </CardContent>
-      </Card>
+              </form>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Contract overview</CardTitle>
+              <CardDescription>Your selections update in real time to preview what the AI will draft.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Title</p>
+                <p className="font-medium text-foreground">{contractData.title || "Untitled contract"}</p>
+              </div>
+              <Separator />
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Type</p>
+                  <p className="font-medium">{contractData.type || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Assigned To</p>
+                  <p className="font-medium">{contractData.assignedTo ? orgMembers.find(({ user_id }) => user_id === contractData.assignedTo)?.first_name || "Team member" : "Unassigned"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Value</p>
+                  <p className="font-medium">{contractData.value ? `${contractData.currency} ${contractData.value}` : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Duration</p>
+                  <p className="font-medium">{contractData.startDate && contractData.endDate ? `${format(contractData.startDate, "PP")} → ${format(contractData.endDate, "PP")}` : "Not scheduled"}</p>
+                </div>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <p className="text-xs uppercase text-muted-foreground">Parties</p>
+                {parties.length > 0 ? parties.map(party => <div key={party.id} className="flex items-start justify-between rounded-lg bg-muted/40 p-2">
+                      <div>
+                        <p className="text-sm font-medium">{party.name}</p>
+                        <p className="text-xs text-muted-foreground">{party.role}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] uppercase">{party.type}</Badge>
+                    </div>) : <p className="text-xs text-muted-foreground">No parties added yet.</p>}
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs uppercase text-muted-foreground">Clauses</p>
+                <p className="text-xs text-muted-foreground">{clauses.length} configured ({clauses.filter(c => c.required).length} required)</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Next best actions</CardTitle>
+              <CardDescription>Keep your workflow moving without leaving this screen.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {nextActions.map(action => <button key={action.title} onClick={action.onClick} className="flex w-full items-start gap-3 rounded-lg border border-dashed p-3 text-left transition hover:border-primary/50 hover:bg-primary/5">
+                  <span className="mt-0.5 rounded-full bg-primary/10 p-1 text-primary">
+                    <action.icon className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="font-medium">{action.title}</p>
+                    <p className="text-xs text-muted-foreground">{action.description}</p>
+                  </div>
+                </button>)}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>;
 }
