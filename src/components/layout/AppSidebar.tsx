@@ -346,18 +346,25 @@ export function AppSidebar() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="space-y-0">
-                  {group.items.map(item => (
-                    <Tooltip key={item.title}>
-                      <TooltipTrigger asChild>
-                        {renderNavItem(item)}
-                      </TooltipTrigger>
-                      {collapsed && (
-                        <TooltipContent side="right">
-                          {item.title}
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  ))}
+                  {group.items.map(item => {
+                    const renderedItem = renderNavItem(item);
+                    if (!renderedItem) {
+                      return null;
+                    }
+
+                    return (
+                      <Tooltip key={item.title}>
+                        <TooltipTrigger asChild>
+                          {renderedItem}
+                        </TooltipTrigger>
+                        {collapsed && (
+                          <TooltipContent side="right">
+                            {item.title}
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
