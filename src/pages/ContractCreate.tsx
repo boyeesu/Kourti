@@ -10,6 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { LucideIcon } from "lucide-react";
 import { CalendarIcon, Plus, X, FileText, Users, Clock, Upload, Bot, Sparkles, ListChecks, Lightbulb, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
@@ -37,6 +38,7 @@ interface ContractClause {
 }
 
 type ContractTab = "basic" | "parties" | "terms" | "clauses" | "success";
+type StepTab = Exclude<ContractTab, "success">;
 export default function ContractCreate() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ContractTab>("basic");
@@ -137,7 +139,7 @@ export default function ContractCreate() {
       });
     }
   };
-  const tabsOrder = useMemo<ContractTab[]>(() => ["basic", "parties", "terms", "clauses"], []);
+  const tabsOrder = useMemo<StepTab[]>(() => ["basic", "parties", "terms", "clauses"], []);
   const completionStatus = useMemo(() => ({
     basic: Boolean(contractData.title && contractData.type && contractData.description),
     parties: parties.length > 0,
@@ -157,13 +159,20 @@ export default function ContractCreate() {
   const completedCount = useMemo(() => Object.values(completionStatus).filter(Boolean).length, [completionStatus]);
   const progressValue = useMemo(() => {
     const baseProgress = (completedCount / tabsOrder.length) * 100;
-    const currentIndex = tabsOrder.indexOf(activeTab as ContractTab);
+    const currentIndex =
+      activeTab === "success"
+        ? tabsOrder.length - 1
+        : tabsOrder.indexOf(activeTab as StepTab);
     if (currentIndex === -1) return baseProgress;
     const activeProgress = ((currentIndex + 1) / tabsOrder.length) * 100;
     return Math.max(baseProgress, activeProgress);
   }, [activeTab, completedCount, tabsOrder]);
 
-  const stepDetails = useMemo(() => ({
+  const stepDetails = useMemo<Record<StepTab, {
+    title: string;
+    description: string;
+    icon: LucideIcon;
+  }>>(() => ({
     basic: {
       title: "Basic Details",
       description: "Name the agreement and set its core metadata.",
@@ -294,7 +303,10 @@ export default function ContractCreate() {
                 const stepInfo = stepDetails[step];
                 const Icon = stepInfo.icon;
                 const stepIndex = tabsOrder.indexOf(step);
-                const activeIndex = tabsOrder.indexOf(activeTab as ContractTab);
+                const activeIndex =
+                  activeTab === "success"
+                    ? tabsOrder.length
+                    : tabsOrder.indexOf(activeTab as StepTab);
                 const isCompleted = completionStatus[step as keyof typeof completionStatus];
                 const isActive = step === activeTab;
                 const isPast = stepIndex < activeIndex;
@@ -324,7 +336,11 @@ export default function ContractCreate() {
               </AlertDescription>
             </Alert>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as ContractTab)}
+              className="space-y-6"
+            >
               <TabsList className="w-full justify-start gap-2 overflow-x-auto rounded-lg border bg-muted/30 p-1">
                 <TabsTrigger value="basic" className="flex items-center gap-2 whitespace-nowrap px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <FileText className="h-4 w-4" />
@@ -717,7 +733,10 @@ export default function ContractCreate() {
                 </Button>
                 <div className="flex gap-2">
                   {activeTab !== "basic" && <Button type="button" variant="outline" onClick={() => {
-                  const tabs = ["basic", "parties", "terms", "clauses"];
+                  if (activeTab === "success") {
+                    return;
+                  }
+                  const tabs: StepTab[] = ["basic", "parties", "terms", "clauses"];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex > 0) {
                     setActiveTab(tabs[currentIndex - 1]);
@@ -726,7 +745,10 @@ export default function ContractCreate() {
                       Previous
                     </Button>}
                   {activeTab !== "clauses" ? <Button type="button" onClick={() => {
-                  const tabs = ["basic", "parties", "terms", "clauses"];
+                  if (activeTab === "success") {
+                    return;
+                  }
+                  const tabs: StepTab[] = ["basic", "parties", "terms", "clauses"];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex < tabs.length - 1) {
                     setActiveTab(tabs[currentIndex + 1]);
