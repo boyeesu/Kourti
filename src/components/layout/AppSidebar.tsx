@@ -43,6 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import logo from "@/assets/kourti-legal-logo.png";
+import { cn } from "@/lib/utils";
 
 // Sidebar navigation type definition
 type NavigationItem = {
@@ -139,6 +140,14 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
   const { toast } = useToast();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
+  const summaryDate = React.useMemo(
+    () => new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()),
+    []
+  );
+  const summaryTime = React.useMemo(
+    () => new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(new Date()),
+    []
+  );
 
   // Determine if path is active
   const isActive = (path: string, end = false) => {
@@ -214,12 +223,14 @@ export function AppSidebar() {
 
   const renderNavItem = (item: NavigationItem) => {
     const core = () => {
-      // Intercept Invoicing (beta banner)
       if (item.url === "/invoices") {
         return (
           <SidebarMenuItem key={item.title}>
             <SidebarMenuButton
-              className="relative h-11 cursor-pointer"
+              className={cn(
+                "relative flex h-11 cursor-pointer items-center rounded-xl border border-dashed border-primary/30 px-3 text-sm font-semibold text-primary shadow-sm",
+                collapsed && "justify-center px-0"
+              )}
               onClick={(e) => {
                 e.preventDefault();
                 setShowInvoiceSoon(true);
@@ -228,16 +239,18 @@ export function AppSidebar() {
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && (
                 <>
-                  <span className="ml-3 font-medium">{item.title}</span>
-                  <Badge variant={item.badgeVariant} className="ml-auto">
-                    {item.badge}
-                  </Badge>
+                  <span className="ml-3">{item.title}</span>
+                  <span className="ml-auto">
+                    <Badge variant={item.badgeVariant} className="text-[10px]">
+                      {item.badge}
+                    </Badge>
+                  </span>
                 </>
               )}
               {collapsed && item.badge && (
                 <Badge
                   variant={item.badgeVariant}
-                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full p-0 text-[10px]"
                 >
                   {item.badge}
                 </Badge>
@@ -249,26 +262,40 @@ export function AppSidebar() {
 
       const active = isActive(item.url, item.end);
 
+      const buttonClass = cn(
+        "group relative flex h-11 items-center rounded-xl border border-transparent px-2 text-sm font-medium transition-all duration-200",
+        collapsed ? "justify-center px-0" : "px-3",
+        active
+          ? "border-primary/30 bg-[hsl(var(--primary))/0.08] text-foreground shadow-sm"
+          : "text-muted-foreground hover:border-primary/20 hover:bg-[hsl(var(--primary))/0.04] hover:text-foreground"
+      );
+
       return (
         <SidebarMenuItem key={item.title}>
-          <SidebarMenuButton asChild className="relative h-11" isActive={active}>
-            <NavLink to={item.url} end={item.end} className="flex w-full items-center">
+          <SidebarMenuButton asChild className={buttonClass} isActive={active}>
+            <NavLink
+              to={item.url}
+              end={item.end}
+              className={cn("flex w-full items-center", collapsed ? "justify-center" : "gap-3")}
+            >
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && (
                 <>
-                  <span className="ml-3 font-medium">{item.title}</span>
-                  {item.badge && (
-                    <Badge variant={item.badgeVariant} className="ml-auto">
-                      {item.badge}
-                    </Badge>
-                  )}
-                  {active && <ChevronRight className="ml-auto h-4 w-4 text-primary" />}
+                  <span className="text-sm font-medium">{item.title}</span>
+                  <span className="ml-auto flex items-center gap-1">
+                    {item.badge && (
+                      <Badge variant={item.badgeVariant} className="text-[10px]">
+                        {item.badge}
+                      </Badge>
+                    )}
+                    {active && <ChevronRight className="h-4 w-4 text-primary" />}
+                  </span>
                 </>
               )}
               {collapsed && item.badge && (
                 <Badge
                   variant={item.badgeVariant}
-                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full p-0 text-[10px]"
                 >
                   {item.badge}
                 </Badge>
@@ -305,40 +332,53 @@ export function AppSidebar() {
           <Button className="mt-2 w-full" onClick={() => setShowInvoiceSoon(false)} autoFocus>Close</Button>
         </DialogContent>
       </Dialog>
-      <Sidebar variant="sidebar" collapsible="icon" className="h-full bg-transparent">
-        <SidebarHeader className="border-none px-3 py-4">
+      <Sidebar variant="sidebar" collapsible="icon" className="h-full bg-transparent text-foreground">
+        <SidebarHeader className="relative border-none px-4 pb-4 pt-5">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Kourti Legal" className="h-6 w-6 flex-shrink-0" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-primary/20 bg-[hsl(var(--primary))/0.08]">
+              <img src={logo} alt="Kourti Legal" className="h-5 w-5" />
+            </div>
             {!collapsed && (
-              <div>
+              <div className="flex flex-col gap-0.5">
                 <h2 className="text-sm font-semibold text-foreground">Kourti Legal</h2>
-                <p className="text-xs text-muted-foreground">Legal Management</p>
+                <p className="text-xs text-muted-foreground/80">Matter Workspace</p>
               </div>
             )}
           </div>
 
-          {/* Mobile trigger button */}
+          {!collapsed && (
+            <div className="mt-4 space-y-2 rounded-xl border border-dashed border-border/60 bg-[hsl(var(--surface))]/70 px-3 py-3 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
+                <span>{summaryDate}</span>
+                <span>{summaryTime}</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+                Stay ahead of filings and client updates today.
+              </p>
+            </div>
+          )}
+
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground shadow-sm hover:border-primary/50 hover:text-foreground md:hidden"
+            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground shadow-sm hover:border-primary/50 hover:text-foreground md:hidden"
           >
             <Menu className="h-4 w-4" />
           </Button>
         </SidebarHeader>
 
         <SidebarContent
-          className="max-h-[100dvh] overflow-y-auto px-2 pb-6 pt-2 sm:px-3 md:px-4 scrollbar-thin scrollbar-thumb-muted-foreground/30"
+          className="max-h-[100dvh] overflow-y-auto px-3 pb-6 pt-3 sm:px-4 scrollbar-thin scrollbar-thumb-muted-foreground/30"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {navigationGroups.map((group) => (
-            <SidebarGroup key={group.label} className="mt-0.5">
-              <SidebarGroupLabel className={collapsed ? "sr-only" : "text-xs font-medium text-muted-foreground px-2 mb-0.5"}>
+            <SidebarGroup key={group.label} className="mt-1.5">
+              <SidebarGroupLabel className={collapsed ? "sr-only" : "mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70"}>
                 {group.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu className="space-y-0">
+                <SidebarMenu className="space-y-1.5">
                   {group.items.map(item => {
                     const renderedItem = renderNavItem(item);
                     if (!renderedItem) {
@@ -363,35 +403,44 @@ export function AppSidebar() {
             </SidebarGroup>
           ))}
 
-          {/* User profile section at bottom */}
-          <div className="mt-auto pt-2">
-            <Separator className="mb-2 bg-border/60" />
-            <div className={`px-1 py-0.5 ${collapsed ? "flex justify-center" : "flex items-center"}`}>
-              {collapsed ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground hover:border-primary/50 hover:text-foreground" onClick={handleSignOut}>
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.user_metadata?.avatar_url} />
-                        <AvatarFallback>{userInitials}</AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    Sign Out
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
+          <div className="mt-auto pt-4">
+            <Separator className="mb-3 bg-border/60" />
+            {collapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleSignOut}
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground shadow-sm hover:border-destructive/50 hover:text-destructive"
+                    aria-label="Sign out"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Sign Out</TooltipContent>
+              </Tooltip>
+            ) : (
+              <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-[hsl(var(--surface))]/70 px-3 py-3">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.user_metadata?.avatar_url} />
+                  <AvatarFallback>{userInitials}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{user?.user_metadata?.name || user?.email}</p>
+                  <p className="text-[11px] text-muted-foreground/70">Signed in</p>
+                </div>
                 <Button
                   variant="ghost"
+                  size="icon"
                   onClick={handleSignOut}
-                  className="w-full justify-start rounded-full border border-transparent px-3 py-2 text-sm font-medium text-muted-foreground hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                  aria-label="Sign out"
                 >
-                  <LogOut className="h-5 w-5 flex-shrink-0" />
-                  <span className="ml-3 font-medium">Sign Out</span>
+                  <LogOut className="h-4 w-4" />
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </SidebarContent>
       </Sidebar>

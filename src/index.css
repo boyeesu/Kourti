@@ -298,4 +298,103 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     background: linear-gradient(180deg, hsl(var(--muted)), hsl(var(--background)) 85%);
     border-radius: 1rem;
   }
+
+  .workspace-header {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .workspace-header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(550px circle at 0% 0%, hsl(var(--primary) / 0.12), transparent 60%),
+      linear-gradient(135deg, transparent 20%, hsl(var(--primary) / 0.08) 55%, transparent 85%);
+    opacity: 0.9;
+  }
+
+  .workspace-header > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .workspace-body {
+    position: relative;
+    border-radius: 1.5rem;
+    background: linear-gradient(175deg, hsl(var(--surface)) 0%, hsl(var(--background)) 90%);
+    border: 1px solid hsl(var(--surface-border) / 0.65);
+    box-shadow: 0 24px 60px -35px rgba(15, 23, 42, 0.28);
+    backdrop-filter: blur(6px);
+    overflow: hidden;
+  }
+
+  .workspace-body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(transparent 24px, hsl(var(--surface-border) / 0.35) 25px),
+      linear-gradient(90deg, transparent 24px, hsl(var(--surface-border) / 0.35) 25px);
+    background-size: 25px 25px;
+    opacity: 0.08;
+  }
+
+  .workspace-body__inner {
+    position: relative;
+    z-index: 1;
+    margin: 0 auto;
+    min-height: 100%;
+    width: 100%;
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .workspace-body__inner {
+      padding: 1.75rem 1.75rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .workspace-body__inner {
+      padding: 2rem 2.5rem;
+    }
+  }
+
+  .workspace-sidebar {
+    position: relative;
+    border-radius: 1.35rem;
+    background: linear-gradient(180deg, hsl(var(--surface)) 0%, hsl(var(--background)) 95%);
+    border: 1px solid hsl(var(--surface-border) / 0.65);
+    box-shadow: 0 28px 60px -32px rgba(15, 23, 42, 0.32);
+    overflow: hidden;
+  }
+
+  .workspace-sidebar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(500px circle at 0% 0%, hsl(var(--primary) / 0.08), transparent 70%);
+    opacity: 0.6;
+  }
+
+  .workspace-sidebar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.05) 55%, transparent 100%);
+    opacity: 0.5;
+  }
+
+  .workspace-sidebar > * {
+    position: relative;
+    z-index: 1;
+  }
 }

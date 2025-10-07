@@ -1,5 +1,5 @@
 // src/components/layout/AppLayout.tsx
-import { ReactNode, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -37,7 +37,8 @@ import {
   Receipt,
   Bot,
   Gauge,
-  Mic
+  Mic,
+  ChevronRight
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -309,6 +310,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { term, setTerm } = useSearch();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
 
   // Command palette
@@ -325,141 +327,210 @@ export function AppLayout({ children }: { children: ReactNode }) {
     setSearchDialogOpen(true);
   });
 
+  type ModuleTone = 'success' | 'info' | 'warning';
+
+  const moduleDescriptors: Record<string, { label: string; status: string; tone: ModuleTone }> = {
+    dashboard: { label: 'Dashboard Overview', status: 'Operational', tone: 'success' },
+    cases: { label: 'Case Management', status: 'Active Review', tone: 'info' },
+    clients: { label: 'Client Services', status: 'Engagement Focus', tone: 'info' },
+    calendar: { label: 'Calendar', status: 'Schedule Synced', tone: 'success' },
+    documents: { label: 'Document Control', status: 'Secure Vault', tone: 'success' },
+    contracts: { label: 'Contracts', status: 'Revision Cycle', tone: 'warning' },
+    analytics: { label: 'Analytics', status: 'Insights Live', tone: 'info' },
+    users: { label: 'User Management', status: 'Access Governance', tone: 'info' },
+    settings: { label: 'Settings', status: 'Configuration', tone: 'info' },
+    'ream-ai': { label: 'Ream AI', status: 'Assistant Ready', tone: 'success' },
+    default: { label: 'Workspace', status: 'Operational', tone: 'info' }
+  };
+
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const activeModuleKey = pathSegments[0] ?? 'dashboard';
+  const moduleMeta = moduleDescriptors[activeModuleKey] ?? moduleDescriptors.default;
+  const breadcrumbs = pathSegments.length ? pathSegments : ['dashboard'];
+  const breadcrumbLabels = breadcrumbs.map((segment, index) => {
+    if (index === 0) {
+      return moduleMeta.label;
+    }
+    return segment
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  });
+
+  const toneClassMap: Record<ModuleTone, string> = {
+    success: 'bg-emerald-500',
+    info: 'bg-primary/70',
+    warning: 'bg-amber-500'
+  };
+
+  const headerTimestamp = useMemo(
+    () => new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date()),
+    []
+  );
+
   return (
     <SidebarProvider>
       <CommandPalette />
       <div className="app-shell flex h-screen w-screen overflow-hidden">
-        {/* Sidebar - hidden on mobile */}
-        <aside className="hidden md:block w-64 border-r border-border/60 bg-[hsl(var(--surface))/0.88] px-2 py-3">
-          <div className="surface-panel h-full w-full overflow-hidden">
+        <aside className="hidden w-[280px] shrink-0 px-2 py-4 lg:px-3 md:flex">
+          <div className="workspace-sidebar surface-panel h-full w-full overflow-hidden">
             <AppSidebar />
           </div>
         </aside>
 
-        <div className="flex flex-col flex-1 min-w-0 gap-4 px-3 py-4 sm:px-6 sm:py-6">
-          <header className="surface-panel flex min-h-[var(--header-height)] flex-wrap items-center justify-between gap-3 px-3 py-3 sm:flex-nowrap sm:px-5 lg:px-6">
-            <div className="flex items-center gap-2">
-              {/* Mobile menu */}
-              <MobileNavigation />
-
-              {/* Sidebar toggle - visible only on desktop */}
-              <SidebarTrigger className="mr-2 hidden rounded-full border border-border/60 bg-[hsl(var(--surface))] p-2 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground md:flex" />
-            </div>
-
-            {/* Search bar */}
-            <div
-              className="flex-1 basis-full cursor-pointer sm:basis-auto sm:max-w-xl"
-              onClick={() => setSearchDialogOpen(true)}
-            >
-              <div className="group relative flex h-11 w-full items-center gap-3 rounded-full border border-border/60 bg-[hsl(var(--surface))] px-4 text-sm text-muted-foreground shadow-sm transition-colors hover:border-primary/50 hover:text-foreground">
-                <SearchIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-                <span className="truncate">Search the workspace</span>
-                <span className="ml-auto hidden items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground/70 sm:flex">
-                  Press
-                  <kbd className="rounded-md border border-border/70 bg-[hsl(var(--surface-muted))] px-2 py-0.5 text-[10px] font-semibold text-foreground">⌘K</kbd>
-                </span>
+        <div className="flex flex-col flex-1 min-w-0 gap-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <header className="workspace-header surface-panel flex flex-col gap-4 px-3 py-4 sm:px-6 lg:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <MobileNavigation />
+                <SidebarTrigger className="hidden rounded-xl border border-border/60 bg-[hsl(var(--surface))] p-2 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground md:inline-flex" />
+                <div className="hidden md:flex flex-col">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground/70">Workspace</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-lg font-semibold tracking-tight text-foreground">Kouti Legal Hub</span>
+                    <span className="hidden text-xs font-medium text-muted-foreground/80 xl:inline-flex">Operations Console</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-[hsl(var(--surface))]/80 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80 sm:flex">
+                  <span className={`h-2 w-2 rounded-full ${toneClassMap[moduleMeta.tone]}`} />
+                  <span>{moduleMeta.status}</span>
+                </div>
+                <div className="hidden items-center gap-2 rounded-full border border-border/60 bg-[hsl(var(--surface))]/70 px-3 py-1 text-xs font-medium text-muted-foreground lg:flex">
+                  <span className="text-muted-foreground/70">Focus</span>
+                  <span className="text-foreground">{moduleMeta.label}</span>
+                </div>
               </div>
             </div>
 
-            {/* Command dialog for search */}
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground/80">
+              <nav className="flex flex-wrap items-center gap-1">
+                {breadcrumbLabels.map((label, index) => (
+                  <span key={`${label}-${index}`} className="flex items-center gap-1">
+                    {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />}
+                    <span className={index === breadcrumbLabels.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground/80'}>
+                      {label}
+                    </span>
+                  </span>
+                ))}
+              </nav>
+              <span className="hidden h-1 w-1 rounded-full bg-border/70 sm:inline-flex" />
+              <span className="hidden text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70 sm:inline-flex">
+                Updated {headerTimestamp}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div
+                className="flex-1 basis-full cursor-pointer sm:basis-auto sm:max-w-xl"
+                onClick={() => setSearchDialogOpen(true)}
+              >
+                <div className="group relative flex h-11 w-full items-center gap-3 rounded-xl border border-border/60 bg-[hsl(var(--surface))] px-4 text-sm text-muted-foreground shadow-sm transition-colors hover:border-primary/50 hover:text-foreground">
+                  <SearchIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                  <span className="truncate">Search the workspace</span>
+                  <span className="ml-auto hidden items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground/70 sm:flex">
+                    Press
+                    <kbd className="rounded-md border border-border/70 bg-[hsl(var(--surface-muted))] px-2 py-0.5 text-[10px] font-semibold text-foreground">⌘K</kbd>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 md:gap-3">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate('/cases/create')}
+                        className="hidden h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground shadow-sm hover:border-primary/50 hover:text-foreground sm:flex"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Create New Case</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <NotificationsDropdown />
+
+                <DeadlineReminders />
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate('/help-center')}
+                        aria-label="Help Center"
+                        className="hidden h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground shadow-sm hover:border-primary/50 hover:text-foreground sm:flex"
+                      >
+                        <HelpCircle className="h-5 w-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Help Center</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-[hsl(var(--surface))] p-0 text-foreground shadow-sm hover:border-primary/50">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                          {userInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="mt-1 w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{user?.user_metadata?.name || user?.email}</p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem asChild>
+                        <Link to="/settings/profile">
+                          <User className="mr-2 h-4 w-4" />
+                          <span>Profile</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/settings">
+                          <Settings className="mr-2 h-4 w-4" />
+                          <span>Settings</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
             <CommandDialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
-              <CommandInput 
-                placeholder="Search cases, clients, documents..." 
+              <CommandInput
+                placeholder="Search cases, clients, documents..."
                 value={term}
                 onValueChange={setTerm}
               />
               <CommandList>
                 <CommandEmpty>No results found.</CommandEmpty>
-                {/* Results would go here */}
               </CommandList>
             </CommandDialog>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 md:gap-3">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate('/cases/create')}
-                      className="hidden h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground hover:border-primary/50 hover:text-foreground sm:flex"
-                    >
-                      <Plus className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Create New Case</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              {/* Notification Bell + Dropdown (uses Supabase hooks) */}
-              <NotificationsDropdown />
-              
-              <DeadlineReminders />
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate('/help-center')}
-                      aria-label="Help Center"
-                      className="hidden h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground hover:border-primary/50 hover:text-foreground sm:flex"
-                    >
-                      <HelpCircle className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Help Center</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="ml-1 flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] p-0 text-foreground shadow-sm hover:border-primary/50">
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                        {userInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 mt-1">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user?.user_metadata?.name || user?.email}</p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                      <Link to="/settings/profile">
-                        <User className="h-4 w-4 mr-2" />
-                        <span>Profile</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/settings">
-                        <Settings className="h-4 w-4 mr-2" />
-                        <span>Settings</span>
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
           </header>
 
-          <main className="flex-1 overflow-auto rounded-[1.5rem] border border-border/60 bg-[hsl(var(--surface))]/92 shadow-[0_22px_65px_-32px_rgba(15,23,42,0.32)] backdrop-blur-sm">
-            <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col px-4 py-5 sm:px-6 lg:px-10">
+          <main className="workspace-body flex-1 overflow-auto">
+            <div className="workspace-body__inner">
               {children}
             </div>
           </main>
