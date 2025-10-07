@@ -166,6 +166,11 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
+    --surface: 222.2 47.4% 11.2%;
+    --surface-foreground: 210 40% 98%;
+    --surface-muted: 217.2 32.6% 17.5%;
+    --surface-border: 220 13% 28%;
+
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
 
