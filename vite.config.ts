@@ -38,7 +38,11 @@ export default defineConfig(({ mode }) => ({
         // independent bundles we allow Rollup to manage the remaining module
         // graph automatically and prevent those cycles.
         manualChunks: (id) => {
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+          if (
+            id.includes('node_modules/react') ||
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/use-sync-external-store')
+          ) {
             return 'react-vendor';
           }
 
