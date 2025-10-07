@@ -100,7 +100,7 @@ export default function ReamAI() {
   const [isTyping, setIsTyping] = useState(false);
   const [enableVectorSearch] = useState(true);
   const [activeQuery, setActiveQuery] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // Get current organization for document processing
@@ -149,9 +149,16 @@ export default function ReamAI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, contracts]);
 
+  const scrollChatToBottom = (behavior: ScrollBehavior = "smooth") => {
+    const container = chatContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior });
+    }
+  };
+
   // Scroll to bottom of messages when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollChatToBottom();
   }, [messages]);
 
   // Handle file uploads
@@ -803,7 +810,7 @@ Please provide a helpful response to this legal question. If you need specific d
                   </div>
                 </div>
               )}
-              <div className="flex-1 overflow-y-auto">
+              <div ref={chatContainerRef} className="flex-1 overflow-y-auto">
                 <div className="flex flex-col p-4 space-y-4">
                   {messages.map((msg, i) => (
                     <div
@@ -837,8 +844,6 @@ Please provide a helpful response to this legal question. If you need specific d
                       )}
                     </div>
                   ))}
-                  {/* For auto-scrolling */}
-                  <div ref={messagesEndRef} />
                 </div>
               </div>
 
