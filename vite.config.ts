@@ -54,10 +54,6 @@ export default defineConfig(({ mode }) => ({
             return 'react-query';
           }
 
-          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
-            return 'charts';
-          }
-
           return undefined;
         },
       },
