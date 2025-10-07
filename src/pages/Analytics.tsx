@@ -80,18 +80,18 @@ export default function Analytics() {
   });
 
   // Calculate metrics
-  const totalCases = (cases as any)?.data?.length || 0;
-  const totalClients = (clients as any)?.data?.length || 0;
-  const totalContracts = (contracts as any)?.data?.length || 0;
-  const totalInvoices = (invoices as any)?.data?.length || 0;
-  const totalDocuments = (documents as any)?.data?.length || 0;
-  const totalEvents = (events as any)?.data?.length || 0;
+  const totalCases = cases?.data?.length || 0;
+  const totalClients = clients?.data?.length || 0;
+  const totalContracts = contracts.length;
+  const totalInvoices = invoices?.data?.length || 0;
+  const totalDocuments = documents?.data?.length || 0;
+  const totalEvents = events?.data?.length || 0;
 
-  const totalRevenue = (invoices as any)?.data?.reduce((sum: number, inv: any) => 
+  const totalRevenue = invoices?.data?.reduce((sum, inv) =>
     inv.status === 'paid' ? sum + (inv.total_amount || 0) : sum, 0) || 0;
 
-  const totalContractValue = (contracts as any)?.data?.reduce((sum: number, contract: any) => 
-    sum + (contract.value || 0), 0) || 0;
+  const totalContractValue = contracts.reduce((sum, contract) =>
+    sum + (contract.value || 0), 0);
 
   const isLoading = casesLoading || clientsLoading || contractsLoading || 
     invoicesLoading || documentsLoading || eventsLoading;
