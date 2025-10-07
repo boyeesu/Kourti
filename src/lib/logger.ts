@@ -193,12 +193,28 @@ async function sendPendingLogsToServer() {
     }
     
     // Send logs to server with CSRF protection
-    await fetch(SERVER_LOG_ENDPOINT, {
-      method: 'POST',
-      headers: { 
+    const csrfProtectedRequest = addCSRFToRequest({
+      headers: {
         'Content-Type': 'application/json',
       },
-      ...addCSRFToRequest(),
+    });
+    const headers = new Headers(csrfProtectedRequest.headers);
+
+    if (ENABLE_CONSOLE_LOGS) {
+      console.assert(
+        headers.get('Content-Type') === 'application/json',
+        'Logger request headers missing Content-Type'
+      );
+      console.assert(
+        headers.has('X-CSRF-Token'),
+        'Logger request headers missing X-CSRF-Token'
+      );
+    }
+
+    await fetch(SERVER_LOG_ENDPOINT, {
+      method: 'POST',
+      ...csrfProtectedRequest,
+      headers,
       body: JSON.stringify({
         logs: logsToSend,
         timestamp: new Date().toISOString(),
