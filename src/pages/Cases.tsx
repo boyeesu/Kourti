@@ -4,7 +4,7 @@ import { useCases as useContextCases } from "@/context/CasesContext"; // Keep co
 import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
 import { useSearch } from "@/hooks/use-search";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -164,9 +164,9 @@ export default function App() { // Changed to App for React component export
   // Display loading state
   if (isLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center min-h-[calc(100vh-100px)]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        <p className="ml-4 text-lg text-muted-foreground">Loading cases...</p>
+      <div className="px-6 py-8 flex items-center justify-center min-h-[calc(100vh-100px)]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+        <p className="ml-3 text-sm text-muted-foreground">Loading cases...</p>
       </div>
     );
   }
@@ -174,35 +174,35 @@ export default function App() { // Changed to App for React component export
   // Display error state
   if (error) {
     return (
-      <div className="px-4 py-6 flex flex-col items-center justify-center min-h-[calc(100vh-100px)]">
-        <p className="text-destructive text-lg mb-4 text-center">
+      <div className="px-6 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-100px)]">
+        <p className="text-destructive text-sm mb-3 text-center">
           {error instanceof Error
             ? error.message
             : "An unexpected error occurred while loading cases."}
         </p>
-        <Button onClick={() => refetch()} className="shadow-md">Retry Loading Cases</Button>
+        <Button size="sm" onClick={() => refetch()}>Retry Loading Cases</Button>
       </div>
     );
   }
 
-  // Helper function to get status badge color
+  // Helper function to get status badge color using semantic tokens
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case "active": return "bg-green-500 text-white"; // Using direct Tailwind classes for better control
-      case "review": return "bg-yellow-500 text-white";
-      case "open": return "bg-blue-500 text-white";
-      case "closed": return "bg-red-500 text-white";
-      default: return "bg-gray-400 text-white";
+      case "active": return "bg-success text-success-foreground";
+      case "review": return "bg-warning text-warning-foreground";
+      case "open": return "bg-primary/20 text-primary border border-primary/30";
+      case "closed": return "bg-muted text-muted-foreground";
+      default: return "bg-muted text-muted-foreground";
     }
   };
 
-  // Helper function to get priority badge color
+  // Helper function to get priority badge color using semantic tokens
   const getPriorityColor = (priority: string) => {
     switch (priority?.toLowerCase()) {
-      case "high": return "bg-red-600 text-white";
-      case "medium": return "bg-orange-500 text-white";
-      case "low": return "bg-green-600 text-white";
-      default: return "bg-gray-500 text-white";
+      case "high": return "bg-destructive text-destructive-foreground";
+      case "medium": return "bg-warning text-warning-foreground";
+      case "low": return "bg-success/20 text-success border border-success/30";
+      default: return "bg-muted text-muted-foreground";
     }
   };
 
@@ -239,40 +239,40 @@ export default function App() { // Changed to App for React component export
   const handleNextPage = () => setPage((prev: number) => Math.min(totalPages, prev + 1));
 
   return (
-    <div className="px-4 py-6 space-y-6 max-w-7xl mx-auto">
+    <div className="px-6 py-4 space-y-4 max-w-[1600px] mx-auto">
       <Breadcrumbs />
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Cases</h1>
-          <p className="text-muted-foreground">Manage and track all your legal cases</p>
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">Cases</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage and track all your legal cases</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=cases")}>
-            <Upload className="h-4 w-4 mr-2" />
-            Bulk Import
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=cases")}>
+            <Upload className="h-3.5 w-3.5 mr-1.5" />
+            Import
           </Button>
-          <Button className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/cases/create")}>
-            <Plus className="h-4 w-4 mr-2" />
+          <Button size="sm" className="flex-1 sm:flex-none" onClick={() => navigate("/cases/create")}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
             New Case
           </Button>
         </div>
       </div>
 
       {/* Compact Filters Toolbar */}
-      <div className="flex flex-wrap gap-2 items-center justify-between bg-transparent py-2">
-        <div className="relative w-full sm:w-[320px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-wrap gap-2 items-center bg-card border border-border rounded-lg px-3 py-2.5">
+        <div className="relative w-full sm:w-[280px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search cases, clients, or IDs..."
+            placeholder="Search cases..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 rounded-md border border-input focus:ring-primary focus:border-primary/30"
+            className="h-8 pl-8 pr-3 text-sm bg-background"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[150px] h-10">
-            <Filter className="h-4 w-4 mr-2" />
+          <SelectTrigger className="w-[130px] h-8 text-sm">
+            <Filter className="h-3.5 w-3.5 mr-1.5" />
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -291,125 +291,122 @@ export default function App() { // Changed to App for React component export
             )}
           </SelectContent>
         </Select>
-        {/* Fate Filter Example */}
         <Select>
-          <SelectTrigger className="w-[140px] h-10">
-            <SelectValue placeholder="Fate" />
+          <SelectTrigger className="w-[130px] h-8 text-sm">
+            <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Fates</SelectItem>
-            <SelectItem value="fulfilled">Fulfilled</SelectItem>
-            <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
+            <SelectItem value="all">All Priorities</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
           </SelectContent>
         </Select>
         {clientQuery && (
-          <Badge variant="secondary" className="ml-2 px-3 py-1 text-base rounded-full">
-            Client: <span className="font-semibold ml-1">{clientFilterName}</span>
+          <Badge variant="secondary" className="ml-auto h-7 px-2.5 text-xs font-medium">
+            Client: {clientFilterName}
           </Badge>
         )}
       </div>
 
       {/* Cases Table */}
-      <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">All Cases ({totalCount})</CardTitle>
-          <CardDescription>
-            Overview of all cases in your organization
-          </CardDescription>
+      <Card className="border border-border">
+        <CardHeader className="pb-3 pt-4 px-5">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">All Cases</CardTitle>
+            <span className="text-sm text-muted-foreground font-medium">{totalCount} total</span>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border overflow-x-auto"> {/* Added overflow-x-auto for responsiveness */}
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[150px]">Case Name</TableHead>
-                  <TableHead className="min-w-[120px]">Client</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="min-w-[100px]">Priority</TableHead>
-                  <TableHead className="min-w-[150px]">Assigned To</TableHead>
-                  <TableHead className="min-w-[120px]">Due Date</TableHead>
-                  <TableHead className="min-w-[100px]">Documents</TableHead>
-                  <TableHead className="w-[50px] text-right">Actions</TableHead>
+                <TableRow className="border-t">
+                  <TableHead className="h-9 px-4 text-xs font-medium">Case Name</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-medium">Client</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-medium">Status</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-medium">Priority</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-medium">Assigned To</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-medium">Due Date</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-medium text-center">Docs</TableHead>
+                  <TableHead className="h-9 px-4 w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCases.length > 0 ? (
                   filteredCases.map((case_item) => (
-                    <TableRow key={case_item.id} className="hover:bg-muted/50">
-                      <TableCell>
+                    <TableRow key={case_item.id} className="hover:bg-muted/30 border-b border-border/50">
+                      <TableCell className="py-2.5 px-4">
                         <div>
-                          <div className="font-medium text-foreground">{case_item.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Started {case_item.startDate}
+                          <div className="font-medium text-sm text-foreground leading-tight">{case_item.name}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {case_item.startDate}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{case_item.client}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(case_item.status)}>
+                      <TableCell className="py-2.5 px-4 text-sm">{case_item.client}</TableCell>
+                      <TableCell className="py-2.5 px-4">
+                        <Badge variant="secondary" className={`text-xs font-medium px-2 py-0.5 ${getStatusColor(case_item.status)}`}>
                           {case_item.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Badge className={getPriorityColor(case_item.priority)}>
+                      <TableCell className="py-2.5 px-4">
+                        <Badge variant="secondary" className={`text-xs font-medium px-2 py-0.5 ${getPriorityColor(case_item.priority)}`}>
                           {case_item.priority}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          {case_item.assignedTo}
+                      <TableCell className="py-2.5 px-4">
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>{case_item.assignedTo}</span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {case_item.dueDate}
+                      <TableCell className="py-2.5 px-4">
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>{case_item.dueDate}</span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          {case_item.documentsCount}
-                        </div>
+                      <TableCell className="py-2.5 px-4 text-center">
+                        <span className="text-sm font-medium">{case_item.documentsCount}</span>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="py-2.5 px-4">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="hover:bg-gray-100">
-                              <MoreVertical className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-muted">
+                              <MoreVertical className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[180px]">
+                          <DropdownMenuContent align="end" className="w-[160px]">
                             <DropdownMenuItem asChild>
-                              <Link to={`/cases/${case_item.id}`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
+                              <Link to={`/cases/${case_item.id}`} className="flex items-center cursor-pointer text-sm">
+                                <Eye className="h-3.5 w-3.5 mr-2" />
+                                View
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link to={`/cases/${case_item.id}/edit`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit Case
+                              <Link to={`/cases/${case_item.id}/edit`} className="flex items-center cursor-pointer text-sm">
+                                <Edit className="h-3.5 w-3.5 mr-2" />
+                                Edit
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link to={`/cases/${case_item.id}/documents`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
-                                <FileText className="h-4 w-4 mr-2" />
-                                View Documents
+                              <Link to={`/cases/${case_item.id}/documents`} className="flex items-center cursor-pointer text-sm">
+                                <FileText className="h-3.5 w-3.5 mr-2" />
+                                Documents
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-destructive/10 rounded-sm">
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Case
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive text-sm">
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                  Delete
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                  <AlertDialogTitle>Delete Case?</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     This action cannot be undone. This will permanently delete the case
                                     and remove all associated data.
@@ -433,8 +430,11 @@ export default function App() { // Changed to App for React component export
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                      No cases found matching your criteria.
+                    <TableCell colSpan={8} className="h-32 text-center">
+                      <div className="flex flex-col items-center justify-center text-muted-foreground">
+                        <FileText className="h-8 w-8 mb-2 opacity-40" />
+                        <p className="text-sm">No cases found matching your criteria.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
@@ -442,43 +442,35 @@ export default function App() { // Changed to App for React component export
             </Table>
           </div>
 
-          {/* Conditional rendering for empty states */}
-          {filteredCases.length === 0 && cases.length === 0 && (
-            <div className="text-center py-12">
-              <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-                <FileText className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">No cases yet</h3>
-              <p className="text-muted-foreground mb-4">Get started by creating your first case.</p>
-              <Button onClick={() => navigate("/cases/create")} className="shadow-md">
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Case
-              </Button>
-            </div>
-          )}
-
           {/* Pagination controls */}
           {totalCount > 0 && (
-            <div className="flex items-center justify-between mt-6">
-              <Button
-                variant="outline"
-                onClick={handlePreviousPage}
-                disabled={page === 1}
-                className="shadow-sm"
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                onClick={handleNextPage}
-                disabled={page >= totalPages}
-                className="shadow-sm"
-              >
-                Next
-              </Button>
+            <div className="flex items-center justify-between px-5 py-3 border-t border-border/50">
+              <div className="text-xs text-muted-foreground">
+                Showing {filteredCases.length > 0 ? ((page - 1) * pageSize) + 1 : 0}-{Math.min(page * pageSize, totalCount)} of {totalCount}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  onClick={handlePreviousPage}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <div className="text-xs text-muted-foreground px-2 min-w-[80px] text-center">
+                  {page} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  onClick={handleNextPage}
+                  disabled={page >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
