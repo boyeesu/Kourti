@@ -9,8 +9,6 @@ import { logInfo, logError } from '@/lib/logger';
 import { initCSRFProtection } from '@/lib/csrf';
 import { AppError, ErrorCode } from '@/lib/error-handling';
 import { env, validateEnv } from '@/lib/env';
-// Import the environment check utility
-import '@/lib/check-env';
 
 /**
  * Create a properly typed global error handler

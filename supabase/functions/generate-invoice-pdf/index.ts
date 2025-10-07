@@ -81,7 +81,7 @@ serve(async (req: Request) => {
 
     console.log('PDF generated successfully');
 
-    return new Response(pdfBuffer, {
+    return new Response(pdfBuffer as unknown as BodyInit, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/pdf',
