@@ -30,60 +30,31 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
+        // Keep manual chunking minimal to avoid circular dependencies between
+        // vendor bundles. Splitting every `node_modules` package into a manual
+        // chunk was causing the Radix UI bundle to execute before the React
+        // vendor chunk had finished initialising which resulted in `React`
+        // being `undefined` at runtime. By only extracting the heaviest
+        // independent bundles we allow Rollup to manage the remaining module
+        // graph automatically and prevent those cycles.
         manualChunks: (id) => {
-          // Core React dependencies
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
             return 'react-vendor';
           }
-          
-          // Radix UI components
-          if (id.includes('node_modules/@radix-ui')) {
-            return 'radix-ui';
-          }
-          
-          // Chart and visualization libraries
-          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
-            return 'charts';
-          }
-          
-          // Form handling and validation
-          if (id.includes('node_modules/react-hook-form') || 
-              id.includes('node_modules/zod') || 
-              id.includes('node_modules/@hookform')) {
-            return 'forms';
-          }
-          
-          // Supabase
+
           if (id.includes('node_modules/@supabase')) {
             return 'supabase';
           }
-          
-          // React Router
-          if (id.includes('node_modules/react-router-dom') || 
-              id.includes('node_modules/react-router')) {
-            return 'router';
-          }
-          
-          // React Query
+
           if (id.includes('node_modules/@tanstack/react-query')) {
             return 'react-query';
           }
-          
-          // Date utilities
-          if (id.includes('node_modules/date-fns') || 
-              id.includes('node_modules/react-day-picker')) {
-            return 'date-utils';
+
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
+            return 'charts';
           }
-          
-          // Icons
-          if (id.includes('node_modules/lucide-react')) {
-            return 'icons';
-          }
-          
-          // Other node_modules
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
+
+          return undefined;
         },
       },
     },
