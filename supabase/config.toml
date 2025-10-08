@@ -33,6 +33,9 @@ verify_jwt = false
 [functions.advanced-contract-analysis]
 verify_jwt = false
 
+[functions.contract-analysis]
+verify_jwt = false
+
 [functions.ai-contract-generator]
 verify_jwt = false
 
