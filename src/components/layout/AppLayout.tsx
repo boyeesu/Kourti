@@ -1,7 +1,7 @@
 // src/components/layout/AppLayout.tsx
 import { ReactNode, useMemo, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
 import {
@@ -409,17 +409,11 @@ function AppLayoutInner({
   userInitials,
   handleSignOut
 }: any) {
-  const { state } = useSidebar();
-  const collapsed = state === "collapsed";
-
   return (
     <>
       <CommandPalette />
       <div className="app-shell flex min-h-screen w-full bg-[hsl(var(--background))]">
-        <aside className={cn(
-          "hidden shrink-0 py-5 md:flex transition-all duration-300",
-          collapsed ? "w-[72px] px-2" : "w-[260px] px-3"
-        )}>
+        <aside className="hidden w-[260px] shrink-0 px-3 py-5 md:flex">
           <div className="workspace-sidebar h-full w-full overflow-hidden">
             <AppSidebar />
           </div>
@@ -431,7 +425,6 @@ function AppLayoutInner({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <MobileNavigation />
-                  <SidebarTrigger className="hidden rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-2 text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground md:inline-flex" />
                   <div className="flex flex-col">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Workspace</span>
                     <div className="flex items-baseline gap-2">
