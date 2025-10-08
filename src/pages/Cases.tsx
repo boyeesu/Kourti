@@ -239,7 +239,7 @@ export default function App() { // Changed to App for React component export
   const handleNextPage = () => setPage((prev: number) => Math.min(totalPages, prev + 1));
 
   return (
-    <div className="px-4 py-6 space-y-6 max-w-7xl mx-auto">
+    <div className="px-4 py-6 space-y-6">
       <Breadcrumbs />
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
