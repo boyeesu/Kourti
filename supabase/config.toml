@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.send-invitation-email]
 verify_jwt = false
+
+[functions.documenso-api]
+verify_jwt = false

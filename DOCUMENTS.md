@@ -171,6 +171,21 @@ Supabase CLI picks .env.* automatically, but ensure:
 OPENAI_API_KEY=<your key>
 SUPABASE_URL, SUPABASE_ANON_KEY (for front-end)
 SUPABASE_SERVICE_ROLE_KEY (for edge functions if needed)
+DOCUMENSO_BASE_URL=<https://your-documenso-instance>
+DOCUMENSO_API_KEY=<your-documenso-api-key>
+```
+
+Set the Documenso secrets with the Supabase CLI for local and deployed environments:
+
+```
+supabase secrets set --env local DOCUMENSO_BASE_URL="https://your-documenso-instance"
+supabase secrets set --env local DOCUMENSO_API_KEY="your-documenso-api-key"
+```
+
+Then deploy the function so the front-end e-signature dialog can proxy requests securely:
+
+```
+supabase functions deploy documenso-api
 ```
 
 ---
