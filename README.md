@@ -1,6 +1,6 @@
-# Kourti Legal Hub – Next-Gen Legal Operations Platform
+# Kourti Legal – Next-Gen Legal Operations Platform
 
-Unlock the power of AI and automation in your legal workflows. Kourti Legal Hub delivers advanced case, contract, and document management for legal professionals — now with seamless AI document analysis, smart contract generation, and one-click document export.
+Unlock the power of AI and automation in your legal workflows. Kourti Legal delivers advanced case, contract, and document management for legal professionals — now with seamless AI document analysis, smart contract generation, and one-click document export.
 
 -----
 
@@ -95,7 +95,7 @@ If you prefer an online IDE, you can use GitHub Codespaces.
 
 -----
 
-## AI-Enabled Workflows in Kourti Legal Hub
+## AI-Enabled Workflows in Kourti Legal
 
 ### AI Contract Generation
 Draft standard or custom legal agreements powered by OpenAI. Input your requirements; the app outputs a ready-to-edit contract draft, which you can further analyze, review, and export.
