@@ -42,11 +42,23 @@ export function useDocuments() {
     queryKey: ['documents'],
     queryFn: async () => {
       const userId = await getCurrentUserId();
-      const { data: profile } = await supabase
+      if (!userId) {
+        return [] as Document[];
+      }
+
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
         .eq('user_id', userId as any)
-        .single();
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      const organizationId = (profile as { organization_id?: string } | null)?.organization_id;
+
+      if (!organizationId) {
+        return [] as Document[];
+      }
 
       const { data, error } = await supabase
         .from('documents')
@@ -61,7 +73,7 @@ export function useDocuments() {
             last_name
           )
         `)
-        .eq('organization_id', (profile as any)?.organization_id || '');
+        .eq('organization_id', organizationId);
 
       if (error) throw error;
 
