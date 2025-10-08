@@ -272,17 +272,17 @@ const AppSidebar: React.FC = () => {
             )}
           </div>
         </SidebarHeader>
-        <SidebarContent className="flex h-full flex-col px-3 py-4">
-          <div className="flex-1 space-y-5">
+        <SidebarContent className="flex h-full flex-col px-3 py-2">
+          <div className="flex-1 space-y-3">
             {filteredGroups.map((group) => (
               <SidebarGroup key={group.label}>
                 {!collapsed && (
-                  <SidebarGroupLabel className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  <SidebarGroupLabel className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     {group.label}
                   </SidebarGroupLabel>
                 )}
                 <SidebarGroupContent>
-                  <SidebarMenu className="space-y-1">
+                  <SidebarMenu className="space-y-0.5">
                     {group.items.map((item) => (
                       <Tooltip key={item.url} disableHoverableContent={!collapsed}>
                         <TooltipTrigger asChild>{renderNavItem(item)}</TooltipTrigger>
@@ -297,7 +297,7 @@ const AppSidebar: React.FC = () => {
             ))}
           </div>
 
-          <div className="mt-auto space-y-3 border-t border-[hsl(var(--sidebar-border))] pt-3">
+          <div className="mt-auto space-y-2 border-t border-[hsl(var(--sidebar-border))] pt-2">
             {!collapsed && (
               <Button
                 variant="ghost"
