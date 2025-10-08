@@ -93,7 +93,7 @@ export default function App() { // Changed to App for React component export
         description:
           error instanceof Error
             ? error.message
-            : "Failed to load cases. Please try again.",
+            : "Failed to load matters. Please try again.",
       });
     }
     // Reset global search term when the component mounts or if setTerm changes
@@ -142,13 +142,13 @@ export default function App() { // Changed to App for React component export
       )?.client || clientQuery
     : "";
 
-  // Handle case deletion
+  // Handle matter deletion
   const handleDeleteCase = async (caseId: string) => {
     try {
       await deleteCase.mutateAsync(caseId);
       toast({
-        title: "Case Deleted",
-        description: "The case has been successfully deleted.",
+        title: "Matter Deleted",
+        description: "The matter has been successfully deleted.",
       });
     } catch (error) {
       // The useDeleteCase hook should handle its own error toasts,
@@ -156,7 +156,7 @@ export default function App() { // Changed to App for React component export
       toast({
         variant: "destructive",
         title: "Deletion Failed",
-        description: "Could not delete the case. Please try again.",
+        description: "Could not delete the matter. Please try again.",
       });
     }
   };
@@ -166,7 +166,7 @@ export default function App() { // Changed to App for React component export
     return (
       <div className="px-4 py-6 flex items-center justify-center min-h-[calc(100vh-100px)]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        <p className="ml-4 text-lg text-muted-foreground">Loading cases...</p>
+        <p className="ml-4 text-lg text-muted-foreground">Loading matters...</p>
       </div>
     );
   }
@@ -178,9 +178,9 @@ export default function App() { // Changed to App for React component export
         <p className="text-destructive text-lg mb-4 text-center">
           {error instanceof Error
             ? error.message
-            : "An unexpected error occurred while loading cases."}
+            : "An unexpected error occurred while loading matters."}
         </p>
-        <Button onClick={() => refetch()} className="shadow-md">Retry Loading Cases</Button>
+        <Button onClick={() => refetch()} className="shadow-md">Retry Loading Matters</Button>
       </div>
     );
   }
@@ -244,17 +244,17 @@ export default function App() { // Changed to App for React component export
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Cases</h1>
-          <p className="text-muted-foreground">Manage and track all your legal cases</p>
+          <h1 className="text-3xl font-bold text-foreground">Matters</h1>
+          <p className="text-muted-foreground">Manage and track all your legal matters</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=cases")}>
+          <Button variant="outline" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=matters")}> 
             <Upload className="h-4 w-4 mr-2" />
             Bulk Import
           </Button>
-          <Button className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/cases/create")}>
+          <Button className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/matters/create")}> 
             <Plus className="h-4 w-4 mr-2" />
-            New Case
+            New Matter
           </Button>
         </div>
       </div>
@@ -264,7 +264,7 @@ export default function App() { // Changed to App for React component export
         <div className="relative w-full sm:w-[320px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search cases, clients, or IDs..."
+            placeholder="Search matters, clients, or IDs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 pr-4 py-2 rounded-md border border-input focus:ring-primary focus:border-primary/30"
@@ -309,12 +309,12 @@ export default function App() { // Changed to App for React component export
         )}
       </div>
 
-      {/* Cases Table */}
+      {/* Matters Table */}
       <Card className="shadow-lg rounded-lg">
         <CardHeader>
-          <CardTitle className="text-xl font-semibold">All Cases ({totalCount})</CardTitle>
+          <CardTitle className="text-xl font-semibold">All Matters ({totalCount})</CardTitle>
           <CardDescription>
-            Overview of all cases in your organization
+            Overview of all matters in your organization
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -322,7 +322,7 @@ export default function App() { // Changed to App for React component export
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[150px]">Case Name</TableHead>
+                  <TableHead className="min-w-[150px]">Matter Name</TableHead>
                   <TableHead className="min-w-[120px]">Client</TableHead>
                   <TableHead className="min-w-[100px]">Status</TableHead>
                   <TableHead className="min-w-[100px]">Priority</TableHead>
@@ -382,19 +382,19 @@ export default function App() { // Changed to App for React component export
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-[180px]">
                             <DropdownMenuItem asChild>
-                              <Link to={`/cases/${case_item.id}`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
+                              <Link to={`/matters/${case_item.id}`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
                                 <Eye className="h-4 w-4 mr-2" />
                                 View Details
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link to={`/cases/${case_item.id}/edit`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
+                              <Link to={`/matters/${case_item.id}/edit`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
                                 <Edit className="h-4 w-4 mr-2" />
-                                Edit Case
+                                Edit Matter
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link to={`/cases/${case_item.id}/documents`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
+                              <Link to={`/matters/${case_item.id}/documents`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
                                 <FileText className="h-4 w-4 mr-2" />
                                 View Documents
                               </Link>
@@ -404,14 +404,14 @@ export default function App() { // Changed to App for React component export
                               <AlertDialogTrigger asChild>
                                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-destructive/10 rounded-sm">
                                   <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Case
+                                  Delete Matter
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the case
+                                    This action cannot be undone. This will permanently delete the matter
                                     and remove all associated data.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
@@ -421,7 +421,7 @@ export default function App() { // Changed to App for React component export
                                     onClick={() => handleDeleteCase(case_item.id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
-                                    Delete
+                                    Delete Matter
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -434,7 +434,7 @@ export default function App() { // Changed to App for React component export
                 ) : (
                   <TableRow>
                     <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                      No cases found matching your criteria.
+                      No matters found matching your criteria.
                     </TableCell>
                   </TableRow>
                 )}
@@ -448,11 +448,11 @@ export default function App() { // Changed to App for React component export
               <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-muted flex items-center justify-center">
                 <FileText className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">No cases yet</h3>
-              <p className="text-muted-foreground mb-4">Get started by creating your first case.</p>
-              <Button onClick={() => navigate("/cases/create")} className="shadow-md">
+              <h3 className="text-xl font-semibold text-foreground mb-2">No matters yet</h3>
+              <p className="text-muted-foreground mb-4">Get started by creating your first matter.</p>
+              <Button onClick={() => navigate("/matters/create")} className="shadow-md">
                 <Plus className="h-4 w-4 mr-2" />
-                Create First Case
+                Create First Matter
               </Button>
             </div>
           )}

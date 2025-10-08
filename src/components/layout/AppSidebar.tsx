@@ -62,7 +62,7 @@ const primaryNavigation: NavigationGroup = {
   label: "Main",
   items: [
     { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
-    { title: "Cases", url: "/cases", icon: Briefcase, permission: { resource: "cases", action: "read" } },
+    { title: "Matters", url: "/matters", icon: Briefcase, permission: { resource: "cases", action: "read" } },
     { title: "Clients", url: "/clients", icon: UserCheck, permission: { resource: "clients", action: "read" } },
     { title: "Calendar", url: "/calendar", icon: Calendar, permission: { resource: "calendars", action: "read" } }
   ]
