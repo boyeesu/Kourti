@@ -568,16 +568,18 @@ function AppLayoutInner({
                 </div>
               </div>
 
-              <nav className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                {breadcrumbLabels.map((label: string, index: number) => (
-                  <span key={`${label}-${index}`} className="flex items-center gap-1">
-                    {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/60" />}
-                    <span className={index === breadcrumbLabels.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}>
-                      {label}
+              {breadcrumbLabels.length > 1 && (
+                <nav className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                  {breadcrumbLabels.map((label: string, index: number) => (
+                    <span key={`${label}-${index}`} className="flex items-center gap-1">
+                      {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/60" />}
+                      <span className={index === breadcrumbLabels.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+                        {label}
+                      </span>
                     </span>
-                  </span>
-                ))}
-              </nav>
+                  ))}
+                </nav>
+              )}
             </div>
 
             <CommandDialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
