@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.send-invitation-email]
 verify_jwt = false
+
+[functions.contract-analysis-ai]
+verify_jwt = false
