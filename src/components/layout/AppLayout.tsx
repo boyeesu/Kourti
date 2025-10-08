@@ -16,6 +16,8 @@ import {
 import { useSearch } from '@/hooks/use-search';
 import { useAuth } from '@/hooks/useAuth';
 import { useInsights } from '@/hooks/useInsights';
+import { useGlobalSearch } from '@/hooks/useGlobalSearch';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 // import { NotificationIcon } from '@/components/ui/notifications';
 import NotificationsDropdown from "./NotificationsDropdown";
 import { 
@@ -318,9 +320,27 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
-  
+  const { data: organizationId } = useUserOrganization();
+
   // Command palette
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+
+  const {
+    data: globalSearchResults,
+    isFetching: isGlobalSearchLoading,
+    error: globalSearchError,
+  } = useGlobalSearch({ term, organizationId, enabled: searchDialogOpen });
+
+  const searchResults =
+    globalSearchResults ?? {
+      cases: [],
+      clients: [],
+      calendarEvents: [],
+      voiceRecordings: [],
+      transcriptions: [],
+    };
+
+  const hasSearchTerm = term.trim().length >= 2;
 
   const handleSignOut = async () => {
     await signOut();
@@ -381,6 +401,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         setTerm={setTerm}
         searchDialogOpen={searchDialogOpen}
         setSearchDialogOpen={setSearchDialogOpen}
+        searchResults={searchResults}
+        hasSearchTerm={hasSearchTerm}
+        isGlobalSearchLoading={isGlobalSearchLoading}
+        globalSearchError={globalSearchError}
         moduleMeta={moduleMeta}
         breadcrumbLabels={breadcrumbLabels}
         toneClassMap={toneClassMap}
@@ -394,12 +418,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function AppLayoutInner({ 
-  children, 
-  term, 
-  setTerm, 
-  searchDialogOpen, 
+function AppLayoutInner({
+  children,
+  term,
+  setTerm,
+  searchDialogOpen,
   setSearchDialogOpen,
+  searchResults,
+  hasSearchTerm,
+  isGlobalSearchLoading,
+  globalSearchError,
   moduleMeta,
   breadcrumbLabels,
   toneClassMap,
@@ -409,6 +437,17 @@ function AppLayoutInner({
   userInitials,
   handleSignOut
 }: any) {
+  const hasSearchResults =
+    hasSearchTerm &&
+    Object.values(searchResults ?? {}).some(
+      (items) => Array.isArray(items) && items.length > 0
+    );
+
+  const handleSearchResultSelect = (url: string) => {
+    setSearchDialogOpen(false);
+    navigate(url);
+  };
+
   return (
     <>
       <CommandPalette />
@@ -518,7 +557,7 @@ function AppLayoutInner({
                   onClick={() => setSearchDialogOpen(true)}
                 >
                   <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                  <span className="flex-1 truncate">Search cases, clients, documents...</span>
+                  <span className="flex-1 truncate">Search cases, clients, calendar events, voice notes...</span>
                   <span className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:flex">
                     Press
                     <kbd className="rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-foreground">⌘K</kbd>
@@ -543,12 +582,152 @@ function AppLayoutInner({
 
             <CommandDialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
               <CommandInput
-                placeholder="Search cases, clients, documents..."
+                placeholder="Search cases, clients, calendar events, and voice content..."
                 value={term}
                 onValueChange={setTerm}
               />
               <CommandList>
-                <CommandEmpty>No results found.</CommandEmpty>
+                {hasSearchTerm &&
+                  searchResults.cases.length > 0 && (
+                    <CommandGroup heading="Cases">
+                      {searchResults.cases.map((item: any) => (
+                        <CommandItem
+                          key={`case-${item.id}`}
+                          value={`case-${item.title}`}
+                          className="flex items-center gap-3"
+                          onSelect={() => handleSearchResultSelect(item.url)}
+                        >
+                          <Briefcase className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex flex-col flex-1">
+                            <span className="text-sm font-medium text-foreground">{item.title}</span>
+                            {item.subtitle && (
+                              <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                            )}
+                          </div>
+                          {item.badge && (
+                            <Badge variant={item.badge.variant ?? 'secondary'} className="ml-2">
+                              {item.badge.label}
+                            </Badge>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+
+                {hasSearchTerm &&
+                  searchResults.clients.length > 0 && (
+                    <CommandGroup heading="Clients">
+                      {searchResults.clients.map((item: any) => (
+                        <CommandItem
+                          key={`client-${item.id}`}
+                          value={`client-${item.title}`}
+                          className="flex items-center gap-3"
+                          onSelect={() => handleSearchResultSelect(item.url)}
+                        >
+                          <UserCheck className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex flex-col flex-1">
+                            <span className="text-sm font-medium text-foreground">{item.title}</span>
+                            {item.subtitle && (
+                              <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                            )}
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+
+                {hasSearchTerm &&
+                  searchResults.calendarEvents.length > 0 && (
+                    <CommandGroup heading="Calendar Events">
+                      {searchResults.calendarEvents.map((item: any) => (
+                        <CommandItem
+                          key={`event-${item.id}`}
+                          value={`event-${item.title}`}
+                          className="flex items-center gap-3"
+                          onSelect={() => handleSearchResultSelect(item.url)}
+                        >
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex flex-col flex-1">
+                            <span className="text-sm font-medium text-foreground">{item.title}</span>
+                            {item.subtitle && (
+                              <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                            )}
+                          </div>
+                          {item.badge && (
+                            <Badge variant={item.badge.variant ?? 'secondary'} className="ml-2 capitalize">
+                              {item.badge.label}
+                            </Badge>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+
+                {hasSearchTerm &&
+                  searchResults.voiceRecordings.length > 0 && (
+                    <CommandGroup heading="Voice Recordings">
+                      {searchResults.voiceRecordings.map((item: any) => (
+                        <CommandItem
+                          key={`voice-${item.id}`}
+                          value={`voice-${item.title}`}
+                          className="flex items-center gap-3"
+                          onSelect={() => handleSearchResultSelect(item.url)}
+                        >
+                          <Mic className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex flex-col flex-1">
+                            <span className="text-sm font-medium text-foreground">{item.title}</span>
+                            {item.subtitle && (
+                              <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                            )}
+                          </div>
+                          {item.badge && (
+                            <Badge variant={item.badge.variant ?? 'secondary'} className="ml-2 capitalize">
+                              {item.badge.label}
+                            </Badge>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+
+                {hasSearchTerm &&
+                  searchResults.transcriptions.length > 0 && (
+                    <CommandGroup heading="Transcriptions">
+                      {searchResults.transcriptions.map((item: any) => (
+                        <CommandItem
+                          key={`transcription-${item.id}`}
+                          value={`transcription-${item.title}`}
+                          className="flex items-center gap-3"
+                          onSelect={() => handleSearchResultSelect(item.url)}
+                        >
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex flex-col flex-1">
+                            <span className="text-sm font-medium text-foreground">{item.title}</span>
+                            {item.subtitle && (
+                              <span className="text-xs text-muted-foreground line-clamp-2">{item.subtitle}</span>
+                            )}
+                          </div>
+                          {item.badge && (
+                            <Badge variant={item.badge.variant ?? 'secondary'} className="ml-2 capitalize">
+                              {item.badge.label}
+                            </Badge>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+
+                <CommandEmpty>
+                  {!hasSearchTerm
+                    ? 'Type at least 2 characters to search across the workspace.'
+                    : globalSearchError
+                    ? 'Unable to search the workspace. Please try again.'
+                    : isGlobalSearchLoading
+                    ? 'Searching workspace...'
+                    : hasSearchResults
+                    ? 'Keep typing to narrow down your results.'
+                    : 'No results found for your search.'}
+                </CommandEmpty>
               </CommandList>
             </CommandDialog>
           </header>
