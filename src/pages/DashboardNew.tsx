@@ -310,7 +310,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-8 max-w-7xl mx-auto">
+    <div className="px-4 py-6 space-y-8">
       {/* Header with welcome message */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
