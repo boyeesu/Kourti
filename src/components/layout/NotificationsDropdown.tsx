@@ -20,9 +20,11 @@ const NotificationsDropdown: React.FC = () => {
 
   const unreadCount = notifications?.filter(n => n.status === 'unread').length || 0;
 
+  const triggerClasses = "relative h-10 w-10 rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground";
+
   if (isLoading) {
     return (
-      <Button variant="ghost" size="icon" disabled>
+      <Button variant="ghost" size="icon" className={triggerClasses} disabled>
         <Bell className="h-5 w-5" />
       </Button>
     );
@@ -31,7 +33,7 @@ const NotificationsDropdown: React.FC = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className={triggerClasses}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 

@@ -45,6 +45,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
+import { cn } from '@/lib/utils';
 
 // Navigation item type
 export type NavItem = {
@@ -229,14 +230,14 @@ function MobileNavigation() {
           <Button
             variant="ghost"
             size="icon"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground hover:border-primary/50 hover:text-foreground md:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground md:hidden"
             aria-label="Open main navigation menu"
             title="Open main navigation menu"
           >
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-[280px] border-none bg-[hsl(var(--surface))] p-0">
+        <SheetContent side="left" className="w-[280px] border-none bg-[hsl(var(--sidebar-background))] p-0">
           <div className="flex flex-col h-full">
             <div className="p-4 border-b">
               <div className="flex items-center justify-between">
@@ -259,8 +260,13 @@ function MobileNavigation() {
                       return (
                         <Button
                           key={item.url}
-                          variant={isActive(item.url, item.end) ? "default" : "ghost"}
-                          className="w-full justify-start h-11 flex items-center text-base"
+                          variant="ghost"
+                          className={cn(
+                            "w-full justify-start gap-3 rounded-lg border border-transparent px-3 py-2 text-sm font-medium",
+                            isActive(item.url, item.end)
+                              ? "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]"
+                              : "text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground"
+                          )}
                           onClick={e => {
                             setOpen(false);
                             if (isInvoice) {
@@ -272,10 +278,10 @@ function MobileNavigation() {
                             }
                           }}
                         >
-                          <item.icon className="h-5 w-5 mr-2" />
+                          <item.icon className="h-5 w-5" />
                           <span>{item.title}</span>
                           {item.badge && (
-                            <Badge variant={item.badgeVariant} className="ml-auto">
+                            <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
                               {item.badge}
                             </Badge>
                           )}
@@ -357,9 +363,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   });
 
   const toneClassMap: Record<ModuleTone, string> = {
-    success: 'bg-emerald-500',
-    info: 'bg-primary/70',
-    warning: 'bg-amber-500'
+    success: 'bg-[hsl(var(--success))]',
+    info: 'bg-[hsl(var(--primary))]',
+    warning: 'bg-[hsl(var(--warning))]'
   };
 
   const headerTimestamp = useMemo(
@@ -370,151 +376,134 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <CommandPalette />
-      <div className="app-shell flex h-screen w-screen overflow-hidden">
-        <aside className="hidden w-[280px] shrink-0 px-2 py-4 lg:px-3 md:flex">
-          <div className="workspace-sidebar surface-panel h-full w-full overflow-hidden">
+      <div className="app-shell flex min-h-screen w-full bg-[hsl(var(--background))]">
+        <aside className="hidden w-[260px] shrink-0 px-3 py-5 md:flex">
+          <div className="workspace-sidebar h-full w-full overflow-hidden">
             <AppSidebar />
           </div>
         </aside>
 
-        <div className="flex flex-col flex-1 min-w-0 gap-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-          <header className="workspace-header surface-panel flex flex-col gap-4 px-3 py-4 sm:px-6 lg:px-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <MobileNavigation />
-                <SidebarTrigger className="hidden rounded-xl border border-border/60 bg-[hsl(var(--surface))] p-2 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground md:inline-flex" />
-                <div className="hidden md:flex flex-col">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground/70">Workspace</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-semibold tracking-tight text-foreground">Kouti Legal Hub</span>
-                    <span className="hidden text-xs font-medium text-muted-foreground/80 xl:inline-flex">Operations Console</span>
+        <div className="flex flex-col flex-1 min-w-0 gap-6 px-3 py-5 sm:px-6 lg:px-8">
+          <header className="workspace-header surface-panel px-4 py-5 sm:px-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <MobileNavigation />
+                  <SidebarTrigger className="hidden rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-2 text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground md:inline-flex" />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Workspace</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xl font-semibold text-foreground">{moduleMeta.label}</span>
+                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">{moduleMeta.status}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-[hsl(var(--surface))]/80 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80 sm:flex">
-                  <span className={`h-2 w-2 rounded-full ${toneClassMap[moduleMeta.tone]}`} />
-                  <span>{moduleMeta.status}</span>
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="hidden items-center gap-2 rounded-full border border-[hsl(var(--surface-border))] bg-[hsl(var(--muted))] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:flex">
+                    <span className={cn("h-2 w-2 rounded-full", toneClassMap[moduleMeta.tone])} />
+                    <span>{moduleMeta.status}</span>
+                  </div>
+                  <Button
+                    variant="default"
+                    className="hidden items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[hsl(var(--primary))/0.9] sm:flex"
+                    onClick={() => navigate('/cases/create')}
+                  >
+                    <Plus className="h-4 w-4" />
+                    New Case
+                  </Button>
+                  <NotificationsDropdown />
+                  <DeadlineReminders />
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate('/help-center')}
+                          aria-label="Help Center"
+                          className="hidden h-10 w-10 items-center justify-center rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground sm:flex"
+                        >
+                          <HelpCircle className="h-5 w-5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Help Center</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="ml-1 flex h-10 w-10 items-center justify-center rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-0 text-foreground transition-colors hover:border-[hsl(var(--primary))]"
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
+                          <AvatarFallback className="bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))] text-sm">
+                            {userInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="mt-1 w-56">
+                      <DropdownMenuLabel>
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none">{user?.user_metadata?.name || user?.email}</p>
+                          <p className="text-xs leading-none text-muted-foreground">
+                            {user?.email}
+                          </p>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem asChild>
+                          <Link to="/settings/profile">
+                            <User className="mr-2 h-4 w-4" />
+                            <span>Profile</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/settings">
+                            <Settings className="mr-2 h-4 w-4" />
+                            <span>Settings</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <div className="hidden items-center gap-2 rounded-full border border-border/60 bg-[hsl(var(--surface))]/70 px-3 py-1 text-xs font-medium text-muted-foreground lg:flex">
-                  <span className="text-muted-foreground/70">Focus</span>
-                  <span className="text-foreground">{moduleMeta.label}</span>
-                </div>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground/80">
-              <nav className="flex flex-wrap items-center gap-1">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div
+                  className="flex flex-1 cursor-pointer items-center gap-2 rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground"
+                  onClick={() => setSearchDialogOpen(true)}
+                >
+                  <SearchIcon className="h-4 w-4 flex-shrink-0" />
+                  <span className="flex-1 truncate">Search cases, clients, documents...</span>
+                  <span className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:flex">
+                    Press
+                    <kbd className="rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-foreground">⌘K</kbd>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground md:justify-end">
+                  <span className="font-medium text-foreground">Updated {headerTimestamp}</span>
+                </div>
+              </div>
+
+              <nav className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                 {breadcrumbLabels.map((label, index) => (
                   <span key={`${label}-${index}`} className="flex items-center gap-1">
-                    {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />}
-                    <span className={index === breadcrumbLabels.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground/80'}>
+                    {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/60" />}
+                    <span className={index === breadcrumbLabels.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}>
                       {label}
                     </span>
                   </span>
                 ))}
               </nav>
-              <span className="hidden h-1 w-1 rounded-full bg-border/70 sm:inline-flex" />
-              <span className="hidden text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70 sm:inline-flex">
-                Updated {headerTimestamp}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div
-                className="flex-1 basis-full cursor-pointer sm:basis-auto sm:max-w-xl"
-                onClick={() => setSearchDialogOpen(true)}
-              >
-                <div className="group relative flex h-11 w-full items-center gap-3 rounded-xl border border-border/60 bg-[hsl(var(--surface))] px-4 text-sm text-muted-foreground shadow-sm transition-colors hover:border-primary/50 hover:text-foreground">
-                  <SearchIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-                  <span className="truncate">Search the workspace</span>
-                  <span className="ml-auto hidden items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground/70 sm:flex">
-                    Press
-                    <kbd className="rounded-md border border-border/70 bg-[hsl(var(--surface-muted))] px-2 py-0.5 text-[10px] font-semibold text-foreground">⌘K</kbd>
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 md:gap-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/cases/create')}
-                        className="hidden h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground shadow-sm hover:border-primary/50 hover:text-foreground sm:flex"
-                      >
-                        <Plus className="h-5 w-5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Create New Case</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                <NotificationsDropdown />
-
-                <DeadlineReminders />
-
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/help-center')}
-                        aria-label="Help Center"
-                        className="hidden h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-[hsl(var(--surface))] text-muted-foreground shadow-sm hover:border-primary/50 hover:text-foreground sm:flex"
-                      >
-                        <HelpCircle className="h-5 w-5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Help Center</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-[hsl(var(--surface))] p-0 text-foreground shadow-sm hover:border-primary/50">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                          {userInitials}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="mt-1 w-56">
-                    <DropdownMenuLabel>
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{user?.user_metadata?.name || user?.email}</p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                          {user?.email}
-                        </p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem asChild>
-                        <Link to="/settings/profile">
-                          <User className="mr-2 h-4 w-4" />
-                          <span>Profile</span>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/settings">
-                          <Settings className="mr-2 h-4 w-4" />
-                          <span>Settings</span>
-                        </Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
-                      Sign Out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
             </div>
 
             <CommandDialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>

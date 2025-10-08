@@ -18,88 +18,69 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 
 @layer base {
   :root {
-    /* Main background and text */
-    --background: 210 20% 98%;
-    --foreground: 215 25% 15%;
+    /* Main canvas */
+    --background: 96 38% 97%;
+    --foreground: 156 24% 18%;
 
-    /* Elevated surfaces */
+    /* Elevated layers */
     --surface: 0 0% 100%;
-    --surface-foreground: 215 25% 15%;
-    --surface-muted: 215 16% 94%;
-    --surface-border: 215 15% 88%;
+    --surface-foreground: 156 24% 18%;
+    --surface-muted: 96 24% 92%;
+    --surface-border: 96 16% 82%;
 
-    /* Card system for content containers */
+    /* Card system */
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 156 24% 18%;
 
-    /* Popovers and overlays */
+    /* Popovers */
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 156 24% 18%;
 
-    /* Primary - Professional legal blue */
-    --primary: 215 85% 25%;
-    --primary-foreground: 210 20% 98%;
-    --primary-light: 215 70% 35%;
-    --primary-glow: 215 85% 45%;
+    /* Primary accent - confident moss green */
+    --primary: 148 46% 36%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 148 46% 48%;
 
-    /* Secondary - Sophisticated gray-blue */
-    --secondary: 215 15% 92%;
-    --secondary-foreground: 215 25% 25%;
+    /* Secondary neutrals */
+    --secondary: 96 30% 90%;
+    --secondary-foreground: 156 24% 28%;
 
-    /* Muted backgrounds and subtle text */
-    --muted: 215 15% 95%;
-    --muted-foreground: 215 15% 45%;
+    /* Muted support */
+    --muted: 96 24% 92%;
+    --muted-foreground: 156 10% 40%;
 
-    /* Accent - Elegant accent color */
-    --accent: 215 15% 90%;
-    --accent-foreground: 215 25% 25%;
+    /* Accent tint */
+    --accent: 96 26% 88%;
+    --accent-foreground: 156 22% 26%;
 
-    /* Status colors */
-    --success: 145 65% 35%;
+    /* Status colours */
+    --success: 146 45% 40%;
     --success-foreground: 0 0% 100%;
-    --warning: 45 85% 55%;
-    --warning-foreground: 25 15% 15%;
-    --destructive: 0 70% 50%;
+    --warning: 38 90% 55%;
+    --warning-foreground: 26 20% 18%;
+    --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders and inputs */
-    --border: 215 15% 85%;
-    --input: 215 15% 88%;
-    --ring: 215 85% 25%;
+    /* Structure */
+    --border: 96 16% 80%;
+    --input: 96 18% 78%;
+    --ring: 148 46% 36%;
 
-    /* Professional gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
-    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
-    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(215 20% 99%));
+    /* Motion */
+    --transition-smooth: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.14s ease-out;
 
-    /* Elegant shadows */
-    --shadow-elegant: 0 25px 60px -35px rgba(15, 23, 42, 0.35);
-    --shadow-card: 0 18px 45px -30px rgba(15, 23, 42, 0.28);
-    --shadow-glow: 0 0 35px hsl(var(--primary-glow) / 0.35);
+    --radius: 0.75rem;
 
-    --header-height: 3.75rem;
-
-    /* Professional animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-fast: all 0.15s ease-out;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar palette */
+    --sidebar-background: 96 36% 96%;
+    --sidebar-foreground: 156 15% 24%;
+    --sidebar-primary: 148 46% 36%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 96 28% 92%;
+    --sidebar-accent-foreground: 156 20% 26%;
+    --sidebar-border: 96 18% 82%;
+    --sidebar-ring: 148 46% 36%;
   }
 }
 
@@ -281,74 +262,43 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   }
 
   .surface-panel {
-    border-radius: 1.1rem;
-    background: linear-gradient(155deg, hsl(var(--surface)) 0%, hsl(var(--surface-muted)) 100%);
-    border: 1px solid hsl(var(--surface-border) / 0.65);
-    box-shadow: var(--shadow-card);
+    border-radius: 1rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.7);
+    box-shadow: 0 14px 36px -26px rgba(15, 23, 42, 0.32);
   }
 
   .surface-popover {
-    border-radius: 0.9rem;
-    background: linear-gradient(160deg, hsl(var(--surface)) 0%, hsl(var(--surface-muted)) 95%);
-    border: 1px solid hsl(var(--surface-border) / 0.6);
-    box-shadow: 0 22px 65px -32px rgba(15, 23, 42, 0.32);
+    border-radius: 0.85rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.65);
+    box-shadow: 0 18px 45px -28px rgba(15, 23, 42, 0.25);
   }
 
   .surface-muted {
-    background: linear-gradient(180deg, hsl(var(--muted)), hsl(var(--background)) 85%);
-    border-radius: 1rem;
+    border-radius: 0.9rem;
+    background: hsl(var(--muted));
   }
 
   .workspace-header {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .workspace-header::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(550px circle at 0% 0%, hsl(var(--primary) / 0.12), transparent 60%),
-      linear-gradient(135deg, transparent 20%, hsl(var(--primary) / 0.08) 55%, transparent 85%);
-    opacity: 0.9;
-  }
-
-  .workspace-header > * {
-    position: relative;
-    z-index: 1;
+    border-radius: 1.25rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.7);
+    box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.25);
   }
 
   .workspace-body {
-    position: relative;
-    border-radius: 1.5rem;
-    background: linear-gradient(175deg, hsl(var(--surface)) 0%, hsl(var(--background)) 90%);
-    border: 1px solid hsl(var(--surface-border) / 0.65);
-    box-shadow: 0 24px 60px -35px rgba(15, 23, 42, 0.28);
-    backdrop-filter: blur(6px);
-    overflow: hidden;
-  }
-
-  .workspace-body::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      linear-gradient(transparent 24px, hsl(var(--surface-border) / 0.35) 25px),
-      linear-gradient(90deg, transparent 24px, hsl(var(--surface-border) / 0.35) 25px);
-    background-size: 25px 25px;
-    opacity: 0.08;
+    border-radius: 1.25rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.7);
+    box-shadow: 0 22px 45px -32px rgba(15, 23, 42, 0.22);
   }
 
   .workspace-body__inner {
-    position: relative;
-    z-index: 1;
     margin: 0 auto;
     min-height: 100%;
     width: 100%;
-    max-width: 1400px;
+    max-width: 1280px;
     display: flex;
     flex-direction: column;
     padding: 1.5rem 1.25rem;
@@ -362,39 +312,14 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 
   @media (min-width: 1024px) {
     .workspace-body__inner {
-      padding: 2rem 2.5rem;
+      padding: 2rem 2.25rem;
     }
   }
 
   .workspace-sidebar {
-    position: relative;
-    border-radius: 1.35rem;
-    background: linear-gradient(180deg, hsl(var(--surface)) 0%, hsl(var(--background)) 95%);
-    border: 1px solid hsl(var(--surface-border) / 0.65);
-    box-shadow: 0 28px 60px -32px rgba(15, 23, 42, 0.32);
-    overflow: hidden;
-  }
-
-  .workspace-sidebar::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(500px circle at 0% 0%, hsl(var(--primary) / 0.08), transparent 70%);
-    opacity: 0.6;
-  }
-
-  .workspace-sidebar::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.05) 55%, transparent 100%);
-    opacity: 0.5;
-  }
-
-  .workspace-sidebar > * {
-    position: relative;
-    z-index: 1;
+    border-radius: 1.15rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.7);
+    box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.22);
   }
 }
