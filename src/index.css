@@ -19,39 +19,39 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 @layer base {
   :root {
     /* Main canvas */
-    --background: 96 38% 97%;
-    --foreground: 156 24% 18%;
+    --background: 214 29% 95%;
+    --foreground: 211 40% 20%;
 
     /* Elevated layers */
     --surface: 0 0% 100%;
-    --surface-foreground: 156 24% 18%;
-    --surface-muted: 96 24% 92%;
-    --surface-border: 96 16% 82%;
+    --surface-foreground: 211 35% 20%;
+    --surface-muted: 214 24% 93%;
+    --surface-border: 214 18% 84%;
 
     /* Card system */
     --card: 0 0% 100%;
-    --card-foreground: 156 24% 18%;
+    --card-foreground: 211 35% 20%;
 
     /* Popovers */
     --popover: 0 0% 100%;
-    --popover-foreground: 156 24% 18%;
+    --popover-foreground: 211 35% 20%;
 
     /* Primary accent - professional blue */
-    --primary: 217 71% 53%;
+    --primary: 211 74% 31%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 217 71% 65%;
+    --primary-glow: 211 74% 45%;
 
     /* Secondary neutrals */
-    --secondary: 96 30% 90%;
-    --secondary-foreground: 156 24% 28%;
+    --secondary: 214 25% 92%;
+    --secondary-foreground: 211 35% 28%;
 
     /* Muted support */
-    --muted: 96 24% 92%;
-    --muted-foreground: 156 10% 40%;
+    --muted: 214 22% 93%;
+    --muted-foreground: 211 12% 45%;
 
     /* Accent tint */
-    --accent: 96 26% 88%;
-    --accent-foreground: 156 22% 26%;
+    --accent: 214 24% 90%;
+    --accent-foreground: 211 30% 26%;
 
     /* Status colours */
     --success: 146 45% 40%;
@@ -62,9 +62,9 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --destructive-foreground: 0 0% 100%;
 
     /* Structure */
-    --border: 96 16% 80%;
-    --input: 96 18% 78%;
-    --ring: 217 71% 53%;
+    --border: 214 18% 82%;
+    --input: 214 20% 80%;
+    --ring: 211 74% 31%;
 
     /* Motion */
     --transition-smooth: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
@@ -73,14 +73,14 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --radius: 0.75rem;
 
     /* Sidebar palette */
-    --sidebar-background: 96 36% 96%;
-    --sidebar-foreground: 156 15% 24%;
-    --sidebar-primary: 217 71% 53%;
+    --sidebar-background: 214 28% 96%;
+    --sidebar-foreground: 211 18% 24%;
+    --sidebar-primary: 211 74% 31%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 96 28% 92%;
-    --sidebar-accent-foreground: 156 20% 26%;
-    --sidebar-border: 96 18% 82%;
-    --sidebar-ring: 217 71% 53%;
+    --sidebar-accent: 214 26% 92%;
+    --sidebar-accent-foreground: 211 25% 26%;
+    --sidebar-border: 214 20% 84%;
+    --sidebar-ring: 211 74% 31%;
   }
 }
 
