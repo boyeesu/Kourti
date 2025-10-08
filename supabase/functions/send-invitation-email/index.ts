@@ -110,13 +110,40 @@ const handler = async (req: Request): Promise<Response> => {
       html: emailHtml,
     });
 
-    console.log('Email sent successfully:', emailResponse);
+    if (emailResponse.error) {
+      console.error('Error sending invitation email with Resend:', emailResponse.error);
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to send invitation email',
+          details: emailResponse.error.message ?? emailResponse.error,
+        }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    const emailId = emailResponse.data?.id;
+
+    if (!emailId) {
+      console.error('Resend response missing email ID for invitation email:', emailResponse);
+      return new Response(
+        JSON.stringify({ error: 'Failed to send invitation email' }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    console.log('Email sent successfully:', emailId);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: 'Invitation email sent successfully',
-        emailId: emailResponse.data?.id
+        emailId,
       }),
       {
         status: 200,

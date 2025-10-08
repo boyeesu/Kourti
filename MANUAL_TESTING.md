@@ -30,3 +30,8 @@
 1. Open a case's activities page.
 2. Create a new activity and save it.
 3. Ensure the activity list shows your profile as the creator.
+
+## Invitation Email Error Handling
+1. Deploy the `send-invitation-email` Edge Function locally or on Supabase and configure a temporary invalid Resend API key.
+2. Trigger an invitation email from the UI using a test account.
+3. Confirm the UI now surfaces the "Failed to send invitation email" error returned by the function instead of a false success message.
