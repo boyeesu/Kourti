@@ -36,10 +36,10 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --popover: 0 0% 100%;
     --popover-foreground: 156 24% 18%;
 
-    /* Primary accent - confident moss green */
-    --primary: 148 46% 36%;
+    /* Primary accent - professional blue */
+    --primary: 217 71% 53%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 148 46% 48%;
+    --primary-glow: 217 71% 65%;
 
     /* Secondary neutrals */
     --secondary: 96 30% 90%;
@@ -64,7 +64,7 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     /* Structure */
     --border: 96 16% 80%;
     --input: 96 18% 78%;
-    --ring: 148 46% 36%;
+    --ring: 217 71% 53%;
 
     /* Motion */
     --transition-smooth: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
@@ -75,12 +75,12 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     /* Sidebar palette */
     --sidebar-background: 96 36% 96%;
     --sidebar-foreground: 156 15% 24%;
-    --sidebar-primary: 148 46% 36%;
+    --sidebar-primary: 217 71% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 96 28% 92%;
     --sidebar-accent-foreground: 156 20% 26%;
     --sidebar-border: 96 18% 82%;
-    --sidebar-ring: 148 46% 36%;
+    --sidebar-ring: 217 71% 53%;
   }
 }
 
