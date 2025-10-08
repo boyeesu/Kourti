@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { useToast } from '@/hooks/use-toast';
+import { useOrganization } from '@/hooks/useOrganization';
+import { useProfile } from '@/hooks/useProfile';
+import { env } from '@/lib/env';
+import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
 
 export interface OrganizationUser {
   id: string;
@@ -115,9 +119,19 @@ export function useDeleteInvitation() {
 
 export function useResendInvitation() {
   const { toast } = useToast();
+  const { data: organization } = useOrganization();
+  const { data: profile } = useProfile();
 
   return useMutation({
     mutationFn: async (user: OrganizationUser) => {
+      const organizationName = organization?.name || 'Organization';
+      const inviterName = buildDisplayName(
+        profile?.first_name,
+        profile?.last_name,
+        profile?.email
+      );
+      const invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
+
       const { error } = await supabase.functions.invoke('send-invitation-email', {
         body: {
           email: user.email,
@@ -125,8 +139,9 @@ export function useResendInvitation() {
           lastName: user.last_name || '',
           role: user.role,
           department: user.department,
-          organizationName: 'Your Organization', // TODO: Get from organization
-          inviterName: 'Team Admin' // TODO: Get from current user
+          organizationName,
+          inviterName,
+          invitationUrl,
         }
       });
 
