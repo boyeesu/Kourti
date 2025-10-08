@@ -38,6 +38,7 @@ import {
 import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useUserRole } from "@/hooks/useUserManagement";
+import { useProfile } from "@/hooks/useProfile";
 import { useCases } from "@/hooks/useCases";
 import { useContracts } from "@/hooks/useContracts";
 import { Case, Contract } from "@/types";
@@ -138,9 +139,11 @@ export default function Dashboard() {
   const { data: userRoleData } = useUserRole();
   const { data: casesData, isLoading: casesLoading } = useCases();
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
-  
+  const { data: profileData } = useProfile();
+
   const role = userRoleData?.role;
   const isAdmin = role === "superadmin" || role === "admin";
+  const welcomeName = profileData?.first_name?.trim();
 
   // Process case status data for pie chart
   const casesByStatus = useMemo(() => {
@@ -311,7 +314,9 @@ export default function Dashboard() {
       {/* Header with welcome message */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
+          <h1 className="text-3xl font-bold text-foreground">
+            Welcome back{welcomeName ? `, ${welcomeName}` : ""}
+          </h1>
           <p className="text-muted-foreground mt-1">
             Here's what's happening with your legal practice today
           </p>
