@@ -30,7 +30,6 @@ import {
   Edit, 
   MoreVertical,
   FileCheck,
-  Calendar,
   User,
   Clock,
   AlertTriangle,
@@ -317,10 +316,6 @@ export default function Contracts() {
                   <TableHead className="min-w-[200px]">Contract</TableHead>
                   <TableHead className="min-w-[150px]">Client</TableHead>
                   <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="min-w-[100px]">Value</TableHead>
-                  <TableHead className="min-w-[130px]">Effective Date</TableHead>
-                  <TableHead className="min-w-[130px]">Expiry</TableHead>
-                  <TableHead className="min-w-[100px]">Versions</TableHead>
                   <TableHead className="min-w-[150px]">Created By</TableHead>
                   <TableHead className="w-[50px]">Actions</TableHead>
                 </TableRow>
@@ -328,8 +323,6 @@ export default function Contracts() {
               <TableBody>
                 {filteredContracts.length > 0 ? (
                   filteredContracts.map((contract) => {
-                    const { isExpiring, isExpired } = getExpiryStatus(contract);
-                    
                     return (
                       <TableRow key={contract.id} className="hover:bg-muted/50">
                         <TableCell>
@@ -349,36 +342,6 @@ export default function Contracts() {
                           <Badge className={getStatusColor(contract.status)} variant="secondary">
                             {contract.status}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {contract.currency} {contract.value ? Number(contract.value).toLocaleString() : '0'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {contract.start_date ? new Date(contract.start_date).toLocaleDateString() : 'No date'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className={`h-4 w-4 ${
-                              isExpired ? 'text-destructive' : 
-                              isExpiring ? 'text-warning' : 
-                              'text-muted-foreground'
-                            }`} />
-                            <span className={
-                              isExpired ? 'text-destructive' : 
-                              isExpiring ? 'text-warning' : ''
-                            }>
-                              {contract.end_date ? new Date(contract.end_date).toLocaleDateString() : 'No date'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <GitBranch className="h-4 w-4 text-muted-foreground" />
-                            {(contract as any).version || 'v1'}
-                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -433,7 +396,7 @@ export default function Contracts() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       <div className="flex flex-col items-center justify-center text-muted-foreground">
                         <FileCheck className="h-8 w-8 mb-2" />
                         <p>No contracts found matching your criteria.</p>
