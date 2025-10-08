@@ -35,3 +35,8 @@
 1. Deploy the `send-invitation-email` Edge Function locally or on Supabase and configure a temporary invalid Resend API key.
 2. Trigger an invitation email from the UI using a test account.
 3. Confirm the UI now surfaces the "Failed to send invitation email" error returned by the function instead of a false success message.
+
+## Onboarding Team Invitations
+1. Complete the onboarding flow through the team step and enter multiple teammate emails (including an empty field).
+2. Finish onboarding and verify a success toast appears, followed by a warning toast only for any invites that fail.
+3. Confirm that successful invites create rows in the `invitations` table and trigger the `send-invitation-email` function.

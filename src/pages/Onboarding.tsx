@@ -12,6 +12,8 @@ import { Building, Users, FileText, CheckCircle, ArrowRight, ArrowLeft } from "l
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { buildDisplayName, getAuthRedirectUrl } from "@/utils/auth-helpers";
+import { env } from "@/lib/env";
 import logo from "@/assets/kourti-legal-logo.png";
 
 const steps = [
@@ -137,8 +139,9 @@ export default function Onboarding() {
   };
 
   const handleFinish = async () => {
-    
     try {
+      const warningMessages: string[] = [];
+
       // Create organization with all collected data
       const { data: orgData, error: orgError } = await supabase
         .from('organizations')
@@ -167,10 +170,123 @@ export default function Onboarding() {
 
       if (profileError) throw profileError;
 
+      const inviteEmails = formData.team.inviteEmails
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0);
+
+      if (inviteEmails.length > 0) {
+        let inviterName = user?.email ?? 'Team member';
+
+        try {
+          const { data: profileDetails, error: profileDetailsError } = await supabase
+            .from('profiles')
+            .select('first_name,last_name')
+            .eq('user_id', user?.id || '')
+            .single();
+
+          if (profileDetailsError) throw profileDetailsError;
+
+          if (profileDetails) {
+            inviterName = buildDisplayName(
+              (profileDetails as any)?.first_name ?? null,
+              (profileDetails as any)?.last_name ?? null,
+              user?.email ?? undefined
+            );
+          }
+        } catch (profileDetailsError: any) {
+          warningMessages.push(
+            profileDetailsError?.message
+              ? `Unable to load your profile details for invitations: ${profileDetailsError.message}`
+              : 'Unable to load your profile details for invitations.'
+          );
+        }
+
+        let invitationUrl: string | null = null;
+        try {
+          invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
+        } catch (invitationUrlError: any) {
+          warningMessages.push(
+            invitationUrlError?.message
+              ? `Could not generate invitation link: ${invitationUrlError.message}`
+              : 'Could not generate invitation link for team invites.'
+          );
+        }
+
+        if (invitationUrl) {
+          for (const email of inviteEmails) {
+            try {
+              const params: Record<string, any> = {
+                p_email: email,
+                p_first_name: '',
+                p_last_name: '',
+                p_role: 'user',
+                p_department: null,
+              };
+
+              const { data: inviteData, error: inviteError } = await supabase.rpc('invite_user_to_organization', params);
+
+              if (inviteError) {
+                throw inviteError;
+              }
+
+              if (inviteData && typeof inviteData === 'object' && 'error' in inviteData) {
+                throw new Error((inviteData as { error?: string }).error || 'Unknown invitation error');
+              }
+
+              try {
+                const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+                  body: {
+                    email,
+                    firstName: '',
+                    lastName: '',
+                    role: 'user',
+                    department: null,
+                    organizationName: orgData.name,
+                    inviterName,
+                    invitationUrl,
+                  },
+                });
+
+                if (emailError) {
+                  warningMessages.push(
+                    emailError?.message
+                      ? `Invitation email to ${email} could not be sent: ${emailError.message}`
+                      : `Invitation email to ${email} could not be sent.`
+                  );
+                } else if (emailResult && typeof emailResult === 'object' && 'error' in emailResult) {
+                  warningMessages.push(
+                    `Invitation email to ${email} returned an error: ${(emailResult as { error?: string }).error || 'Unknown error'}`
+                  );
+                }
+              } catch (emailError: any) {
+                warningMessages.push(
+                  emailError?.message
+                    ? `Invitation email to ${email} encountered an error: ${emailError.message}`
+                    : `Invitation email to ${email} encountered an unknown error.`
+                );
+              }
+            } catch (inviteError: any) {
+              warningMessages.push(
+                inviteError?.message
+                  ? `Failed to invite ${email}: ${inviteError.message}`
+                  : `Failed to invite ${email}.`
+              );
+            }
+          }
+        }
+      }
+
       toast({
         title: "Onboarding completed!",
         description: "Welcome to Kourti Legal. You're all set to get started.",
       });
+
+      if (warningMessages.length > 0) {
+        toast({
+          title: "Onboarding completed with warnings",
+          description: warningMessages.join(' '),
+        });
+      }
 
       navigate("/dashboard", { replace: true });
     } catch (error: any) {
