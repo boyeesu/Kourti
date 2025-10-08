@@ -314,14 +314,14 @@ export default function Contracts() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[200px]">Contract</TableHead>
-                  <TableHead className="min-w-[150px]">Client</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="min-w-[100px]">Value</TableHead>
-                  <TableHead className="min-w-[130px]">Effective Date</TableHead>
-                  <TableHead className="min-w-[130px]">Expiry</TableHead>
-                  <TableHead className="min-w-[100px]">Versions</TableHead>
-                  <TableHead className="min-w-[150px]">Created By</TableHead>
+                  <TableHead className="w-auto sm:min-w-[200px]">Contract</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[150px]">Client</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[100px]">Status</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[100px]">Value</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[130px]">Effective Date</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[130px]">Expiry</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[100px]">Versions</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[150px]">Created By</TableHead>
                   <TableHead className="w-[50px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -329,10 +329,10 @@ export default function Contracts() {
                 {filteredContracts.length > 0 ? (
                   filteredContracts.map((contract) => {
                     const { isExpiring, isExpired } = getExpiryStatus(contract);
-                    
+
                     return (
                       <TableRow key={contract.id} className="hover:bg-muted/50">
-                        <TableCell>
+                        <TableCell className="w-auto sm:min-w-[200px]">
                           <div>
                             <div className="font-medium">{contract.title}</div>
                             {contract.description && (
@@ -342,28 +342,30 @@ export default function Contracts() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {(contract as any).client?.name || contract.client_id || 'No client'}
+                        <TableCell className="whitespace-nowrap">
+                          <span className="block max-w-[180px] truncate">
+                            {(contract as any).client?.name || contract.client_id || 'No client'}
+                          </span>
                         </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(contract.status)} variant="secondary">
+                        <TableCell className="whitespace-nowrap">
+                          <Badge className={`${getStatusColor(contract.status)} whitespace-nowrap`} variant="secondary">
                             {contract.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium whitespace-nowrap">
                           {contract.currency} {contract.value ? Number(contract.value).toLocaleString() : '0'}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
                             {contract.start_date ? new Date(contract.start_date).toLocaleDateString() : 'No date'}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <Calendar className={`h-4 w-4 ${
-                              isExpired ? 'text-destructive' : 
-                              isExpiring ? 'text-warning' : 
+                              isExpired ? 'text-destructive' :
+                              isExpiring ? 'text-warning' :
                               'text-muted-foreground'
                             }`} />
                             <span className={
@@ -374,13 +376,13 @@ export default function Contracts() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <GitBranch className="h-4 w-4 text-muted-foreground" />
                             {(contract as any).version || 'v1'}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="sm:min-w-[150px]">
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground" />
                             <div>
