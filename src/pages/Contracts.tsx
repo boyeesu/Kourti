@@ -313,11 +313,21 @@ export default function Contracts() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[200px]">Contract</TableHead>
-                  <TableHead className="min-w-[150px]">Client</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="min-w-[150px]">Created By</TableHead>
-                  <TableHead className="w-[50px]">Actions</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[200px]">
+                    Contract
+                  </TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[150px]">
+                    Client
+                  </TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[110px]">
+                    Status
+                  </TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:min-w-[170px]">
+                    Created By
+                  </TableHead>
+                  <TableHead className="w-auto whitespace-nowrap sm:w-[80px]">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -335,15 +345,15 @@ export default function Contracts() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           {(contract as any).client?.name || contract.client_id || 'No client'}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <Badge className={getStatusColor(contract.status)} variant="secondary">
                             {contract.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="sm:min-w-[170px]">
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground" />
                             <div>
