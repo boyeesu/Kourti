@@ -1,7 +1,7 @@
 // src/components/layout/AppLayout.tsx
 import { ReactNode, useMemo, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
 import {
@@ -318,7 +318,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
-
+  
   // Command palette
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
 
@@ -353,13 +353,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const activeModuleKey = pathSegments[0] ?? 'dashboard';
   const moduleMeta = moduleDescriptors[activeModuleKey] ?? moduleDescriptors.default;
   const breadcrumbs = pathSegments.length ? pathSegments : ['dashboard'];
-  const breadcrumbLabels = breadcrumbs.map((segment, index) => {
+  const breadcrumbLabels = breadcrumbs.map((segment: string, index: number) => {
     if (index === 0) {
       return moduleMeta.label;
     }
     return segment
       .replace(/[-_]/g, ' ')
-      .replace(/\b\w/g, (char) => char.toUpperCase());
+      .replace(/\b\w/g, (char: string) => char.toUpperCase());
   });
 
   const toneClassMap: Record<ModuleTone, string> = {
@@ -375,9 +375,51 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
+      <AppLayoutInner 
+        children={children}
+        term={term}
+        setTerm={setTerm}
+        searchDialogOpen={searchDialogOpen}
+        setSearchDialogOpen={setSearchDialogOpen}
+        moduleMeta={moduleMeta}
+        breadcrumbLabels={breadcrumbLabels}
+        toneClassMap={toneClassMap}
+        headerTimestamp={headerTimestamp}
+        navigate={navigate}
+        user={user}
+        userInitials={userInitials}
+        handleSignOut={handleSignOut}
+      />
+    </SidebarProvider>
+  );
+}
+
+function AppLayoutInner({ 
+  children, 
+  term, 
+  setTerm, 
+  searchDialogOpen, 
+  setSearchDialogOpen,
+  moduleMeta,
+  breadcrumbLabels,
+  toneClassMap,
+  headerTimestamp,
+  navigate,
+  user,
+  userInitials,
+  handleSignOut
+}: any) {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+
+  return (
+    <>
       <CommandPalette />
       <div className="app-shell flex min-h-screen w-full bg-[hsl(var(--background))]">
-        <aside className="hidden w-[260px] shrink-0 px-3 py-5 md:flex">
+        <aside className={cn(
+          "hidden shrink-0 py-5 md:flex transition-all duration-300",
+          collapsed ? "w-[72px] px-2" : "w-[260px] px-3"
+        )}>
           <div className="workspace-sidebar h-full w-full overflow-hidden">
             <AppSidebar />
           </div>
@@ -495,7 +537,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
 
               <nav className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                {breadcrumbLabels.map((label, index) => (
+                {breadcrumbLabels.map((label: string, index: number) => (
                   <span key={`${label}-${index}`} className="flex items-center gap-1">
                     {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/60" />}
                     <span className={index === breadcrumbLabels.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}>
@@ -525,6 +567,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
-    </SidebarProvider>
+    </>
   );
 }
