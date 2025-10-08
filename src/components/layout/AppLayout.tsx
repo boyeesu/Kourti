@@ -76,7 +76,7 @@ function CommandPalette() {
   // Navigation options
   const navigationOptions = [
     { label: 'Dashboard', icon: <Home className="h-4 w-4 mr-2" />, href: '/' },
-    { label: 'Cases', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/cases' },
+    { label: 'Matters', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/matters' },
     { label: 'Clients', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients' },
     { label: 'Calendar', icon: <Calendar className="h-4 w-4 mr-2" />, href: '/calendar' },
     { label: 'Documents', icon: <FileText className="h-4 w-4 mr-2" />, href: '/documents' },
@@ -158,7 +158,7 @@ function MobileNavigation() {
     label: "Main",
     items: [
       { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
-      { title: "Cases", url: "/cases", icon: Briefcase, end: false },
+      { title: "Matters", url: "/matters", icon: Briefcase, end: false },
       { title: "Clients", url: "/clients", icon: UserCheck, end: false },
       { title: "Calendar", url: "/calendar", icon: Calendar, end: false }
     ]
@@ -589,7 +589,7 @@ function AppLayoutInner({
               <CommandList>
                 {hasSearchTerm &&
                   searchResults.cases.length > 0 && (
-                    <CommandGroup heading="Cases">
+                    <CommandGroup heading="Matters">
                       {searchResults.cases.map((item: any) => (
                         <CommandItem
                           key={`case-${item.id}`}
