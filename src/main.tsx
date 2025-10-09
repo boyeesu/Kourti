@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import App from './App';
 import '@/index.css';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -9,6 +8,7 @@ import { logInfo, logError } from '@/lib/logger';
 import { initCSRFProtection } from '@/lib/csrf';
 import { AppError, ErrorCode } from '@/lib/error-handling';
 import { env, validateEnv } from '@/lib/env';
+import EnvironmentConfigError from '@/components/EnvironmentConfigError';
 
 /**
  * Create a properly typed global error handler
@@ -160,17 +160,37 @@ const ErrorBoundaryFallback: React.FC<ErrorBoundaryFallbackProps> = ({
   </div>
 );
 
-// Render the application
-root.render(
-  <React.StrictMode>
-    <ErrorBoundary
-      fallbackRender={(props) => <ErrorBoundaryFallback {...props} />}
-    >
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="light" storageKey="kourti-legal-theme">
-          <App />
-        </ThemeProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+const renderApp = async () => {
+  const { default: App } = await import('./App');
+
+  root.render(
+    <React.StrictMode>
+      <ErrorBoundary
+        fallbackRender={(props) => <ErrorBoundaryFallback {...props} />}
+      >
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider defaultTheme="light" storageKey="kourti-legal-theme">
+            <App />
+          </ThemeProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+};
+
+if (!envValidation.valid) {
+  root.render(
+    <React.StrictMode>
+      <EnvironmentConfigError missingVariables={envValidation.missingVariables} />
+    </React.StrictMode>
+  );
+} else {
+  renderApp().catch((error) => {
+    logError('Failed to load application bundle', { error });
+    root.render(
+      <React.StrictMode>
+        <EnvironmentConfigError missingVariables={envValidation.missingVariables} />
+      </React.StrictMode>
+    );
+  });
+}
