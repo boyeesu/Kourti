@@ -215,15 +215,13 @@ export default function Onboarding() {
         if (invitationUrl) {
           for (const email of inviteEmails) {
             try {
-              const params: Record<string, any> = {
+              const { data: inviteData, error: inviteError } = await supabase.rpc('invite_user_to_organization', {
                 p_email: email,
                 p_first_name: '',
                 p_last_name: '',
                 p_role: 'user',
-                p_department: null,
-              };
-
-              const { data: inviteData, error: inviteError } = await supabase.rpc('invite_user_to_organization', params);
+                p_department: undefined,
+              });
 
               if (inviteError) {
                 throw inviteError;
