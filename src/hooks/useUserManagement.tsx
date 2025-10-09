@@ -157,14 +157,37 @@ export function useUserRole() {
     queryKey: ['user-role'],
     queryFn: async () => {
       const userId = await getCurrentUserId();
-      const { data, error } = await supabase
+      
+      // Get profile data
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, is_organization_creator')
+        .select('organization_id, is_organization_creator')
         .eq('user_id', userId as any || '')
         .single();
 
-      if (error) throw error;
-      return data;
+      if (profileError) throw profileError;
+
+      // Get roles from user_role_assignments
+      const { data: roleAssignments, error: roleError } = await supabase
+        .from('user_role_assignments')
+        .select('role_name')
+        .eq('user_id', userId as any || '')
+        .eq('organization_id', profile.organization_id);
+
+      if (roleError) throw roleError;
+
+      // Get primary role (prioritize superadmin > admin > user > custom roles)
+      const roles = roleAssignments?.map(r => r.role_name) || [];
+      let primaryRole = roles.includes('superadmin') ? 'superadmin' 
+                      : roles.includes('admin') ? 'admin'
+                      : roles.includes('user') ? 'user'
+                      : roles[0] || 'user';
+
+      return {
+        role: primaryRole,
+        roles: roles, // All roles for the user
+        is_organization_creator: profile.is_organization_creator
+      };
     },
     staleTime: 5 * 60 * 1000,
   });
