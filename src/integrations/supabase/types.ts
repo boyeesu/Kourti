@@ -1379,6 +1379,76 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_sso_configs: {
+        Row: {
+          client_id: string
+          client_secret: string | null
+          created_at: string
+          created_by: string | null
+          domain_hint: string | null
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          provider: "google" | "microsoft"
+          redirect_uri: string | null
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          client_id: string
+          client_secret?: string | null
+          created_at?: string
+          created_by?: string | null
+          domain_hint?: string | null
+          id?: string
+          is_enabled?: boolean
+          organization_id: string
+          provider: "google" | "microsoft"
+          redirect_uri?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          client_id?: string
+          client_secret?: string | null
+          created_at?: string
+          created_by?: string | null
+          domain_hint?: string | null
+          id?: string
+          is_enabled?: boolean
+          organization_id?: string
+          provider?: "google" | "microsoft"
+          redirect_uri?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_sso_configs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "organization_sso_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_sso_configs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1810,7 +1880,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      organization_sso_configs_view: {
+        Row: {
+          client_id: string
+          client_secret: string | null
+          client_secret_masked: string | null
+          created_at: string
+          created_by: string | null
+          domain_hint: string | null
+          has_client_secret: boolean
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          provider: "google" | "microsoft"
+          redirect_uri: string | null
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_invitation_and_assign_roles: {
@@ -1838,6 +1927,10 @@ export type Database = {
       }
       current_user_is_org_admin: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      delete_organization_sso_config: {
+        Args: { p_id: string }
         Returns: boolean
       }
       disable_user: {
@@ -1908,6 +2001,19 @@ export type Database = {
           p_role: string
         }
         Returns: Json
+      }
+      upsert_organization_sso_config: {
+        Args: {
+          p_client_id: string
+          p_client_secret?: string | null
+          p_domain_hint?: string | null
+          p_id?: string | null
+          p_is_enabled?: boolean
+          p_provider: "google" | "microsoft"
+          p_redirect_uri?: string | null
+          p_tenant_id?: string | null
+        }
+        Returns: Database["public"]["Views"]["organization_sso_configs_view"]["Row"]
       }
       is_user_admin: {
         Args: Record<PropertyKey, never>
