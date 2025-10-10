@@ -217,10 +217,10 @@ export default function Onboarding() {
             try {
               const { data: inviteData, error: inviteError } = await supabase.rpc('invite_user_to_organization', {
                 p_email: email,
-                p_first_name: '',
-                p_last_name: '',
+                p_first_name: email.split('@')[0],
+                p_last_name: 'User',
                 p_role: 'user',
-                p_department: undefined,
+                p_department: null,
               });
 
               if (inviteError) {
@@ -235,8 +235,8 @@ export default function Onboarding() {
                 const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
                   body: {
                     email,
-                    firstName: '',
-                    lastName: '',
+                    firstName: email.split('@')[0],
+                    lastName: 'User',
                     role: 'user',
                     department: null,
                     organizationName: orgData.name,
