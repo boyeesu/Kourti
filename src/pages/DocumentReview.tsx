@@ -10,8 +10,10 @@ import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface AnalysisResult {
   analysis: string;
-  persona: string;
-  analysisType: string;
+  persona?: string;
+  analysisType?: string;
+  success?: boolean;
+  tokensUsed?: number;
 }
 
 const documentGoalSuggestions = [
@@ -33,6 +35,21 @@ export default function DocumentReview() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
+
+  const normalizeResult = (raw: any): AnalysisResult => {
+    const analysis = raw?.analysis;
+    if (!analysis) {
+      throw new Error('No analysis returned from AI service');
+    }
+
+    return {
+      analysis,
+      persona: raw?.persona,
+      analysisType: raw?.analysisType,
+      success: raw?.success,
+      tokensUsed: raw?.tokensUsed,
+    };
+  };
 
   const handleFileUpload = (uploadedFile: File) => {
     setFile(uploadedFile);
@@ -57,17 +74,26 @@ export default function DocumentReview() {
 
     setIsAnalyzing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('contract-analysis-ai', {
-        body: {
-          text: textContent || `Sample document content from ${file?.name}`,
-          goal: goal || "General document analysis",
-          analysisType: 'document_review'
-        }
+      const payload = {
+        text: textContent || `Sample document content from ${file?.name}`,
+        goal: goal || "Provide a comprehensive analysis of this document",
+        analysisType: 'general' as const,
+      };
+
+      const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
+        body: payload,
       });
 
-      if (error) throw error;
+      if (error) {
+        const fallback = await supabase.functions.invoke('contract-analysis', {
+          body: payload,
+        });
 
-      setResult(data);
+        if (fallback.error) throw fallback.error;
+        setResult(normalizeResult(fallback.data));
+      } else {
+        setResult(normalizeResult(data));
+      }
       toast({
         title: "Analysis Complete",
         description: "REAM AI has finished analyzing your document.",
@@ -248,7 +274,7 @@ export default function DocumentReview() {
                   <div>
                     <CardTitle className="text-lg">Document Analysis Complete</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      by {result.persona} • Document Review & Analysis
+                      by {result.persona ?? "REAM AI"} • Document Review & Analysis
                     </p>
                   </div>
                 </div>
