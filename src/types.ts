@@ -123,6 +123,8 @@ export interface CalendarEvent {
   created_at: string;
   updated_at: string;
   attendees?: string[];
+  reminder_date?: string;
+  source?: 'internal' | 'google_calendar' | 'microsoft_teams';
 }
 
 export interface Document {

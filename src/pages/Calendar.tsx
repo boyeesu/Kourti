@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,8 @@ import {
   MapPin,
   Users,
   List,
-  Grid3X3
+  Grid3X3,
+  RefreshCw
 } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendar";
 import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
@@ -18,6 +19,8 @@ import { EventViewDialog } from "@/components/calendar/EventViewDialog";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { CalendarEvent } from "@/types";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -25,6 +28,64 @@ export default function Calendar() {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [calendarView, setCalendarView] = useState<'month' | 'list'>('month');
   const { data: events = [], isLoading } = useCalendarEvents();
+  const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const { toast } = useToast();
+
+  // Combine internal and external events
+  const allEvents = [...events, ...externalEvents];
+
+  // Sync external calendars (Google and Microsoft Teams)
+  const syncExternalCalendars = async () => {
+    setIsSyncing(true);
+    try {
+      const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+      const timeMin = firstDay.toISOString();
+      const timeMax = lastDay.toISOString();
+
+      // Try Google Calendar
+      try {
+        const { data: googleData, error: googleError } = await supabase.functions.invoke('google-calendar-sync', {
+          body: { action: 'list-events', timeMin, timeMax }
+        });
+
+        if (!googleError && googleData?.events) {
+          setExternalEvents(prev => [...prev.filter(e => e.source !== 'google_calendar'), ...googleData.events]);
+        }
+      } catch (err) {
+        console.log('Google Calendar not configured');
+      }
+
+      // Try Microsoft Teams Calendar
+      try {
+        const { data: teamsData, error: teamsError } = await supabase.functions.invoke('teams-calendar-sync', {
+          body: { action: 'list-events', timeMin, timeMax }
+        });
+
+        if (!teamsError && teamsData?.events) {
+          setExternalEvents(prev => [...prev.filter(e => e.source !== 'microsoft_teams'), ...teamsData.events]);
+        }
+      } catch (err) {
+        console.log('Microsoft Teams Calendar not configured');
+      }
+
+      toast({
+        title: "Calendar Synced",
+        description: "External calendars have been synchronized."
+      });
+    } catch (error) {
+      console.error('Calendar sync error:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Auto-sync on mount and when month changes
+  useEffect(() => {
+    syncExternalCalendars();
+  }, [currentDate]);
 
   if (isLoading) {
     return (
@@ -85,7 +146,7 @@ export default function Calendar() {
 
   const getEventsForDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return events.filter(event => {
+    return allEvents.filter(event => {
       const startDate = new Date(event.start_date).toISOString().split('T')[0];
       const endDate = new Date(event.end_date).toISOString().split('T')[0];
       
@@ -101,7 +162,7 @@ export default function Calendar() {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     
-    return events.filter(event => {
+    return allEvents.filter(event => {
       const eventStart = new Date(event.start_date);
       const eventEnd = new Date(event.end_date);
       
@@ -110,7 +171,7 @@ export default function Calendar() {
     }).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   };
 
-  const todayEvents = events.filter(event => {
+  const todayEvents = allEvents.filter(event => {
     const today = new Date().toISOString().split('T')[0];
     const eventStart = new Date(event.start_date).toISOString().split('T')[0];
     const eventEnd = new Date(event.end_date).toISOString().split('T')[0];
@@ -119,7 +180,7 @@ export default function Calendar() {
     return today >= eventStart && today <= eventEnd;
   });
 
-  const upcomingEvents = events.filter(event => {
+  const upcomingEvents = allEvents.filter(event => {
     const today = new Date();
     const eventDate = new Date(event.start_date);
     const diffTime = eventDate.getTime() - today.getTime();
@@ -150,6 +211,16 @@ export default function Calendar() {
                   {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                 </CardTitle>
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={syncExternalCalendars}
+                    disabled={isSyncing}
+                    className="gap-1"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                    Sync
+                  </Button>
                   <div className="flex items-center gap-1 mr-2">
                     <Button 
                       variant={calendarView === 'month' ? 'default' : 'outline'} 

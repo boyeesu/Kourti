@@ -268,6 +268,8 @@ export default function ReamAI() {
   const [isTyping, setIsTyping] = useState(false);
   const [enableVectorSearch] = useState(true);
   const [activeQuery, setActiveQuery] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedContent, setExtractedContent] = useState<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -329,32 +331,85 @@ export default function ReamAI() {
     scrollChatToBottom();
   }, [messages]);
 
-  // Handle file uploads
-  const onDrop = (acceptedFiles: File[]) => {
+  // Handle file uploads with extraction
+  const onDrop = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length) {
       const file = acceptedFiles[0];
       setSelectedFile(file);
-      setSelectedDoc(null); // Clear any selected document
+      setSelectedDoc(null);
+      setExtractedContent(null);
+      setIsExtracting(true);
 
-      // Add message about the upload
       setMessages((msgs) => [
         ...msgs,
         {
           role: "user",
           content: `I've uploaded "${file.name}" for analysis.`,
           timestamp: new Date()
+        },
+        {
+          role: "assistant",
+          content: `Extracting content from "${file.name}"... Please wait while I process the document.`,
+          timestamp: new Date(),
+          isStreaming: true
         }
       ]);
 
-      // Add assistant response
-      setMessages((msgs) => [
-        ...msgs,
-        {
-          role: "assistant",
-          content: `I've received your file "${file.name}". You can now ask me to analyze it or ask specific questions about its content.`,
-          timestamp: new Date()
+      // Extract content based on file type
+      try {
+        let content = '';
+        
+        if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+          content = await file.text();
+        } else if (file.type === 'application/pdf') {
+          // For PDFs, inform user that extraction is limited
+          content = `PDF file uploaded: ${file.name}. For best results with PDF analysis, please select a document from the knowledge base that has already been processed, or describe the content you'd like to analyze.`;
+        } else if (
+          file.type === 'application/msword' ||
+          file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ) {
+          // Basic text extraction for Word docs
+          try {
+            content = await file.text();
+          } catch {
+            content = `Document uploaded: ${file.name}. Unable to extract text automatically. Please describe the content or use a text-based format.`;
+          }
+        } else {
+          content = `File uploaded: ${file.name}. Please describe what you'd like to know about this document.`;
         }
-      ]);
+
+        setExtractedContent(content);
+        setIsExtracting(false);
+
+        // Update the last message
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1
+              ? {
+                  ...msg,
+                  content: content.includes('uploaded:') || content.includes('PDF file')
+                    ? content
+                    : `✅ Successfully extracted content from "${file.name}". You can now ask questions about the document.`,
+                  isStreaming: false
+                }
+              : msg
+          )
+        );
+      } catch (error) {
+        console.error('Extraction error:', error);
+        setIsExtracting(false);
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1
+              ? {
+                  ...msg,
+                  content: `⚠️ Could not extract content from "${file.name}". Please try a text-based document or describe what you need help with.`,
+                  isStreaming: false
+                }
+              : msg
+          )
+        );
+      }
     }
   };
 
@@ -461,6 +516,16 @@ export default function ReamAI() {
       return;
     }
 
+    // Check if extraction is still in progress
+    if (isExtracting) {
+      toast({
+        title: "Please wait",
+        description: "Document extraction is still in progress. Please wait a moment.",
+        variant: "default"
+      });
+      return;
+    }
+
     setInput("");
 
     if (userMessage) {
@@ -531,40 +596,25 @@ ${content}`;
                 : documentContent.name
             }" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
           }
-        } else if (selectedFile) {
-          // Handle uploaded files - read content for text-based files
-          try {
-            let fileContent = '';
-            
-            if (
-              selectedFile.type.startsWith("text/") ||
-              selectedFile.name.endsWith(".txt") ||
-              selectedFile.type === "application/msword" ||
-              selectedFile.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            ) {
-              // Read text-based files
-              fileContent = await selectedFile.text();
-            } else if (selectedFile.type === "application/pdf") {
-              // For PDFs, let user know extraction is needed
-              fileContent = "PDF file uploaded. Note: Full PDF text extraction requires additional processing. Please describe the document's purpose or ask specific questions.";
-            } else {
-              fileContent = "Binary file uploaded. Please describe the document's content or ask specific questions about it.";
-            }
-
-            content = fileContent;
-            contextInfo = `Document: ${selectedFile.name}
+        } else if (selectedFile && extractedContent) {
+          // Use the extracted content
+          content = extractedContent;
+          contextInfo = `Document: ${selectedFile.name}
 Type: ${selectedFile.type || "Unknown"}
 Size: ${(selectedFile.size / 1024).toFixed(1)} KB
 
 User Question: ${userMessage}
 
 Document Content:
-${fileContent}`;
-          } catch (error) {
-            console.error("Error reading file:", error);
-            content = `Unable to read file "${selectedFile.name}". Please try uploading a text-based document (.txt, .docx) or describe the document's content.`;
-            contextInfo = content;
-          }
+${extractedContent}`;
+        } else if (selectedFile && !extractedContent) {
+          // File selected but no content extracted yet
+          toast({
+            title: "Content not available",
+            description: "Please wait for document extraction to complete, or select a different document.",
+            variant: "default"
+          });
+          return;
         } else if (ragResults && ragResults.length > 0) {
           // Use RAG results for enhanced context
           const topResults = ragResults.slice(0, 5); // Use top 5 most relevant chunks

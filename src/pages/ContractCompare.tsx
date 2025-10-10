@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, FileText, AlertCircle, Eye, Download, Zap } from "lucide-react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ComparisonResult {
   differences: {
@@ -29,66 +31,7 @@ export default function ContractCompare() {
   const [comparisonFile, setComparisonFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<ComparisonResult | null>(null);
-
-  const mockResults: ComparisonResult = {
-    differences: [
-      {
-        type: 'modified',
-        section: 'Payment Terms',
-        page: 3,
-        line: 45,
-        content: 'Payment period changed from 30 days to 45 days',
-        severity: 'high'
-      },
-      {
-        type: 'added',
-        section: 'Termination Clause',
-        page: 5,
-        line: 78,
-        content: 'Added new early termination penalty clause: 15% of remaining contract value',
-        severity: 'high'
-      },
-      {
-        type: 'modified',
-        section: 'Intellectual Property',
-        page: 7,
-        line: 102,
-        content: 'Modified IP ownership from "shared" to "exclusive to contractor"',
-        severity: 'medium'
-      },
-      {
-        type: 'removed',
-        section: 'Force Majeure',
-        page: 9,
-        line: 134,
-        content: 'Removed pandemic-related force majeure provisions',
-        severity: 'medium'
-      },
-      {
-        type: 'added',
-        section: 'Confidentiality',
-        page: 4,
-        line: 65,
-        content: 'Added requirement for additional background checks',
-        severity: 'low'
-      },
-      {
-        type: 'modified',
-        section: 'Governing Law',
-        page: 12,
-        line: 198,
-        content: 'Jurisdiction changed from New York to Delaware',
-        severity: 'low'
-      }
-    ],
-    summary: {
-      totalChanges: 6,
-      addedSections: 2,
-      removedSections: 1,
-      modifiedSections: 3,
-      riskLevel: 'high'
-    }
-  };
+  const { toast } = useToast();
 
   const handleFileUpload = (file: File, type: 'primary' | 'comparison') => {
     if (type === 'primary') {
@@ -102,11 +45,82 @@ export default function ContractCompare() {
     if (!primaryFile || !comparisonFile) return;
     
     setIsAnalyzing(true);
-    // Simulate AI analysis
-    setTimeout(() => {
-      setResults(mockResults);
+
+    try {
+      // Extract text from files
+      const primaryText = await extractTextFromFile(primaryFile);
+      const comparisonText = await extractTextFromFile(comparisonFile);
+
+      if (!primaryText || !comparisonText) {
+        toast({
+          title: "Extraction Failed",
+          description: "Could not extract text from one or both documents. Please use text-based formats (.txt, .docx).",
+          variant: "destructive"
+        });
+        setIsAnalyzing(false);
+        return;
+      }
+
+      // Call the compare-contracts edge function
+      const { data, error } = await supabase.functions.invoke('compare-contracts', {
+        body: {
+          primaryText,
+          comparisonText
+        }
+      });
+
+      if (error) {
+        console.error('Comparison error:', error);
+        toast({
+          title: "Comparison Failed",
+          description: error.message || "Failed to compare contracts. Please try again.",
+          variant: "destructive"
+        });
+        setIsAnalyzing(false);
+        return;
+      }
+
+      setResults(data as ComparisonResult);
+      toast({
+        title: "Comparison Complete",
+        description: `Identified ${data.summary.totalChanges} differences between the contracts.`,
+      });
+    } catch (error) {
+      console.error('Comparison error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during comparison.",
+        variant: "destructive"
+      });
+    } finally {
       setIsAnalyzing(false);
-    }, 3000);
+    }
+  };
+
+  const extractTextFromFile = async (file: File): Promise<string | null> => {
+    try {
+      if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+        return await file.text();
+      } else if (
+        file.type === 'application/msword' ||
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ) {
+        // Basic text extraction for Word docs
+        return await file.text();
+      } else if (file.type === 'application/pdf') {
+        // For PDFs, inform user to use text format
+        toast({
+          title: "PDF Not Supported",
+          description: "Please convert PDF to text format for comparison.",
+          variant: "default"
+        });
+        return null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Text extraction error:', error);
+      return null;
+    }
   };
 
   const FileUploadZone = ({ 
