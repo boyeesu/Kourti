@@ -154,34 +154,52 @@ serve(async (req: Request) => {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
+    // Get user's organization_id
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organization_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return jsonResponse({ error: "User profile not found" }, 404);
+    }
+
+    if (profile.role !== "superadmin") {
+      return jsonResponse({ error: "Only superadmins can manage SSO configurations" }, 403);
+    }
+
     const request = (await req.json()) as ManageSsoConfigRequest;
 
     switch (request.action) {
       case "create": {
         const payload = request.payload;
         if (!payload.provider || !payload.clientId) {
-          throw new Error("provider and clientId are required");
+          return jsonResponse({ error: "provider and clientId are required" }, 400);
         }
 
         validateRedirectUri(payload.redirectUri);
 
-        const { data, error } = await supabase.rpc(
-          "upsert_organization_sso_config",
-          {
-            p_id: null,
-            p_provider: payload.provider,
-            p_client_id: payload.clientId,
-            p_client_secret: payload.clientSecret ?? null,
-            p_tenant_id: payload.tenantId ?? null,
-            p_domain_hint: payload.domainHint ?? null,
-            p_redirect_uri: payload.redirectUri ?? null,
-            p_is_enabled: payload.isEnabled ?? false,
-          }
-        );
+        const { data, error } = await supabase
+          .from("organization_sso_configs")
+          .insert({
+            organization_id: profile.organization_id,
+            provider: payload.provider,
+            client_id: payload.clientId,
+            client_secret: payload.clientSecret ?? null,
+            tenant_id: payload.tenantId ?? null,
+            domain_hint: payload.domainHint ?? null,
+            redirect_uri: payload.redirectUri ?? null,
+            is_enabled: payload.isEnabled ?? false,
+            created_by: user.id,
+            updated_by: user.id,
+          })
+          .select()
+          .single();
 
         if (error) {
           console.error("Failed to create SSO config", error);
-          throw new Error(error.message);
+          return jsonResponse({ error: error.message }, 400);
         }
 
         return jsonResponse({ data });
@@ -190,34 +208,41 @@ serve(async (req: Request) => {
       case "update": {
         const payload = request.payload;
         if (!payload.id) {
-          throw new Error("id is required for updates");
+          return jsonResponse({ error: "id is required for updates" }, 400);
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
-        const provider = existing.provider;
-        const clientId = payload.clientId ?? existing.client_id;
-        const redirectUri = payload.redirectUri ?? existing.redirect_uri ?? null;
+        if (existing.organization_id !== profile.organization_id) {
+          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+        }
 
+        const redirectUri = payload.redirectUri ?? existing.redirect_uri ?? null;
         validateRedirectUri(redirectUri);
 
-        const { data, error } = await supabase.rpc(
-          "upsert_organization_sso_config",
-          {
-            p_id: existing.id,
-            p_provider: provider,
-            p_client_id: clientId,
-            p_client_secret: payload.clientSecret ?? null,
-            p_tenant_id: payload.tenantId ?? existing.tenant_id ?? null,
-            p_domain_hint: payload.domainHint ?? existing.domain_hint ?? null,
-            p_redirect_uri: redirectUri,
-            p_is_enabled: payload.isEnabled ?? existing.is_enabled,
-          }
-        );
+        const updateData: any = {
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (payload.clientId) updateData.client_id = payload.clientId;
+        if (payload.clientSecret) updateData.client_secret = payload.clientSecret;
+        if (payload.tenantId !== undefined) updateData.tenant_id = payload.tenantId;
+        if (payload.domainHint !== undefined) updateData.domain_hint = payload.domainHint;
+        if (redirectUri !== undefined) updateData.redirect_uri = redirectUri;
+        if (payload.isEnabled !== undefined) updateData.is_enabled = payload.isEnabled;
+
+        const { data, error } = await supabase
+          .from("organization_sso_configs")
+          .update(updateData)
+          .eq("id", payload.id)
+          .eq("organization_id", profile.organization_id)
+          .select()
+          .single();
 
         if (error) {
           console.error("Failed to update SSO config", error);
-          throw new Error(error.message);
+          return jsonResponse({ error: error.message }, 400);
         }
 
         return jsonResponse({ data });
@@ -226,28 +251,30 @@ serve(async (req: Request) => {
       case "rotate": {
         const payload = request.payload;
         if (!payload.id || !payload.clientSecret) {
-          throw new Error("id and clientSecret are required for rotation");
+          return jsonResponse({ error: "id and clientSecret are required for rotation" }, 400);
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
-        const { data, error } = await supabase.rpc(
-          "upsert_organization_sso_config",
-          {
-            p_id: existing.id,
-            p_provider: existing.provider,
-            p_client_id: existing.client_id,
-            p_client_secret: payload.clientSecret,
-            p_tenant_id: existing.tenant_id ?? null,
-            p_domain_hint: existing.domain_hint ?? null,
-            p_redirect_uri: existing.redirect_uri ?? null,
-            p_is_enabled: existing.is_enabled,
-          }
-        );
+        if (existing.organization_id !== profile.organization_id) {
+          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+        }
+
+        const { data, error } = await supabase
+          .from("organization_sso_configs")
+          .update({
+            client_secret: payload.clientSecret,
+            updated_by: user.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", payload.id)
+          .eq("organization_id", profile.organization_id)
+          .select()
+          .single();
 
         if (error) {
           console.error("Failed to rotate SSO secret", error);
-          throw new Error(error.message);
+          return jsonResponse({ error: error.message }, 400);
         }
 
         return jsonResponse({ data });
@@ -256,29 +283,34 @@ serve(async (req: Request) => {
       case "delete": {
         const payload = request.payload;
         if (!payload.id) {
-          throw new Error("id is required for deletion");
+          return jsonResponse({ error: "id is required for deletion" }, 400);
         }
 
-        const { data, error } = await supabase.rpc(
-          "delete_organization_sso_config",
-          { p_id: payload.id }
-        );
+        const { error } = await supabase
+          .from("organization_sso_configs")
+          .delete()
+          .eq("id", payload.id)
+          .eq("organization_id", profile.organization_id);
 
         if (error) {
           console.error("Failed to delete SSO config", error);
-          throw new Error(error.message);
+          return jsonResponse({ error: error.message }, 400);
         }
 
-        return jsonResponse({ data });
+        return jsonResponse({ success: true });
       }
 
       case "test": {
         const payload = request.payload;
         if (!payload.id) {
-          throw new Error("id is required for testing");
+          return jsonResponse({ error: "id is required for testing" }, 400);
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
+
+        if (existing.organization_id !== profile.organization_id) {
+          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+        }
 
         // Validate configuration completeness
         const validationErrors: string[] = [];
@@ -328,6 +360,6 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error("manage-sso-config error", error);
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return jsonResponse({ error: message }, 400);
+    return jsonResponse({ error: message }, 500);
   }
 });
