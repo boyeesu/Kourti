@@ -220,7 +220,7 @@ export default function Onboarding() {
                 p_first_name: email.split('@')[0],
                 p_last_name: 'User',
                 p_role: 'user',
-                p_department: null,
+                p_department: undefined,
               });
 
               if (inviteError) {
@@ -238,7 +238,6 @@ export default function Onboarding() {
                     firstName: email.split('@')[0],
                     lastName: 'User',
                     role: 'user',
-                    department: null,
                     organizationName: orgData.name,
                     inviterName,
                     invitationUrl,
