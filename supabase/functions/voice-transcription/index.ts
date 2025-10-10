@@ -3,7 +3,62 @@ const voiceCorsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.serve(async (req: Request) => {
+const DEFAULT_CHAT_MODEL = 'gpt-4.1';
+const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
+
+function getChatModelCandidates() {
+  const configuredModel = Deno.env.get('OPENAI_CHAT_MODEL')?.trim();
+  const configuredFallbackModel = Deno.env.get('OPENAI_FALLBACK_CHAT_MODEL')?.trim();
+
+  const models = [
+    configuredModel || DEFAULT_CHAT_MODEL,
+    configuredFallbackModel || DEFAULT_FALLBACK_MODEL,
+    DEFAULT_CHAT_MODEL,
+    DEFAULT_FALLBACK_MODEL,
+  ];
+
+  return Array.from(new Set(models.filter(Boolean)));
+}
+
+async function requestChatCompletion(apiKey: string, body: Record<string, unknown>) {
+  const modelCandidates = getChatModelCandidates();
+  let lastError: Error | null = null;
+
+  for (const model of modelCandidates) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...body, model }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return { data, modelUsed: model };
+      }
+
+      const errorData = await response.text();
+      console.error(`OpenAI chat error for model ${model}:`, response.status, errorData);
+
+      if ([400, 404, 422].includes(response.status)) {
+        lastError = new Error(`Model ${model} unavailable: ${errorData}`);
+        continue;
+      }
+
+      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`Failed to call OpenAI model ${model}:`, lastError.message);
+    }
+  }
+
+  throw lastError ?? new Error('Unable to reach OpenAI API for summarization');
+}
+
+export const voiceTranscriptionHandler = async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: voiceCorsHeaders });
   }
@@ -66,43 +121,32 @@ Deno.serve(async (req: Request) => {
 
       console.log('Generating summary for transcript...');
 
-      // Generate summary using GPT
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-5-2025-08-07',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a legal assistant. Summarize the following transcript of legal proceedings in a clear, professional format. Focus on key points, decisions, actions required, and important details.'
-            },
-            {
-              role: 'user',
-              content: `Please summarize this legal proceeding transcript:\n\n${transcript}`
-            }
-          ],
-          max_completion_tokens: 1000,
-        }),
+      const { data: summaryResult, modelUsed } = await requestChatCompletion(OPENAI_API_KEY, {
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a legal assistant. Summarize the following transcript of legal proceedings in a clear, professional format. Focus on key points, decisions, actions required, and important details.'
+          },
+          {
+            role: 'user',
+            content: `Please summarize this legal proceeding transcript:\n\n${transcript}`
+          }
+        ],
+        max_completion_tokens: 1000,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('OpenAI summary error:', errorData);
-        throw new Error(`Summary generation failed: ${errorData.error?.message || 'Unknown error'}`);
-      }
+      const summary = summaryResult.choices?.[0]?.message?.content;
 
-      const summaryResult = await response.json();
-      const summary = summaryResult.choices[0].message.content;
+      if (!summary) {
+        throw new Error('Summary generation failed: Empty response from OpenAI');
+      }
 
       console.log('Summary generated successfully');
 
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         success: true,
-        summary
+        summary,
+        modelUsed,
       }), {
         headers: { ...voiceCorsHeaders, 'Content-Type': 'application/json' },
       });
@@ -120,4 +164,8 @@ Deno.serve(async (req: Request) => {
       headers: { ...voiceCorsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+};
+
+if (import.meta.main) {
+  Deno.serve(voiceTranscriptionHandler);
+}
