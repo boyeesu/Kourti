@@ -158,6 +158,10 @@ Exports always available after generation/upload, analysis, or AI-edit.
 npm install
 # dev server
 npm run dev
+# supabase local stack helpers (CLI required)
+npm run supabase:start
+npm run supabase:status
+npm run supabase:stop
 # deploy edge function (AI, export, etc)
 supabase functions deploy <function>
 # run migrations
