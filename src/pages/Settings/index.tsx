@@ -36,15 +36,13 @@ export default function Settings() {
       return;
     }
     setTab(value);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value === 'general') {
-        next.delete('tab');
-      } else {
-        next.set('tab', value);
-      }
-      return next;
-    }, { replace: true });
+    const nextSearchParams = new URLSearchParams(searchParams);
+    if (value === 'general') {
+      nextSearchParams.delete('tab');
+    } else {
+      nextSearchParams.set('tab', value);
+    }
+    setSearchParams(nextSearchParams, { replace: true });
   };
 
   const tabDescriptions = useMemo(
