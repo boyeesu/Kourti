@@ -76,13 +76,7 @@ serve(async (req: Request) => {
       throw new Error('Supabase configuration missing');
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
 
