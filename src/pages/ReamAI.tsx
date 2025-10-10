@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAIConversations, useConversationMessages } from "@/hooks/useAIConversations";
+import { ConversationSidebar } from "@/components/ConversationSidebar";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -251,6 +253,21 @@ function ReamAIHeader({
 export default function ReamAI() {
   const [searchParams] = useSearchParams();
 
+  // Conversation management
+  const {
+    conversations,
+    isLoading: conversationsLoading,
+    createConversation,
+    updateConversation,
+    deleteConversation,
+  } = useAIConversations();
+  
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const {
+    messages: savedMessages,
+    saveMessage,
+  } = useConversationMessages(currentConversationId);
+
   // State for chat and document selection
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -306,6 +323,18 @@ export default function ReamAI() {
     enableVectorSearch && activeQuery.length > 10
   );
 
+  // Load messages from selected conversation
+  useEffect(() => {
+    if (currentConversationId && savedMessages.length > 0) {
+      const formattedMessages: Message[] = savedMessages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.created_at),
+      }));
+      setMessages(formattedMessages);
+    }
+  }, [currentConversationId, savedMessages]);
+
   // Auto-select contract from URL params
   useEffect(() => {
     const contractId = searchParams.get("contract");
@@ -318,6 +347,16 @@ export default function ReamAI() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, contracts]);
+
+  // Create initial conversation on mount if none exists
+  useEffect(() => {
+    if (!conversationsLoading && conversations.length === 0 && !currentConversationId) {
+      createConversation.mutate("New Chat", {
+        onSuccess: (conv) => setCurrentConversationId(conv.id),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationsLoading, conversations.length]);
 
   const scrollChatToBottom = (behavior: ScrollBehavior = "smooth") => {
     const container = chatContainerRef.current;
@@ -534,10 +573,21 @@ export default function ReamAI() {
 
     // Add user message to chat
     if (userMessage) {
-      setMessages((msgs) => [
-        ...msgs,
-        { role: "user", content: userMessage, timestamp: new Date() }
-      ]);
+      const newUserMessage: Message = { 
+        role: "user", 
+        content: userMessage, 
+        timestamp: new Date() 
+      };
+      setMessages((msgs) => [...msgs, newUserMessage]);
+      
+      // Save user message to database
+      if (currentConversationId) {
+        saveMessage.mutate({
+          conversationId: currentConversationId,
+          role: "user",
+          content: userMessage,
+        });
+      }
     }
 
     // Show typing indicator
@@ -720,6 +770,14 @@ I'll answer based on the relevant information found above.`;
 
             if (done) {
               setIsTyping(false);
+              // Save assistant message to database
+              if (currentConversationId && aiContent.trim()) {
+                saveMessage.mutate({
+                  conversationId: currentConversationId,
+                  role: "assistant",
+                  content: aiContent,
+                });
+              }
             }
           }
         });
@@ -745,6 +803,14 @@ Please provide a helpful response to this legal question. If you need specific d
 
               if (done) {
                 setIsTyping(false);
+                // Save assistant message to database
+                if (currentConversationId && aiContent.trim()) {
+                  saveMessage.mutate({
+                    conversationId: currentConversationId,
+                    role: "assistant",
+                    content: aiContent,
+                  });
+                }
               }
             }
           });
@@ -854,9 +920,62 @@ Please provide a helpful response to this legal question. If you need specific d
     (contract.title || "").toLowerCase().includes(search.toLowerCase())
   );
 
+  // Handle conversation management
+  const handleNewConversation = () => {
+    const title = `Chat ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+    createConversation.mutate(title, {
+      onSuccess: (conv) => {
+        setCurrentConversationId(conv.id);
+        setMessages([
+          {
+            role: "system",
+            content:
+              "Welcome to Ream AI with RAG! Select or upload a document/contract, and I'll process it for intelligent retrieval. Your documents will be chunked and embedded for better context-aware responses.",
+            timestamp: new Date()
+          }
+        ]);
+        setSelectedDoc(null);
+        setSelectedFile(null);
+        setExtractedContent(null);
+      },
+    });
+  };
+
+  const handleSelectConversation = (id: string) => {
+    setCurrentConversationId(id);
+  };
+
+  const handleDeleteConversation = (id: string) => {
+    deleteConversation.mutate(id, {
+      onSuccess: () => {
+        if (currentConversationId === id) {
+          // If deleting current conversation, create a new one
+          handleNewConversation();
+        }
+      },
+    });
+  };
+
+  const handleUpdateConversation = (id: string, title: string) => {
+    updateConversation.mutate({ id, title });
+  };
+
   return (
     <div className="flex h-[calc(100vh-100px)] flex-col overflow-hidden lg:flex-row">
-      {/* Left: doc/contract & upload */}
+      {/* Left: Conversation History */}
+      <ModuleErrorBoundary name="Conversation Sidebar">
+        <ConversationSidebar
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onSelectConversation={handleSelectConversation}
+          onNewConversation={handleNewConversation}
+          onDeleteConversation={handleDeleteConversation}
+          onUpdateConversation={handleUpdateConversation}
+          isLoading={conversationsLoading}
+        />
+      </ModuleErrorBoundary>
+
+      {/* Middle: doc/contract & upload */}
       <ModuleErrorBoundary name="Document Selector">
         <aside className="flex h-full w-full flex-shrink-0 flex-col gap-3 overflow-y-auto border-b border-r border-border bg-muted/20 p-4 lg:w-72 lg:min-w-[18rem] lg:border-b-0">
           <h2 className="flex-shrink-0 text-sm font-semibold text-muted-foreground">
