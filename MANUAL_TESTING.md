@@ -40,3 +40,8 @@
 1. Complete the onboarding flow through the team step and enter multiple teammate emails (including an empty field).
 2. Finish onboarding and verify a success toast appears, followed by a warning toast only for any invites that fail.
 3. Confirm that successful invites create rows in the `invitations` table and trigger the `send-invitation-email` function.
+
+## Environment Configuration Guard
+1. Temporarily remove the `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` entries from your `.env` file.
+2. Run `npm run dev` and open the local URL in your browser.
+3. Confirm that the Environment Configuration error screen renders with the missing variable list and that the application shell does not mount.

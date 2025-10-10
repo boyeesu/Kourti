@@ -151,41 +151,35 @@ export function useUpdateUserRole() {
 
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      // First update the user's primary role in profiles
-      const { error: profileError } = await supabase
+      const currentUserId = await getCurrentUserId();
+      if (!currentUserId) throw new Error('User not authenticated');
+      
+      const { data: profile } = await supabase
         .from('profiles')
-        .update({ role: role as 'user' | 'admin' | 'superadmin' } as any)
-        .eq('user_id', userId as any);
+        .select('organization_id')
+        .eq('user_id', currentUserId as any)
+        .single();
 
-      if (profileError) throw profileError;
+      if (!profile) throw new Error('Profile not found');
 
-      // If it's a custom role, also create a role assignment
-      const isCustomRole = !['superadmin', 'admin', 'user'].includes(role);
-      if (isCustomRole) {
-        const currentUserId = await getCurrentUserId();
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('user_id', currentUserId as any)
-          .single();
+      // Delete all existing role assignments for this user
+      await supabase
+        .from('user_role_assignments')
+        .delete()
+        .eq('user_id', userId as any)
+        .eq('organization_id', (profile as any).organization_id);
 
-        if (profile) {
-          await supabase
-            .from('user_role_assignments')
-            .upsert({
-              user_id: userId,
-              role_name: role,
-              organization_id: (profile as any).organization_id,
-              assigned_by: currentUserId,
-            } as any);
-        }
-      } else {
-        // Remove any custom role assignments for global roles
-        await supabase
-          .from('user_role_assignments')
-          .delete()
-          .eq('user_id', userId as any);
-      }
+      // Create new role assignment
+      const { error } = await supabase
+        .from('user_role_assignments')
+        .insert({
+          user_id: userId,
+          role_name: role,
+          organization_id: (profile as any).organization_id,
+          assigned_by: currentUserId,
+        } as any);
+
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });

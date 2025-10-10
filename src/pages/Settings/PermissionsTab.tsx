@@ -11,7 +11,7 @@ import {
   Action 
 } from '@/hooks/usePermissions';
 import { useAllRoles } from '@/hooks/useAllRoles';
-import { useProfile } from '@/hooks/useProfile';
+import { useUserRole } from '@/hooks/useUserManagement';
 import { 
   Select,
   SelectContent,
@@ -23,13 +23,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Shield, Users, Lock } from 'lucide-react';
 
 export default function PermissionsTab() {
-  const { data: profile } = useProfile();
   const { data: allRoles = [] } = useAllRoles();
   const [selectedRole, setSelectedRole] = useState<string>('');
   const { data: permissions = [] } = useRolePermissions(selectedRole);
   const updatePermission = useUpdatePermission();
 
-  const isCurrentUserSuperAdmin = profile?.role === 'superadmin';
+  // Check if user has superadmin role from user_role_assignments
+  const { data: userRoleData } = useUserRole();
+  const isCurrentUserSuperAdmin = userRoleData?.role === 'superadmin';
 
   // Get available roles (global + custom)
   const availableRoles = allRoles.map(role => ({

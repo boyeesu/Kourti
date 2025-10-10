@@ -32,7 +32,6 @@ export function useProfile() {
           email,
           phone,
           department,
-          role,
           title,
           avatar_url,
           created_at,

@@ -18,6 +18,8 @@ interface InvitationEmailRequest {
   organizationName: string;
   inviterName: string;
   invitationUrl: string;
+  ssoEnforced?: boolean;
+  ssoLinks?: Array<{ provider: string; url: string; mode?: string }>;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -35,7 +37,9 @@ const handler = async (req: Request): Promise<Response> => {
       department,
       organizationName,
       inviterName,
-      invitationUrl
+      invitationUrl,
+      ssoEnforced = false,
+      ssoLinks = [],
     }: InvitationEmailRequest = await req.json();
 
     console.log('Sending invitation email to:', email);
@@ -48,6 +52,31 @@ const handler = async (req: Request): Promise<Response> => {
       const baseUrl = new URL('/auth', req.headers.get('origin') ?? 'https://example.com');
       safeInvitationUrl = baseUrl.toString();
     }
+
+    const hasSsoLinks = Array.isArray(ssoLinks) && ssoLinks.length > 0;
+    const ssoSection = (hasSsoLinks || ssoEnforced)
+      ? `
+              <div style="margin-top: 24px; padding: 16px; border-radius: 8px; border: 1px solid #d0d7ff; background: #f3f5ff;">
+                <h3 style="margin: 0 0 8px 0; color: #3b49df; font-size: 16px;">
+                  Single Sign-On ${ssoEnforced ? '(Required)' : ''}
+                </h3>
+                <p style="margin: 0 0 12px 0; color: #4b5563;">
+                  ${ssoEnforced
+                    ? 'Your organization requires you to authenticate with an approved identity provider. Use one of the links below to launch the secure login flow.'
+                    : 'You can also sign in using your organization\'s identity provider:'}
+                </p>
+                ${hasSsoLinks
+                  ? ssoLinks.map((link) => `
+                    <p style="margin: 0 0 8px 0;">
+                      <a href="${link.url}" style="display: inline-block; background: #3b49df; color: white; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">
+                        Continue with ${link.provider.charAt(0).toUpperCase()}${link.provider.slice(1)}
+                      </a>
+                    </p>
+                  `).join('')
+                  : `<p style="margin: 0; color: #4b5563;">If you don\'t see a button here, please contact your administrator for the correct SSO link.</p>`}
+              </div>
+        `
+      : '';
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -79,7 +108,7 @@ const handler = async (req: Request): Promise<Response> => {
               ${department ? `<p>You'll be working in the <strong>${department}</strong> department.</p>` : ''}
               
               <p>To accept this invitation and create your account, click the button below:</p>
-              
+
               <a href="${safeInvitationUrl}" class="button">
                 Accept Invitation & Sign Up
               </a>
@@ -88,9 +117,11 @@ const handler = async (req: Request): Promise<Response> => {
               <p style="word-break: break-all; color: #667eea;">
                 ${safeInvitationUrl}
               </p>
-              
+
+              ${ssoSection}
+
               <p>This invitation will expire in 14 days.</p>
-              
+
               <p>If you have any questions, please contact ${inviterName} or your system administrator.</p>
             </div>
             

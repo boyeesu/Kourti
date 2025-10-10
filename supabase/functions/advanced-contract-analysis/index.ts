@@ -2,16 +2,104 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const DEFAULT_CHAT_MODEL = 'gpt-4.1';
+const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
 
-serve(async (req: Request) => {
+function getChatModelCandidates() {
+  const configuredModel = Deno.env.get('OPENAI_CHAT_MODEL')?.trim();
+  const configuredFallbackModel = Deno.env.get('OPENAI_FALLBACK_CHAT_MODEL')?.trim();
+
+  const models = [
+    configuredModel || DEFAULT_CHAT_MODEL,
+    configuredFallbackModel || DEFAULT_FALLBACK_MODEL,
+    DEFAULT_CHAT_MODEL,
+    DEFAULT_FALLBACK_MODEL,
+  ];
+
+  return Array.from(new Set(models.filter(Boolean)));
+}
+
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new HttpError('Supabase configuration missing', 500, 'SUPABASE_CONFIG_MISSING');
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+async function requestChatCompletion(body: Record<string, unknown>) {
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+
+  if (!openAIApiKey) {
+    throw new HttpError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+  }
+
+  const modelCandidates = getChatModelCandidates();
+  let lastError: Error | null = null;
+
+  for (const model of modelCandidates) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...body, model }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return { data, modelUsed: model };
+      }
+
+      const errorText = await response.text();
+      console.error(`OpenAI API error for model ${model}:`, response.status, errorText);
+
+      if ([400, 404, 422].includes(response.status)) {
+        lastError = new HttpError(
+          `Model ${model} unavailable: ${errorText}`,
+          424,
+          'OPENAI_MODEL_UNAVAILABLE',
+          { status: response.status },
+        );
+        continue;
+      }
+
+      throw new HttpError(
+        `OpenAI API error: ${response.status} - ${errorText}`,
+        502,
+        'OPENAI_UPSTREAM_ERROR',
+        { status: response.status },
+      );
+    } catch (error) {
+      const normalizedError =
+        error instanceof HttpError
+          ? error
+          : new HttpError(String(error), 502, 'OPENAI_UPSTREAM_ERROR');
+      lastError = normalizedError;
+      console.error(`OpenAI request failed for model ${model}:`, normalizedError.message);
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new HttpError('Unable to reach OpenAI API', 502, 'OPENAI_UPSTREAM_ERROR');
+}
+
+export const advancedContractAnalysisHandler = async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -19,29 +107,45 @@ serve(async (req: Request) => {
 
   try {
     console.log('Advanced contract analysis request received');
-    
-    const { text, analysisType, goal, documentId } = await req.json();
-    
-    console.log('Request payload:', { text: text?.length || 0, analysisType, goal });
-    
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      console.log('No text provided or empty text');
-      throw new Error('Document text is required and cannot be empty');
+
+    let payload: any;
+
+    try {
+      payload = await req.json();
+    } catch {
+      throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
     }
 
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+    const { text, analysisType, goal, documentId } = payload ?? {};
+
+    console.log('Request payload:', { text: text?.length || 0, analysisType, goal });
+
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      console.log('No text provided or empty text');
+      throw new HttpError('Document text is required and cannot be empty', 400, 'INVALID_INPUT');
     }
 
     // Get user info from request headers
     const authHeader = req.headers.get('Authorization');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
     let userId = null;
+    let supabase;
+
     if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id;
+      const token = authHeader.replace('Bearer ', '').trim();
+
+      if (!token) {
+        throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
+      }
+
+      supabase = getSupabaseClient();
+
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+
+      if (error || !user) {
+        throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
+      }
+
+      userId = user.id;
     }
 
     console.log('Processing analysis request for user:', userId);
@@ -224,33 +328,17 @@ ${text}
 Provide a comprehensive analysis covering key terms, risks, and recommendations.`;
     }
 
-    console.log('Making request to OpenAI GPT-4');
+    console.log('Making request to OpenAI for advanced contract analysis');
 
-    // Use GPT-5 for high-quality analysis
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-2025-08-07', // Use GPT-5 for best performance
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_completion_tokens: 4000,
-      }),
+    const { data, modelUsed } = await requestChatCompletion({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      max_completion_tokens: 4000,
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('OpenAI API error:', response.status, errorData);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
-    }
-
-    const data = await response.json();
-    console.log('OpenAI response received');
+    console.log(`OpenAI response received using model ${modelUsed}`);
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Unexpected OpenAI response structure:', data);
@@ -277,7 +365,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
     console.log('Analysis completed successfully, length:', analysis.length);
 
     // Store analysis if documentId is provided
-    if (documentId && userId) {
+    if (documentId && userId && supabase) {
       try {
         await supabase
           .from('document_analyses')
@@ -296,22 +384,21 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
       }
     }
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       analysis,
       success: true,
-      tokensUsed: data.usage?.total_tokens || 0
+      tokensUsed: data.usage?.total_tokens || 0,
+      modelUsed,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error: any) {
     console.error('Error in advanced contract analysis:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message || 'Analysis failed',
-      success: false
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createErrorResponse(error, corsHeaders, 'Analysis failed');
   }
-});
+};
+
+if (import.meta.main) {
+  serve(advancedContractAnalysisHandler);
+}

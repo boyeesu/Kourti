@@ -17,21 +17,21 @@ export type Database = {
       best_practices: {
         Row: {
           clause: string
-          embedding: string
+          embedding: number[]
           id: string
           name: string
           organization_id: string | null
         }
         Insert: {
           clause: string
-          embedding: string
+          embedding: number[]
           id?: string
           name: string
           organization_id?: string | null
         }
         Update: {
           clause?: string
-          embedding?: string
+          embedding?: number[]
           id?: string
           name?: string
           organization_id?: string | null
@@ -610,7 +610,7 @@ export type Database = {
           created_by: string | null
           currency: string | null
           description: string | null
-          embedding: string | null
+          embedding: number[] | null
           end_date: string | null
           id: string
           organization_id: string | null
@@ -628,7 +628,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           description?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           end_date?: string | null
           id?: string
           organization_id?: string | null
@@ -646,7 +646,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           description?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           end_date?: string | null
           id?: string
           organization_id?: string | null
@@ -770,7 +770,7 @@ export type Database = {
           created_at: string
           created_by: string
           document_id: string
-          embedding: string | null
+          embedding: number[] | null
           error: string | null
           id: string
           metadata: Json | null
@@ -784,7 +784,7 @@ export type Database = {
           created_at?: string
           created_by: string
           document_id: string
-          embedding?: string | null
+          embedding?: number[] | null
           error?: string | null
           id?: string
           metadata?: Json | null
@@ -798,7 +798,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           document_id?: string
-          embedding?: string | null
+          embedding?: number[] | null
           error?: string | null
           id?: string
           metadata?: Json | null
@@ -823,7 +823,7 @@ export type Database = {
           contract_id: string | null
           created_at: string
           document_id: string | null
-          embedding: string | null
+          embedding: number[] | null
           id: string
           metadata: Json | null
           organization_id: string
@@ -836,7 +836,7 @@ export type Database = {
           contract_id?: string | null
           created_at?: string
           document_id?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           id?: string
           metadata?: Json | null
           organization_id: string
@@ -849,7 +849,7 @@ export type Database = {
           contract_id?: string | null
           created_at?: string
           document_id?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           id?: string
           metadata?: Json | null
           organization_id?: string
@@ -882,7 +882,7 @@ export type Database = {
           created_by: string | null
           currency: string | null
           effective_date: string | null
-          embedding: string | null
+          embedding: number[] | null
           file_path: string | null
           file_size: number | null
           id: string
@@ -905,7 +905,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           effective_date?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           file_path?: string | null
           file_size?: number | null
           id?: string
@@ -928,7 +928,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           effective_date?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           file_path?: string | null
           file_size?: number | null
           id?: string
@@ -1379,6 +1379,76 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_sso_configs: {
+        Row: {
+          client_id: string
+          client_secret: string | null
+          created_at: string
+          created_by: string | null
+          domain_hint: string | null
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          provider: "google" | "microsoft"
+          redirect_uri: string | null
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          client_id: string
+          client_secret?: string | null
+          created_at?: string
+          created_by?: string | null
+          domain_hint?: string | null
+          id?: string
+          is_enabled?: boolean
+          organization_id: string
+          provider: "google" | "microsoft"
+          redirect_uri?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          client_id?: string
+          client_secret?: string | null
+          created_at?: string
+          created_by?: string | null
+          domain_hint?: string | null
+          id?: string
+          is_enabled?: boolean
+          organization_id?: string
+          provider?: "google" | "microsoft"
+          redirect_uri?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_sso_configs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "organization_sso_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_sso_configs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1810,7 +1880,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      organization_sso_configs_view: {
+        Row: {
+          client_id: string
+          client_secret: string | null
+          client_secret_masked: string | null
+          created_at: string
+          created_by: string | null
+          domain_hint: string | null
+          has_client_secret: boolean
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          provider: "google" | "microsoft"
+          redirect_uri: string | null
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_invitation_and_assign_roles: {
@@ -1838,6 +1927,10 @@ export type Database = {
       }
       current_user_is_org_admin: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      delete_organization_sso_config: {
+        Args: { p_id: string }
         Returns: boolean
       }
       disable_user: {
@@ -1909,6 +2002,19 @@ export type Database = {
         }
         Returns: Json
       }
+      upsert_organization_sso_config: {
+        Args: {
+          p_client_id: string
+          p_client_secret?: string | null
+          p_domain_hint?: string | null
+          p_id?: string | null
+          p_is_enabled?: boolean
+          p_provider: "google" | "microsoft"
+          p_redirect_uri?: string | null
+          p_tenant_id?: string | null
+        }
+        Returns: Database["public"]["Views"]["organization_sso_configs_view"]["Row"]
+      }
       is_user_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1921,11 +2027,26 @@ export type Database = {
           similarity: number
         }[]
       }
+      match_document_chunks: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: number[]
+        }
+        Returns: {
+          id: string
+          document_id: string | null
+          contract_id: string | null
+          content: string
+          metadata: Json | null
+          similarity: number
+        }[]
+      }
       match_contracts: {
         Args: {
           match_count?: number
           match_threshold?: number
-          query_embedding: string
+          query_embedding: number[]
         }
         Returns: {
           description: string
@@ -1939,7 +2060,7 @@ export type Database = {
         Args: {
           match_count?: number
           match_threshold?: number
-          query_embedding: string
+          query_embedding: number[]
         }
         Returns: {
           content: string

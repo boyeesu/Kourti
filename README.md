@@ -15,6 +15,8 @@ Unlock the power of AI and automation in your legal workflows. Kourti Legal deli
 - **Smart Notifications & Reminders**: Automated reminders, due dates, and case activity notifications.
 - **Modern UI/UX**: Built with React, shadcn-ui, TypeScript, and Tailwind CSS.
 - **Seamless Integrations**: Native OpenAI, Supabase Edge Functions, embeddable API for e-signature, and more.
+- **Enterprise SSO**: Per-organization OAuth (Google Workspace / Microsoft Entra ID) with secure Supabase Edge functions.
+
 
 -----
 
@@ -58,7 +60,23 @@ Follow these steps to get started:
     npm i
     ```
 
-4.  **Start the development server:**
+4.  **(Optional) Set up the Supabase CLI for local development:**
+
+    The Supabase configuration lives in the `supabase/` folder. To run the local database, authentication, and Edge Functions, install the Supabase CLI and start the stack:
+
+    ```sh
+    npm install -g supabase           # or follow https://supabase.com/docs/guides/cli/getting-started
+    npm run supabase:start            # starts the local Supabase services
+    ```
+
+    Additional helper scripts are available:
+
+    ```sh
+    npm run supabase:status           # check the local stack status
+    npm run supabase:stop             # stop the local Supabase stack
+    ```
+
+5.  **Start the development server:**
 
     ```sh
     npm run dev

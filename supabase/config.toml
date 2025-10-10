@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.contract-analysis-ai]
 verify_jwt = false
+
+[functions.documenso-api]
+verify_jwt = false
+
+[functions.manage-sso-config]
+verify_jwt = false

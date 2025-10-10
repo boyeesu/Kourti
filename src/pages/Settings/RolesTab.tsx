@@ -41,6 +41,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useProfile } from '@/hooks/useProfile';
+import { useUserRole } from '@/hooks/useUserManagement';
 import { 
   useUserRoles, 
   useUsersWithRoles,
@@ -123,8 +124,10 @@ export default function RolesTab() {
     ...roles.map(role => ({ value: role.role_name, label: role.role_name }))
   ];
 
-  const isCurrentUserSuperAdmin = profile?.role === 'superadmin';
-  const isCurrentUserAdmin = profile?.role === 'admin' || isCurrentUserSuperAdmin;
+  // Check roles from user_role_assignments
+  const { data: userRoleData } = useUserRole();
+  const isCurrentUserSuperAdmin = userRoleData?.role === 'superadmin';
+  const isCurrentUserAdmin = userRoleData?.role === 'admin' || isCurrentUserSuperAdmin;
   
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName && !lastName) return 'U';

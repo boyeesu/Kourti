@@ -1,5 +1,5 @@
 // src/components/layout/AppLayout.tsx
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -23,6 +23,7 @@ import NotificationsDropdown from "./NotificationsDropdown";
 import { 
   User,
   Settings,
+  ShieldCheck,
   Plus,
   Search as SearchIcon,
   FileText,
@@ -40,13 +41,16 @@ import {
   Bot,
   Gauge,
   Mic,
-  ChevronRight
+  ChevronRight,
+  MonitorSmartphone
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
+import { useUserPermission } from '@/hooks/usePermissions';
+import { PermissionGate } from '@/components/PermissionGate';
 import { cn } from '@/lib/utils';
 
 // Navigation item type
@@ -67,21 +71,34 @@ export type NavItem = {
 function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  
+  const { data: canManageSettings } = useUserPermission('settings', 'manage');
+
   // Register keyboard shortcut (Cmd+K or Ctrl+K)
   useKeyboardShortcut(['Meta+k', 'Control+k'], () => {
     setOpen(true);
   });
-  
+
   // Navigation options
-  const navigationOptions = [
-    { label: 'Dashboard', icon: <Home className="h-4 w-4 mr-2" />, href: '/' },
-    { label: 'Matters', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/matters' },
-    { label: 'Clients', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients' },
-    { label: 'Calendar', icon: <Calendar className="h-4 w-4 mr-2" />, href: '/calendar' },
-    { label: 'Documents', icon: <FileText className="h-4 w-4 mr-2" />, href: '/documents' },
-    { label: 'Settings', icon: <Settings className="h-4 w-4 mr-2" />, href: '/settings' },
-  ];
+  const navigationOptions = useMemo(() => {
+    const base = [
+      { label: 'Dashboard', icon: <Home className="h-4 w-4 mr-2" />, href: '/' },
+      { label: 'Matters', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/matters' },
+      { label: 'Clients', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients' },
+      { label: 'Calendar', icon: <Calendar className="h-4 w-4 mr-2" />, href: '/calendar' },
+      { label: 'Documents', icon: <FileText className="h-4 w-4 mr-2" />, href: '/documents' },
+      { label: 'Settings', icon: <Settings className="h-4 w-4 mr-2" />, href: '/settings' },
+    ];
+
+    if (canManageSettings) {
+      base.push({
+        label: 'Settings – SSO',
+        icon: <Settings className="h-4 w-4 mr-2" />,
+        href: '/settings?tab=sso',
+      });
+    }
+
+    return base;
+  }, [canManageSettings]);
   
   const actionOptions = [
     { label: 'New Case', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/cases/create' },
@@ -143,6 +160,63 @@ function DeadlineReminders() {
 import { useUserRole } from '@/hooks/useUserManagement';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
+function MobileAccessNotice() {
+  const isMobile = useIsMobile();
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setDismissed(false);
+    }
+  }, [isMobile]);
+
+  if (!isMobile || dismissed) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[hsl(var(--background))/0.92] px-6 text-center backdrop-blur">
+      <div className="max-w-sm space-y-4 rounded-2xl border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-6 shadow-xl">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(var(--primary))/0.15] text-[hsl(var(--primary))]">
+          <MonitorSmartphone className="h-6 w-6" aria-hidden="true" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-foreground">Optimized for larger screens</h2>
+          <p className="text-sm text-muted-foreground">
+            For the best experience, please use Kourti Legal Hub on a tablet or desktop computer.
+          </p>
+        </div>
+        <Button variant="outline" className="w-full" onClick={() => setDismissed(true)}>
+          Continue on mobile
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function MobileNavigation() {
   const [open, setOpen] = useState(false);
@@ -451,15 +525,16 @@ function AppLayoutInner({
   return (
     <>
       <CommandPalette />
+      <MobileAccessNotice />
       <div className="app-shell flex min-h-screen w-full bg-[hsl(var(--background))]">
-        <aside className="hidden w-[260px] shrink-0 px-3 py-5 md:flex">
+        <aside className="hidden shrink-0 px-2 py-4 md:flex md:w-[220px] lg:w-[260px] lg:px-3 lg:py-5">
           <div className="workspace-sidebar h-full w-full overflow-hidden">
             <AppSidebar />
           </div>
         </aside>
 
-        <div className="flex flex-col flex-1 min-w-0 gap-6 px-3 py-5 sm:px-6 lg:px-8">
-          <header className="workspace-header surface-panel px-4 py-5 sm:px-6">
+        <div className="flex flex-col flex-1 min-w-0 gap-5 px-3 py-5 sm:px-5 lg:gap-6 lg:px-8">
+          <header className="workspace-header surface-panel px-4 py-5 sm:px-5 lg:px-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -530,17 +605,25 @@ function AppLayoutInner({
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem asChild>
-                          <Link to="/settings/profile">
+                          <Link to="/settings?tab=profile">
                             <User className="mr-2 h-4 w-4" />
                             <span>Profile</span>
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link to="/settings">
+                          <Link to="/settings?tab=general">
                             <Settings className="mr-2 h-4 w-4" />
                             <span>Settings</span>
                           </Link>
                         </DropdownMenuItem>
+                        <PermissionGate resource="settings" action="manage">
+                          <DropdownMenuItem asChild>
+                            <Link to="/settings?tab=sso">
+                              <ShieldCheck className="mr-2 h-4 w-4" />
+                              <span>SSO</span>
+                            </Link>
+                          </DropdownMenuItem>
+                        </PermissionGate>
                       </DropdownMenuGroup>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
