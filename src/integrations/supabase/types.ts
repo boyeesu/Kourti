@@ -2114,6 +2114,72 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_sso_configs_view: {
+        Row: {
+          client_id: string | null
+          client_secret_masked: string | null
+          created_at: string | null
+          created_by: string | null
+          domain_hint: string | null
+          has_client_secret: boolean | null
+          id: string | null
+          is_enabled: boolean | null
+          organization_id: string | null
+          provider: string | null
+          redirect_uri: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          client_secret_masked?: never
+          created_at?: string | null
+          created_by?: string | null
+          domain_hint?: string | null
+          has_client_secret?: never
+          id?: string | null
+          is_enabled?: boolean | null
+          organization_id?: string | null
+          provider?: string | null
+          redirect_uri?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          client_secret_masked?: never
+          created_at?: string | null
+          created_by?: string | null
+          domain_hint?: string | null
+          has_client_secret?: never
+          id?: string | null
+          is_enabled?: boolean | null
+          organization_id?: string | null
+          provider?: string | null
+          redirect_uri?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_sso_configs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "organization_sso_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_invitation_and_assign_roles: {
@@ -2145,6 +2211,10 @@ export type Database = {
       }
       current_user_is_org_admin: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      delete_organization_sso_config: {
+        Args: { p_id: string }
         Returns: boolean
       }
       disable_user: {
@@ -2283,6 +2353,35 @@ export type Database = {
       toggle_user_status: {
         Args: { disable?: boolean; target_user_id: string }
         Returns: Json
+      }
+      upsert_organization_sso_config: {
+        Args: {
+          p_client_id?: string
+          p_client_secret?: string
+          p_domain_hint?: string
+          p_id?: string
+          p_is_enabled?: boolean
+          p_provider?: string
+          p_redirect_uri?: string
+          p_tenant_id?: string
+        }
+        Returns: {
+          client_id: string
+          client_secret: string | null
+          created_at: string
+          created_by: string | null
+          domain: string | null
+          domain_hint: string | null
+          id: string
+          is_enabled: boolean
+          metadata_url: string | null
+          organization_id: string
+          provider: string
+          redirect_uri: string | null
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
       }
       user_has_permission: {
         Args: { p_action: string; p_resource: string; p_user_id: string }
