@@ -173,10 +173,13 @@ export default function Auth() {
     try {
       let result;
       if (isSignUp) {
-        // Create organization first
-        const { data: orgData, error: orgError } = await supabase
-          .from('organizations')
-          .insert({
+        // Pass organization details in metadata - database trigger will create organization
+        result = await signUp(formData.email, formData.password, {
+          email: formData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          organization: formData.organization.name,
+          organization_details: {
             name: formData.organization.name,
             description: formData.organization.description,
             address: formData.organization.address,
@@ -184,18 +187,7 @@ export default function Auth() {
             country: formData.organization.country,
             phone: formData.organization.phone,
             email: formData.organization.email,
-          })
-          .select()
-          .single();
-
-        if (orgError) throw orgError;
-
-        result = await signUp(formData.email, formData.password, {
-          email: formData.email,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          organization: formData.organization.name,
-          organization_id: orgData.id,
+          },
         });
         
         if (!result.error) {
