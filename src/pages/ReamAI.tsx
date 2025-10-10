@@ -21,13 +21,15 @@ import {
   Sparkles,
   ShieldAlert,
   ListChecks,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAIConversations, useConversationMessages } from "@/hooks/useAIConversations";
 import { ConversationSidebar } from "@/components/ConversationSidebar";
 import { DocumentSuggestions } from "@/components/DocumentSuggestions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -280,6 +282,7 @@ export default function ReamAI() {
   const [activeQuery, setActiveQuery] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedContent, setExtractedContent] = useState<string | null>(null);
+  const [isDocSelectorOpen, setIsDocSelectorOpen] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -466,6 +469,7 @@ export default function ReamAI() {
   async function handleSelectDoc(doc: any, isContract: boolean) {
     setSelectedDoc({ ...doc, type: isContract ? "contract" : "document" });
     setSelectedFile(null); // Clear any uploaded file
+    setIsDocSelectorOpen(false); // Close the popover
 
     // Add messages about the selection
     setMessages((msgs) => [
@@ -912,10 +916,6 @@ Please provide a helpful response to this legal question. If you need specific d
     void sendMessage(undefined, action.prompt);
   };
 
-  // Check if we should show document suggestions (no messages or only system message)
-  const shouldShowSuggestions = messages.length === 0 || 
-    (messages.length === 1 && messages[0].role === "system");
-
   const activeDocumentLabel = selectedDoc
     ? `${selectedDoc.type === "contract" ? "Contract" : "Document"}: ${
         selectedDoc.title || selectedDoc.name
@@ -976,26 +976,16 @@ Please provide a helpful response to this legal question. If you need specific d
       {/* Main content area */}
       <ModuleErrorBoundary name="Chat Interface">
         <main className="flex h-full flex-1 flex-col overflow-hidden">
-          {/* Show document suggestions when starting a new chat */}
-          {shouldShowSuggestions ? (
-            <DocumentSuggestions
-              documents={documents}
-              contracts={contracts}
-              onSelectDocument={handleSelectDoc}
-              isLoading={docsLoading || contractsLoading}
-            />
-          ) : (
-            <>
-              <Card className="flex h-full w-full flex-1 flex-col rounded-none border-x-0 border-t-0">
-                <CardHeader className="border-b px-4 py-3 sm:px-6">
-                  <ReamAIHeader
-                    activeDocumentLabel={activeDocumentLabel}
-                    hasDocumentContext={hasDocumentContext}
-                    documentContent={documentContent}
-                    isBusy={isStreaming || isTyping}
-                    onQuickAction={handleQuickAction}
-                  />
-                </CardHeader>
+          <Card className="flex h-full w-full flex-1 flex-col rounded-none border-x-0 border-t-0">
+            <CardHeader className="border-b px-4 py-3 sm:px-6">
+              <ReamAIHeader
+                activeDocumentLabel={activeDocumentLabel}
+                hasDocumentContext={hasDocumentContext}
+                documentContent={documentContent}
+                isBusy={isStreaming || isTyping}
+                onQuickAction={handleQuickAction}
+              />
+            </CardHeader>
 
                 {/* Main chat/message area with its own scrolling */}
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -1086,41 +1076,71 @@ Please provide a helpful response to this legal question. If you need specific d
 
                   {/* Input form */}
                   <form
-                    className="sticky bottom-0 left-0 right-0 z-10 flex gap-2 border-t bg-background px-4 py-3 sm:px-6"
+                    className="sticky bottom-0 left-0 right-0 z-10 border-t bg-background"
                     onSubmit={(event) => sendMessage(event)}
                     style={{ boxShadow: "0 -2px 8px -4px rgba(0,0,0,0.04)" }}
                   >
-                    <Input
-                      className="flex-1"
-                      placeholder={
-                        selectedDoc || selectedFile
-                          ? "Ask about this document or request analysis..."
-                          : "Select a document first or ask a general legal question..."
-                      }
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      disabled={isStreaming || isTyping}
-                    />
-                    {isStreaming ? (
-                      <Button type="button" variant="destructive" onClick={cancelStreaming}>
-                        <StopCircle className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button type="submit" disabled={isTyping}>
-                        {isTyping ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
+                    {/* Document selector - compact button above input */}
+                    <div className="border-b px-4 py-2">
+                      <Popover open={isDocSelectorOpen} onOpenChange={setIsDocSelectorOpen}>
+                        <PopoverTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 text-xs"
+                          >
+                            <FileText className="mr-2 h-3.5 w-3.5" />
+                            {selectedDoc || selectedFile 
+                              ? "Change Document" 
+                              : "Select Document"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent 
+                          className="w-[600px] p-0" 
+                          align="start"
+                          side="top"
+                        >
+                          <DocumentSuggestions
+                            documents={documents}
+                            contracts={contracts}
+                            onSelectDocument={handleSelectDoc}
+                            isLoading={docsLoading || contractsLoading}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="flex gap-2 px-4 py-3 sm:px-6">
+                      <Input
+                        className="flex-1"
+                        placeholder={
+                          selectedDoc || selectedFile
+                            ? "Ask about this document or request analysis..."
+                            : "Select a document first or ask a general legal question..."
+                        }
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        disabled={isStreaming || isTyping}
+                      />
+                      {isStreaming ? (
+                        <Button type="button" variant="destructive" onClick={cancelStreaming}>
+                          <StopCircle className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button type="submit" disabled={isTyping}>
+                          {isTyping ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </form>
                 </div>
               </Card>
-            </>
-          )}
-        </main>
-      </ModuleErrorBoundary>
-    </div>
+            </main>
+          </ModuleErrorBoundary>
+        </div>
   );
 }
