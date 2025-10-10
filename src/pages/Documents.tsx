@@ -58,7 +58,39 @@ export default function Documents() {
   const { term: globalSearch } = useSearch();
   const { data: documents = [], isLoading } = useDocuments();
 
-  // Handler functions
+  // Compute filtered documents before any early returns (Rules of Hooks)
+  const filteredDocuments = useMemo(() => {
+    if (!documents || !Array.isArray(documents)) {
+      return [];
+    }
+    
+    return documents.filter((doc: Document) => {
+      const docTitle = doc.title || doc.name || '';
+      const matchesTerm = (t: string) =>
+        docTitle.toLowerCase().includes(t.toLowerCase());
+
+      const matchesLocal = searchTerm === "" || matchesTerm(searchTerm);
+      const matchesGlobal = globalSearch === "" || matchesTerm(globalSearch);
+      const matchesType =
+        typeFilter === "all" || (doc.file_type && doc.file_type.toLowerCase() === typeFilter);
+
+      return matchesLocal && matchesGlobal && matchesType;
+    });
+  }, [documents, globalSearch, searchTerm, typeFilter]);
+
+  // Helper functions
+  const getFileIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case "pdf": return <FileText className="h-5 w-5 text-destructive" />;
+      case "docx":
+      case "doc": return <FileText className="h-5 w-5 text-primary" />;
+      case "jpg":
+      case "jpeg":
+      case "png": return <FileImage className="h-5 w-5 text-success" />;
+      default: return <File className="h-5 w-5 text-muted-foreground" />;
+    }
+  };
+
   const handleDownload = async (doc: Document) => {
     if (!doc.file_path) return;
     
@@ -86,6 +118,7 @@ export default function Documents() {
     setShareDocument(doc);
   };
 
+  // Early return after all hooks
   if (isLoading) {
     return (
       <div className="px-4 py-6 flex items-center justify-center">
@@ -93,37 +126,6 @@ export default function Documents() {
       </div>
     );
   }
-
-  const getFileIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "pdf": return <FileText className="h-5 w-5 text-destructive" />;
-      case "docx":
-      case "doc": return <FileText className="h-5 w-5 text-primary" />;
-      case "jpg":
-      case "jpeg":
-      case "png": return <FileImage className="h-5 w-5 text-success" />;
-      default: return <File className="h-5 w-5 text-muted-foreground" />;
-    }
-  };
-
-  const filteredDocuments = useMemo(() => {
-    if (!documents || !Array.isArray(documents)) {
-      return [];
-    }
-    
-    return documents.filter((doc: Document) => {
-      const docTitle = doc.title || doc.name || '';
-      const matchesTerm = (t: string) =>
-        docTitle.toLowerCase().includes(t.toLowerCase());
-
-      const matchesLocal = searchTerm === "" || matchesTerm(searchTerm);
-      const matchesGlobal = globalSearch === "" || matchesTerm(globalSearch);
-      const matchesType =
-        typeFilter === "all" || (doc.file_type && doc.file_type.toLowerCase() === typeFilter);
-
-      return matchesLocal && matchesGlobal && matchesType;
-    });
-  }, [documents, globalSearch, searchTerm, typeFilter]);
 
   return (
     <div className="px-4 py-6 space-y-6">
