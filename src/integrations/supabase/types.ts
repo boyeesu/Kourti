@@ -1903,7 +1903,17 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      all_roles: {
+        Row: {
+          description: string | null
+          display_name: string | null
+          organization_id: string | null
+          role_id: string | null
+          role_name: string | null
+          role_type: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_invitation_and_assign_roles: {
@@ -1957,6 +1967,16 @@ export type Database = {
           error: string
           id: string
           status: string
+        }[]
+      }
+      get_organization_roles: {
+        Args: { p_organization_id: string }
+        Returns: {
+          description: string
+          display_name: string
+          organization_id: string
+          role_name: string
+          role_type: string
         }[]
       }
       get_organization_users: {
@@ -2042,12 +2062,24 @@ export type Database = {
           summary: string
         }[]
       }
+      safe_delete_custom_role: {
+        Args: { p_organization_id: string; p_role_name: string }
+        Returns: Json
+      }
       toggle_user_status: {
         Args: { disable?: boolean; target_user_id: string }
         Returns: Json
       }
       user_has_permission: {
         Args: { p_action: string; p_resource: string; p_user_id: string }
+        Returns: boolean
+      }
+      user_has_specific_permission: {
+        Args: { p_action: string; p_resource: string; p_user_id: string }
+        Returns: boolean
+      }
+      validate_role_exists: {
+        Args: { p_organization_id: string; p_role_name: string }
         Returns: boolean
       }
     }
