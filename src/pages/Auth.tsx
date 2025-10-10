@@ -154,16 +154,30 @@ export default function Auth() {
   const handleProvider = async (provider: ProviderName) => {
     setSsoError(null);
     setSsoLoading(provider);
-    const result = await signInWithProvider(provider, formData.email || undefined);
-    if (result.error) {
-      setSsoError(result.error.message);
+    
+    try {
+      const result = await signInWithProvider(provider, formData.email || undefined);
+      
+      if (result.error) {
+        setSsoError("SSO is not configured for this organization. Please contact your administrator or sign in with email and password.");
+        toast({
+          variant: "destructive",
+          title: "SSO Not Available",
+          description: "SSO is not configured. Please use email and password to sign in.",
+        });
+      }
+      // If successful, the function will redirect the browser
+    } catch (err) {
+      console.error("SSO error:", err);
+      setSsoError("SSO is not configured. Please use email and password to sign in.");
       toast({
         variant: "destructive",
-        title: "SSO Error",
-        description: result.error.message,
+        title: "SSO Not Available",
+        description: "Please use email and password to sign in.",
       });
+    } finally {
+      setSsoLoading(null);
     }
-    setSsoLoading(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -518,7 +532,7 @@ export default function Auth() {
                     type="button"
                     variant="outline"
                     className="w-full justify-start gap-2"
-                    disabled={!state.available || Boolean(ssoLoading && ssoLoading !== provider)}
+                    disabled={Boolean(ssoLoading && ssoLoading !== provider)}
                     onClick={() => handleProvider(provider)}
                   >
                     {state.checking || ssoLoading === provider ? (

@@ -28,37 +28,7 @@ shadow_port = 54320
 major_version = 15
 
 [functions]
-verify_jwt = false
-
-[functions.advanced-contract-analysis]
-verify_jwt = false
-
-[functions.ai-contract-generator]
-verify_jwt = false
-
-[functions.generate-embeddings]
-verify_jwt = false
-
-[functions.generate-invoice-pdf]
-verify_jwt = false
-
-[functions.voice-transcription]
-verify_jwt = false
-
-[functions.send-invitation]
-verify_jwt = false
-
-[functions.send-invitation-email]
-verify_jwt = false
-
-[functions.contract-analysis-ai]
-verify_jwt = false
-
-[functions.documenso-api]
-verify_jwt = false
-
-[functions.manage-sso-config]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sso-authorize]
 verify_jwt = false

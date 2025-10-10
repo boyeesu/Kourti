@@ -3,10 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const SSO_STATE_SECRET = Deno.env.get("SSO_STATE_SECRET") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SSO_STATE_SECRET = Deno.env.get("SSO_STATE_SECRET");
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("Missing required Supabase environment variables for SSO callback function");
+}
+
+if (!SSO_STATE_SECRET) {
+  console.error("CRITICAL: SSO_STATE_SECRET is required for secure SSO operation");
+  throw new Error("SSO_STATE_SECRET must be configured");
 }
 
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
