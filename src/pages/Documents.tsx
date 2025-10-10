@@ -107,6 +107,10 @@ export default function Documents() {
   };
 
   const filteredDocuments = useMemo(() => {
+    if (!documents || !Array.isArray(documents)) {
+      return [];
+    }
+    
     return documents.filter((doc: Document) => {
       const docTitle = doc.title || doc.name || '';
       const matchesTerm = (t: string) =>
