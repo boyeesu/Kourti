@@ -15,6 +15,7 @@ Unlock the power of AI and automation in your legal workflows. Kourti Legal deli
 - **Smart Notifications & Reminders**: Automated reminders, due dates, and case activity notifications.
 - **Modern UI/UX**: Built with React, shadcn-ui, TypeScript, and Tailwind CSS.
 - **Seamless Integrations**: Native OpenAI, Supabase Edge Functions, embeddable API for e-signature, and more.
+- **Single Sign-On Management**: Configure Google Workspace and Microsoft Entra ID authentication from **Settings → SSO** to streamline secure access for your team.
 
 -----
 

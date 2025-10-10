@@ -23,6 +23,7 @@ import NotificationsDropdown from "./NotificationsDropdown";
 import { 
   User,
   Settings,
+  ShieldCheck,
   Plus,
   Search as SearchIcon,
   FileText,
@@ -48,6 +49,8 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
+import { useUserPermission } from '@/hooks/usePermissions';
+import { PermissionGate } from '@/components/PermissionGate';
 import { cn } from '@/lib/utils';
 
 // Navigation item type
@@ -68,21 +71,34 @@ export type NavItem = {
 function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  
+  const { data: canManageSettings } = useUserPermission('settings', 'manage');
+
   // Register keyboard shortcut (Cmd+K or Ctrl+K)
   useKeyboardShortcut(['Meta+k', 'Control+k'], () => {
     setOpen(true);
   });
-  
+
   // Navigation options
-  const navigationOptions = [
-    { label: 'Dashboard', icon: <Home className="h-4 w-4 mr-2" />, href: '/' },
-    { label: 'Matters', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/matters' },
-    { label: 'Clients', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients' },
-    { label: 'Calendar', icon: <Calendar className="h-4 w-4 mr-2" />, href: '/calendar' },
-    { label: 'Documents', icon: <FileText className="h-4 w-4 mr-2" />, href: '/documents' },
-    { label: 'Settings', icon: <Settings className="h-4 w-4 mr-2" />, href: '/settings' },
-  ];
+  const navigationOptions = useMemo(() => {
+    const base = [
+      { label: 'Dashboard', icon: <Home className="h-4 w-4 mr-2" />, href: '/' },
+      { label: 'Matters', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/matters' },
+      { label: 'Clients', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients' },
+      { label: 'Calendar', icon: <Calendar className="h-4 w-4 mr-2" />, href: '/calendar' },
+      { label: 'Documents', icon: <FileText className="h-4 w-4 mr-2" />, href: '/documents' },
+      { label: 'Settings', icon: <Settings className="h-4 w-4 mr-2" />, href: '/settings' },
+    ];
+
+    if (canManageSettings) {
+      base.push({
+        label: 'Settings – SSO',
+        icon: <Settings className="h-4 w-4 mr-2" />,
+        href: '/settings?tab=sso',
+      });
+    }
+
+    return base;
+  }, [canManageSettings]);
   
   const actionOptions = [
     { label: 'New Case', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/cases/create' },
@@ -589,17 +605,25 @@ function AppLayoutInner({
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem asChild>
-                          <Link to="/settings/profile">
+                          <Link to="/settings?tab=profile">
                             <User className="mr-2 h-4 w-4" />
                             <span>Profile</span>
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link to="/settings">
+                          <Link to="/settings?tab=general">
                             <Settings className="mr-2 h-4 w-4" />
                             <span>Settings</span>
                           </Link>
                         </DropdownMenuItem>
+                        <PermissionGate resource="settings" action="manage">
+                          <DropdownMenuItem asChild>
+                            <Link to="/settings?tab=sso">
+                              <ShieldCheck className="mr-2 h-4 w-4" />
+                              <span>SSO</span>
+                            </Link>
+                          </DropdownMenuItem>
+                        </PermissionGate>
                       </DropdownMenuGroup>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
