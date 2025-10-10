@@ -52,6 +52,9 @@ interface DryRunResponse {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const SSO_STATE_SECRET = Deno.env.get("SSO_STATE_SECRET") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const APP_URL = Deno.env.get("APP_URL") ?? undefined;
+const SITE_URL = Deno.env.get("SITE_URL") ?? undefined;
+const SUPABASE_SITE_URL = Deno.env.get("SUPABASE_SITE_URL") ?? undefined;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("Missing required Supabase environment variables for SSO authorize function");
@@ -85,6 +88,55 @@ async function signState(payload: Record<string, unknown>): Promise<string> {
   const statePayload = base64UrlEncode(data);
   const stateSignature = base64UrlEncode(new Uint8Array(signature));
   return `${statePayload}.${stateSignature}`;
+}
+
+function safeParseUrl(value: string | null | undefined): URL | null {
+  if (!value) return null;
+  try {
+    return new URL(value);
+  } catch (_err) {
+    return null;
+  }
+}
+
+function resolveRedirectTarget(requested: string | undefined, config: SsoConfigRow): { value: string; status?: number } {
+  const allowedOrigins = new Set<string>();
+  const fallbackCandidates = [config.default_redirect, APP_URL, SITE_URL, SUPABASE_SITE_URL].filter(Boolean) as string[];
+
+  for (const candidate of fallbackCandidates) {
+    const parsed = safeParseUrl(candidate);
+    if (parsed) {
+      allowedOrigins.add(parsed.origin);
+    }
+  }
+
+  const fallbackUrl = fallbackCandidates.map((candidate) => safeParseUrl(candidate)).find((parsed) => parsed !== null);
+
+  if (!fallbackUrl) {
+    console.error("Unable to resolve fallback redirect URL", { configId: config.id, fallbackCandidates });
+    return { value: "", status: 500 };
+  }
+
+  if (!requested) {
+    return { value: fallbackUrl.toString() };
+  }
+
+  const requestedUrl = safeParseUrl(requested);
+
+  if (!requestedUrl) {
+    console.warn("Rejecting SSO authorize redirect: invalid URL", { requested });
+    return { value: "", status: 400 };
+  }
+
+  if (allowedOrigins.size > 0 && !allowedOrigins.has(requestedUrl.origin)) {
+    console.warn("Rejecting SSO authorize redirect: origin not allowed", {
+      requestedOrigin: requestedUrl.origin,
+      allowedOrigins: Array.from(allowedOrigins),
+    });
+    return { value: "", status: 400 };
+  }
+
+  return { value: requestedUrl.toString() };
 }
 
 async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | null> {
@@ -249,13 +301,17 @@ serve(async (req) => {
       });
     }
 
-    const redirectTo = request.redirect_to ?? config.default_redirect;
-    if (!redirectTo) {
-      return new Response(JSON.stringify({ error: "Missing redirect target" }), {
-        status: 400,
+    const redirectResolution = resolveRedirectTarget(request.redirect_to, config);
+    if (!redirectResolution.value) {
+      const status = redirectResolution.status ?? 500;
+      const errorMessage = status === 400 ? "Invalid redirect target" : "Unable to resolve redirect target";
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    const redirectTo = redirectResolution.value;
 
     const callbackUrl = new URL(req.url);
     const path = callbackUrl.pathname.replace(/\/sso-authorize$/, "/sso-callback");
