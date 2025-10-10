@@ -111,18 +111,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "calendar_events_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "calendar_events_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_calendar_events_created_by_profile"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -168,13 +168,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "case_activities_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "case_activities_case_id_fkey"
             columns: ["case_id"]
             isOneToOne: false
@@ -182,7 +175,14 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "case_activities_created_by_fkey"
+            foreignKeyName: "fk_case_activities_assigned_to_profile"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "fk_case_activities_created_by_profile"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -255,6 +255,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_case_fields_organization"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       case_issues: {
@@ -303,6 +310,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_case_issues_organization"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       case_types: {
@@ -342,6 +356,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "case_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_case_types_organization"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -445,6 +466,20 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "fk_cases_assigned_to_profile"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "fk_cases_created_by_profile"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       clients: {
@@ -501,6 +536,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_clients_created_by_profile"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       communication_logs: {
@@ -540,18 +582,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "communication_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "fk_communication_logs_org"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_communication_logs_user_profile"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -595,6 +637,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "contract_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contract_templates_organization"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -671,6 +720,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contracts_created_by_profile"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -871,6 +927,13 @@ export type Database = {
             referencedRelation: "documents"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_document_chunks_organization"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       documents: {
@@ -952,18 +1015,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "documents_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_documents_created_by_profile"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1237,6 +1300,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_invoices_created_by_profile"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "invoices_case_id_fkey"
             columns: ["case_id"]
@@ -1591,8 +1661,15 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "tasks_assigned_to_fkey"
+            foreignKeyName: "fk_tasks_assigned_to_profile"
             columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "fk_tasks_created_by_profile"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
@@ -1603,13 +1680,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cases"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1716,6 +1786,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_user_role_assignments_organization"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_role_assignments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -1814,7 +1891,15 @@ export type Database = {
           transcript?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_voice_transcriptions_organization"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
