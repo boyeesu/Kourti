@@ -17,21 +17,21 @@ export type Database = {
       best_practices: {
         Row: {
           clause: string
-          embedding: string
+          embedding: number[]
           id: string
           name: string
           organization_id: string | null
         }
         Insert: {
           clause: string
-          embedding: string
+          embedding: number[]
           id?: string
           name: string
           organization_id?: string | null
         }
         Update: {
           clause?: string
-          embedding?: string
+          embedding?: number[]
           id?: string
           name?: string
           organization_id?: string | null
@@ -610,7 +610,7 @@ export type Database = {
           created_by: string | null
           currency: string | null
           description: string | null
-          embedding: string | null
+          embedding: number[] | null
           end_date: string | null
           id: string
           organization_id: string | null
@@ -628,7 +628,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           description?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           end_date?: string | null
           id?: string
           organization_id?: string | null
@@ -646,7 +646,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           description?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           end_date?: string | null
           id?: string
           organization_id?: string | null
@@ -770,7 +770,7 @@ export type Database = {
           created_at: string
           created_by: string
           document_id: string
-          embedding: string | null
+          embedding: number[] | null
           error: string | null
           id: string
           metadata: Json | null
@@ -784,7 +784,7 @@ export type Database = {
           created_at?: string
           created_by: string
           document_id: string
-          embedding?: string | null
+          embedding?: number[] | null
           error?: string | null
           id?: string
           metadata?: Json | null
@@ -798,7 +798,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           document_id?: string
-          embedding?: string | null
+          embedding?: number[] | null
           error?: string | null
           id?: string
           metadata?: Json | null
@@ -823,7 +823,7 @@ export type Database = {
           contract_id: string | null
           created_at: string
           document_id: string | null
-          embedding: string | null
+          embedding: number[] | null
           id: string
           metadata: Json | null
           organization_id: string
@@ -836,7 +836,7 @@ export type Database = {
           contract_id?: string | null
           created_at?: string
           document_id?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           id?: string
           metadata?: Json | null
           organization_id: string
@@ -849,7 +849,7 @@ export type Database = {
           contract_id?: string | null
           created_at?: string
           document_id?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           id?: string
           metadata?: Json | null
           organization_id?: string
@@ -882,7 +882,7 @@ export type Database = {
           created_by: string | null
           currency: string | null
           effective_date: string | null
-          embedding: string | null
+          embedding: number[] | null
           file_path: string | null
           file_size: number | null
           id: string
@@ -905,7 +905,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           effective_date?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           file_path?: string | null
           file_size?: number | null
           id?: string
@@ -928,7 +928,7 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           effective_date?: string | null
-          embedding?: string | null
+          embedding?: number[] | null
           file_path?: string | null
           file_size?: number | null
           id?: string
@@ -1921,11 +1921,26 @@ export type Database = {
           similarity: number
         }[]
       }
+      match_document_chunks: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: number[]
+        }
+        Returns: {
+          id: string
+          document_id: string | null
+          contract_id: string | null
+          content: string
+          metadata: Json | null
+          similarity: number
+        }[]
+      }
       match_contracts: {
         Args: {
           match_count?: number
           match_threshold?: number
-          query_embedding: string
+          query_embedding: number[]
         }
         Returns: {
           description: string
@@ -1939,7 +1954,7 @@ export type Database = {
         Args: {
           match_count?: number
           match_threshold?: number
-          query_embedding: string
+          query_embedding: number[]
         }
         Returns: {
           content: string
