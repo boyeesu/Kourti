@@ -278,48 +278,6 @@ export default function Auth() {
             </div>
           )}
 
-          {/* SSO Options - Always visible */}
-          <div className="space-y-2 mb-4">
-            {!isSignUp && (
-              <div className="mb-3">
-                <p className="text-sm font-medium text-foreground mb-2">
-                  Sign in with SSO
-                </p>
-              </div>
-            )}
-            
-            {(["google", "microsoft"] as ProviderName[]).map((provider) => {
-              const state = providerState[provider];
-              
-              return (
-                <Button
-                  key={provider}
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start gap-2"
-                  disabled={!state.available || Boolean(ssoLoading && ssoLoading !== provider)}
-                  onClick={() => handleProvider(provider)}
-                >
-                  {state.checking || ssoLoading === provider ? (
-                    <LogIn className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Globe2 className="h-4 w-4" />
-                  )}
-                  <span>
-                    {state.buttonText ?? `${isSignUp ? 'Sign up' : 'Sign in'} with ${provider === 'google' ? 'Google' : 'Microsoft'}`}
-                  </span>
-                </Button>
-              );
-            })}
-          </div>
-
-          <Separator className="my-4" />
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {isSignUp ? "Or create account with email" : "Or sign in with email"}
-            </p>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
               <>
@@ -559,6 +517,42 @@ export default function Auth() {
               ) : "Sign In")}
             </Button>
           </form>
+
+          {/* SSO Options - Below email sign in */}
+          <div className="mt-6">
+            <Separator className="my-4" />
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {isSignUp ? "Or sign up with SSO" : "Or sign in with SSO"}
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              {(["google", "microsoft"] as ProviderName[]).map((provider) => {
+                const state = providerState[provider];
+                
+                return (
+                  <Button
+                    key={provider}
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    disabled={!state.available || Boolean(ssoLoading && ssoLoading !== provider)}
+                    onClick={() => handleProvider(provider)}
+                  >
+                    {state.checking || ssoLoading === provider ? (
+                      <LogIn className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Globe2 className="h-4 w-4" />
+                    )}
+                    <span>
+                      {state.buttonText ?? `${isSignUp ? 'Sign up' : 'Sign in'} with ${provider === 'google' ? 'Google' : 'Microsoft'}`}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
           
           <div className="mt-6">
             <Separator className="my-4" />
