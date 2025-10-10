@@ -11,8 +11,8 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ssoSecretKey = Deno.env.get("SSO_SECRET_KEY") ?? "";
 const allowedRedirectOrigins = (Deno.env.get("SSO_ALLOWED_REDIRECT_ORIGINS") ?? "")
   .split(",")
-  .map((origin) => origin.trim())
-  .filter((origin) => origin.length > 0);
+  .map((origin: string) => origin.trim())
+  .filter((origin: string) => origin.length > 0);
 
 type Provider = "google" | "microsoft";
 
@@ -96,7 +96,7 @@ function validateRedirectUri(uri?: string | null) {
     const parsed = new URL(uri);
     if (
       allowedRedirectOrigins.length > 0 &&
-      !allowedRedirectOrigins.some((origin) => origin === parsed.origin)
+      !allowedRedirectOrigins.some((origin: string) => origin === parsed.origin)
     ) {
       throw new Error("Redirect URI is not part of the allowed origins");
     }
@@ -113,7 +113,7 @@ async function fetchExistingConfig(
   id: string
 ): Promise<SsoConfigRow> {
   const { data, error } = await supabase
-    .from<SsoConfigRow>("organization_sso_configs_view")
+    .from("organization_sso_configs_view")
     .select("*")
     .eq("id", id)
     .single();
@@ -138,13 +138,7 @@ serve(async (req: Request) => {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const {
       data: { user },
@@ -166,7 +160,7 @@ serve(async (req: Request) => {
 
         validateRedirectUri(payload.redirectUri);
 
-        const { data, error } = await supabase.rpc<SsoConfigRow>(
+        const { data, error } = await supabase.rpc(
           "upsert_organization_sso_config",
           {
             p_id: null,
@@ -202,7 +196,7 @@ serve(async (req: Request) => {
 
         validateRedirectUri(redirectUri);
 
-        const { data, error } = await supabase.rpc<SsoConfigRow>(
+        const { data, error } = await supabase.rpc(
           "upsert_organization_sso_config",
           {
             p_id: existing.id,
@@ -232,7 +226,7 @@ serve(async (req: Request) => {
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
-        const { data, error } = await supabase.rpc<SsoConfigRow>(
+        const { data, error } = await supabase.rpc(
           "upsert_organization_sso_config",
           {
             p_id: existing.id,
@@ -260,7 +254,7 @@ serve(async (req: Request) => {
           throw new Error("id is required for deletion");
         }
 
-        const { data, error } = await supabase.rpc<boolean>(
+        const { data, error } = await supabase.rpc(
           "delete_organization_sso_config",
           { p_id: payload.id }
         );

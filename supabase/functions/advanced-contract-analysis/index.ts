@@ -399,6 +399,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
   }
 };
 
+// @ts-ignore - Deno-specific property
 if (import.meta.main) {
   serve(advancedContractAnalysisHandler);
 }

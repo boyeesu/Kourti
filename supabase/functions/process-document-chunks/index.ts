@@ -338,6 +338,7 @@ export const processDocumentChunksHandler = async (req: Request) => {
   }
 };
 
+// @ts-ignore - Deno-specific property
 if (import.meta.main) {
   serve(processDocumentChunksHandler);
 }

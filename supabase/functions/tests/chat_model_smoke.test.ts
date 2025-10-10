@@ -1,3 +1,4 @@
+// @ts-ignore - Deno std library types
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 import { advancedContractAnalysisHandler } from "../advanced-contract-analysis/index.ts";

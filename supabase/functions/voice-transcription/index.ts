@@ -191,6 +191,7 @@ export const voiceTranscriptionHandler = async (req: Request) => {
   }
 };
 
+// @ts-ignore - Deno-specific property
 if (import.meta.main) {
   Deno.serve(voiceTranscriptionHandler);
 }

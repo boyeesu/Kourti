@@ -86,6 +86,7 @@ export const generateEmbeddingsHandler = async (req: Request) => {
   }
 };
 
+// @ts-ignore - Deno-specific property
 if (import.meta.main) {
   Deno.serve(generateEmbeddingsHandler);
 }

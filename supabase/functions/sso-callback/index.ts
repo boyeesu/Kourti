@@ -83,7 +83,8 @@ async function verifyState(state: string): Promise<StatePayload> {
     ["sign", "verify"],
   );
 
-  const expectedSignature = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, payloadBytes));
+  const signatureBuffer = await crypto.subtle.sign("HMAC", cryptoKey, payloadBytes.buffer as ArrayBuffer);
+  const expectedSignature = new Uint8Array(signatureBuffer);
   if (expectedSignature.length !== signatureBytes.length || !expectedSignature.every((value, idx) => value === signatureBytes[idx])) {
     throw new Error("Invalid state signature");
   }
@@ -194,7 +195,7 @@ async function ensureSupabaseUser(email: string, provider: Provider, organizatio
     throw listError;
   }
 
-  const match = users.users.find((user) => user.email?.toLowerCase() === lowerEmail);
+  const match = users.users.find((user: any) => user.email?.toLowerCase() === lowerEmail);
   if (!match) {
     throw new Error("Unable to locate existing Supabase user for SSO account");
   }
@@ -337,7 +338,8 @@ serve(async (req) => {
       const location = buildRedirectWithError(fallbackUrl, "sso_callback_error");
       return new Response(null, { status: 302, headers: { Location: location } });
     }
-    return new Response(JSON.stringify({ error: error?.message ?? "Unexpected SSO error" }), {
+    const errorMessage = error instanceof Error ? error.message : "Unexpected SSO error";
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
