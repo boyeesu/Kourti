@@ -6,10 +6,26 @@ import { supabase } from '@/integrations/supabase/client';
 // Supported types of contract analysis
 export type AnalysisType = 'summarize' | 'extractClauses' | 'redline';
 
+type AdvancedAnalysisType = 'summarize' | 'general' | 'risk' | 'extract' | 'compare';
+
+function mapToAdvancedAnalysisType(type: AnalysisType): AdvancedAnalysisType {
+  switch (type) {
+    case 'summarize':
+      return 'summarize';
+    case 'extractClauses':
+      return 'extract';
+    case 'redline':
+      return 'risk';
+    default:
+      return 'general';
+  }
+}
+
 async function callContractAnalysis(text: string, analysisType: AnalysisType): Promise<string> {
   const payload = { text, analysisType };
+  const advancedPayload = { text, analysisType: mapToAdvancedAnalysisType(analysisType) };
   const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
-    body: payload
+    body: advancedPayload
   });
 
   let responseData = data as { analysis?: string } | null;
