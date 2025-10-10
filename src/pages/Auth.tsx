@@ -278,12 +278,19 @@ export default function Auth() {
             </div>
           )}
 
-          {/* SSO Options */}
+          {/* SSO Options - Always visible */}
           <div className="space-y-2 mb-4">
+            {!isSignUp && (
+              <div className="mb-3">
+                <p className="text-sm font-medium text-foreground mb-2">
+                  Sign in with SSO
+                </p>
+              </div>
+            )}
+            
             {(["google", "microsoft"] as ProviderName[]).map((provider) => {
               const state = providerState[provider];
-              if (!state.available && !state.checking) return null;
-
+              
               return (
                 <Button
                   key={provider}
@@ -299,21 +306,19 @@ export default function Auth() {
                     <Globe2 className="h-4 w-4" />
                   )}
                   <span>
-                    {state.buttonText ?? `${isSignUp ? 'Sign up' : 'Continue'} with ${provider === 'google' ? 'Google' : 'Microsoft'}`}
+                    {state.buttonText ?? `${isSignUp ? 'Sign up' : 'Sign in'} with ${provider === 'google' ? 'Google' : 'Microsoft'}`}
                   </span>
                 </Button>
               );
             })}
           </div>
 
-          {(providerState.google.available || providerState.microsoft.available) && (
-            <>
-              <Separator className="my-4" />
-              <p className="text-center text-xs uppercase tracking-wide text-muted-foreground mb-4">
-                Or continue with email
-              </p>
-            </>
-          )}
+          <Separator className="my-4" />
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              {isSignUp ? "Or create account with email" : "Or sign in with email"}
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (

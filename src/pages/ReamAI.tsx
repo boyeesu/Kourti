@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useVectorSearch } from "@/hooks/useVectorSearch";
 import { useRAGSearch, useProcessDocument } from "@/hooks/useRAGSearch";
 import { useDocuments } from "@/hooks/useDocuments";
@@ -13,15 +12,10 @@ import { useDocumentContent } from "@/hooks/useDocumentContext";
 import { useOrganization } from "@/hooks/useOrganization";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, formatDate } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import {
-  Plus,
   Send,
-  FileText,
-  FileCheck,
-  Search,
   Loader2,
   StopCircle,
   Sparkles,
@@ -33,6 +27,7 @@ import type { LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAIConversations, useConversationMessages } from "@/hooks/useAIConversations";
 import { ConversationSidebar } from "@/components/ConversationSidebar";
+import { DocumentSuggestions } from "@/components/DocumentSuggestions";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -280,8 +275,6 @@ export default function ReamAI() {
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
-  const [search, setSearch] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<string>("documents");
   const [isTyping, setIsTyping] = useState(false);
   const [enableVectorSearch] = useState(true);
   const [activeQuery, setActiveQuery] = useState("");
@@ -342,7 +335,6 @@ export default function ReamAI() {
       const contract = contracts.find((c) => c.id === contractId);
       if (contract) {
         handleSelectDoc(contract, true);
-        setActiveTab("contracts");
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -460,8 +452,15 @@ export default function ReamAI() {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         [".docx"],
       "text/plain": [".txt"]
-    }
+    },
+    noClick: true,
+    noDrag: true,
   });
+
+  // Avoid warning for unused variables - they're needed for dropzone setup
+  void getRootProps;
+  void getInputProps;
+  void isDragActive;
 
   // Handle document/contract selection
   async function handleSelectDoc(doc: any, isContract: boolean) {
@@ -579,6 +578,17 @@ export default function ReamAI() {
         timestamp: new Date() 
       };
       setMessages((msgs) => [...msgs, newUserMessage]);
+      
+      // Update conversation title if this is the first user message
+      if (currentConversationId && messages.filter(m => m.role === "user").length === 0) {
+        const shortTitle = userMessage.length > 50 
+          ? userMessage.substring(0, 47) + "..." 
+          : userMessage;
+        updateConversation.mutate({ 
+          id: currentConversationId, 
+          title: shortTitle 
+        });
+      }
       
       // Save user message to database
       if (currentConversationId) {
@@ -902,6 +912,10 @@ Please provide a helpful response to this legal question. If you need specific d
     void sendMessage(undefined, action.prompt);
   };
 
+  // Check if we should show document suggestions (no messages or only system message)
+  const shouldShowSuggestions = messages.length === 0 || 
+    (messages.length === 1 && messages[0].role === "system");
+
   const activeDocumentLabel = selectedDoc
     ? `${selectedDoc.type === "contract" ? "Contract" : "Document"}: ${
         selectedDoc.title || selectedDoc.name
@@ -911,29 +925,13 @@ Please provide a helpful response to this legal question. If you need specific d
     : null;
   const hasDocumentContext = Boolean(selectedDoc || selectedFile);
 
-  // Filter documents based on search term
-  const filteredDocuments = documents.filter((doc) =>
-    (doc.title || doc.name || "").toLowerCase().includes(search.toLowerCase())
-  );
-
-  const filteredContracts = contracts.filter((contract) =>
-    (contract.title || "").toLowerCase().includes(search.toLowerCase())
-  );
-
   // Handle conversation management
   const handleNewConversation = () => {
-    const title = `Chat ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+    const title = "New Chat";
     createConversation.mutate(title, {
       onSuccess: (conv) => {
         setCurrentConversationId(conv.id);
-        setMessages([
-          {
-            role: "system",
-            content:
-              "Welcome to Ream AI with RAG! Select or upload a document/contract, and I'll process it for intelligent retrieval. Your documents will be chunked and embedded for better context-aware responses.",
-            timestamp: new Date()
-          }
-        ]);
+        setMessages([]);
         setSelectedDoc(null);
         setSelectedFile(null);
         setExtractedContent(null);
@@ -975,323 +973,154 @@ Please provide a helpful response to this legal question. If you need specific d
         />
       </ModuleErrorBoundary>
 
-      {/* Middle: doc/contract & upload */}
-      <ModuleErrorBoundary name="Document Selector">
-        <aside className="flex h-full w-full flex-shrink-0 flex-col gap-3 overflow-y-auto border-b border-r border-border bg-muted/20 p-4 lg:w-72 lg:min-w-[18rem] lg:border-b-0">
-          <h2 className="flex-shrink-0 text-sm font-semibold text-muted-foreground">
-            Knowledge Base
-          </h2>
-          <div className="relative flex-shrink-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search documents/contracts…"
-              className="h-9 pl-10"
+      {/* Main content area */}
+      <ModuleErrorBoundary name="Chat Interface">
+        <main className="flex h-full flex-1 flex-col overflow-hidden">
+          {/* Show document suggestions when starting a new chat */}
+          {shouldShowSuggestions ? (
+            <DocumentSuggestions
+              documents={documents}
+              contracts={contracts}
+              onSelectDocument={handleSelectDoc}
+              isLoading={docsLoading || contractsLoading}
             />
-          </div>
+          ) : (
+            <>
+              <Card className="flex h-full w-full flex-1 flex-col rounded-none border-x-0 border-t-0">
+                <CardHeader className="border-b px-4 py-3 sm:px-6">
+                  <ReamAIHeader
+                    activeDocumentLabel={activeDocumentLabel}
+                    hasDocumentContext={hasDocumentContext}
+                    documentContent={documentContent}
+                    isBusy={isStreaming || isTyping}
+                    onQuickAction={handleQuickAction}
+                  />
+                </CardHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
-            <TabsList className="mb-2 grid flex-shrink-0 grid-cols-2">
-              <TabsTrigger value="documents" className="text-xs">
-                <FileText className="h-3.5 w-3.5 mr-1" />
-                Documents
-              </TabsTrigger>
-              <TabsTrigger value="contracts" className="text-xs">
-                <FileCheck className="h-3.5 w-3.5 mr-1" />
-                Contracts
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="documents" className="mt-0 flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                {docsLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-sm text-muted-foreground">
-                      Loading...
-                    </span>
-                  </div>
-                ) : filteredDocuments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    {search ? "No matching documents" : "No documents found"}
-                  </div>
-                ) : (
-                  <ul className="space-y-1">
-                    {filteredDocuments.map((doc) => (
-                      <li key={doc.id}>
-                        <button
-                          className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center hover:bg-accent transition-colors ${
-                            selectedDoc?.id === doc.id ? "bg-accent" : ""
-                          }`}
-                          onClick={() => handleSelectDoc(doc, false)}
-                        >
-                          <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">{doc.title || doc.name}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="contracts" className="mt-0 flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                {contractsLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-sm text-muted-foreground">
-                      Loading...
-                    </span>
-                  </div>
-                ) : filteredContracts.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    {search ? "No matching contracts" : "No contracts found"}
-                  </div>
-                ) : (
-                  <ul className="space-y-1">
-                    {filteredContracts.map((contract) => (
-                      <li key={contract.id}>
-                        <button
-                          className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center hover:bg-accent transition-colors ${
-                            selectedDoc?.id === contract.id ? "bg-accent" : ""
-                          }`}
-                          onClick={() => handleSelectDoc(contract, true)}
-                        >
-                          <FileCheck className="h-4 w-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">{contract.title}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-
-          <div
-            {...getRootProps()}
-            className={cn(
-              "flex-shrink-0 cursor-pointer rounded-lg border border-dashed border-muted-foreground/50 bg-background/60 p-3 text-center text-sm transition-colors",
-              isDragActive ? "border-primary bg-primary/10" : "hover:bg-muted"
-            )}
-          >
-            <input {...getInputProps()} />
-            <Plus className="inline-block mr-2 h-4 w-4 text-muted-foreground" />
-            {isDragActive ? (
-              <span className="text-sm">Drop file here...</span>
-            ) : (
-              <span className="text-sm">Upload Document</span>
-            )}
-            {selectedFile && (
-              <div className="mt-1 text-xs text-muted-foreground truncate">
-                Selected: {selectedFile.name}
-              </div>
-            )}
-          </div>
-
-          {(selectedDoc || selectedFile) && (
-            <div className="flex-shrink-0 rounded-lg border border-border bg-background/70">
-              <div className="flex items-center gap-2 border-b border-border/80 px-3 py-2 text-sm font-medium text-foreground">
-                {selectedDoc ? (
-                  <>
-                    {selectedDoc.type === "contract" ? (
-                      <FileCheck className="h-4 w-4" />
-                    ) : (
-                      <FileText className="h-4 w-4" />
-                    )}
-                    <span className="truncate">
-                      {selectedDoc.title || selectedDoc.name}
-                    </span>
-                  </>
-                ) : selectedFile ? (
-                  <>
-                    <FileText className="h-4 w-4" />
-                    <span className="truncate">{selectedFile.name}</span>
-                  </>
-                ) : null}
-              </div>
-              <div className="px-3 py-2 text-xs">
-                <dl className="divide-y divide-border/60">
-                  {selectedDoc && (
-                    <>
-                      <div className="flex items-center justify-between py-2">
-                        <dt className="text-muted-foreground">Type</dt>
-                        <dd>
-                          <Badge variant="outline" className="h-5 text-[10px]">
-                            {selectedDoc.type === "contract"
-                              ? "Contract"
-                              : "Document"}
-                          </Badge>
-                        </dd>
+                {/* Main chat/message area with its own scrolling */}
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {ragResults && ragResults.length > 0 && (
+                    <div className="border-b bg-muted/30 px-4 py-3 sm:px-6">
+                      <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <Sparkles className="h-3 w-3" /> Context matches
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {ragResults.slice(0, 3).map((result, index) => (
+                          <div
+                            key={`${result.chunkId}-${index}`}
+                            className="text-xs text-muted-foreground"
+                          >
+                            <p className="font-medium text-foreground">
+                              {result.documentName} ({result.documentType})
+                            </p>
+                            <p className="line-clamp-2">{result.content}</p>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex items-center justify-between py-2">
-                        <dt className="text-muted-foreground">Created</dt>
-                        <dd>{formatDate(selectedDoc.created_at)}</dd>
-                      </div>
-                    </>
+                    </div>
                   )}
-                  {selectedFile && (
-                    <>
-                      <div className="flex items-center justify-between py-2">
-                        <dt className="text-muted-foreground">Type</dt>
-                        <dd>
-                          <Badge variant="outline" className="h-5 text-[10px]">
-                            {selectedFile.type.split("/")[1].toUpperCase()}
-                          </Badge>
-                        </dd>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <dt className="text-muted-foreground">Size</dt>
-                        <dd>{(selectedFile.size / 1024).toFixed(1)} KB</dd>
-                      </div>
-                    </>
-                  )}
-                </dl>
-              </div>
-            </div>
-          )}
-        </aside>
-      </ModuleErrorBoundary>
 
-      {/* Right: Chat UI */}
-      <main className="flex h-full flex-1 flex-col overflow-hidden">
-        <ModuleErrorBoundary name="Ream AI Chat">
-          <Card className="flex h-full w-full flex-1 flex-col rounded-none border-x-0 border-t-0">
-            <CardHeader className="border-b px-4 py-3 sm:px-6">
-              <ReamAIHeader
-                activeDocumentLabel={activeDocumentLabel}
-                hasDocumentContext={hasDocumentContext}
-                documentContent={documentContent}
-                isBusy={isStreaming || isTyping}
-                onQuickAction={handleQuickAction}
-              />
-            </CardHeader>
-
-            {/* Main chat/message area with its own scrolling */}
-            <div className="flex min-h-0 flex-1 flex-col">
-              {ragResults && ragResults.length > 0 && (
-                <div className="border-b bg-muted/30 px-4 py-3 sm:px-6">
-                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <Sparkles className="h-3 w-3" /> Context matches
-                  </p>
-                  <div className="mt-2 space-y-2">
-                    {ragResults.slice(0, 3).map((result, index) => (
-                      <div
-                        key={`${result.chunkId}-${index}`}
-                        className="text-xs text-muted-foreground"
-                      >
-                        <p className="font-medium text-foreground">
-                          {result.documentName} ({result.documentType})
-                        </p>
-                        <p className="line-clamp-2">{result.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* RESOLVED BLOCK: retain ref + desired inner spacing */}
-              <div ref={chatContainerRef} className="flex-1 overflow-y-auto">
-                <div className="flex flex-col gap-3 px-4 py-4 pb-24 sm:px-6">
-                  {messages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`flex ${
-                        msg.role === "user" ? "justify-end" : "justify-start"
-                      } ${msg.role === "system" ? "justify-center" : ""}`}
-                    >
-                      {msg.role === "system" ? (
-                        <Card className="w-full max-w-3xl bg-muted/40">
-                          <CardContent className="px-4 py-3 text-sm">
-                            <p className="text-sm">{msg.content}</p>
-                          </CardContent>
-                        </Card>
-                      ) : (
+                  <div ref={chatContainerRef} className="flex-1 overflow-y-auto">
+                    <div className="flex flex-col gap-3 px-4 py-4 pb-24 sm:px-6">
+                      {messages.map((msg, i) => (
                         <div
-                          className={`max-w-[80%] rounded-lg px-4 py-3 text-sm shadow-sm whitespace-pre-wrap ${
-                            msg.role === "user"
-                              ? "ml-auto bg-muted text-foreground"
-                              : "mr-auto border border-border/60 bg-background text-foreground"
-                          }`}
+                          key={i}
+                          className={`flex ${
+                            msg.role === "user" ? "justify-end" : "justify-start"
+                          } ${msg.role === "system" ? "justify-center" : ""}`}
                         >
-                          {msg.content || (msg.isStreaming && <span className="animate-pulse">▋</span>)}
-                          {msg.timestamp && (
+                          {msg.role === "system" ? (
+                            <Card className="w-full max-w-3xl bg-muted/40">
+                              <CardContent className="px-4 py-3 text-sm">
+                                <p className="text-sm">{msg.content}</p>
+                              </CardContent>
+                            </Card>
+                          ) : (
                             <div
-                              className={cn(
-                                "mt-2 text-[10px] text-muted-foreground",
-                                msg.role === "user" ? "text-right" : "text-left"
-                              )}
+                              className={`max-w-[80%] rounded-lg px-4 py-3 text-sm shadow-sm whitespace-pre-wrap ${
+                                msg.role === "user"
+                                  ? "ml-auto bg-muted text-foreground"
+                                  : "mr-auto border border-border/60 bg-background text-foreground"
+                              }`}
                             >
-                              {msg.timestamp.toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit"
-                              })}
+                              {msg.content || (msg.isStreaming && <span className="animate-pulse">▋</span>)}
+                              {msg.timestamp && (
+                                <div
+                                  className={cn(
+                                    "mt-2 text-[10px] text-muted-foreground",
+                                    msg.role === "user" ? "text-right" : "text-left"
+                                  )}
+                                >
+                                  {msg.timestamp.toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit"
+                                  })}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Example prompts */}
-              {messages.length <= 2 && (
-                <div className="border-t bg-background/95 px-4 py-3 sm:px-6">
-                  <p className="mb-2 text-sm text-muted-foreground">Try asking:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {EXAMPLE_PROMPTS.map((prompt, i) => (
-                      <Button
-                        key={i}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => useExamplePrompt(prompt)}
-                      >
-                        {prompt}
-                      </Button>
-                    ))}
                   </div>
-                </div>
-              )}
 
-              {/* Input form always at the very bottom, never scrolled */}
-              <form
-                className="sticky bottom-0 left-0 right-0 z-10 flex gap-2 border-t bg-background px-4 py-3 sm:px-6"
-                onSubmit={(event) => sendMessage(event)}
-                style={{ boxShadow: "0 -2px 8px -4px rgba(0,0,0,0.04)" }}
-              >
-                <Input
-                  className="flex-1"
-                  placeholder={
-                    selectedDoc || selectedFile
-                      ? "Ask about this document or request analysis..."
-                      : "Select a document first or ask a general legal question..."
-                  }
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  disabled={isStreaming || isTyping}
-                />
-                {isStreaming ? (
-                  <Button type="button" variant="destructive" onClick={cancelStreaming}>
-                    <StopCircle className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button type="submit" disabled={isTyping}>
-                    {isTyping ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                  {/* Example prompts */}
+                  {messages.length <= 2 && (
+                    <div className="border-t bg-background/95 px-4 py-3 sm:px-6">
+                      <p className="mb-2 text-sm text-muted-foreground">Try asking:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {EXAMPLE_PROMPTS.map((prompt, i) => (
+                          <Button
+                            key={i}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => useExamplePrompt(prompt)}
+                          >
+                            {prompt}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Input form */}
+                  <form
+                    className="sticky bottom-0 left-0 right-0 z-10 flex gap-2 border-t bg-background px-4 py-3 sm:px-6"
+                    onSubmit={(event) => sendMessage(event)}
+                    style={{ boxShadow: "0 -2px 8px -4px rgba(0,0,0,0.04)" }}
+                  >
+                    <Input
+                      className="flex-1"
+                      placeholder={
+                        selectedDoc || selectedFile
+                          ? "Ask about this document or request analysis..."
+                          : "Select a document first or ask a general legal question..."
+                      }
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      disabled={isStreaming || isTyping}
+                    />
+                    {isStreaming ? (
+                      <Button type="button" variant="destructive" onClick={cancelStreaming}>
+                        <StopCircle className="h-4 w-4" />
+                      </Button>
                     ) : (
-                      <Send className="h-4 w-4" />
+                      <Button type="submit" disabled={isTyping}>
+                        {isTyping ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
                     )}
-                  </Button>
-                )}
-              </form>
-            </div>
-          </Card>
-        </ModuleErrorBoundary>
-      </main>
+                  </form>
+                </div>
+              </Card>
+            </>
+          )}
+        </main>
+      </ModuleErrorBoundary>
     </div>
   );
 }
