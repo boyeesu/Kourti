@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAllRoles } from '@/hooks/useAllRoles';
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -7,15 +7,20 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Lock, Eye, EyeOff, User, Building } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, Building, Globe2, LogIn } from "lucide-react";
 import logo from "@/assets/kourti-legal-logo.png";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+
+type ProviderName = "google" | "microsoft";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, signInWithProvider } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [ssoError, setSsoError] = useState<string | null>(null);
+  const [ssoLoading, setSsoLoading] = useState<ProviderName | null>(null);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -25,12 +30,29 @@ export default function Register() {
     organization: "",
     role: "",
   });
+  const [debouncedEmail, setDebouncedEmail] = useState("");
+  const [providerState, setProviderState] = useState<Record<ProviderName, { available: boolean; enforceSso?: boolean; checking?: boolean }>>({
+    google: { available: false },
+    microsoft: { available: false },
+  });
 
   // Fetch all roles but only display those appropriate for user sign up
   const { data: allRoles = [] } = useAllRoles();
 
+  const enforceSso = useMemo(() => {
+    return (providerState.google.enforceSso && providerState.google.available)
+      || (providerState.microsoft.enforceSso && providerState.microsoft.available);
+  }, [providerState]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSsoError(null);
+
+    if (enforceSso) {
+      alert("Your organization has SSO-only onboarding. Please continue with the SSO options above.");
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       alert("Passwords do not match");
       return;
@@ -50,6 +72,103 @@ export default function Register() {
     navigate("/login");
   };
 
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedEmail(formData.email.trim());
+    }, 400);
+
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [formData.email]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+
+    const fetchConfigs = async () => {
+      const nextState: Record<ProviderName, { available: boolean; enforceSso?: boolean; checking?: boolean }> = {
+        google: { available: false, checking: true },
+        microsoft: { available: false, checking: true },
+      };
+
+      setProviderState((prev) => ({
+        google: { ...prev.google, checking: true },
+        microsoft: { ...prev.microsoft, checking: true },
+      }));
+
+      for (const provider of ["google", "microsoft"] as ProviderName[]) {
+        try {
+          const { data, error } = await supabase.functions.invoke('sso-authorize', {
+            body: {
+              provider,
+              email: debouncedEmail || undefined,
+              dry_run: true,
+            },
+          });
+
+          if (!active) return;
+
+          if (error) {
+            nextState[provider] = { available: false, checking: false };
+          } else {
+            nextState[provider] = {
+              available: Boolean(data?.available),
+              enforceSso: Boolean(data?.enforce_sso),
+              checking: false,
+            };
+          }
+        } catch (err) {
+          console.warn('Failed to check SSO config', provider, err);
+          nextState[provider] = { available: false, checking: false };
+        }
+      }
+
+      if (active) {
+        setProviderState((prev) => ({
+          google: { ...prev.google, ...nextState.google },
+          microsoft: { ...prev.microsoft, ...nextState.microsoft },
+        }));
+      }
+    };
+
+    if (debouncedEmail) {
+      fetchConfigs();
+    } else {
+      setProviderState({
+        google: { available: false },
+        microsoft: { available: false },
+      });
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedEmail]);
+
+  const handleProvider = async (provider: ProviderName) => {
+    setSsoError(null);
+    setSsoLoading(provider);
+    const result = await signInWithProvider(provider, formData.email || undefined);
+    if (result.error) {
+      setSsoError(result.error.message);
+      setSsoLoading(null);
+    }
+  };
+
+  const renderProviderLabel = (provider: ProviderName) => {
+    if (provider === 'google') return 'Continue with Google';
+    if (provider === 'microsoft') return 'Continue with Microsoft';
+    return 'Continue';
+  };
+
+  const renderProviderIcon = (provider: ProviderName) => {
+    if (ssoLoading === provider) {
+      return <LogIn className="h-4 w-4 animate-spin" />;
+    }
+    return <Globe2 className="h-4 w-4" />;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
       <Card className="w-[65vw] max-w-3xl shadow-card">
@@ -66,6 +185,56 @@ export default function Register() {
         </CardHeader>
         
         <CardContent>
+          <div className="space-y-4">
+            {ssoError && (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+                {ssoError}
+              </div>
+            )}
+
+            {(providerState.google.available || providerState.google.checking || providerState.microsoft.available || providerState.microsoft.checking) && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {enforceSso
+                    ? 'Your organization requires SSO to finish onboarding. Continue with the provider configured by your admin.'
+                    : 'Prefer single sign-on? Continue with your organization provider.'}
+                </p>
+                {(["google", "microsoft"] as ProviderName[]).map((provider) => {
+                  const state = providerState[provider];
+                  if (!state.available && !state.checking) return null;
+                  const disabled = !state.available || Boolean(ssoLoading && ssoLoading !== provider);
+                  return (
+                    <Button
+                      key={provider}
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                      disabled={disabled}
+                      onClick={() => handleProvider(provider)}
+                    >
+                      {state.checking && ssoLoading !== provider ? (
+                        <LogIn className="h-4 w-4 animate-spin" />
+                      ) : (
+                        renderProviderIcon(provider)
+                      )}
+                      <span>{renderProviderLabel(provider)}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+
+            {enforceSso && (
+              <div className="rounded-md border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
+                <p className="font-medium text-primary">Single sign-on required</p>
+                <p className="text-muted-foreground">
+                  The organization you&apos;re joining only allows access through their configured SSO provider. Use the button above to continue.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {!enforceSso && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -193,7 +362,7 @@ export default function Register() {
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-<Input
+                <Input
   id="confirmPassword"
   name="confirmPassword"
   type={showConfirmPassword ? "text" : "password"}
@@ -225,8 +394,18 @@ export default function Register() {
             <Button type="submit" className="w-full">
               Create Account
             </Button>
+            {ssoError && !enforceSso && (
+              <p className="text-sm text-destructive">{ssoError}</p>
+            )}
           </form>
-          
+          )}
+
+          {enforceSso && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              Need access with a different email domain? Contact your administrator to request an invitation with the correct SSO provider.
+            </div>
+          )}
+
           <div className="mt-6">
             <Separator className="my-4" />
             <div className="text-center text-sm text-muted-foreground">

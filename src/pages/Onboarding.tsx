@@ -232,6 +232,54 @@ export default function Onboarding() {
               }
 
               try {
+                const ssoLinks: Array<{ provider: 'google' | 'microsoft'; url: string; mode: 'supabase_managed' | 'federated' }> = [];
+                let ssoEnforced = false;
+                const ssoRedirect = getAuthRedirectUrl('/auth/callback', env.APP_URL);
+
+                for (const provider of ['google', 'microsoft'] as const) {
+                  try {
+                    const { data: dryRun } = await supabase.functions.invoke('sso-authorize', {
+                      body: {
+                        provider,
+                        email,
+                        organization_id: orgData.id,
+                        dry_run: true,
+                      },
+                    });
+
+                    if (!dryRun?.available) continue;
+                    if (dryRun.enforce_sso) {
+                      ssoEnforced = true;
+                    }
+
+                    if (dryRun.mode === 'federated') {
+                      const { data: authData } = await supabase.functions.invoke('sso-authorize', {
+                        body: {
+                          provider,
+                          email,
+                          organization_id: orgData.id,
+                          redirect_to: ssoRedirect,
+                        },
+                      });
+                      if (authData?.authorization_url) {
+                        ssoLinks.push({ provider, url: authData.authorization_url, mode: 'federated' });
+                      }
+                    } else if (dryRun.mode === 'supabase_managed') {
+                      try {
+                        const authorizeUrl = new URL('/auth/v1/authorize', env.SUPABASE_URL);
+                        authorizeUrl.searchParams.set('provider', provider);
+                        authorizeUrl.searchParams.set('redirect_to', ssoRedirect);
+                        authorizeUrl.searchParams.set('login_hint', email);
+                        ssoLinks.push({ provider, url: authorizeUrl.toString(), mode: 'supabase_managed' });
+                      } catch (urlError) {
+                        console.warn('Unable to build managed SSO link during onboarding invite', urlError);
+                      }
+                    }
+                  } catch (ssoError) {
+                    console.warn('Failed to resolve SSO config for onboarding invitation', provider, ssoError);
+                  }
+                }
+
                 const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
                   body: {
                     email,
@@ -241,6 +289,8 @@ export default function Onboarding() {
                     organizationName: orgData.name,
                     inviterName,
                     invitationUrl,
+                    ssoEnforced,
+                    ssoLinks,
                   },
                 });
 

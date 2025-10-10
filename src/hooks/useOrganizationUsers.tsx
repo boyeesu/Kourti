@@ -7,6 +7,8 @@ import { useProfile } from '@/hooks/useProfile';
 import { env } from '@/lib/env';
 import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
 
+type ProviderName = 'google' | 'microsoft';
+
 export interface OrganizationUser {
   id: string;
   user_id?: string;
@@ -132,6 +134,57 @@ export function useResendInvitation() {
       );
       const invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
 
+      const ssoLinks: Array<{ provider: ProviderName; url: string; mode: 'supabase_managed' | 'federated' }> = [];
+      let ssoEnforced = false;
+      const ssoRedirect = getAuthRedirectUrl('/auth/callback', env.APP_URL);
+
+      for (const provider of ['google', 'microsoft'] as ProviderName[]) {
+        try {
+          const { data: dryRun } = await supabase.functions.invoke('sso-authorize', {
+            body: {
+              provider,
+              email: user.email,
+              organization_id: user.organization_id,
+              dry_run: true,
+            },
+          });
+
+          if (!dryRun?.available) continue;
+
+          if (dryRun.enforce_sso) {
+            ssoEnforced = true;
+          }
+
+          if (dryRun.mode === 'federated') {
+            const { data: authData } = await supabase.functions.invoke('sso-authorize', {
+              body: {
+                provider,
+                email: user.email,
+                organization_id: user.organization_id,
+                redirect_to: ssoRedirect,
+              },
+            });
+            if (authData?.authorization_url) {
+              ssoLinks.push({ provider, url: authData.authorization_url, mode: 'federated' });
+            }
+          } else if (dryRun.mode === 'supabase_managed') {
+            try {
+              const authorizeUrl = new URL('/auth/v1/authorize', env.SUPABASE_URL);
+              authorizeUrl.searchParams.set('provider', provider);
+              authorizeUrl.searchParams.set('redirect_to', ssoRedirect);
+              if (user.email) {
+                authorizeUrl.searchParams.set('login_hint', user.email);
+              }
+              ssoLinks.push({ provider, url: authorizeUrl.toString(), mode: 'supabase_managed' });
+            } catch (urlError) {
+              console.warn('Failed to build supabase-managed SSO link', urlError);
+            }
+          }
+        } catch (err) {
+          console.warn('Unable to build SSO invitation link', provider, err);
+        }
+      }
+
       const { error } = await supabase.functions.invoke('send-invitation-email', {
         body: {
           email: user.email,
@@ -142,6 +195,8 @@ export function useResendInvitation() {
           organizationName,
           inviterName,
           invitationUrl,
+          ssoEnforced,
+          ssoLinks,
         }
       });
 
