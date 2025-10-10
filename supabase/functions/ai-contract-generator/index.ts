@@ -39,27 +39,68 @@ serve(async (req: Request) => {
 
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
-    let userId = null;
-    let organizationId = null;
 
-    if (authHeader) {
-      const { data: { user }, error: authError } = await supabase.auth.getUser(
-        authHeader.replace('Bearer ', '')
+    if (!authHeader) {
+      console.warn('Missing Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
       );
-      
-      if (!authError && user) {
-        userId = user.id;
-        
-        // Get user's organization
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('user_id', userId)
-          .single();
-          
-        organizationId = profile?.organization_id;
-      }
     }
+
+    const accessToken = authHeader.replace('Bearer ', '').trim();
+
+    if (!accessToken) {
+      console.warn('Authorization header present but token missing');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      console.warn('Failed to resolve user from token', authError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('Failed to load user profile', profileError);
+      throw new Error('Failed to load user profile');
+    }
+
+    if (!profile?.organization_id) {
+      console.warn('User profile missing organization');
+      return new Response(
+        JSON.stringify({ error: 'User must belong to an organization to create contracts' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const userId = user.id;
+    const organizationId = profile.organization_id;
 
     // Build the system prompt
     const systemPrompt = `You are an expert contract lawyer and legal document generator. Your task is to create comprehensive, legally sound contracts based on the provided information.
@@ -87,7 +128,7 @@ Contract Structure should include:
 Always generate a complete, ready-to-use contract document.`;
 
     // Build the user prompt with all the form data
-    let userPrompt = `Generate a comprehensive contract with the following specifications:
+    let userPrompt = `Contract Request Data:
 
 BASIC INFORMATION:
 - Title: ${basicInfo.title}
@@ -136,10 +177,6 @@ Please use this template as a guide for structure and style:
 ${template}`;
     }
 
-    userPrompt += `
-
-Please generate a complete, professional contract document that incorporates all the above information. The contract should be comprehensive, legally sound, and ready for review and execution.`;
-
     console.log('Sending request to Anthropic Claude');
 
     // Call Anthropic Claude API
@@ -153,10 +190,11 @@ Please generate a complete, professional contract document that incorporates all
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 4000,
+        system: systemPrompt,
         messages: [
           {
             role: 'user',
-            content: `${systemPrompt}\n\n${userPrompt}`
+            content: userPrompt,
           }
         ],
       }),
