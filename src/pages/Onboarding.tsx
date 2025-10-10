@@ -44,34 +44,66 @@ const steps = [
 ];
 
 const countries = [
-  { value: 'US', label: 'United States' },
-  { value: 'CA', label: 'Canada' },
-  { value: 'GB', label: 'United Kingdom' },
-  { value: 'AU', label: 'Australia' },
-  { value: 'DE', label: 'Germany' },
-  { value: 'FR', label: 'France' },
-  { value: 'IT', label: 'Italy' },
-  { value: 'ES', label: 'Spain' },
-  { value: 'NL', label: 'Netherlands' },
-  { value: 'SE', label: 'Sweden' },
-  { value: 'NO', label: 'Norway' },
-  { value: 'DK', label: 'Denmark' },
-  { value: 'FI', label: 'Finland' },
-  { value: 'CH', label: 'Switzerland' },
-  { value: 'AT', label: 'Austria' },
-  { value: 'BE', label: 'Belgium' },
-  { value: 'IE', label: 'Ireland' },
-  { value: 'PT', label: 'Portugal' },
-  { value: 'NZ', label: 'New Zealand' },
-  { value: 'SG', label: 'Singapore' },
-  { value: 'JP', label: 'Japan' },
-  { value: 'KR', label: 'South Korea' },
-  { value: 'IN', label: 'India' },
-  { value: 'BR', label: 'Brazil' },
-  { value: 'MX', label: 'Mexico' },
-  { value: 'AR', label: 'Argentina' },
-  { value: 'CL', label: 'Chile' },
+  // African Countries
+  { value: 'DZ', label: 'Algeria' },
+  { value: 'AO', label: 'Angola' },
+  { value: 'BJ', label: 'Benin' },
+  { value: 'BW', label: 'Botswana' },
+  { value: 'BF', label: 'Burkina Faso' },
+  { value: 'BI', label: 'Burundi' },
+  { value: 'CM', label: 'Cameroon' },
+  { value: 'CV', label: 'Cape Verde' },
+  { value: 'CF', label: 'Central African Republic' },
+  { value: 'TD', label: 'Chad' },
+  { value: 'KM', label: 'Comoros' },
+  { value: 'CG', label: 'Congo' },
+  { value: 'CD', label: 'Congo (DRC)' },
+  { value: 'CI', label: 'Côte d\'Ivoire' },
+  { value: 'DJ', label: 'Djibouti' },
+  { value: 'EG', label: 'Egypt' },
+  { value: 'GQ', label: 'Equatorial Guinea' },
+  { value: 'ER', label: 'Eritrea' },
+  { value: 'SZ', label: 'Eswatini' },
+  { value: 'ET', label: 'Ethiopia' },
+  { value: 'GA', label: 'Gabon' },
+  { value: 'GM', label: 'Gambia' },
+  { value: 'GH', label: 'Ghana' },
+  { value: 'GN', label: 'Guinea' },
+  { value: 'GW', label: 'Guinea-Bissau' },
+  { value: 'KE', label: 'Kenya' },
+  { value: 'LS', label: 'Lesotho' },
+  { value: 'LR', label: 'Liberia' },
+  { value: 'LY', label: 'Libya' },
+  { value: 'MG', label: 'Madagascar' },
+  { value: 'MW', label: 'Malawi' },
+  { value: 'ML', label: 'Mali' },
+  { value: 'MR', label: 'Mauritania' },
+  { value: 'MU', label: 'Mauritius' },
+  { value: 'MA', label: 'Morocco' },
+  { value: 'MZ', label: 'Mozambique' },
+  { value: 'NA', label: 'Namibia' },
+  { value: 'NE', label: 'Niger' },
+  { value: 'NG', label: 'Nigeria' },
+  { value: 'RW', label: 'Rwanda' },
+  { value: 'ST', label: 'São Tomé and Príncipe' },
+  { value: 'SN', label: 'Senegal' },
+  { value: 'SC', label: 'Seychelles' },
+  { value: 'SL', label: 'Sierra Leone' },
+  { value: 'SO', label: 'Somalia' },
   { value: 'ZA', label: 'South Africa' },
+  { value: 'SS', label: 'South Sudan' },
+  { value: 'SD', label: 'Sudan' },
+  { value: 'TZ', label: 'Tanzania' },
+  { value: 'TG', label: 'Togo' },
+  { value: 'TN', label: 'Tunisia' },
+  { value: 'UG', label: 'Uganda' },
+  { value: 'ZM', label: 'Zambia' },
+  { value: 'ZW', label: 'Zimbabwe' },
+  // North America
+  { value: 'CA', label: 'Canada' },
+  { value: 'US', label: 'United States' },
+  // Europe
+  { value: 'GB', label: 'United Kingdom' },
 ];
 
 export default function Onboarding() {
@@ -397,21 +429,17 @@ export default function Onboarding() {
               <div className="space-y-2">
                 <Label>Organization Type *</Label>
                 <Select 
-                  value={formData.organization.type}
+                  value={formData.organization.type || "law-firm"}
                   onValueChange={(value) => setFormData({
                     ...formData,
                     organization: { ...formData.organization, type: value }
                   })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Law Firm" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="law-firm">Law Firm</SelectItem>
-                    <SelectItem value="corporate-legal">Corporate Legal Department</SelectItem>
-                    <SelectItem value="government">Government Agency</SelectItem>
-                    <SelectItem value="nonprofit">Nonprofit Organization</SelectItem>
-                    <SelectItem value="solo">Solo Practice</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

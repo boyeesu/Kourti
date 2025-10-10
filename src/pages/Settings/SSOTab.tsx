@@ -19,8 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info, RefreshCcw } from 'lucide-react';
 import {
-  useOrganizationSsoConfig,
-  useUpdateOrganizationSsoConfig,
+  useOrganizationSsoConfigs,
+  useUpsertOrganizationSsoConfig,
 } from '@/hooks/useOrganizationSsoConfig';
 
 const urlValidator = (value: string | undefined | null) => {
@@ -35,7 +35,7 @@ const urlValidator = (value: string | undefined | null) => {
 
 const googleSchema = z
   .object({
-    enabled: z.boolean().default(false),
+    enabled: z.boolean(),
     clientId: z.string().optional(),
     clientSecret: z.string().optional(),
     redirectUri: z.string().optional(),
@@ -70,7 +70,7 @@ const googleSchema = z
 
 const microsoftSchema = z
   .object({
-    enabled: z.boolean().default(false),
+    enabled: z.boolean(),
     clientId: z.string().optional(),
     clientSecret: z.string().optional(),
     redirectUri: z.string().optional(),
@@ -135,10 +135,14 @@ const HelperLabel = ({ label, tooltip }: { label: string; tooltip?: string }) =>
 };
 
 export default function SSOTab() {
-  const { data, isLoading } = useOrganizationSsoConfig();
-  const updateMutation = useUpdateOrganizationSsoConfig();
+  const { data: configs, isLoading } = useOrganizationSsoConfigs();
+  const updateMutation = useUpsertOrganizationSsoConfig();
   const [googleSecretStored, setGoogleSecretStored] = useState(false);
   const [microsoftSecretStored, setMicrosoftSecretStored] = useState(false);
+
+  // Extract Google and Microsoft configs from array
+  const googleConfig = configs?.find((c) => c.provider === 'google');
+  const microsoftConfig = configs?.find((c) => c.provider === 'microsoft');
 
   const googleForm = useForm<GoogleFormValues>({
     resolver: zodResolver(googleSchema),
@@ -164,31 +168,31 @@ export default function SSOTab() {
   });
 
   useEffect(() => {
-    if (data?.google) {
+    if (googleConfig) {
       googleForm.reset({
-        enabled: data.google.enabled ?? false,
-        clientId: data.google.clientId ?? '',
+        enabled: googleConfig.is_enabled ?? false,
+        clientId: googleConfig.client_id ?? '',
         clientSecret: '',
-        redirectUri: data.google.redirectUri ?? '',
-        domainHint: data.google.domainHint ?? '',
+        redirectUri: googleConfig.redirect_uri ?? '',
+        domainHint: googleConfig.domain_hint ?? '',
       });
-      setGoogleSecretStored(Boolean(data.google.hasClientSecret));
+      setGoogleSecretStored(Boolean(googleConfig.has_client_secret));
     }
-  }, [data?.google, googleForm]);
+  }, [googleConfig, googleForm]);
 
   useEffect(() => {
-    if (data?.microsoft) {
+    if (microsoftConfig) {
       microsoftForm.reset({
-        enabled: data.microsoft.enabled ?? false,
-        clientId: data.microsoft.clientId ?? '',
+        enabled: microsoftConfig.is_enabled ?? false,
+        clientId: microsoftConfig.client_id ?? '',
         clientSecret: '',
-        redirectUri: data.microsoft.redirectUri ?? '',
-        domainHint: data.microsoft.domainHint ?? '',
-        tenantId: data.microsoft.tenantId ?? '',
+        redirectUri: microsoftConfig.redirect_uri ?? '',
+        domainHint: microsoftConfig.domain_hint ?? '',
+        tenantId: microsoftConfig.tenant_id ?? '',
       });
-      setMicrosoftSecretStored(Boolean(data.microsoft.hasClientSecret));
+      setMicrosoftSecretStored(Boolean(microsoftConfig.has_client_secret));
     }
-  }, [data?.microsoft, microsoftForm]);
+  }, [microsoftConfig, microsoftForm]);
 
   const googleEnabled = googleForm.watch('enabled');
   const microsoftEnabled = microsoftForm.watch('enabled');
@@ -223,14 +227,13 @@ export default function SSOTab() {
 
     try {
       await updateMutation.mutateAsync({
+        id: googleConfig?.id,
         provider: 'google',
-        config: {
-          enabled: trimmed.enabled,
-          clientId: trimmed.clientId || undefined,
-          clientSecret: trimmed.clientSecret || undefined,
-          redirectUri: trimmed.redirectUri || undefined,
-          domainHint: trimmed.domainHint,
-        },
+        clientId: trimmed.clientId,
+        clientSecret: trimmed.clientSecret || undefined,
+        redirectUri: trimmed.redirectUri,
+        domainHint: trimmed.domainHint || undefined,
+        isEnabled: trimmed.enabled,
       });
 
       if (trimmed.clientSecret) {
@@ -270,15 +273,14 @@ export default function SSOTab() {
 
     try {
       await updateMutation.mutateAsync({
+        id: microsoftConfig?.id,
         provider: 'microsoft',
-        config: {
-          enabled: trimmed.enabled,
-          clientId: trimmed.clientId || undefined,
-          clientSecret: trimmed.clientSecret || undefined,
-          redirectUri: trimmed.redirectUri || undefined,
-          domainHint: trimmed.domainHint,
-          tenantId: trimmed.tenantId || undefined,
-        },
+        clientId: trimmed.clientId,
+        clientSecret: trimmed.clientSecret || undefined,
+        redirectUri: trimmed.redirectUri,
+        domainHint: trimmed.domainHint || undefined,
+        tenantId: trimmed.tenantId,
+        isEnabled: trimmed.enabled,
       });
 
       if (trimmed.clientSecret) {
@@ -486,7 +488,7 @@ export default function SSOTab() {
                             <FormLabel>
                               <HelperLabel
                                 label="Application (client) ID"
-                                tooltip="Register a new application in Azure Portal → Microsoft Entra ID → App registrations to obtain the client ID."
+                                tooltip="In Azure Portal, under App registrations, create a new registration and copy the Application ID."
                               />
                             </FormLabel>
                             <FormControl>
@@ -504,11 +506,11 @@ export default function SSOTab() {
                             <FormLabel>
                               <HelperLabel
                                 label="Directory (tenant) ID"
-                                tooltip="Copy the tenant ID from Azure Portal → Microsoft Entra ID → Overview."
+                                tooltip="Find the Directory ID in Azure Portal under Azure Active Directory → Overview."
                               />
                             </FormLabel>
                             <FormControl>
-                              <Input placeholder="11111111-2222-3333-4444-555555555555" {...field} />
+                              <Input placeholder="00000000-0000-0000-0000-000000000000" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -524,7 +526,7 @@ export default function SSOTab() {
                           <FormLabel>
                             <HelperLabel
                               label="Redirect URI"
-                              tooltip="Add this URL as a Web redirect URI in Azure Portal → Authentication settings for your application."
+                              tooltip="Add this redirect URI to the list of allowed URIs in your Azure app's Authentication settings."
                             />
                           </FormLabel>
                           <FormControl>
@@ -543,7 +545,7 @@ export default function SSOTab() {
                           <FormLabel>
                             <HelperLabel
                               label="Client Secret"
-                              tooltip="Create a new client secret in Azure Portal → Certificates & secrets and paste it here."
+                              tooltip="Generate a new client secret in Azure Portal under Certificates & secrets, then paste it here."
                             />
                           </FormLabel>
                           <FormControl>
@@ -569,7 +571,7 @@ export default function SSOTab() {
                           </FormControl>
                           {microsoftSecretStored && (
                             <FormDescription>
-                              A secret already exists. Generate and paste a new one if you need to rotate credentials.
+                              A client secret is already stored. Provide a new secret only when you want to rotate credentials.
                             </FormDescription>
                           )}
                           <FormMessage />
@@ -589,7 +591,7 @@ export default function SSOTab() {
                             <Input placeholder="contoso.com" {...field} />
                           </FormControl>
                           <FormDescription>
-                            Optional. Suggest a domain on the Microsoft login page to streamline sign-in.
+                            Optional. Pre-fill the Microsoft login page with this domain.
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -601,7 +603,7 @@ export default function SSOTab() {
                         {microsoftEnabled ? 'SSO Enabled' : 'SSO Disabled'}
                       </Badge>
                       <Button type="submit" disabled={updateMutation.isPending}>
-                        {updateMutation.isPending ? 'Saving...' : 'Save Microsoft settings'}
+                        {updateMutation.isPending ? 'Saving...' : 'Save Microsoft Entra ID settings'}
                       </Button>
                     </div>
                   </form>
