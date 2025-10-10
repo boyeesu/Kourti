@@ -183,10 +183,10 @@ export default function HelpCenter() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {videos.map((video, index) => (
-                  <Card key={index} className="overflow-hidden">
-                    <div className="h-40 bg-muted flex items-center justify-center">
-                      <Video className="h-12 w-12 text-muted-foreground/30" />
+                 {videos.map((video, index) => (
+                  <Card key={index} className="overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="h-40 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center">
+                      <Video className="h-12 w-12 text-primary/50" />
                     </div>
                     <CardContent className="p-4">
                       <h3 className="font-medium mb-1">{video.title}</h3>

@@ -7,11 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Globe2, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/kourti-legal-logo.png";
+
+type ProviderName = "google" | "microsoft";
+
+interface ProviderState {
+  available: boolean;
+  mode?: "supabase_managed" | "federated" | null;
+  enforceSso?: boolean;
+  buttonText?: string | null;
+  checking?: boolean;
+}
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -66,10 +76,17 @@ export default function Auth() {
     { value: 'ZA', label: 'South Africa' },
   ];
 
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, signInWithProvider, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const [ssoError, setSsoError] = useState<string | null>(null);
+  const [ssoLoading, setSsoLoading] = useState<ProviderName | null>(null);
+  const [providerState, setProviderState] = useState<Record<ProviderName, ProviderState>>({
+    google: { available: false },
+    microsoft: { available: false },
+  });
+  const [debouncedEmail, setDebouncedEmail] = useState("");
 
   const from = location.state?.from?.pathname || "/onboarding";
 
@@ -78,6 +95,83 @@ export default function Auth() {
       navigate(from, { replace: true });
     }
   }, [user, navigate, from]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedEmail(formData.email.trim());
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [formData.email]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+
+    const checkProviders = async () => {
+      setProviderState({
+        google: { available: false, checking: true },
+        microsoft: { available: false, checking: true },
+      });
+
+      const organizationId = typeof window !== 'undefined'
+        ? window.sessionStorage.getItem('auth:selected_organization_id') ?? undefined
+        : undefined;
+
+      const nextState: Record<ProviderName, ProviderState> = {
+        google: { available: false, checking: false },
+        microsoft: { available: false, checking: false },
+      };
+
+      for (const provider of ["google", "microsoft"] as ProviderName[]) {
+        try {
+          const { data, error } = await supabase.functions.invoke('sso-authorize', {
+            body: {
+              provider,
+              email: debouncedEmail || undefined,
+              organization_id: organizationId,
+              dry_run: true,
+            },
+          });
+
+          if (!active) return;
+
+          if (!error && data?.available) {
+            nextState[provider] = {
+              available: true,
+              mode: data?.mode ?? null,
+              enforceSso: Boolean(data?.enforce_sso),
+              buttonText: data?.button_text ?? null,
+              checking: false,
+            };
+          }
+        } catch (err) {
+          console.warn('Unable to load SSO configuration', provider, err);
+        }
+      }
+
+      if (active) {
+        setProviderState(nextState);
+      }
+    };
+
+    checkProviders();
+    return () => { active = false; };
+  }, [debouncedEmail]);
+
+  const handleProvider = async (provider: ProviderName) => {
+    setSsoError(null);
+    setSsoLoading(provider);
+    const result = await signInWithProvider(provider, formData.email || undefined);
+    if (result.error) {
+      setSsoError(result.error.message);
+      toast({
+        variant: "destructive",
+        title: "SSO Error",
+        description: result.error.message,
+      });
+    }
+    setSsoLoading(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,6 +272,51 @@ export default function Auth() {
         </CardHeader>
         
         <CardContent>
+          {ssoError && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive mb-4">
+              {ssoError}
+            </div>
+          )}
+
+          {/* SSO Options */}
+          {!isSignUp && (
+            <div className="space-y-2 mb-4">
+              {(["google", "microsoft"] as ProviderName[]).map((provider) => {
+                const state = providerState[provider];
+                if (!state.available && !state.checking) return null;
+
+                return (
+                  <Button
+                    key={provider}
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    disabled={!state.available || Boolean(ssoLoading && ssoLoading !== provider)}
+                    onClick={() => handleProvider(provider)}
+                  >
+                    {state.checking || ssoLoading === provider ? (
+                      <LogIn className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Globe2 className="h-4 w-4" />
+                    )}
+                    <span>
+                      {state.buttonText ?? `Continue with ${provider === 'google' ? 'Google' : 'Microsoft'}`}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+
+          {!isSignUp && (providerState.google.available || providerState.microsoft.available) && (
+            <>
+              <Separator className="my-4" />
+              <p className="text-center text-xs uppercase tracking-wide text-muted-foreground mb-4">
+                Or continue with email
+              </p>
+            </>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
               <>

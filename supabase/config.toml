@@ -59,3 +59,9 @@ verify_jwt = false
 
 [functions.manage-sso-config]
 verify_jwt = false
+
+[functions.sso-authorize]
+verify_jwt = false
+
+[functions.sso-callback]
+verify_jwt = false
