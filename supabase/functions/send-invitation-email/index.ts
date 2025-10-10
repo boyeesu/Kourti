@@ -1,8 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-// @ts-ignore
-import { Resend } from "npm:resend@2.0.0";
+// @ts-ignore - Deno runtime import
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,8 +21,6 @@ interface InvitationEmailRequest {
   organizationName: string;
   inviterName: string;
   invitationUrl: string;
-  ssoEnforced?: boolean;
-  ssoLinks?: Array<{ provider: string; url: string; mode?: string }>;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -38,118 +39,46 @@ const handler = async (req: Request): Promise<Response> => {
       organizationName,
       inviterName,
       invitationUrl,
-      ssoEnforced = false,
-      ssoLinks = [],
     }: InvitationEmailRequest = await req.json();
 
     console.log('Sending invitation email to:', email);
 
-    let safeInvitationUrl = invitationUrl;
+    // Get the origin from the request or use a fallback
+    const origin = req.headers.get('origin') || supabaseUrl.replace(/\/$/, '');
+    
+    // Construct the redirect URL - this is where users land after clicking email link
+    let redirectUrl = invitationUrl;
     try {
-      safeInvitationUrl = new URL(invitationUrl).toString();
+      new URL(invitationUrl);
     } catch (_err) {
-      console.warn('Invalid invitation URL provided, falling back to default /auth path');
-      const baseUrl = new URL('/auth', req.headers.get('origin') ?? 'https://example.com');
-      safeInvitationUrl = baseUrl.toString();
+      console.warn('Invalid invitation URL provided, using origin/auth');
+      redirectUrl = `${origin}/auth`;
     }
 
-    const hasSsoLinks = Array.isArray(ssoLinks) && ssoLinks.length > 0;
-    const ssoSection = (hasSsoLinks || ssoEnforced)
-      ? `
-              <div style="margin-top: 24px; padding: 16px; border-radius: 8px; border: 1px solid #d0d7ff; background: #f3f5ff;">
-                <h3 style="margin: 0 0 8px 0; color: #3b49df; font-size: 16px;">
-                  Single Sign-On ${ssoEnforced ? '(Required)' : ''}
-                </h3>
-                <p style="margin: 0 0 12px 0; color: #4b5563;">
-                  ${ssoEnforced
-                    ? 'Your organization requires you to authenticate with an approved identity provider. Use one of the links below to launch the secure login flow.'
-                    : 'You can also sign in using your organization\'s identity provider:'}
-                </p>
-                ${hasSsoLinks
-                  ? ssoLinks.map((link) => `
-                    <p style="margin: 0 0 8px 0;">
-                      <a href="${link.url}" style="display: inline-block; background: #3b49df; color: white; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">
-                        Continue with ${link.provider.charAt(0).toUpperCase()}${link.provider.slice(1)}
-                      </a>
-                    </p>
-                  `).join('')
-                  : `<p style="margin: 0; color: #4b5563;">If you don\'t see a button here, please contact your administrator for the correct SSO link.</p>`}
-              </div>
-        `
-      : '';
+    console.log('Using redirect URL:', redirectUrl);
 
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Invitation to Join ${organizationName}</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #f8f9fa; padding: 30px; }
-            .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { background: #e9ecef; padding: 20px; text-align: center; font-size: 14px; color: #6c757d; border-radius: 0 0 8px 8px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>You're Invited!</h1>
-              <p>Join ${organizationName} as a ${role}</p>
-            </div>
-            
-            <div class="content">
-              <h2>Hello ${firstName} ${lastName},</h2>
-              
-              <p><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> with the role of <strong>${role}</strong>.</p>
-              
-              ${department ? `<p>You'll be working in the <strong>${department}</strong> department.</p>` : ''}
-              
-              <p>To accept this invitation and create your account, click the button below:</p>
+    // Use Supabase's built-in invite user by email functionality
+    const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+      email,
+      {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          role: role,
+          department: department || null,
+          organization: organizationName,
+          invited_by: inviterName,
+        },
+        redirectTo: redirectUrl,
+      }
+    );
 
-              <a href="${safeInvitationUrl}" class="button">
-                Accept Invitation & Sign Up
-              </a>
-
-              <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-              <p style="word-break: break-all; color: #667eea;">
-                ${safeInvitationUrl}
-              </p>
-
-              ${ssoSection}
-
-              <p>This invitation will expire in 14 days.</p>
-
-              <p>If you have any questions, please contact ${inviterName} or your system administrator.</p>
-            </div>
-            
-            <div class="footer">
-              <p>This is an automated message from ${organizationName}.</p>
-              <p>If you didn't expect this invitation, please ignore this email.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const emailResponse = await resend.emails.send({
-      // IMPORTANT: Replace with your verified domain in Resend
-      // Go to https://resend.com/domains to verify your domain
-      // Example: from: 'Kourti Legal <noreply@yourverifieddomain.com>'
-      from: `Kourti Legal <noreply@resend.dev>`,
-      to: [email],
-      subject: `Invitation to join ${organizationName} as ${role}`,
-      html: emailHtml,
-    });
-
-    if (emailResponse.error) {
-      console.error('Error sending invitation email with Resend:', emailResponse.error);
+    if (inviteError) {
+      console.error('Error sending invitation email via Supabase:', inviteError);
       return new Response(
         JSON.stringify({
           error: 'Failed to send invitation email',
-          details: emailResponse.error.message ?? emailResponse.error,
+          details: inviteError.message,
         }),
         {
           status: 500,
@@ -158,26 +87,13 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const emailId = emailResponse.data?.id;
-
-    if (!emailId) {
-      console.error('Resend response missing email ID for invitation email:', emailResponse);
-      return new Response(
-        JSON.stringify({ error: 'Failed to send invitation email' }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        }
-      );
-    }
-
-    console.log('Email sent successfully:', emailId);
+    console.log('Invitation sent successfully via Supabase Auth:', inviteData);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Invitation email sent successfully',
-        emailId,
+        message: 'Invitation email sent successfully via Supabase Auth',
+        user: inviteData.user,
       }),
       {
         status: 200,
