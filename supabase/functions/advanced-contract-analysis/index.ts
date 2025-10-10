@@ -399,6 +399,4 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
   }
 };
 
-if (import.meta.main) {
-  serve(advancedContractAnalysisHandler);
-}
+serve(advancedContractAnalysisHandler);

@@ -86,6 +86,4 @@ export const generateEmbeddingsHandler = async (req: Request) => {
   }
 };
 
-if (import.meta.main) {
-  Deno.serve(generateEmbeddingsHandler);
-}
+Deno.serve(generateEmbeddingsHandler);

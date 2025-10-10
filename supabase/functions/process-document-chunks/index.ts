@@ -338,6 +338,4 @@ export const processDocumentChunksHandler = async (req: Request) => {
   }
 };
 
-if (import.meta.main) {
-  serve(processDocumentChunksHandler);
-}
+serve(processDocumentChunksHandler);

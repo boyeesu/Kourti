@@ -191,6 +191,4 @@ export const voiceTranscriptionHandler = async (req: Request) => {
   }
 };
 
-if (import.meta.main) {
-  Deno.serve(voiceTranscriptionHandler);
-}
+Deno.serve(voiceTranscriptionHandler);
