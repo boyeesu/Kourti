@@ -159,27 +159,20 @@ export default function Auth() {
       const result = await signInWithProvider(provider, formData.email || undefined);
       
       if (result.error) {
-        const emailDomain = formData.email?.split('@')[1];
-        setSsoError(
-          emailDomain 
-            ? `SSO is not configured for ${emailDomain}. Please contact your organization administrator or sign in with email and password.`
-            : "SSO is not configured for this account. Please enter your email address first or sign in with email and password."
-        );
+        setSsoError(result.error.message);
         toast({
           variant: "destructive",
           title: "SSO Not Available",
-          description: emailDomain
-            ? `No SSO configuration found for ${emailDomain}`
-            : "Please enter your email address to check for SSO availability",
+          description: result.error.message,
         });
       }
       // If successful, the function will redirect the browser
     } catch (err) {
       console.error("SSO error:", err);
-      setSsoError("Unable to connect to SSO provider. Please try again or use email and password.");
+      setSsoError("Unable to initiate SSO. Please try again or use email and password.");
       toast({
         variant: "destructive",
-        title: "SSO Connection Error",
+        title: "SSO Error",
         description: "Please try again or use email and password to sign in.",
       });
     } finally {

@@ -132,46 +132,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ? window.sessionStorage.getItem('auth:selected_organization_id') ?? undefined
         : undefined;
 
-      const dryRunPayload = {
-        provider,
-        email,
-        organization_id: organizationId,
-        dry_run: true,
-      };
+      const redirectTo = getAuthRedirectUrl('/auth/callback', env.APP_URL);
 
-      const { data: dryRunData, error: dryRunError } = await supabase.functions.invoke('sso-authorize', {
-        body: dryRunPayload,
-      });
-
-      if (dryRunError) {
-        logError('SSO dry run failed', { provider, error: dryRunError });
-        return {
-          error: new AuthError('Single sign-on is temporarily unavailable. Please try again later or use your password.'),
-          success: false,
-        };
-      }
-
-      if (!dryRunData?.available) {
-        logInfo('SSO provider not available for request', { provider, email, organizationId });
-        return {
-          error: new AuthError('Single sign-on is not configured for this account.'),
-          success: false,
-        };
-      }
-
-      const redirectTo = (() => {
-        try {
-          if (typeof dryRunData?.redirect_to === 'string' && dryRunData.redirect_to.length) {
-            return dryRunData.redirect_to;
-          }
-          return getAuthRedirectUrl('/auth/callback', env.APP_URL);
-        } catch (redirectError) {
-          logError('Failed to compute SSO redirect URL', { redirectError });
-          return env.APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-        }
-      })();
-
-      // Always use federated SSO (custom OAuth flow)
+      // Directly initiate SSO flow - the authorize function will check config availability
       const { data, error } = await supabase.functions.invoke('sso-authorize', {
         body: {
           provider,
@@ -182,22 +145,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        logError('Failed to initiate organization-scoped SSO', { provider, error });
+        logError('Failed to initiate SSO', { provider, error });
         return {
-          error: new AuthError('Unable to start single sign-on. Please contact your administrator.'),
+          error: new AuthError('Single sign-on is not configured for this account. Please use email and password.'),
           success: false,
         };
       }
 
       const authorizationUrl = data?.authorization_url ?? data?.authorizationUrl;
       if (!authorizationUrl) {
-        logError('SSO authorize function did not return a redirect URL', { provider, data });
+        logError('SSO authorize function did not return authorization URL', { provider, data });
         return {
-          error: new AuthError('Single sign-on misconfiguration detected. Please use password login.'),
+          error: new AuthError('Single sign-on is not configured for this email domain.'),
           success: false,
         };
       }
 
+      // Redirect to provider for authentication
       if (typeof window !== 'undefined') {
         window.location.assign(authorizationUrl);
       }

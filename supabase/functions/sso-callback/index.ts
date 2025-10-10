@@ -327,7 +327,7 @@ serve(async (req) => {
 
     const { data: configs } = await supabase
       .from("organization_sso_configs")
-      .select("id, provider, organization_id, client_id, client_secret, tenant_id, is_enabled")
+      .select("id, provider, organization_id, client_id, client_secret, tenant_id, is_enabled, domain")
       .eq("provider", payload.provider)
       .eq("is_enabled", true);
 
@@ -350,6 +350,31 @@ serve(async (req) => {
 
     if (!email) {
       throw new Error("No email claim in ID token");
+    }
+
+    // Verify user's email domain matches organization's SSO domain
+    const emailDomain = email.split("@")[1]?.toLowerCase();
+    const configDomain = (config as any).domain?.toLowerCase();
+    
+    if (configDomain && emailDomain !== configDomain) {
+      console.error("Email domain mismatch", { email, emailDomain, configDomain, organizationId: config.organization_id });
+      throw new Error(`Your email domain (${emailDomain}) is not authorized for this organization's SSO`);
+    }
+
+    // Check if user already exists and verify org access
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("user_id, organization_id, status")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+
+    if (existingProfile && existingProfile.organization_id && existingProfile.organization_id !== config.organization_id) {
+      console.error("User belongs to different organization", { 
+        email, 
+        existingOrg: existingProfile.organization_id, 
+        ssoOrg: config.organization_id 
+      });
+      throw new Error("Your account is registered with a different organization");
     }
 
     const userId = await ensureSupabaseUser(email, payload.provider, config.organization_id, claims);
