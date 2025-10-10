@@ -118,7 +118,22 @@ export function useUsersWithRoles() {
   return useQuery({
     queryKey: ['users-with-roles'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Get current user's organization
+      const currentUserId = await getCurrentUserId();
+      if (!currentUserId) throw new Error('User not authenticated');
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', currentUserId)
+        .single();
+
+      if (!profile) throw new Error('Profile not found');
+      
+      const organizationId = (profile as any).organization_id;
+
+      // Fetch profiles for this organization
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select(`
           id,
@@ -129,17 +144,24 @@ export function useUsersWithRoles() {
           role,
           department,
           title,
-          avatar_url,
-          user_role_assignments(role_name)
+          avatar_url
         `)
+        .eq('organization_id', organizationId)
         .order('first_name');
 
-      if (error) throw error;
-      
-      // Transform data to include custom roles
-      return data.map((user: any) => ({
+      if (profilesError) throw profilesError;
+
+      // Fetch role assignments separately
+      const { data: roleAssignments } = await supabase
+        .from('user_role_assignments')
+        .select('user_id, role_name')
+        .eq('organization_id', organizationId);
+
+      // Merge the data
+      return profiles.map((user: any) => ({
         ...user,
-        custom_roles: user.user_role_assignments?.map((assignment: any) => assignment.role_name) || []
+        custom_roles: roleAssignments?.filter((assignment: any) => assignment.user_id === user.user_id)
+          .map((assignment: any) => assignment.role_name) || []
       }));
     },
   });

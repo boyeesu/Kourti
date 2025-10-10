@@ -1,9 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 
-export type OrganizationSsoConfig = Database['public']['Views']['organization_sso_configs_view']['Row'];
+// Type definition for SSO config (view may not be in generated types yet)
+export type OrganizationSsoConfig = {
+  id: string;
+  organization_id: string;
+  provider: 'google' | 'microsoft';
+  client_id: string;
+  client_secret: string | null;
+  client_secret_masked: string | null;
+  has_client_secret: boolean;
+  tenant_id: string | null;
+  domain_hint: string | null;
+  redirect_uri: string | null;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+};
+
 export type OrganizationSsoProvider = OrganizationSsoConfig['provider'];
 
 async function fetchOrganizationId(): Promise<string | null> {
@@ -31,11 +48,12 @@ async function fetchOrganizationSsoConfigs(): Promise<OrganizationSsoConfig[]> {
     return [];
   }
 
+  // Using type assertion since view may not be in generated types yet
   const { data, error } = await supabase
-    .from('organization_sso_configs_view')
+    .from('organization_sso_configs_view' as any)
     .select('*')
     .eq('organization_id', organizationId)
-    .order('provider', { ascending: true });
+    .order('provider', { ascending: true }) as any;
 
   if (error) {
     throw error;
