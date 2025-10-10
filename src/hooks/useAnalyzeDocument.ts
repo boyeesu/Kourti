@@ -21,11 +21,24 @@ export function useAnalyzeDocument() {
       if (cached) {
         return { analysis: cached, docId };
       }
-      const { data, error } = await supabase.functions.invoke('contract-analysis', {
-        body: { text: content, analysisType: 'summarize' }
+      const payload = { text: content, analysisType: 'summarize' as const };
+      const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
+        body: payload
       });
-      if (error) throw error;
-      const analysis = (data as any)?.analysis as string;
+
+      let analysisResponse = data;
+      if (error) {
+        const fallback = await supabase.functions.invoke('contract-analysis', {
+          body: payload
+        });
+        if (fallback.error) throw fallback.error;
+        analysisResponse = fallback.data;
+      }
+
+      const analysis = (analysisResponse as any)?.analysis as string;
+      if (!analysis) {
+        throw new Error('No analysis returned from AI service');
+      }
       localStorage.setItem(cacheKey, analysis);
       localStorage.setItem(lastCallKey, Date.now().toString());
       return { analysis, docId };

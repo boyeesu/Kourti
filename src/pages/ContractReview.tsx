@@ -11,8 +11,10 @@ import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface AnalysisResult {
   analysis: string;
-  persona: string;
-  analysisType: string;
+  persona?: string;
+  analysisType?: string;
+  success?: boolean;
+  tokensUsed?: number;
 }
 
 const goalSuggestions = [
@@ -36,6 +38,21 @@ export default function ContractReview() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
 
+  const normalizeResult = (raw: any): AnalysisResult => {
+    const analysis = raw?.analysis;
+    if (!analysis) {
+      throw new Error('No analysis returned from AI service');
+    }
+
+    return {
+      analysis,
+      persona: raw?.persona,
+      analysisType: raw?.analysisType,
+      success: raw?.success,
+      tokensUsed: raw?.tokensUsed,
+    };
+  };
+
   const handleFileUpload = (uploadedFile: File) => {
     setFile(uploadedFile);
     // In a real app, you'd extract text from the file
@@ -46,6 +63,18 @@ export default function ContractReview() {
   const handleGoalSelect = (selectedValue: string) => {
     setSelectedGoal(selectedValue);
     setGoal(selectedValue);
+  };
+
+  const resolveAnalysisType = () => {
+    switch (analysisType) {
+      case 'contract_review':
+      case 'document_review':
+        return 'general' as const;
+      case 'key_information':
+        return 'extract' as const;
+      default:
+        return 'general' as const;
+    }
   };
 
   const handleAnalyze = async () => {
@@ -60,17 +89,26 @@ export default function ContractReview() {
 
     setIsAnalyzing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('contract-analysis-ai', {
-        body: {
-          text: textContent || `Sample contract content from ${file?.name}`,
-          goal: goal || "General contract review",
-          analysisType
-        }
+      const payload = {
+        text: textContent || `Sample contract content from ${file?.name}`,
+        goal: goal || "Provide a comprehensive contract review",
+        analysisType: resolveAnalysisType(),
+      };
+
+      const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
+        body: payload,
       });
 
-      if (error) throw error;
+      if (error) {
+        const fallback = await supabase.functions.invoke('contract-analysis', {
+          body: payload,
+        });
 
-      setResult(data);
+        if (fallback.error) throw fallback.error;
+        setResult(normalizeResult(fallback.data));
+      } else {
+        setResult(normalizeResult(data));
+      }
       toast({
         title: "Analysis Complete",
         description: "REAM AI has finished analyzing your document.",
@@ -301,7 +339,7 @@ export default function ContractReview() {
                   <div>
                     <CardTitle className="text-lg">Analysis Complete</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      by {result.persona} • {result.analysisType.replace('_', ' ')}
+                      by {result.persona ?? "REAM AI"} • {(result.analysisType ?? resolveAnalysisType()).replace('_', ' ')}
                     </p>
                   </div>
                 </div>
