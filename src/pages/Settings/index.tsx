@@ -5,6 +5,7 @@ import ProfileTab from './ProfileTab';
 import OrgTab from './OrgTab';
 import RolesTab from './RolesTab';
 import PermissionsTab from './PermissionsTab';
+import { useUserRoleAssignments } from '@/hooks/useUserRoleAssignments';
 
 const SSOTab = lazy(() => import('./SSOTab'));
 
@@ -21,6 +22,11 @@ export default function Settings() {
   const urlTab = searchParams.get('tab');
   const initialTab = isValidTab(urlTab) ? urlTab : 'profile';
   const [tab, setTab] = useState<TabValue>(initialTab);
+  
+  // Get user role assignments
+  const { data: roleData } = useUserRoleAssignments();
+  const isSuperAdmin = roleData?.isSuperAdmin || false;
+  const isAdmin = roleData?.isAdmin || false;
 
   useEffect(() => {
     const nextUrlTab = searchParams.get('tab');
@@ -67,8 +73,12 @@ export default function Settings() {
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="organization">Organization</TabsTrigger>
           <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="permissions">Permissions</TabsTrigger>
-          <TabsTrigger value="sso">SSO</TabsTrigger>
+          <TabsTrigger value="permissions" disabled={!isAdmin}>
+            Permissions
+          </TabsTrigger>
+          <TabsTrigger value="sso" disabled={!isSuperAdmin}>
+            SSO
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">

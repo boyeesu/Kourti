@@ -532,29 +532,38 @@ ${content}`;
             }" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
           }
         } else if (selectedFile) {
-          // Handle uploaded files
-          if (selectedFile.type === "application/pdf") {
-            content = `PDF file "${selectedFile.name}" uploaded. PDF text extraction is currently being processed. Please ask specific questions about this document, or upload a text-based document (.txt, .docx) for direct analysis.
+          // Handle uploaded files - read content for text-based files
+          try {
+            let fileContent = '';
+            
+            if (
+              selectedFile.type.startsWith("text/") ||
+              selectedFile.name.endsWith(".txt") ||
+              selectedFile.type === "application/msword" ||
+              selectedFile.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ) {
+              // Read text-based files
+              fileContent = await selectedFile.text();
+            } else if (selectedFile.type === "application/pdf") {
+              // For PDFs, let user know extraction is needed
+              fileContent = "PDF file uploaded. Note: Full PDF text extraction requires additional processing. Please describe the document's purpose or ask specific questions.";
+            } else {
+              fileContent = "Binary file uploaded. Please describe the document's content or ask specific questions about it.";
+            }
 
-User Question: ${userMessage}`;
-          } else if (
-            selectedFile.type.startsWith("text/") ||
-            selectedFile.name.endsWith(".txt")
-          ) {
-            // For text files, we can read the content
-            const fileContent = await selectedFile.text();
-            content = `Document: ${selectedFile.name}
-Type: Uploaded Text File
+            content = fileContent;
+            contextInfo = `Document: ${selectedFile.name}
+Type: ${selectedFile.type || "Unknown"}
 Size: ${(selectedFile.size / 1024).toFixed(1)} KB
 
-Question: ${userMessage}
+User Question: ${userMessage}
 
 Document Content:
 ${fileContent}`;
-          } else {
-            content = `Document "${selectedFile.name}" uploaded. Please provide specific questions about this document for analysis.
-
-User Question: ${userMessage}`;
+          } catch (error) {
+            console.error("Error reading file:", error);
+            content = `Unable to read file "${selectedFile.name}". Please try uploading a text-based document (.txt, .docx) or describe the document's content.`;
+            contextInfo = content;
           }
         } else if (ragResults && ragResults.length > 0) {
           // Use RAG results for enhanced context

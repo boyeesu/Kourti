@@ -11,7 +11,7 @@ import {
   Action 
 } from '@/hooks/usePermissions';
 import { useAllRoles } from '@/hooks/useAllRoles';
-import { useUserRole } from '@/hooks/useUserManagement';
+import { useUserRoleAssignments } from '@/hooks/useUserRoleAssignments';
 import { 
   Select,
   SelectContent,
@@ -28,9 +28,9 @@ export default function PermissionsTab() {
   const { data: permissions = [] } = useRolePermissions(selectedRole);
   const updatePermission = useUpdatePermission();
 
-  // Check if user has superadmin role from user_role_assignments
-  const { data: userRoleData } = useUserRole();
-  const isCurrentUserSuperAdmin = userRoleData?.role === 'superadmin';
+  // Check if user has admin or superadmin role from user_role_assignments
+  const { data: roleData } = useUserRoleAssignments();
+  const isAdmin = roleData?.isAdmin || false;
 
   // Get available roles (global + custom)
   const availableRoles = allRoles.map(role => ({
@@ -102,12 +102,12 @@ export default function PermissionsTab() {
     return colors[action] || 'bg-gray-100 text-gray-800';
   };
 
-  if (!isCurrentUserSuperAdmin) {
+  if (!isAdmin) {
     return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Only super administrators can manage role permissions. Contact your organization administrator for access.
+          Only administrators and super administrators can manage role permissions. Contact your organization administrator for access.
         </AlertDescription>
       </Alert>
     );

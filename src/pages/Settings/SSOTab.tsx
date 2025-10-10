@@ -17,11 +17,13 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Info, RefreshCcw } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info, RefreshCcw, AlertCircle } from 'lucide-react';
 import {
   useOrganizationSsoConfigs,
   useUpsertOrganizationSsoConfig,
 } from '@/hooks/useOrganizationSsoConfig';
+import { useUserRoleAssignments } from '@/hooks/useUserRoleAssignments';
 
 const urlValidator = (value: string | undefined | null) => {
   if (!value) return true;
@@ -139,6 +141,22 @@ export default function SSOTab() {
   const updateMutation = useUpsertOrganizationSsoConfig();
   const [googleSecretStored, setGoogleSecretStored] = useState(false);
   const [microsoftSecretStored, setMicrosoftSecretStored] = useState(false);
+  
+  // Check if user is superadmin
+  const { data: roleData } = useUserRoleAssignments();
+  const isSuperAdmin = roleData?.isSuperAdmin || false;
+
+  // Show access denied if not superadmin
+  if (!isLoading && !isSuperAdmin) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Only super administrators can configure Single Sign-On settings. Contact your organization administrator for access.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   // Extract Google and Microsoft configs from array
   const googleConfig = configs?.find((c) => c.provider === 'google');
