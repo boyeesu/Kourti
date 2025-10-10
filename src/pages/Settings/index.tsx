@@ -36,7 +36,7 @@ export default function Settings() {
       return;
     }
     setTab(value);
-    const nextSearchParams = new URLSearchParams(searchParams);
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
     if (value === 'general') {
       nextSearchParams.delete('tab');
     } else {
