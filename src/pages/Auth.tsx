@@ -34,7 +34,7 @@ export default function Auth() {
     lastName: "",
     organization: {
       name: "",
-      type: "",
+      type: "law-firm",
       size: "",
       description: "",
       address: "",
@@ -46,34 +46,27 @@ export default function Auth() {
   });
 
   const countries = [
-    { value: 'US', label: 'United States' },
+    { value: 'BW', label: 'Botswana' },
     { value: 'CA', label: 'Canada' },
-    { value: 'GB', label: 'United Kingdom' },
-    { value: 'AU', label: 'Australia' },
-    { value: 'DE', label: 'Germany' },
-    { value: 'FR', label: 'France' },
-    { value: 'IT', label: 'Italy' },
-    { value: 'ES', label: 'Spain' },
-    { value: 'NL', label: 'Netherlands' },
-    { value: 'SE', label: 'Sweden' },
-    { value: 'NO', label: 'Norway' },
-    { value: 'DK', label: 'Denmark' },
-    { value: 'FI', label: 'Finland' },
-    { value: 'CH', label: 'Switzerland' },
-    { value: 'AT', label: 'Austria' },
-    { value: 'BE', label: 'Belgium' },
-    { value: 'IE', label: 'Ireland' },
-    { value: 'PT', label: 'Portugal' },
-    { value: 'NZ', label: 'New Zealand' },
-    { value: 'SG', label: 'Singapore' },
-    { value: 'JP', label: 'Japan' },
-    { value: 'KR', label: 'South Korea' },
-    { value: 'IN', label: 'India' },
-    { value: 'BR', label: 'Brazil' },
-    { value: 'MX', label: 'Mexico' },
-    { value: 'AR', label: 'Argentina' },
-    { value: 'CL', label: 'Chile' },
+    { value: 'GM', label: 'Gambia' },
+    { value: 'GH', label: 'Ghana' },
+    { value: 'KE', label: 'Kenya' },
+    { value: 'LS', label: 'Lesotho' },
+    { value: 'LR', label: 'Liberia' },
+    { value: 'MW', label: 'Malawi' },
+    { value: 'MU', label: 'Mauritius' },
+    { value: 'NA', label: 'Namibia' },
+    { value: 'NG', label: 'Nigeria' },
+    { value: 'RW', label: 'Rwanda' },
+    { value: 'SC', label: 'Seychelles' },
+    { value: 'SL', label: 'Sierra Leone' },
     { value: 'ZA', label: 'South Africa' },
+    { value: 'TZ', label: 'Tanzania' },
+    { value: 'UG', label: 'Uganda' },
+    { value: 'GB', label: 'United Kingdom' },
+    { value: 'US', label: 'United States' },
+    { value: 'ZM', label: 'Zambia' },
+    { value: 'ZW', label: 'Zimbabwe' },
   ];
 
   const { signIn, signUp, signInWithProvider, user } = useAuth();
@@ -322,21 +315,17 @@ export default function Auth() {
                   <div className="space-y-2">
                     <Label>Organization Type *</Label>
                     <Select 
-                      value={formData.organization.type}
+                      value={formData.organization.type || "law-firm"}
                       onValueChange={(value) => setFormData({
                         ...formData,
                         organization: { ...formData.organization, type: value }
                       })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
+                        <SelectValue placeholder="Law Firm" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="law-firm">Law Firm</SelectItem>
-                        <SelectItem value="corporate-legal">Corporate Legal Department</SelectItem>
-                        <SelectItem value="government">Government Agency</SelectItem>
-                        <SelectItem value="nonprofit">Nonprofit Organization</SelectItem>
-                        <SelectItem value="solo">Solo Practice</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
