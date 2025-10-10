@@ -135,6 +135,9 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
+      // IMPORTANT: Replace with your verified domain in Resend
+      // Go to https://resend.com/domains to verify your domain
+      // Example: from: 'Kourti Legal <noreply@yourverifieddomain.com>'
       from: `Kourti Legal <noreply@resend.dev>`,
       to: [email],
       subject: `Invitation to join ${organizationName} as ${role}`,
