@@ -30,13 +30,39 @@ export default function Calendar() {
   const { data: events = [], isLoading } = useCalendarEvents();
   const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [hasSsoConfig, setHasSsoConfig] = useState(false);
   const { toast } = useToast();
 
   // Combine internal and external events
   const allEvents = [...events, ...externalEvents];
 
+  // Check if SSO is configured
+  useEffect(() => {
+    const checkSsoConfig = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('organization_sso_configs')
+          .select('id, provider')
+          .in('provider', ['google', 'microsoft'])
+          .limit(1)
+          .single();
+
+        if (!error && data) {
+          setHasSsoConfig(true);
+        }
+      } catch (err) {
+        // No SSO configured
+        setHasSsoConfig(false);
+      }
+    };
+
+    checkSsoConfig();
+  }, []);
+
   // Sync external calendars (Google and Microsoft Teams)
   const syncExternalCalendars = async () => {
+    if (!hasSsoConfig) return;
+
     setIsSyncing(true);
     try {
       const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -82,10 +108,12 @@ export default function Calendar() {
     }
   };
 
-  // Auto-sync on mount and when month changes
+  // Auto-sync on mount and when month changes (only if SSO configured)
   useEffect(() => {
-    syncExternalCalendars();
-  }, [currentDate]);
+    if (hasSsoConfig) {
+      syncExternalCalendars();
+    }
+  }, [currentDate, hasSsoConfig]);
 
   if (isLoading) {
     return (
@@ -211,16 +239,18 @@ export default function Calendar() {
                   {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={syncExternalCalendars}
-                    disabled={isSyncing}
-                    className="gap-1"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                    Sync
-                  </Button>
+                  {hasSsoConfig && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={syncExternalCalendars}
+                      disabled={isSyncing}
+                      className="gap-1"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                      Sync
+                    </Button>
+                  )}
                   <div className="flex items-center gap-1 mr-2">
                     <Button 
                       variant={calendarView === 'month' ? 'default' : 'outline'} 
