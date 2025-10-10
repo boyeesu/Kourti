@@ -1,3 +1,5 @@
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+
 const voiceCorsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -44,18 +46,36 @@ async function requestChatCompletion(apiKey: string, body: Record<string, unknow
       console.error(`OpenAI chat error for model ${model}:`, response.status, errorData);
 
       if ([400, 404, 422].includes(response.status)) {
-        lastError = new Error(`Model ${model} unavailable: ${errorData}`);
+        lastError = new HttpError(
+          `Model ${model} unavailable: ${errorData}`,
+          424,
+          'OPENAI_MODEL_UNAVAILABLE',
+          { status: response.status },
+        );
         continue;
       }
 
-      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+      throw new HttpError(
+        `OpenAI API error: ${response.status} - ${errorData}`,
+        502,
+        'OPENAI_UPSTREAM_ERROR',
+        { status: response.status },
+      );
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`Failed to call OpenAI model ${model}:`, lastError.message);
+      const normalizedError =
+        error instanceof HttpError
+          ? error
+          : new HttpError(String(error), 502, 'OPENAI_UPSTREAM_ERROR');
+      lastError = normalizedError;
+      console.error(`Failed to call OpenAI model ${model}:`, normalizedError.message);
     }
   }
 
-  throw lastError ?? new Error('Unable to reach OpenAI API for summarization');
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new HttpError('Unable to reach OpenAI API for summarization', 502, 'OPENAI_UPSTREAM_ERROR');
 }
 
 export const voiceTranscriptionHandler = async (req: Request) => {
@@ -64,16 +84,24 @@ export const voiceTranscriptionHandler = async (req: Request) => {
   }
 
   try {
-    const { audio, action, transcript } = await req.json();
+    let body: any;
+
+    try {
+      body = await req.json();
+    } catch {
+      throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
+    }
+
+    const { audio, action, transcript } = body ?? {};
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+      throw new HttpError('OPENAI_API_KEY not configured', 503, 'OPENAI_CONFIG_MISSING');
     }
 
     if (action === 'transcribe') {
       if (!audio) {
-        throw new Error('Audio data is required for transcription');
+        throw new HttpError('Audio data is required for transcription', 400, 'INVALID_INPUT');
       }
 
       console.log('Starting voice transcription...');
@@ -100,7 +128,9 @@ export const voiceTranscriptionHandler = async (req: Request) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('OpenAI transcription error:', errorText);
-        throw new Error(`OpenAI transcription failed: ${errorText}`);
+        throw new HttpError(`OpenAI transcription failed: ${errorText}`, 502, 'OPENAI_UPSTREAM_ERROR', {
+          status: response.status,
+        });
       }
 
       const transcriptionResult = await response.json();
@@ -116,7 +146,7 @@ export const voiceTranscriptionHandler = async (req: Request) => {
 
     } else if (action === 'summarize') {
       if (!transcript) {
-        throw new Error('Transcript is required for summarization');
+        throw new HttpError('Transcript is required for summarization', 400, 'INVALID_INPUT');
       }
 
       console.log('Generating summary for transcript...');
@@ -138,7 +168,7 @@ export const voiceTranscriptionHandler = async (req: Request) => {
       const summary = summaryResult.choices?.[0]?.message?.content;
 
       if (!summary) {
-        throw new Error('Summary generation failed: Empty response from OpenAI');
+        throw new HttpError('Summary generation failed: Empty response from OpenAI', 502, 'OPENAI_UPSTREAM_ERROR');
       }
 
       console.log('Summary generated successfully');
@@ -152,17 +182,12 @@ export const voiceTranscriptionHandler = async (req: Request) => {
       });
 
     } else {
-      throw new Error('Invalid action. Must be "transcribe" or "summarize"');
+      throw new HttpError('Invalid action. Must be "transcribe" or "summarize"', 400, 'INVALID_ACTION');
     }
 
   } catch (error: any) {
     console.error('Error in voice-transcription function:', error);
-    return new Response(JSON.stringify({ 
-      error: error?.message || 'Voice transcription failed'
-    }), {
-      status: 500,
-      headers: { ...voiceCorsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createErrorResponse(error, voiceCorsHeaders, 'Voice transcription failed');
   }
 };
 

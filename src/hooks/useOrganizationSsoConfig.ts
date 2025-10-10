@@ -1,139 +1,194 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
-import { useToast } from '@/hooks/use-toast';
 
-export type SsoProvider = 'google' | 'microsoft';
+export type OrganizationSsoConfig = Database['public']['Views']['organization_sso_configs_view']['Row'];
+export type OrganizationSsoProvider = OrganizationSsoConfig['provider'];
 
-export interface OrganizationSsoProviderConfig {
-  enabled: boolean;
-  clientId?: string | null;
-  redirectUri?: string | null;
-  domainHint?: string | null;
-  tenantId?: string | null;
-  hasClientSecret?: boolean;
-}
-
-export interface OrganizationSsoConfig {
-  google: OrganizationSsoProviderConfig;
-  microsoft: OrganizationSsoProviderConfig;
-}
-
-interface UpdateOrganizationSsoConfigInput {
-  provider: SsoProvider;
-  config: {
-    enabled: boolean;
-    clientId?: string;
-    clientSecret?: string;
-    redirectUri?: string;
-    domainHint?: string;
-    tenantId?: string;
-  };
-  rotateSecret?: boolean;
-}
-
-async function getOrganizationId() {
+async function fetchOrganizationId(): Promise<string | null> {
   const userId = await getCurrentUserId();
   if (!userId) {
-    throw new Error('User not authenticated');
+    return null;
   }
 
-  const { data: profile, error } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('organization_id')
-    .eq('user_id', userId as any || '')
+    .eq('user_id', userId)
     .single();
 
-  if (error) throw error;
-
-  const organizationId = (profile as any)?.organization_id as string | null | undefined;
-  if (!organizationId) {
-    throw new Error('No organization associated with your account. Please contact your administrator.');
+  if (error) {
+    throw error;
   }
 
-  return organizationId;
+  return (data as { organization_id: string | null } | null)?.organization_id ?? null;
 }
 
-export function useOrganizationSsoConfig() {
+async function fetchOrganizationSsoConfigs(): Promise<OrganizationSsoConfig[]> {
+  const organizationId = await fetchOrganizationId();
+  if (!organizationId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('organization_sso_configs_view')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('provider', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as OrganizationSsoConfig[];
+}
+
+type ManageSsoConfigFunctionPayload =
+  | {
+      action: 'create';
+      payload: {
+        provider: OrganizationSsoProvider;
+        clientId: string;
+        clientSecret?: string;
+        tenantId?: string | null;
+        domainHint?: string | null;
+        redirectUri?: string | null;
+        isEnabled?: boolean;
+      };
+    }
+  | {
+      action: 'update';
+      payload: {
+        id: string;
+        clientId?: string;
+        clientSecret?: string;
+        tenantId?: string | null;
+        domainHint?: string | null;
+        redirectUri?: string | null;
+        isEnabled?: boolean;
+      };
+    }
+  | { action: 'delete'; payload: { id: string } }
+  | { action: 'rotate'; payload: { id: string; clientSecret: string } };
+
+async function invokeManageSsoConfig<TResponse>(
+  body: ManageSsoConfigFunctionPayload
+): Promise<TResponse> {
+  const { data, error } = await supabase.functions.invoke('manage-sso-config', {
+    body,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error('No response returned from manage-sso-config function');
+  }
+
+  if (typeof data === 'object' && 'error' in data && data.error) {
+    throw new Error(String(data.error));
+  }
+
+  return (data as { data: TResponse }).data;
+}
+
+export function useOrganizationSsoConfigs() {
   return useQuery({
-    queryKey: ['organization-sso-config'],
-    queryFn: async () => {
-      const organizationId = await getOrganizationId();
-
-      const { data, error } = await supabase.functions.invoke('manage-sso-config', {
-        body: {
-          action: 'get',
-          organizationId,
-        },
-      });
-
-      if (error) throw error;
-
-      const response = (data || {}) as Partial<OrganizationSsoConfig>;
-
-      return {
-        google: {
-          enabled: response?.google?.enabled ?? false,
-          clientId: response?.google?.clientId ?? response?.google?.client_id ?? '',
-          redirectUri: response?.google?.redirectUri ?? response?.google?.redirect_uri ?? '',
-          domainHint: response?.google?.domainHint ?? response?.google?.domain_hint ?? '',
-          tenantId: response?.google?.tenantId ?? response?.google?.tenant_id ?? '',
-          hasClientSecret:
-            response?.google?.hasClientSecret ?? response?.google?.has_client_secret ?? Boolean(response?.google?.clientSecret),
-        },
-        microsoft: {
-          enabled: response?.microsoft?.enabled ?? false,
-          clientId: response?.microsoft?.clientId ?? response?.microsoft?.client_id ?? '',
-          redirectUri: response?.microsoft?.redirectUri ?? response?.microsoft?.redirect_uri ?? '',
-          domainHint: response?.microsoft?.domainHint ?? response?.microsoft?.domain_hint ?? '',
-          tenantId: response?.microsoft?.tenantId ?? response?.microsoft?.tenant_id ?? '',
-          hasClientSecret:
-            response?.microsoft?.hasClientSecret ?? response?.microsoft?.has_client_secret ?? Boolean(response?.microsoft?.clientSecret),
-        },
-      } as OrganizationSsoConfig;
-    },
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['organization-sso-configs'],
+    queryFn: fetchOrganizationSsoConfigs,
+    staleTime: 60 * 1000,
   });
 }
 
-export function useUpdateOrganizationSsoConfig() {
+type UpsertOrganizationSsoConfigInput = {
+  id?: string;
+  provider: OrganizationSsoProvider;
+  clientId: string;
+  clientSecret?: string;
+  tenantId?: string | null;
+  domainHint?: string | null;
+  redirectUri?: string | null;
+  isEnabled?: boolean;
+};
+
+export function useUpsertOrganizationSsoConfig() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (input: UpdateOrganizationSsoConfigInput) => {
-      const organizationId = await getOrganizationId();
+    mutationFn: async (input: UpsertOrganizationSsoConfigInput) => {
+      const action: ManageSsoConfigFunctionPayload['action'] = input.id ? 'update' : 'create';
 
-      const { data, error } = await supabase.functions.invoke('manage-sso-config', {
-        body: {
-          action: 'upsert',
-          organizationId,
-          provider: input.provider,
-          config: input.config,
-          rotateSecret: input.rotateSecret ?? false,
-        },
-      });
+      const body: ManageSsoConfigFunctionPayload =
+        action === 'create'
+          ? {
+              action,
+              payload: {
+                provider: input.provider,
+                clientId: input.clientId,
+                clientSecret: input.clientSecret,
+                tenantId: input.tenantId ?? null,
+                domainHint: input.domainHint ?? null,
+                redirectUri: input.redirectUri ?? null,
+                isEnabled: input.isEnabled ?? false,
+              },
+            }
+          : {
+              action,
+              payload: {
+                id: input.id!,
+                clientId: input.clientId,
+                clientSecret: input.clientSecret,
+                tenantId: input.tenantId ?? null,
+                domainHint: input.domainHint ?? null,
+                redirectUri: input.redirectUri ?? null,
+                isEnabled: input.isEnabled,
+              },
+            };
 
-      if (error) throw error;
-      if ((data as any)?.error) {
-        throw new Error((data as any).error);
-      }
+      const response = await invokeManageSsoConfig<OrganizationSsoConfig>(body);
 
-      return data;
+      return response;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['organization-sso-config'] });
-      toast({
-        title: `${variables.provider === 'google' ? 'Google Workspace' : 'Microsoft Entra ID'} settings saved`,
-        description: 'Your single sign-on configuration has been updated.',
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization-sso-configs'] });
     },
-    onError: (error: Error) => {
-      toast({
-        title: 'Unable to update SSO settings',
-        description: error.message,
-        variant: 'destructive',
+  });
+}
+
+export function useDeleteOrganizationSsoConfig() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const result = await invokeManageSsoConfig<boolean>({
+        action: 'delete',
+        payload: { id },
       });
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization-sso-configs'] });
+    },
+  });
+}
+
+export function useRotateOrganizationSsoSecret() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { id: string; clientSecret: string }) => {
+      const result = await invokeManageSsoConfig<OrganizationSsoConfig>({
+        action: 'rotate',
+        payload: { id: input.id, clientSecret: input.clientSecret },
+      });
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization-sso-configs'] });
     },
   });
 }

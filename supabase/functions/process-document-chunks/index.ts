@@ -2,6 +2,8 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -51,7 +53,7 @@ function chunkText(text: string, maxTokens: number = 500): Array<{content: strin
   return chunks.filter(chunk => chunk.content.length > 20);
 }
 
-serve(async (req: Request) => {
+export const processDocumentChunksHandler = async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -60,19 +62,13 @@ serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization');
 
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new HttpError('Missing Authorization header', 401, 'UNAUTHORIZED');
     }
 
     const accessToken = authHeader.replace('Bearer ', '').trim();
 
     if (!accessToken) {
-      return new Response(JSON.stringify({ error: 'Invalid Authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
     }
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
@@ -80,11 +76,11 @@ serve(async (req: Request) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+      throw new HttpError('OPENAI_API_KEY not configured', 503, 'OPENAI_CONFIG_MISSING');
     }
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Supabase configuration missing');
+      throw new HttpError('Supabase configuration missing', 500, 'SUPABASE_CONFIG_MISSING');
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -93,10 +89,7 @@ serve(async (req: Request) => {
 
     if (userError || !userData?.user) {
       console.error('Error resolving user from token:', userError);
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
     const user = userData.user;
@@ -110,40 +103,40 @@ serve(async (req: Request) => {
     if (profileError) {
       console.error('Error fetching user organization:', profileError);
       const status = profileError.code === 'PGRST116' ? 404 : 500;
-      return new Response(
-        JSON.stringify({
-          error:
-            profileError.code === 'PGRST116'
-              ? 'User organization not found'
-              : 'Failed to load user organization',
-        }),
-        {
-          status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+      throw new HttpError(
+        profileError.code === 'PGRST116'
+          ? 'User organization not found'
+          : 'Failed to load user organization',
+        status,
+        profileError.code === 'PGRST116'
+          ? 'USER_ORGANIZATION_NOT_FOUND'
+          : 'USER_ORGANIZATION_LOAD_FAILED',
+        { supabaseCode: profileError.code },
       );
     }
 
     const organizationId = (profile as { organization_id: string | null })?.organization_id;
 
     if (!organizationId) {
-      return new Response(JSON.stringify({ error: 'User does not belong to an organization' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new HttpError('User does not belong to an organization', 403, 'FORBIDDEN');
     }
 
-    const { documentId, contractId, content, documentType } = await req.json();
+    let payload: any;
+
+    try {
+      payload = await req.json();
+    } catch {
+      throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
+    }
+
+    const { documentId, contractId, content, documentType } = payload ?? {};
 
     if (!content) {
-      throw new Error('Content is required');
+      throw new HttpError('Content is required', 400, 'INVALID_INPUT');
     }
 
     if (!documentId && !contractId) {
-      return new Response(JSON.stringify({ error: 'Document or contract ID is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new HttpError('Document or contract ID is required', 400, 'INVALID_INPUT');
     }
 
     if (documentId) {
@@ -156,25 +149,20 @@ serve(async (req: Request) => {
       if (documentError) {
         console.error('Error verifying document ownership:', documentError);
         const status = documentError.code === 'PGRST116' ? 404 : 500;
-        return new Response(
-          JSON.stringify({
-            error:
-              documentError.code === 'PGRST116'
-                ? 'Document not found'
-                : 'Failed to verify document ownership',
-          }),
-          {
-            status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
+        throw new HttpError(
+          documentError.code === 'PGRST116'
+            ? 'Document not found'
+            : 'Failed to verify document ownership',
+          status,
+          documentError.code === 'PGRST116'
+            ? 'DOCUMENT_NOT_FOUND'
+            : 'DOCUMENT_OWNERSHIP_ERROR',
+          { supabaseCode: documentError.code },
         );
       }
 
       if (document?.organization_id !== organizationId) {
-        return new Response(JSON.stringify({ error: 'Unauthorized to process this document' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        throw new HttpError('Unauthorized to process this document', 403, 'FORBIDDEN');
       }
     }
 
@@ -188,25 +176,20 @@ serve(async (req: Request) => {
       if (contractError) {
         console.error('Error verifying contract ownership:', contractError);
         const status = contractError.code === 'PGRST116' ? 404 : 500;
-        return new Response(
-          JSON.stringify({
-            error:
-              contractError.code === 'PGRST116'
-                ? 'Contract not found'
-                : 'Failed to verify contract ownership',
-          }),
-          {
-            status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
+        throw new HttpError(
+          contractError.code === 'PGRST116'
+            ? 'Contract not found'
+            : 'Failed to verify contract ownership',
+          status,
+          contractError.code === 'PGRST116'
+            ? 'CONTRACT_NOT_FOUND'
+            : 'CONTRACT_OWNERSHIP_ERROR',
+          { supabaseCode: contractError.code },
         );
       }
 
       if (contract?.organization_id !== organizationId) {
-        return new Response(JSON.stringify({ error: 'Unauthorized to process this contract' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        throw new HttpError('Unauthorized to process this contract', 403, 'FORBIDDEN');
       }
     }
 
@@ -228,7 +211,12 @@ serve(async (req: Request) => {
 
     if (clearResult.error) {
       console.error('Error clearing existing chunks:', clearResult.error);
-      throw new Error(`Failed to clear existing chunks: ${clearResult.error.message}`);
+      throw new HttpError(
+        `Failed to clear existing chunks: ${clearResult.error.message}`,
+        500,
+        'DATABASE_ERROR',
+        { supabaseCode: clearResult.error.code },
+      );
     }
 
     // Step 2: Chunk the document
@@ -305,7 +293,12 @@ serve(async (req: Request) => {
 
           if (insertResult.error) {
             console.error('Database insert error:', insertResult.error);
-            throw new Error(`Database error: ${insertResult.error.message}`);
+            throw new HttpError(
+              `Database error: ${insertResult.error.message}`,
+              500,
+              'DATABASE_ERROR',
+              { supabaseCode: insertResult.error.code },
+            );
           }
 
           processedChunks.push({
@@ -341,11 +334,10 @@ serve(async (req: Request) => {
 
   } catch (error: any) {
     console.error('Error in process-document-chunks function:', error);
-    return new Response(JSON.stringify({ 
-      error: error?.message || 'Failed to process document chunks'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createErrorResponse(error, corsHeaders, 'Failed to process document chunks');
   }
-});
+};
+
+if (import.meta.main) {
+  serve(processDocumentChunksHandler);
+}
