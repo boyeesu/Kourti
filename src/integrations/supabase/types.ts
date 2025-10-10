@@ -517,13 +517,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_cases_assigned_to"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "fk_cases_assigned_to_profile"
             columns: ["assigned_to"]
             isOneToOne: false
