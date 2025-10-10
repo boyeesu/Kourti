@@ -2120,6 +2120,10 @@ export type Database = {
         }
         Returns: Json
       }
+      change_user_role: {
+        Args: { p_new_role_name: string; p_target_user_id: string }
+        Returns: Json
+      }
       create_notification: {
         Args: {
           p_description: string

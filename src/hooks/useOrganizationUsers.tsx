@@ -217,3 +217,40 @@ export function useResendInvitation() {
     },
   });
 }
+
+export function useChangeUserRole() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
+      const { data, error } = await supabase.rpc('change_user_role', {
+        p_target_user_id: userId,
+        p_new_role_name: newRole
+      });
+
+      if (error) throw error;
+      
+      // Check if the response contains an error
+      if (data && typeof data === 'object' && 'error' in data) {
+        throw new Error(data.error as string);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] });
+      toast({
+        title: "Role changed",
+        description: "User role has been updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to change role",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}

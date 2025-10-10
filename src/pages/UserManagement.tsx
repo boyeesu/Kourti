@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useInviteUser, useUserRole } from "@/hooks/useUserManagement";
 import { useAllRoles } from "@/hooks/useAllRoles";
-import { useOrganizationUsers, useToggleUserStatus, useDeleteInvitation, useResendInvitation } from "@/hooks/useOrganizationUsers";
+import { useOrganizationUsers, useToggleUserStatus, useDeleteInvitation, useResendInvitation, useChangeUserRole } from "@/hooks/useOrganizationUsers";
 import { UserPlus, Users, Shield, User, UserMinus, UserCheck, Trash2, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -33,6 +33,7 @@ export default function UserManagement() {
   const toggleUserStatus = useToggleUserStatus();
   const deleteInvitation = useDeleteInvitation();
   const resendInvitation = useResendInvitation();
+  const changeUserRole = useChangeUserRole();
 
   useEffect(() => {
     if (!role && roles.length > 0) {
@@ -47,6 +48,7 @@ export default function UserManagement() {
 
   const canInviteUsers = userRole?.role === 'superadmin' || userRole?.role === 'admin';
   const isSuperAdmin = userRole?.role === 'superadmin';
+  const canManageRoles = userRole?.role === 'superadmin' || userRole?.role === 'admin';
 
   const handleInviteUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +133,10 @@ export default function UserManagement() {
 
   const handleResendInvitation = (user: any) => {
     resendInvitation.mutate(user);
+  };
+
+  const handleChangeRole = (userId: string, newRole: string) => {
+    changeUserRole.mutate({ userId, newRole });
   };
 
   if (isLoading) {
@@ -292,12 +298,41 @@ export default function UserManagement() {
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          <Badge className={getRoleColor(user.role)} variant="secondary">
-                            <div className="flex items-center gap-1">
-                              {getRoleIcon(user.role)}
-                              {user.role}
-                            </div>
-                          </Badge>
+                          {canManageRoles && !isPendingInvitation ? (
+                            <Select
+                              value={user.role}
+                              onValueChange={(newRole) => handleChangeRole(user.user_id!, newRole)}
+                              disabled={changeUserRole.isPending}
+                            >
+                              <SelectTrigger className="w-[180px]">
+                                <SelectValue>
+                                  <Badge className={getRoleColor(user.role)} variant="secondary">
+                                    <div className="flex items-center gap-1">
+                                      {getRoleIcon(user.role)}
+                                      {user.role}
+                                    </div>
+                                  </Badge>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {roles
+                                  .filter((r) => userRole?.role === 'superadmin' || (r.role !== 'superadmin' && r.role_name !== 'superadmin'))
+                                  .map((r) => (
+                                    <SelectItem key={r.role || r.role_name} value={r.role || r.role_name}>
+                                      {r.display_name || r.role_name || r.role}
+                                      {r.source === 'custom' && ' (Custom)'}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge className={getRoleColor(user.role)} variant="secondary">
+                              <div className="flex items-center gap-1">
+                                {getRoleIcon(user.role)}
+                                {user.role}
+                              </div>
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>{user.department || 'Not specified'}</TableCell>
                         <TableCell>{getVerificationBadge(user.verification_status)}</TableCell>
