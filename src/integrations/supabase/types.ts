@@ -1542,13 +1542,16 @@ export type Database = {
           created_at: string
           created_by: string | null
           domain: string | null
+          domain_hint: string | null
           id: string
           is_enabled: boolean
           metadata_url: string | null
           organization_id: string
           provider: string
+          redirect_uri: string | null
           tenant_id: string | null
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           client_id: string
@@ -1556,13 +1559,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           domain?: string | null
+          domain_hint?: string | null
           id?: string
           is_enabled?: boolean
           metadata_url?: string | null
           organization_id: string
           provider: string
+          redirect_uri?: string | null
           tenant_id?: string | null
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           client_id?: string
@@ -1570,13 +1576,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           domain?: string | null
+          domain_hint?: string | null
           id?: string
           is_enabled?: boolean
           metadata_url?: string | null
           organization_id?: string
           provider?: string
+          redirect_uri?: string | null
           tenant_id?: string | null
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
