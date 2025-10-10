@@ -39,6 +39,7 @@ interface SsoConfigRow {
   client_secret?: string | null;
   redirect_uri?: string | null;
   domain_hint?: string | null;
+  domain?: string | null;
 }
 
 interface DryRunResponse {
@@ -103,7 +104,7 @@ async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | 
   const domain = request.email?.split("@").pop()?.toLowerCase().trim();
   const organizationId = request.organization_id?.trim();
 
-  const selection = "id, provider, organization_id, is_enabled, tenant_id, client_id, client_secret, redirect_uri, domain_hint";
+  const selection = "id, provider, organization_id, is_enabled, tenant_id, client_id, client_secret, redirect_uri, domain_hint, domain";
 
   const runQuery = async (modify: (query: any) => any) => {
     let query: any = (supabase.from("organization_sso_configs" as any) as any)
@@ -121,12 +122,22 @@ async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | 
     return (data as SsoConfigRow | null) ?? null;
   };
 
+  // First priority: Check by explicit organization_id
   if (organizationId) {
     const config = await runQuery((q) => q.eq("organization_id", organizationId));
     if (config) return config;
   }
 
-  // If no organization-specific config, return null
+  // Second priority: Check by email domain
+  if (domain) {
+    const config = await runQuery((q) => q.eq("domain", domain));
+    if (config) {
+      console.log(`Found SSO config for domain: ${domain}`, { provider, organization_id: config.organization_id });
+      return config;
+    }
+  }
+
+  // No matching config found
   return null;
 }
 
