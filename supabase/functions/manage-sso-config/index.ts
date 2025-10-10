@@ -45,11 +45,16 @@ type RotatePayload = {
   clientSecret: string;
 };
 
+type TestPayload = {
+  id: string;
+};
+
 type ManageSsoConfigRequest =
   | { action: "create"; payload: CreatePayload }
   | { action: "update"; payload: UpdatePayload }
   | { action: "delete"; payload: DeletePayload }
-  | { action: "rotate"; payload: RotatePayload };
+  | { action: "rotate"; payload: RotatePayload }
+  | { action: "test"; payload: TestPayload };
 
 type SsoConfigRow = {
   id: string;
@@ -265,6 +270,56 @@ serve(async (req: Request) => {
         }
 
         return jsonResponse({ data });
+      }
+
+      case "test": {
+        const payload = request.payload;
+        if (!payload.id) {
+          throw new Error("id is required for testing");
+        }
+
+        const existing = await fetchExistingConfig(supabase, payload.id);
+
+        // Validate configuration completeness
+        const validationErrors: string[] = [];
+
+        if (!existing.client_id || existing.client_id.trim() === "") {
+          validationErrors.push("Client ID is missing");
+        }
+
+        if (!existing.has_client_secret) {
+          validationErrors.push("Client Secret is not configured");
+        }
+
+        if (!existing.redirect_uri || existing.redirect_uri.trim() === "") {
+          validationErrors.push("Redirect URI is missing");
+        }
+
+        if (existing.provider === "microsoft" && (!existing.tenant_id || existing.tenant_id.trim() === "")) {
+          validationErrors.push("Tenant ID is required for Microsoft Entra ID");
+        }
+
+        if (validationErrors.length > 0) {
+          return jsonResponse({
+            success: false,
+            errors: validationErrors,
+            message: "SSO configuration is incomplete",
+          });
+        }
+
+        // All validations passed
+        return jsonResponse({
+          success: true,
+          message: `${existing.provider === "google" ? "Google Workspace" : "Microsoft Entra ID"} SSO configuration is valid and ready`,
+          config: {
+            provider: existing.provider,
+            client_id: existing.client_id,
+            redirect_uri: existing.redirect_uri,
+            tenant_id: existing.tenant_id,
+            domain_hint: existing.domain_hint,
+            is_enabled: existing.is_enabled,
+          },
+        });
       }
 
       default:

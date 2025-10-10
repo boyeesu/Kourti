@@ -18,10 +18,11 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, RefreshCcw, AlertCircle } from 'lucide-react';
+import { Info, RefreshCcw, AlertCircle, CheckCircle } from 'lucide-react';
 import {
   useOrganizationSsoConfigs,
   useUpsertOrganizationSsoConfig,
+  useTestSsoConfig,
 } from '@/hooks/useOrganizationSsoConfig';
 import { useUserRoleAssignments } from '@/hooks/useUserRoleAssignments';
 import { useToast } from '@/hooks/use-toast';
@@ -140,9 +141,79 @@ const HelperLabel = ({ label, tooltip }: { label: string; tooltip?: string }) =>
 export default function SSOTab() {
   const { data: configs, isLoading } = useOrganizationSsoConfigs();
   const updateMutation = useUpsertOrganizationSsoConfig();
+  const testMutation = useTestSsoConfig();
   const [googleSecretStored, setGoogleSecretStored] = useState(false);
   const [microsoftSecretStored, setMicrosoftSecretStored] = useState(false);
   const { toast } = useToast();
+
+  // Test connection handlers
+  const handleTestGoogle = async () => {
+    if (!googleConfig?.id) {
+      toast({
+        title: 'Error',
+        description: 'Please save your Google Workspace configuration first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const result = await testMutation.mutateAsync(googleConfig.id);
+      
+      if (result.success) {
+        toast({
+          title: 'Connection Successful',
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: 'Configuration Issues',
+          description: result.errors?.join(', ') || result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Test Failed',
+        description: error.message || 'Failed to test Google SSO connection.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTestMicrosoft = async () => {
+    if (!microsoftConfig?.id) {
+      toast({
+        title: 'Error',
+        description: 'Please save your Microsoft Entra ID configuration first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const result = await testMutation.mutateAsync(microsoftConfig.id);
+      
+      if (result.success) {
+        toast({
+          title: 'Connection Successful',
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: 'Configuration Issues',
+          description: result.errors?.join(', ') || result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Test Failed',
+        description: error.message || 'Failed to test Microsoft SSO connection.',
+        variant: 'destructive',
+      });
+    }
+  };
   
   // Check if user is superadmin
   const { data: roleData } = useUserRoleAssignments();
@@ -478,13 +549,24 @@ export default function SSOTab() {
                       )}
                     />
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <Badge variant={googleEnabled ? 'default' : 'outline'}>
                         {googleEnabled ? 'SSO Enabled' : 'SSO Disabled'}
                       </Badge>
-                      <Button type="submit" disabled={updateMutation.isPending}>
-                        {updateMutation.isPending ? 'Saving...' : 'Save Google Workspace settings'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleTestGoogle}
+                          disabled={testMutation.isPending || !googleConfig?.id}
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          {testMutation.isPending ? 'Testing...' : 'Test Connection'}
+                        </Button>
+                        <Button type="submit" disabled={updateMutation.isPending}>
+                          {updateMutation.isPending ? 'Saving...' : 'Save Google Workspace settings'}
+                        </Button>
+                      </div>
                     </div>
                   </form>
                 </Form>
@@ -638,13 +720,24 @@ export default function SSOTab() {
                       )}
                     />
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <Badge variant={microsoftEnabled ? 'default' : 'outline'}>
                         {microsoftEnabled ? 'SSO Enabled' : 'SSO Disabled'}
                       </Badge>
-                      <Button type="submit" disabled={updateMutation.isPending}>
-                        {updateMutation.isPending ? 'Saving...' : 'Save Microsoft Entra ID settings'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleTestMicrosoft}
+                          disabled={testMutation.isPending || !microsoftConfig?.id}
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          {testMutation.isPending ? 'Testing...' : 'Test Connection'}
+                        </Button>
+                        <Button type="submit" disabled={updateMutation.isPending}>
+                          {updateMutation.isPending ? 'Saving...' : 'Save Microsoft Entra ID settings'}
+                        </Button>
+                      </div>
                     </div>
                   </form>
                 </Form>

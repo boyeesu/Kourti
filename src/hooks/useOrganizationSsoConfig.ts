@@ -88,7 +88,8 @@ type ManageSsoConfigFunctionPayload =
       };
     }
   | { action: 'delete'; payload: { id: string } }
-  | { action: 'rotate'; payload: { id: string; clientSecret: string } };
+  | { action: 'rotate'; payload: { id: string; clientSecret: string } }
+  | { action: 'test'; payload: { id: string } };
 
 async function invokeManageSsoConfig<TResponse>(
   body: ManageSsoConfigFunctionPayload
@@ -207,6 +208,33 @@ export function useRotateOrganizationSsoSecret() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-sso-configs'] });
+    },
+  });
+}
+
+export type SsoTestResult = {
+  success: boolean;
+  message: string;
+  errors?: string[];
+  config?: {
+    provider: string;
+    client_id: string;
+    redirect_uri: string;
+    tenant_id: string | null;
+    domain_hint: string | null;
+    is_enabled: boolean;
+  };
+};
+
+export function useTestSsoConfig() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<SsoTestResult> => {
+      const result = await invokeManageSsoConfig<SsoTestResult>({
+        action: 'test',
+        payload: { id },
+      });
+
+      return result;
     },
   });
 }
