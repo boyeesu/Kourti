@@ -235,49 +235,75 @@ export const processDocumentChunksHandler = async (req: Request) => {
       });
     }
 
-    // Step 3: Generate embeddings and store chunks
-    const processedChunks = [];
-    const batchSize = 5; // Process in smaller batches to avoid rate limits
+    // Step 3: Generate embeddings in batches and store chunks
+    const processedChunks: Array<{ index: number; tokenCount: number; contentLength: number }> = [];
+    const embeddingBatchSize = 20; // OpenAI allows batching up to 2048 inputs
+    const maxRetries = 3;
+    
+    // Helper function to retry failed requests
+    const fetchWithRetry = async (url: string, options: RequestInit, retries = maxRetries): Promise<Response> => {
+      try {
+        const response = await fetch(url, options);
+        if (!response.ok && response.status >= 500 && retries > 0) {
+          console.log(`Retrying request, attempts remaining: ${retries}`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (maxRetries - retries + 1)));
+          return fetchWithRetry(url, options, retries - 1);
+        }
+        return response;
+      } catch (error) {
+        if (retries > 0) {
+          console.log(`Network error, retrying. Attempts remaining: ${retries}`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (maxRetries - retries + 1)));
+          return fetchWithRetry(url, options, retries - 1);
+        }
+        throw error;
+      }
+    };
 
-    for (let i = 0; i < chunks.length; i += batchSize) {
-      const batch = chunks.slice(i, i + batchSize);
+    // Process chunks in batches for embedding generation
+    for (let i = 0; i < chunks.length; i += embeddingBatchSize) {
+      const batch = chunks.slice(i, Math.min(i + embeddingBatchSize, chunks.length));
+      const batchStartTime = Date.now();
       
-      for (const [batchIndex, chunk] of batch.entries()) {
-        try {
-          // Generate embedding for this chunk
-          const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'text-embedding-3-small',
-              input: chunk.content,
-              encoding_format: 'float'
-            }),
-          });
+      try {
+        // Generate embeddings for entire batch at once
+        const embeddingResponse = await fetchWithRetry('https://api.openai.com/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'text-embedding-3-small',
+            input: batch.map(c => c.content),
+            encoding_format: 'float'
+          }),
+        });
 
-          if (!embeddingResponse.ok) {
-            const errorData = await embeddingResponse.json();
-            console.error('OpenAI embedding error:', errorData);
-            throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
-          }
+        if (!embeddingResponse.ok) {
+          const errorData = await embeddingResponse.json();
+          console.error('OpenAI embedding batch error:', errorData);
+          throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+        }
 
-          const embeddingData = await embeddingResponse.json();
-          const embedding: number[] = embeddingData.data[0].embedding;
+        const embeddingData = await embeddingResponse.json();
+        const embeddings: number[][] = embeddingData.data.map((d: any) => d.embedding);
 
-          // Store chunk in database
+        console.log(`Generated ${embeddings.length} embeddings in ${Date.now() - batchStartTime}ms`);
+
+        // Prepare batch insert data
+        const chunksToInsert: DocumentChunkInsert[] = batch.map((chunk, batchIndex) => {
           const chunkData: DocumentChunkInsert = {
             organization_id: organizationId,
             chunk_index: i + batchIndex,
             content: chunk.content,
             token_count: chunk.tokenCount,
-            embedding,
+            embedding: embeddings[batchIndex],
             metadata: {
               chunkSize,
               documentType: documentType || 'document',
-              processingDate: new Date().toISOString()
+              processingDate: new Date().toISOString(),
+              embeddingModel: 'text-embedding-3-small'
             }
           };
 
@@ -287,35 +313,49 @@ export const processDocumentChunksHandler = async (req: Request) => {
             chunkData.contract_id = contractId;
           }
 
-          const insertResult = await supabase
-            .from('document_chunks')
-            .insert(chunkData);
+          return chunkData;
+        });
 
-          if (insertResult.error) {
-            console.error('Database insert error:', insertResult.error);
-            throw new HttpError(
-              `Database error: ${insertResult.error.message}`,
-              500,
-              'DATABASE_ERROR',
-              { supabaseCode: insertResult.error.code },
-            );
-          }
+        // Batch insert into database
+        const insertStartTime = Date.now();
+        const insertResult = await supabase
+          .from('document_chunks')
+          .insert(chunksToInsert);
 
+        if (insertResult.error) {
+          console.error('Database batch insert error:', insertResult.error);
+          throw new HttpError(
+            `Database error: ${insertResult.error.message}`,
+            500,
+            'DATABASE_ERROR',
+            { supabaseCode: insertResult.error.code },
+          );
+        }
+
+        console.log(`Inserted ${chunksToInsert.length} chunks in ${Date.now() - insertStartTime}ms`);
+
+        // Track processed chunks
+        batch.forEach((chunk, batchIndex) => {
           processedChunks.push({
             index: i + batchIndex,
             tokenCount: chunk.tokenCount,
             contentLength: chunk.content.length
           });
+        });
 
-        } catch (error) {
-          console.error(`Error processing chunk ${i + batchIndex}:`, error);
-          // Continue with other chunks even if one fails
-        }
+      } catch (error) {
+        console.error(`Error processing batch starting at chunk ${i}:`, error);
+        // Log detailed error but continue processing remaining batches
+        console.error('Batch error details:', {
+          batchStart: i,
+          batchSize: batch.length,
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
 
-      // Small delay between batches to be respectful to OpenAI's rate limits
-      if (i + batchSize < chunks.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Rate limiting: small delay between batches
+      if (i + embeddingBatchSize < chunks.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 

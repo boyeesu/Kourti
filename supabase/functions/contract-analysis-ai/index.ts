@@ -68,6 +68,7 @@ serve(async (req: Request) => {
 
     const userPrompt = `DOCUMENT TO ANALYZE:\n${text.trim()}${goalInstruction}${guidance}\n\nPlease provide a comprehensive response that covers:\n1. SUMMARY AND CONTEXT\n2. KEY TERMS AND OBLIGATIONS\n3. RISKS OR ISSUES\n4. RECOMMENDATIONS OR NEXT STEPS`;
 
+    const requestStartTime = Date.now();
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -81,8 +82,12 @@ serve(async (req: Request) => {
           { role: "user", content: userPrompt },
         ],
         max_completion_tokens: 2000,
+        // Add timeout to prevent hanging requests
+        timeout: 60,
       }),
     });
+
+    console.log(`OpenAI request completed in ${Date.now() - requestStartTime}ms`);
 
     if (!response.ok) {
       const errorMessage = await response.text();
