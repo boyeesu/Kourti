@@ -23,7 +23,17 @@ export default function SetPassword() {
   useEffect(() => {
     const verifyToken = async () => {
       try {
-        // Get the token from URL hash (Supabase puts it there)
+        // Check if there's already an active session (Supabase automatically creates one from invite link)
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          // Valid session exists, user can set password
+          setTokenValid(true);
+          setVerifying(false);
+          return;
+        }
+
+        // If no session, check URL hash for token (backup method)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const type = hashParams.get('type');
@@ -39,10 +49,13 @@ export default function SetPassword() {
           return;
         }
 
-        // Verify the session with the token
-        const { data, error } = await supabase.auth.getUser(accessToken);
+        // Try to establish session with the token
+        const { data: { session: newSession }, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: hashParams.get('refresh_token') || '',
+        });
         
-        if (error || !data.user) {
+        if (error || !newSession) {
           setTokenValid(false);
           toast({
             variant: "destructive",
