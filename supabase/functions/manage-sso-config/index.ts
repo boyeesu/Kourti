@@ -157,7 +157,7 @@ serve(async (req: Request) => {
     // Get user's organization_id
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("organization_id, role")
+      .select("organization_id")
       .eq("user_id", user.id)
       .single();
 
@@ -165,7 +165,21 @@ serve(async (req: Request) => {
       return jsonResponse({ error: "User profile not found" }, 404);
     }
 
-    if (profile.role !== "superadmin") {
+    // Check if user has superadmin role in user_role_assignments
+    const { data: roleAssignments, error: roleError } = await supabase
+      .from("user_role_assignments")
+      .select("role_name")
+      .eq("user_id", user.id)
+      .eq("organization_id", profile.organization_id);
+
+    if (roleError) {
+      console.error("Failed to check user permissions", roleError);
+      return jsonResponse({ error: "Failed to check user permissions" }, 500);
+    }
+
+    const isSuperadmin = roleAssignments?.some((r: { role_name: string }) => r.role_name === "superadmin");
+
+    if (!isSuperadmin) {
       return jsonResponse({ error: "Only superadmins can manage SSO configurations" }, 403);
     }
 
