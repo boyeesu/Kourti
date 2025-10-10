@@ -1,10 +1,23 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+].filter(Boolean);
+
+function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "*");
+  
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
 
 type Provider = "google" | "microsoft";
 
@@ -41,10 +54,14 @@ interface DryRunResponse {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const SSO_STATE_SECRET = Deno.env.get("SSO_STATE_SECRET") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SSO_STATE_SECRET = Deno.env.get("SSO_STATE_SECRET");
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("Missing required Supabase environment variables for SSO authorize function");
+}
+
+if (!SSO_STATE_SECRET) {
+  console.error("CRITICAL: SSO_STATE_SECRET is required for secure SSO operation");
 }
 
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
@@ -154,6 +171,8 @@ function buildAuthorizeUrl(config: SsoConfigRow, state: string, callbackUrl: str
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

@@ -94,16 +94,41 @@ function normalizeToken(authHeader: string | null): string | null {
   return token || null;
 }
 
+const ALLOWED_REDIRECT_PATHS = [
+  '/auth/callback',
+  '/sso/callback',
+  '/auth',
+];
+
 function validateRedirectUri(uri?: string | null) {
   if (!uri) return;
 
   try {
     const parsed = new URL(uri);
+    
+    // Check origin
     if (
       allowedRedirectOrigins.length > 0 &&
       !allowedRedirectOrigins.some((origin: string) => origin === parsed.origin)
     ) {
-      throw new Error("Redirect URI is not part of the allowed origins");
+      throw new Error("Redirect URI origin is not in allowed origins");
+    }
+    
+    // Check path
+    const isValidPath = ALLOWED_REDIRECT_PATHS.some(validPath => 
+      parsed.pathname === validPath || parsed.pathname.startsWith(validPath + '/')
+    );
+    
+    if (!isValidPath) {
+      throw new Error("Redirect URI path is not allowed");
+    }
+    
+    // Reject query parameters that could enable open redirects
+    const dangerousParams = ['redirect', 'return', 'next', 'url', 'return_to', 'continue', 'returnUrl'];
+    const hasOpenRedirect = dangerousParams.some(param => parsed.searchParams.has(param));
+    
+    if (hasOpenRedirect) {
+      throw new Error("Redirect URI cannot contain redirect parameters");
     }
   } catch (error) {
     if (error instanceof Error) {

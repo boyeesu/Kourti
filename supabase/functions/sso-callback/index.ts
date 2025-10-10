@@ -18,10 +18,23 @@ const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   : null;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+].filter(Boolean);
+
+function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "*");
+  
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
 
 type Provider = "google" | "microsoft";
 
@@ -274,6 +287,8 @@ async function redirectToMagicLink(email: string, provider: Provider, redirectTo
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -289,53 +304,62 @@ serve(async (req) => {
     const errorParam = url.searchParams.get("error");
 
     if (errorParam) {
-      console.error("Provider returned error", { error: errorParam, error_description: url.searchParams.get("error_description") });
-      const redirectTarget = stateParam ? (await verifyState(stateParam)).redirect_to : Deno.env.get("APP_URL") ?? "";
-      const location = buildRedirectWithError(redirectTarget, errorParam);
-      return new Response(null, { status: 302, headers: { Location: location } });
+      console.warn("OAuth provider error:", errorParam);
+      const redirectTo = Deno.env.get("APP_URL") ?? "";
+      if (redirectTo) {
+        const location = buildRedirectWithError(redirectTo, errorParam);
+        return new Response(null, { status: 302, headers: { Location: location } });
+      }
+      return new Response(JSON.stringify({ error: errorParam }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     if (!code || !stateParam) {
-      throw new Error("Missing OAuth code or state parameter");
+      throw new Error("Missing code or state parameter");
     }
 
-    const state = await verifyState(stateParam);
-    const redirectTarget = state.redirect_to;
-
-    const { data: config, error: configError } = await supabase
-      .from("organization_sso_configs" as any)
-      .select("id, provider, organization_id, client_id, client_secret, token_url, tenant_id, scope, enforce_sso")
-      .eq("id", state.config_id)
-      .maybeSingle();
-
-    if (configError || !config) {
-      console.error("Unable to load SSO config for callback", { configError, state });
-      const location = buildRedirectWithError(redirectTarget, "config_not_found");
-      return new Response(null, { status: 302, headers: { Location: location } });
+    const payload = await verifyState(stateParam);
+    if (!payload?.provider) {
+      throw new Error("Invalid or expired state parameter");
     }
 
-    if (!config.client_id || !config.client_secret) {
-      const location = buildRedirectWithError(redirectTarget, "missing_client_credentials");
-      return new Response(null, { status: 302, headers: { Location: location } });
+    const { data: configs } = await supabase
+      .from("organization_sso_configs")
+      .select("id, provider, organization_id, client_id, client_secret, tenant_id, is_enabled")
+      .eq("provider", payload.provider)
+      .eq("is_enabled", true);
+
+    if (!configs || configs.length === 0) {
+      throw new Error(`No enabled SSO config for provider: ${payload.provider}`);
+    }
+
+    let config = configs[0];
+    if (payload.organization_id) {
+      const match = configs.find((c: typeof config) => c.organization_id === payload.organization_id);
+      if (match) config = match;
     }
 
     const callbackUrl = new URL(req.url);
     callbackUrl.search = "";
 
-    const tokens = await exchangeToken(config as SsoConfigRow, code, callbackUrl.toString());
-    const claims = tokens.id_token ? parseJwt(tokens.id_token) : {};
+    const tokenResponse = await exchangeToken(config, code, callbackUrl.toString());
+    const claims = parseJwt(tokenResponse.id_token ?? "");
+    const email = claims.email as string;
 
-    const email = (claims.email ?? claims.preferred_username) as string | undefined;
     if (!email) {
-      throw new Error("SSO provider did not return an email address");
+      throw new Error("No email claim in ID token");
     }
 
-    const userId = await ensureSupabaseUser(email, config.provider as Provider, config.organization_id, claims);
+    const userId = await ensureSupabaseUser(email, payload.provider, config.organization_id, claims);
     await upsertProfile(userId, email, config.organization_id, claims);
+    const magicLink = await redirectToMagicLink(email, payload.provider, payload.redirect_to);
 
-    const actionLink = await redirectToMagicLink(email, config.provider as Provider, redirectTarget);
-
-    return new Response(null, { status: 302, headers: { Location: actionLink } });
+    return new Response(null, {
+      status: 302,
+      headers: { Location: magicLink },
+    });
   } catch (error) {
     console.error("SSO callback handler error", error);
     const fallbackUrl = Deno.env.get("APP_URL") ?? "";
