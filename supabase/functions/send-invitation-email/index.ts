@@ -46,13 +46,15 @@ const handler = async (req: Request): Promise<Response> => {
     // Get the origin from the request or use a fallback
     const origin = req.headers.get('origin') || supabaseUrl.replace(/\/$/, '');
     
-    // Construct the redirect URL - this is where users land after clicking email link
+    // Construct the redirect URL - redirect to password setup page for invited users
     let redirectUrl = invitationUrl;
     try {
-      new URL(invitationUrl);
+      const parsedUrl = new URL(invitationUrl);
+      // Use the origin from invitation URL but redirect to password setup
+      redirectUrl = `${parsedUrl.origin}/auth/set-password`;
     } catch (_err) {
-      console.warn('Invalid invitation URL provided, using origin/auth');
-      redirectUrl = `${origin}/auth`;
+      console.warn('Invalid invitation URL provided, using origin/auth/set-password');
+      redirectUrl = `${origin}/auth/set-password`;
     }
 
     console.log('Using redirect URL:', redirectUrl);

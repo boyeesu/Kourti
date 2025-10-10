@@ -17,6 +17,7 @@ import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
 import DashboardNew from "./pages/DashboardNew";
 import Auth from "./pages/Auth";
+import SetPassword from "./pages/SetPassword";
 import Onboarding from "./pages/Onboarding";
 import Cases from "./pages/Cases";
 import CaseDetails from "./pages/CaseDetails";
@@ -217,6 +218,7 @@ const App = () => (
           <InactivityHandler />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/set-password" element={<SetPassword />} />
                 <Route
                   path="/onboarding"
                   element={(
