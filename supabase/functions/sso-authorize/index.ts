@@ -21,27 +21,17 @@ interface SsoConfigRow {
   provider: Provider;
   organization_id: string | null;
   is_enabled?: boolean | null;
-  is_default?: boolean | null;
-  use_supabase_managed?: boolean | null;
-  enforce_sso?: boolean | null;
-  button_text?: string | null;
-  match_domains?: string[] | null;
-  domain?: string | null;
-  authorize_url?: string | null;
-  token_url?: string | null;
-  scope?: string | null;
   tenant_id?: string | null;
   client_id?: string | null;
   client_secret?: string | null;
-  default_redirect?: string | null;
-  prompt?: string | null;
-  metadata?: Record<string, unknown> | null;
+  redirect_uri?: string | null;
+  domain_hint?: string | null;
 }
 
 interface DryRunResponse {
   available: boolean;
   provider: Provider;
-  mode: "supabase_managed" | "federated" | null;
+  mode: "federated" | null;
   organization_id: string | null;
   enforce_sso: boolean;
   button_text?: string | null;
@@ -96,14 +86,14 @@ async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | 
   const domain = request.email?.split("@").pop()?.toLowerCase().trim();
   const organizationId = request.organization_id?.trim();
 
-  const selection = "id, provider, organization_id, is_enabled, is_default, use_supabase_managed, enforce_sso, button_text, match_domains, domain, authorize_url, token_url, scope, tenant_id, client_id, client_secret, default_redirect, prompt, metadata";
+  const selection = "id, provider, organization_id, is_enabled, tenant_id, client_id, client_secret, redirect_uri, domain_hint";
 
   const runQuery = async (modify: (query: any) => any) => {
     let query: any = (supabase.from("organization_sso_configs" as any) as any)
       .select(selection)
       .eq("provider", provider)
       .eq("is_enabled", true)
-      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(1);
 
     query = modify(query);
@@ -119,17 +109,7 @@ async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | 
     if (config) return config;
   }
 
-  if (domain) {
-    const arrayMatch = await runQuery((q) => q.contains?.("match_domains", [domain]) ?? q);
-    if (arrayMatch) return arrayMatch;
-
-    const singleDomain = await runQuery((q) => q.eq("domain", domain));
-    if (singleDomain) return singleDomain;
-  }
-
-  const fallback = await runQuery((q) => q.is("organization_id", null).is("domain", null));
-  if (fallback) return fallback;
-
+  // If no organization-specific config, return null
   return null;
 }
 
@@ -141,37 +121,34 @@ function buildAuthorizeUrl(config: SsoConfigRow, state: string, callbackUrl: str
   const provider = config.provider;
   const params = new URLSearchParams();
   params.set("client_id", config.client_id);
-  params.set("redirect_uri", callbackUrl);
+  params.set("redirect_uri", config.redirect_uri || callbackUrl);
   params.set("response_type", "code");
   params.set("state", state);
 
-  const scope = config.scope ?? (provider === "google"
-    ? "openid email profile"
-    : "openid profile email offline_access");
+  const scope = provider === "google"
+    ? "openid email profile https://www.googleapis.com/auth/calendar.readonly"
+    : "openid profile email offline_access Calendars.Read";
   params.set("scope", scope);
 
   if (provider === "google") {
     params.set("access_type", "offline");
-    params.set("prompt", config.prompt ?? "consent");
-    const domain = request.email?.split("@").pop()?.toLowerCase();
+    params.set("prompt", "consent");
+    const domain = config.domain_hint || request.email?.split("@").pop()?.toLowerCase();
     if (domain) {
       params.set("hd", domain);
     }
   } else if (provider === "microsoft") {
     params.set("response_mode", "query");
-    if (config.prompt) {
-      params.set("prompt", config.prompt);
-    }
+    params.set("prompt", "select_account");
     const loginHint = request.email?.toLowerCase();
     if (loginHint) {
       params.set("login_hint", loginHint);
     }
   }
 
-  const authorizeBase = config.authorize_url
-    ?? (provider === "google"
-      ? "https://accounts.google.com/o/oauth2/v2/auth"
-      : `https://login.microsoftonline.com/${config.tenant_id ?? "common"}/oauth2/v2.0/authorize`);
+  const authorizeBase = provider === "google"
+    ? "https://accounts.google.com/o/oauth2/v2/auth"
+    : `https://login.microsoftonline.com/${config.tenant_id ?? "common"}/oauth2/v2.0/authorize`;
 
   return `${authorizeBase}?${params.toString()}`;
 }
@@ -213,7 +190,8 @@ serve(async (req) => {
       });
     }
 
-    const mode = config.use_supabase_managed ? "supabase_managed" : "federated";
+    // Always use federated mode (custom OAuth flow)
+    const mode = "federated";
 
     if (request.dry_run) {
       const dryResponse: DryRunResponse = {
@@ -221,10 +199,10 @@ serve(async (req) => {
         provider: request.provider,
         mode,
         organization_id: config.organization_id,
-        enforce_sso: Boolean(config.enforce_sso),
-        button_text: config.button_text ?? undefined,
+        enforce_sso: false,
+        button_text: `Sign in with ${request.provider === 'google' ? 'Google' : 'Microsoft'}`,
         domain_match: request.email?.split("@").pop()?.toLowerCase() ?? null,
-        redirect_to: config.default_redirect ?? null,
+        redirect_to: config.redirect_uri ?? null,
       };
       return new Response(JSON.stringify(dryResponse), {
         status: 200,
@@ -232,24 +210,7 @@ serve(async (req) => {
       });
     }
 
-    if (mode === "supabase_managed") {
-      const dryResponse: DryRunResponse = {
-        available: true,
-        provider: request.provider,
-        mode,
-        organization_id: config.organization_id,
-        enforce_sso: Boolean(config.enforce_sso),
-        button_text: config.button_text ?? undefined,
-        domain_match: request.email?.split("@").pop()?.toLowerCase() ?? null,
-        redirect_to: config.default_redirect ?? null,
-      };
-      return new Response(JSON.stringify(dryResponse), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    const redirectTo = request.redirect_to ?? config.default_redirect;
+    const redirectTo = request.redirect_to ?? config.redirect_uri;
     if (!redirectTo) {
       return new Response(JSON.stringify({ error: "Missing redirect target" }), {
         status: 400,

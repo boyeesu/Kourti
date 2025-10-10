@@ -171,33 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       })();
 
-      if (dryRunData.mode === 'supabase_managed') {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: provider as any,
-          options: {
-            redirectTo,
-            queryParams: email ? { login_hint: email } : undefined,
-          },
-        });
-
-        if (error) {
-          logError('Supabase-managed OAuth sign-in failed', { provider, error });
-          return {
-            error: error as AuthError,
-            success: false,
-          };
-        }
-
-        if (data?.url && typeof window !== 'undefined') {
-          window.location.assign(data.url);
-        }
-
-        return {
-          error: null,
-          success: true,
-        };
-      }
-
+      // Always use federated SSO (custom OAuth flow)
       const { data, error } = await supabase.functions.invoke('sso-authorize', {
         body: {
           provider,

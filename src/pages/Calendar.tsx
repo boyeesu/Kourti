@@ -36,22 +36,36 @@ export default function Calendar() {
   // Combine internal and external events
   const allEvents = [...events, ...externalEvents];
 
-  // Check if SSO is configured
+  // Check if SSO is configured for the user's organization
   useEffect(() => {
     const checkSsoConfig = async () => {
       try {
+        // Get user's organization first
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!profile?.organization_id) return;
+
         const { data, error } = await supabase
-          .from('organization_sso_configs')
-          .select('id, provider')
+          .from('organization_sso_configs_view')
+          .select('id, provider, is_enabled')
+          .eq('organization_id', profile.organization_id)
+          .eq('is_enabled', true)
           .in('provider', ['google', 'microsoft'])
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (!error && data) {
           setHasSsoConfig(true);
         }
       } catch (err) {
-        // No SSO configured
+        console.log('No SSO configured:', err);
         setHasSsoConfig(false);
       }
     };
