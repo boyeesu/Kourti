@@ -24,6 +24,7 @@ import {
   useUpsertOrganizationSsoConfig,
 } from '@/hooks/useOrganizationSsoConfig';
 import { useUserRoleAssignments } from '@/hooks/useUserRoleAssignments';
+import { useToast } from '@/hooks/use-toast';
 
 const urlValidator = (value: string | undefined | null) => {
   if (!value) return true;
@@ -141,6 +142,7 @@ export default function SSOTab() {
   const updateMutation = useUpsertOrganizationSsoConfig();
   const [googleSecretStored, setGoogleSecretStored] = useState(false);
   const [microsoftSecretStored, setMicrosoftSecretStored] = useState(false);
+  const { toast } = useToast();
   
   // Check if user is superadmin
   const { data: roleData } = useUserRoleAssignments();
@@ -258,8 +260,18 @@ export default function SSOTab() {
         setGoogleSecretStored(true);
         googleForm.setValue('clientSecret', '');
       }
-    } catch (error) {
-      // error handled globally in mutation toast
+      
+      toast({
+        title: 'Success',
+        description: 'Google Workspace SSO configuration saved successfully.',
+      });
+    } catch (error: any) {
+      console.error('Google SSO update error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save Google SSO configuration. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -305,8 +317,18 @@ export default function SSOTab() {
         setMicrosoftSecretStored(true);
         microsoftForm.setValue('clientSecret', '');
       }
-    } catch (error) {
-      // error handled globally in mutation toast
+      
+      toast({
+        title: 'Success',
+        description: 'Microsoft Entra ID SSO configuration saved successfully.',
+      });
+    } catch (error: any) {
+      console.error('Microsoft SSO update error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save Microsoft SSO configuration. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
