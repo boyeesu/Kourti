@@ -139,18 +139,39 @@ export default function SetPassword() {
   if (!tokenValid) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-card">
+        <Card className="w-full max-w-md shadow-card border-destructive/20">
           <CardContent className="pt-6">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <div className="rounded-full bg-destructive/10 p-3">
-                <Lock className="h-8 w-8 text-destructive" />
+            <div className="flex flex-col items-center gap-6 text-center">
+              <div className="rounded-full bg-destructive/10 p-4">
+                <Lock className="h-10 w-10 text-destructive" />
               </div>
-              <div>
-                <h3 className="font-semibold text-lg">Invalid Invitation</h3>
-                <p className="text-muted-foreground text-sm mt-2">
-                  This invitation link is invalid or has expired. You'll be redirected to the login page.
-                </p>
+              <div className="space-y-3">
+                <h3 className="font-semibold text-xl">Invalid Invitation</h3>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>This invitation link is invalid or has expired.</p>
+                  <p className="text-xs">
+                    <strong>Common reasons:</strong>
+                  </p>
+                  <ul className="text-xs text-left list-disc list-inside space-y-1 bg-muted/50 p-3 rounded-md">
+                    <li>The link has already been used to set up your account</li>
+                    <li>The link has expired (invitation links expire after 24 hours)</li>
+                    <li>The link was clicked more than once</li>
+                  </ul>
+                  <p className="mt-4 text-sm">
+                    If you've already set your password, please <Button variant="link" className="p-0 h-auto" onClick={() => navigate('/auth')}>sign in here</Button>.
+                  </p>
+                  <p className="text-xs">
+                    If you need a new invitation, please contact your administrator.
+                  </p>
+                </div>
               </div>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/auth')}
+                className="w-full"
+              >
+                Go to Sign In
+              </Button>
             </div>
           </CardContent>
         </Card>
