@@ -1032,7 +1032,7 @@ Please provide a helpful response to this legal question. If you need specific d
                         </Card>
                       ) : (
                         <div
-                          className={`max-w-[80%] rounded-lg px-4 py-3 text-sm shadow-sm ${
+                          className={`max-w-[80%] rounded-lg px-4 py-3 text-sm shadow-sm whitespace-pre-wrap ${
                             msg.role === "user"
                               ? "ml-auto bg-muted text-foreground"
                               : "mr-auto border border-border/60 bg-background text-foreground"
