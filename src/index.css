@@ -310,6 +310,12 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     }
   }
 
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .workspace-body__inner {
+      padding: 1.5rem 1.5rem;
+    }
+  }
+
   @media (min-width: 1024px) {
     .workspace-body__inner {
       padding: 2rem 2.25rem;
