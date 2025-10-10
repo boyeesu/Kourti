@@ -17,6 +17,7 @@ Unlock the power of AI and automation in your legal workflows. Kourti Legal deli
 - **Seamless Integrations**: Native OpenAI, Supabase Edge Functions, embeddable API for e-signature, and more.
 - **Enterprise SSO**: Per-organization OAuth (Google Workspace / Microsoft Entra ID) with secure Supabase Edge functions.
 
+
 -----
 
 ## Project Info
