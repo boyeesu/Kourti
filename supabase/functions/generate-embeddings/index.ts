@@ -1,9 +1,11 @@
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.serve(async (req: Request) => {
+export const generateEmbeddingsHandler = async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -13,13 +15,21 @@ Deno.serve(async (req: Request) => {
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+      throw new HttpError('OPENAI_API_KEY not configured', 503, 'OPENAI_CONFIG_MISSING');
     }
 
-    const { documentId, documentType, content } = await req.json();
+    let payload: any;
+
+    try {
+      payload = await req.json();
+    } catch {
+      throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
+    }
+
+    const { documentId, documentType, content } = payload ?? {};
 
     if (!documentId || !content || !documentType) {
-      throw new Error('Missing required parameters: documentId, documentType, content');
+      throw new HttpError('Missing required parameters: documentId, documentType, content', 400, 'INVALID_INPUT');
     }
 
     console.log(`Generating embedding for ${documentType} ${documentId}`);
@@ -39,9 +49,20 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('OpenAI embedding error:', errorData);
-      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+      let message = 'Unknown error';
+      try {
+        const errorData = await response.json();
+        console.error('OpenAI embedding error:', errorData);
+        message = errorData.error?.message || JSON.stringify(errorData);
+      } catch {
+        const errorText = await response.text();
+        console.error('OpenAI embedding error:', errorText);
+        message = errorText;
+      }
+
+      throw new HttpError(`OpenAI API error: ${message}`, 502, 'OPENAI_UPSTREAM_ERROR', {
+        status: response.status,
+      });
     }
 
     const embeddingData = await response.json();
@@ -49,23 +70,22 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Generated embedding with ${embedding.length} dimensions`);
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return new Response(JSON.stringify({
+      success: true,
       documentId,
       documentType,
       embedding,
-      embeddingLength: embedding.length 
+      embeddingLength: embedding.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error: any) {
     console.error('Error in generate-embeddings function:', error);
-    return new Response(JSON.stringify({ 
-      error: error?.message || 'Failed to generate embeddings'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createErrorResponse(error, corsHeaders, 'Failed to generate embeddings');
   }
-});
+};
+
+if (import.meta.main) {
+  Deno.serve(generateEmbeddingsHandler);
+}

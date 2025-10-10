@@ -2,14 +2,12 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const DEFAULT_CHAT_MODEL = 'gpt-4.1';
 const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -28,9 +26,22 @@ function getChatModelCandidates() {
   return Array.from(new Set(models.filter(Boolean)));
 }
 
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new HttpError('Supabase configuration missing', 500, 'SUPABASE_CONFIG_MISSING');
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
 async function requestChatCompletion(body: Record<string, unknown>) {
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+
   if (!openAIApiKey) {
-    throw new Error('OpenAI API key not configured');
+    throw new HttpError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
   }
 
   const modelCandidates = getChatModelCandidates();
@@ -52,22 +63,40 @@ async function requestChatCompletion(body: Record<string, unknown>) {
         return { data, modelUsed: model };
       }
 
-      const errorData = await response.text();
-      console.error(`OpenAI API error for model ${model}:`, response.status, errorData);
+      const errorText = await response.text();
+      console.error(`OpenAI API error for model ${model}:`, response.status, errorText);
 
       if ([400, 404, 422].includes(response.status)) {
-        lastError = new Error(`Model ${model} unavailable: ${errorData}`);
+        lastError = new HttpError(
+          `Model ${model} unavailable: ${errorText}`,
+          424,
+          'OPENAI_MODEL_UNAVAILABLE',
+          { status: response.status },
+        );
         continue;
       }
 
-      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+      throw new HttpError(
+        `OpenAI API error: ${response.status} - ${errorText}`,
+        502,
+        'OPENAI_UPSTREAM_ERROR',
+        { status: response.status },
+      );
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`OpenAI request failed for model ${model}:`, lastError.message);
+      const normalizedError =
+        error instanceof HttpError
+          ? error
+          : new HttpError(String(error), 502, 'OPENAI_UPSTREAM_ERROR');
+      lastError = normalizedError;
+      console.error(`OpenAI request failed for model ${model}:`, normalizedError.message);
     }
   }
 
-  throw lastError ?? new Error('Unable to reach OpenAI API');
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new HttpError('Unable to reach OpenAI API', 502, 'OPENAI_UPSTREAM_ERROR');
 }
 
 export const advancedContractAnalysisHandler = async (req: Request) => {
@@ -78,25 +107,45 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
 
   try {
     console.log('Advanced contract analysis request received');
-    
-    const { text, analysisType, goal, documentId } = await req.json();
-    
+
+    let payload: any;
+
+    try {
+      payload = await req.json();
+    } catch {
+      throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
+    }
+
+    const { text, analysisType, goal, documentId } = payload ?? {};
+
     console.log('Request payload:', { text: text?.length || 0, analysisType, goal });
-    
+
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       console.log('No text provided or empty text');
-      throw new Error('Document text is required and cannot be empty');
+      throw new HttpError('Document text is required and cannot be empty', 400, 'INVALID_INPUT');
     }
 
     // Get user info from request headers
     const authHeader = req.headers.get('Authorization');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
     let userId = null;
+    let supabase;
+
     if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id;
+      const token = authHeader.replace('Bearer ', '').trim();
+
+      if (!token) {
+        throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
+      }
+
+      supabase = getSupabaseClient();
+
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+
+      if (error || !user) {
+        throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
+      }
+
+      userId = user.id;
     }
 
     console.log('Processing analysis request for user:', userId);
@@ -316,7 +365,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
     console.log('Analysis completed successfully, length:', analysis.length);
 
     // Store analysis if documentId is provided
-    if (documentId && userId) {
+    if (documentId && userId && supabase) {
       try {
         await supabase
           .from('document_analyses')
@@ -346,13 +395,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
 
   } catch (error: any) {
     console.error('Error in advanced contract analysis:', error);
-    return new Response(JSON.stringify({
-      error: error.message || 'Analysis failed',
-      success: false
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createErrorResponse(error, corsHeaders, 'Analysis failed');
   }
 };
 
