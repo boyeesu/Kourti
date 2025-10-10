@@ -7,6 +7,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+type DocumentChunkInsert = {
+  document_id?: string | null;
+  contract_id?: string | null;
+  organization_id: string;
+  chunk_index: number;
+  content: string;
+  token_count?: number | null;
+  embedding: number[];
+  metadata?: Record<string, unknown>;
+};
+
 // Document chunking logic (simplified version)
 function chunkText(text: string, maxTokens: number = 500): Array<{content: string, tokenCount: number}> {
   if (!text || text.length < 50) return [];
@@ -128,15 +139,15 @@ serve(async (req: Request) => {
           }
 
           const embeddingData = await embeddingResponse.json();
-          const embedding = embeddingData.data[0].embedding;
+          const embedding: number[] = embeddingData.data[0].embedding;
 
           // Store chunk in database
-          const chunkData: any = {
+          const chunkData: DocumentChunkInsert = {
             organization_id: organizationId,
             chunk_index: i + batchIndex,
             content: chunk.content,
             token_count: chunk.tokenCount,
-            embedding: JSON.stringify(embedding),
+            embedding,
             metadata: {
               chunkSize,
               documentType: documentType || 'document',
