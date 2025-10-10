@@ -31,7 +31,7 @@ import {
   useSidebar
 } from "@/components/ui/sidebar";
 import { PermissionGate } from "@/components/PermissionGate";
-import { Resource, Action } from "@/hooks/usePermissions";
+import { Resource, Action, useCanPerformAction } from "@/hooks/usePermissions";
 import { useUserRole } from "@/hooks/useUserManagement";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -187,7 +187,22 @@ const AppSidebar: React.FC = () => {
     }
   };
 
-  const renderNavItem = (item: NavigationItem) => {
+  const NavItemWithPermission = ({ item }: { item: NavigationItem }) => {
+    // Check if user has read access to this resource
+    const hasAccess = useCanPerformAction(
+      item.permission?.resource || 'cases',
+      item.permission?.action || 'read'
+    );
+
+    // Hide item if user doesn't have access
+    if (item.permission && !hasAccess) {
+      return null;
+    }
+
+    return <NavItemContent item={item} />;
+  };
+
+  const NavItemContent = ({ item }: { item: NavigationItem }) => {
     const active = isActive(item.url, item.end);
 
     const linkClass = cn(
@@ -285,7 +300,7 @@ const AppSidebar: React.FC = () => {
                   <SidebarMenu className="space-y-0.5">
                     {group.items.map((item) => (
                       <Tooltip key={item.url} disableHoverableContent={!collapsed}>
-                        <TooltipTrigger asChild>{renderNavItem(item)}</TooltipTrigger>
+                        <TooltipTrigger asChild><NavItemWithPermission item={item} /></TooltipTrigger>
                         {collapsed && (
                           <TooltipContent side="right">{item.title}</TooltipContent>
                         )}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { 
   useRolePermissions, 
   useUpdatePermission, 
@@ -20,13 +21,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Shield, Users, Lock } from 'lucide-react';
+import { AlertCircle, Shield, Users, Lock, Save } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PermissionsTab() {
   const { data: allRoles = [] } = useAllRoles();
   const [selectedRole, setSelectedRole] = useState<string>('');
   const { data: permissions = [] } = useRolePermissions(selectedRole);
   const updatePermission = useUpdatePermission();
+  const { toast } = useToast();
+
+  // Track pending changes before saving
+  const [pendingChanges, setPendingChanges] = useState<Map<string, boolean>>(new Map());
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Check if user has admin or superadmin role from user_role_assignments
   const { data: roleData } = useUserRoleAssignments();
@@ -47,16 +54,21 @@ export default function PermissionsTab() {
   });
 
   const getPermissionValue = (resource: Resource, action: Action): boolean => {
+    // Check pending changes first
+    const key = `${resource}-${action}`;
+    if (pendingChanges.has(key)) {
+      return pendingChanges.get(key) || false;
+    }
+
     // For global roles, use built-in logic (not stored in role_permissions)
     if (['superadmin', 'admin', 'user'].includes(selectedRole || '')) {
       if (selectedRole === 'superadmin') return true;
       if (selectedRole === 'admin') return true;
-      if (selectedRole === 'user') return action !== 'delete';
+      if (selectedRole === 'user') return action !== 'delete' && action !== 'manage';
       return false;
     }
     
     // For custom roles, use explicit permissions or default to false
-    const key = `${resource}-${action}`;
     return permissionMap.get(key) || false;
   };
 
@@ -68,11 +80,53 @@ export default function PermissionsTab() {
       return;
     }
     
-    updatePermission.mutate({
-      role_name: selectedRole,
-      resource,
-      action,
-      granted,
+    // Store in pending changes instead of saving immediately
+    const key = `${resource}-${action}`;
+    const newPendingChanges = new Map(pendingChanges);
+    newPendingChanges.set(key, granted);
+    setPendingChanges(newPendingChanges);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSaveChanges = async () => {
+    if (!selectedRole || pendingChanges.size === 0) return;
+
+    try {
+      // Save all pending changes
+      const promises = Array.from(pendingChanges.entries()).map(([key, granted]) => {
+        const [resource, action] = key.split('-') as [Resource, Action];
+        return updatePermission.mutateAsync({
+          role_name: selectedRole,
+          resource,
+          action,
+          granted,
+        });
+      });
+
+      await Promise.all(promises);
+      
+      setPendingChanges(new Map());
+      setHasUnsavedChanges(false);
+      
+      toast({
+        title: "Permissions saved",
+        description: "All permission changes have been applied successfully.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to save permissions",
+        description: "Some changes could not be saved. Please try again.",
+      });
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setPendingChanges(new Map());
+    setHasUnsavedChanges(false);
+    toast({
+      title: "Changes discarded",
+      description: "All unsaved changes have been discarded.",
     });
   };
 
@@ -159,10 +213,36 @@ export default function PermissionsTab() {
 
         {selectedRole && (
           <CardContent className="space-y-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Lock className="h-4 w-4" />
-              Configuring permissions for: 
-              <Badge variant="outline">{selectedRole}</Badge>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Lock className="h-4 w-4" />
+                Configuring permissions for: 
+                <Badge variant="outline">{selectedRole}</Badge>
+                {hasUnsavedChanges && (
+                  <Badge variant="secondary" className="ml-2">
+                    Unsaved changes
+                  </Badge>
+                )}
+              </div>
+              {hasUnsavedChanges && !['superadmin', 'admin', 'user'].includes(selectedRole || '') && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDiscardChanges}
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveChanges}
+                    disabled={updatePermission.isPending}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Permission matrix */}
