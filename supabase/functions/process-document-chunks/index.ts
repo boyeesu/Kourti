@@ -46,6 +46,24 @@ serve(async (req: Request) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
+
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const accessToken = authHeader.replace('Bearer ', '').trim();
+
+    if (!accessToken) {
+      return new Response(JSON.stringify({ error: 'Invalid Authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -60,26 +78,146 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { documentId, contractId, content, organizationId, documentType } = await req.json();
+    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
+
+    if (userError || !userData?.user) {
+      console.error('Error resolving user from token:', userError);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const user = userData.user;
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('Error fetching user organization:', profileError);
+      const status = profileError.code === 'PGRST116' ? 404 : 500;
+      return new Response(
+        JSON.stringify({
+          error:
+            profileError.code === 'PGRST116'
+              ? 'User organization not found'
+              : 'Failed to load user organization',
+        }),
+        {
+          status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    const organizationId = (profile as { organization_id: string | null })?.organization_id;
+
+    if (!organizationId) {
+      return new Response(JSON.stringify({ error: 'User does not belong to an organization' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { documentId, contractId, content, documentType } = await req.json();
 
     if (!content) {
       throw new Error('Content is required');
     }
 
-    if (!organizationId) {
-      throw new Error('Organization ID is required');
+    if (!documentId && !contractId) {
+      return new Response(JSON.stringify({ error: 'Document or contract ID is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (documentId) {
+      const { data: document, error: documentError } = await supabase
+        .from('documents')
+        .select('organization_id')
+        .eq('id', documentId)
+        .single();
+
+      if (documentError) {
+        console.error('Error verifying document ownership:', documentError);
+        const status = documentError.code === 'PGRST116' ? 404 : 500;
+        return new Response(
+          JSON.stringify({
+            error:
+              documentError.code === 'PGRST116'
+                ? 'Document not found'
+                : 'Failed to verify document ownership',
+          }),
+          {
+            status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      if (document?.organization_id !== organizationId) {
+        return new Response(JSON.stringify({ error: 'Unauthorized to process this document' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    if (contractId) {
+      const { data: contract, error: contractError } = await supabase
+        .from('contracts')
+        .select('organization_id')
+        .eq('id', contractId)
+        .single();
+
+      if (contractError) {
+        console.error('Error verifying contract ownership:', contractError);
+        const status = contractError.code === 'PGRST116' ? 404 : 500;
+        return new Response(
+          JSON.stringify({
+            error:
+              contractError.code === 'PGRST116'
+                ? 'Contract not found'
+                : 'Failed to verify contract ownership',
+          }),
+          {
+            status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      if (contract?.organization_id !== organizationId) {
+        return new Response(JSON.stringify({ error: 'Unauthorized to process this contract' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     console.log(`Processing ${documentType || 'document'} for chunking and embedding`);
 
     // Step 1: Clear existing chunks
+    const matchCriteria: Record<string, string> = { organization_id: organizationId };
+    if (documentId) {
+      matchCriteria.document_id = documentId;
+    }
+    if (contractId) {
+      matchCriteria.contract_id = contractId;
+    }
+
     const clearResult = await supabase
       .from('document_chunks')
       .delete()
-      .match(documentId ? { document_id: documentId } : { contract_id: contractId });
+      .match(matchCriteria);
 
     if (clearResult.error) {
       console.error('Error clearing existing chunks:', clearResult.error);
+      throw new Error(`Failed to clear existing chunks: ${clearResult.error.message}`);
     }
 
     // Step 2: Chunk the document

@@ -404,7 +404,6 @@ export default function ReamAI() {
           documentId: !isContract ? doc.id : undefined,
           contractId: isContract ? doc.id : undefined,
           content: isContract ? doc.terms || doc.description || "" : doc.content || "",
-          organizationId: organization.id,
           documentType: isContract ? "contract" : "document"
         });
 

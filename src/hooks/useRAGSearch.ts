@@ -182,13 +182,11 @@ export function useProcessDocument() {
       documentId,
       contractId,
       content,
-      organizationId,
       documentType = 'document'
     }: {
       documentId?: string;
       contractId?: string;
       content: string;
-      organizationId: string;
       documentType?: 'document' | 'contract';
     }) => {
       const { data, error } = await supabase.functions.invoke('process-document-chunks', {
@@ -196,7 +194,6 @@ export function useProcessDocument() {
           documentId,
           contractId,
           content,
-          organizationId,
           documentType
         }
       });
