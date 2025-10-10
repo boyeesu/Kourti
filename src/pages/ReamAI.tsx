@@ -808,11 +808,11 @@ Please provide a helpful response to this legal question. If you need specific d
     <div className="flex h-[calc(100vh-100px)] flex-col overflow-hidden lg:flex-row">
       {/* Left: doc/contract & upload */}
       <ModuleErrorBoundary name="Document Selector">
-        <aside className="flex h-full w-full flex-shrink-0 flex-col border-b border-r border-border bg-muted/20 p-4 lg:w-72 lg:min-w-[18rem] lg:border-b-0">
-          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
+        <aside className="flex h-full w-full flex-shrink-0 flex-col gap-3 overflow-y-auto border-b border-r border-border bg-muted/20 p-4 lg:w-72 lg:min-w-[18rem] lg:border-b-0">
+          <h2 className="flex-shrink-0 text-sm font-semibold text-muted-foreground">
             Knowledge Base
           </h2>
-          <div className="relative mb-3">
+          <div className="relative flex-shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={search}
@@ -822,8 +822,8 @@ Please provide a helpful response to this legal question. If you need specific d
             />
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-2 grid grid-cols-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
+            <TabsList className="mb-2 grid flex-shrink-0 grid-cols-2">
               <TabsTrigger value="documents" className="text-xs">
                 <FileText className="h-3.5 w-3.5 mr-1" />
                 Documents
@@ -834,8 +834,8 @@ Please provide a helpful response to this legal question. If you need specific d
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="documents" className="mt-0">
-              <ScrollArea className="h-64 lg:h-[calc(100vh-260px)]">
+            <TabsContent value="documents" className="mt-0 flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
                 {docsLoading ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -867,8 +867,8 @@ Please provide a helpful response to this legal question. If you need specific d
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="contracts" className="mt-0">
-              <ScrollArea className="h-64 lg:h-[calc(100vh-260px)]">
+            <TabsContent value="contracts" className="mt-0 flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
                 {contractsLoading ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -904,7 +904,7 @@ Please provide a helpful response to this legal question. If you need specific d
           <div
             {...getRootProps()}
             className={cn(
-              "mt-3 cursor-pointer rounded-lg border border-dashed border-muted-foreground/50 bg-background/60 p-3 text-center text-sm transition-colors",
+              "flex-shrink-0 cursor-pointer rounded-lg border border-dashed border-muted-foreground/50 bg-background/60 p-3 text-center text-sm transition-colors",
               isDragActive ? "border-primary bg-primary/10" : "hover:bg-muted"
             )}
           >
@@ -923,7 +923,7 @@ Please provide a helpful response to this legal question. If you need specific d
           </div>
 
           {(selectedDoc || selectedFile) && (
-            <div className="mt-4 rounded-lg border border-border bg-background/70">
+            <div className="flex-shrink-0 rounded-lg border border-border bg-background/70">
               <div className="flex items-center gap-2 border-b border-border/80 px-3 py-2 text-sm font-medium text-foreground">
                 {selectedDoc ? (
                   <>
