@@ -11,7 +11,66 @@ const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-serve(async (req: Request) => {
+const DEFAULT_CHAT_MODEL = 'gpt-4.1';
+const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
+
+function getChatModelCandidates() {
+  const configuredModel = Deno.env.get('OPENAI_CHAT_MODEL')?.trim();
+  const configuredFallbackModel = Deno.env.get('OPENAI_FALLBACK_CHAT_MODEL')?.trim();
+
+  const models = [
+    configuredModel || DEFAULT_CHAT_MODEL,
+    configuredFallbackModel || DEFAULT_FALLBACK_MODEL,
+    DEFAULT_CHAT_MODEL,
+    DEFAULT_FALLBACK_MODEL,
+  ];
+
+  return Array.from(new Set(models.filter(Boolean)));
+}
+
+async function requestChatCompletion(body: Record<string, unknown>) {
+  if (!openAIApiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  const modelCandidates = getChatModelCandidates();
+  let lastError: Error | null = null;
+
+  for (const model of modelCandidates) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...body, model }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return { data, modelUsed: model };
+      }
+
+      const errorData = await response.text();
+      console.error(`OpenAI API error for model ${model}:`, response.status, errorData);
+
+      if ([400, 404, 422].includes(response.status)) {
+        lastError = new Error(`Model ${model} unavailable: ${errorData}`);
+        continue;
+      }
+
+      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`OpenAI request failed for model ${model}:`, lastError.message);
+    }
+  }
+
+  throw lastError ?? new Error('Unable to reach OpenAI API');
+}
+
+export const advancedContractAnalysisHandler = async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -27,10 +86,6 @@ serve(async (req: Request) => {
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       console.log('No text provided or empty text');
       throw new Error('Document text is required and cannot be empty');
-    }
-
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
     }
 
     // Get user info from request headers
@@ -224,33 +279,17 @@ ${text}
 Provide a comprehensive analysis covering key terms, risks, and recommendations.`;
     }
 
-    console.log('Making request to OpenAI GPT-4');
+    console.log('Making request to OpenAI for advanced contract analysis');
 
-    // Use GPT-5 for high-quality analysis
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-2025-08-07', // Use GPT-5 for best performance
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_completion_tokens: 4000,
-      }),
+    const { data, modelUsed } = await requestChatCompletion({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      max_completion_tokens: 4000,
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('OpenAI API error:', response.status, errorData);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
-    }
-
-    const data = await response.json();
-    console.log('OpenAI response received');
+    console.log(`OpenAI response received using model ${modelUsed}`);
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Unexpected OpenAI response structure:', data);
@@ -296,17 +335,18 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
       }
     }
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       analysis,
       success: true,
-      tokensUsed: data.usage?.total_tokens || 0
+      tokensUsed: data.usage?.total_tokens || 0,
+      modelUsed,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error: any) {
     console.error('Error in advanced contract analysis:', error);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: error.message || 'Analysis failed',
       success: false
     }), {
@@ -314,4 +354,8 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+};
+
+if (import.meta.main) {
+  serve(advancedContractAnalysisHandler);
+}
