@@ -279,36 +279,34 @@ export default function Auth() {
           )}
 
           {/* SSO Options */}
-          {!isSignUp && (
-            <div className="space-y-2 mb-4">
-              {(["google", "microsoft"] as ProviderName[]).map((provider) => {
-                const state = providerState[provider];
-                if (!state.available && !state.checking) return null;
+          <div className="space-y-2 mb-4">
+            {(["google", "microsoft"] as ProviderName[]).map((provider) => {
+              const state = providerState[provider];
+              if (!state.available && !state.checking) return null;
 
-                return (
-                  <Button
-                    key={provider}
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-start gap-2"
-                    disabled={!state.available || Boolean(ssoLoading && ssoLoading !== provider)}
-                    onClick={() => handleProvider(provider)}
-                  >
-                    {state.checking || ssoLoading === provider ? (
-                      <LogIn className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Globe2 className="h-4 w-4" />
-                    )}
-                    <span>
-                      {state.buttonText ?? `Continue with ${provider === 'google' ? 'Google' : 'Microsoft'}`}
-                    </span>
-                  </Button>
-                );
-              })}
-            </div>
-          )}
+              return (
+                <Button
+                  key={provider}
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  disabled={!state.available || Boolean(ssoLoading && ssoLoading !== provider)}
+                  onClick={() => handleProvider(provider)}
+                >
+                  {state.checking || ssoLoading === provider ? (
+                    <LogIn className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Globe2 className="h-4 w-4" />
+                  )}
+                  <span>
+                    {state.buttonText ?? `${isSignUp ? 'Sign up' : 'Continue'} with ${provider === 'google' ? 'Google' : 'Microsoft'}`}
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
 
-          {!isSignUp && (providerState.google.available || providerState.microsoft.available) && (
+          {(providerState.google.available || providerState.microsoft.available) && (
             <>
               <Separator className="my-4" />
               <p className="text-center text-xs uppercase tracking-wide text-muted-foreground mb-4">
