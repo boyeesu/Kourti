@@ -52,7 +52,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-card">
+      <Card className="w-[65vw] max-w-3xl shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
             <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
