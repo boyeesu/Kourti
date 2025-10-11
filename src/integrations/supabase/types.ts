@@ -504,6 +504,7 @@ export type Database = {
       cases: {
         Row: {
           assigned_to: string | null
+          case_issue_id: string | null
           case_number: string | null
           case_type_description: string | null
           case_type_id: string | null
@@ -526,6 +527,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          case_issue_id?: string | null
           case_number?: string | null
           case_type_description?: string | null
           case_type_id?: string | null
@@ -548,6 +550,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          case_issue_id?: string | null
           case_number?: string | null
           case_type_description?: string | null
           case_type_id?: string | null
@@ -569,6 +572,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cases_case_issue_id_fkey"
+            columns: ["case_issue_id"]
+            isOneToOne: false
+            referencedRelation: "case_issues"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cases_case_type_id_fkey"
             columns: ["case_type_id"]

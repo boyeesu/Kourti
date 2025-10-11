@@ -424,7 +424,7 @@ const VoiceTranscriptionModule: React.FC = () => {
 
       if (transcriptionError) throw transcriptionError;
 
-      // Create activity if case is selected
+      // Create activity if matter is selected
       if (selectedCaseId && selectedCaseId !== 'none') {
         await createActivity.mutateAsync({
           caseId: selectedCaseId,
@@ -439,7 +439,7 @@ const VoiceTranscriptionModule: React.FC = () => {
 
       toast({
         title: "Saved Successfully",
-        description: `${saveType === 'summary' ? 'Summary' : 'Transcript'} has been saved${selectedCaseId && selectedCaseId !== 'none' ? ' and linked to the case' : ''}`,
+        description: `${saveType === 'summary' ? 'Summary' : 'Transcript'} has been saved${selectedCaseId && selectedCaseId !== 'none' ? ' and linked to the matter' : ''}`,
       });
 
       // Reset form
@@ -626,7 +626,7 @@ const VoiceTranscriptionModule: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle>Save Recording</CardTitle>
-            <CardDescription>Save transcript or summary and optionally link to a case</CardDescription>
+            <CardDescription>Save transcript or summary and optionally link to a matter</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input
@@ -637,10 +637,10 @@ const VoiceTranscriptionModule: React.FC = () => {
 
             <Select value={selectedCaseId} onValueChange={setSelectedCaseId}>
               <SelectTrigger>
-                <SelectValue placeholder="Link to case (optional)" />
+                <SelectValue placeholder="Link to matter (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No case selected</SelectItem>
+                <SelectItem value="none">No matter selected</SelectItem>
                 {cases?.map((caseItem: any) => (
                   <SelectItem key={caseItem.id} value={caseItem.id}>
                     {caseItem.title} - {caseItem.case_number || 'No number'}

@@ -322,9 +322,9 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/cases/create")}>
+          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/matters/create")}>
             <Briefcase className="h-4 w-4 mr-2" />
-            New Case
+            New Matter
           </Button>
           <Button className="shadow-sm" onClick={() => navigate("/calendar")}>
             <Calendar className="h-4 w-4 mr-2" />
@@ -336,7 +336,7 @@ export default function Dashboard() {
       {/* Stats Cards (Live Data) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Active Cases"
+          title="Active Matters"
           value={dashboardLoading ? "—" : dashboardData?.activeCases ?? "0"}
           icon={<Briefcase className="h-5 w-5" />}
           description="Currently in progress"
@@ -360,7 +360,7 @@ export default function Dashboard() {
           title="Documents"
           value={dashboardLoading ? "—" : dashboardData?.totalDocuments ?? "0"}
           icon={<FileText className="h-5 w-5" />}
-          description="Across all cases"
+          description="Across all matters"
           loading={dashboardLoading}
           iconColor="text-amber-500"
           iconBgColor="bg-amber-500/10"
@@ -398,7 +398,7 @@ export default function Dashboard() {
                 </CardTitle>
               </div>
               <CardDescription>
-                Track new cases and contracts over time
+                Track new matters and contracts over time
               </CardDescription>
             </CardHeader>
             <CardContent className="px-1">
@@ -432,7 +432,7 @@ export default function Dashboard() {
                       <Line 
                         type="monotone" 
                         dataKey="cases" 
-                        name="Cases" 
+                        name="Matters" 
                         stroke="#3b82f6" 
                         strokeWidth={3}
                         dot={{ r: 4 }}
@@ -470,7 +470,7 @@ export default function Dashboard() {
                         height={36}
                         iconType="circle"
                       />
-                      <Bar dataKey="cases" name="Cases" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="cases" name="Matters" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="contracts" name="Contracts" fill="#10b981" radius={[4, 4, 0, 0]} />
                     </RechartBarChart>
                   </ResponsiveContainer>
@@ -480,15 +480,15 @@ export default function Dashboard() {
           </Card>
         </ModuleErrorBoundary>
 
-        <ModuleErrorBoundary name="Cases by Status Chart">
+        <ModuleErrorBoundary name="Matters by Status Chart">
           <Card className="shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                Cases by Status
+                Matters by Status
               </CardTitle>
               <CardDescription>
-                Distribution of cases by their current status
+                Distribution of matters by their current status
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -524,23 +524,23 @@ export default function Dashboard() {
 
       {/* Recent Activity and Upcoming Events */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ModuleErrorBoundary name="Recent Cases">
+        <ModuleErrorBoundary name="Recent Matters">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Briefcase className="h-5 w-5 text-primary" />
-                  Recent Cases
+                  Recent Matters
                 </CardTitle>
                 <CardDescription>
-                  Latest case activities
+                  Latest matter activities
                 </CardDescription>
               </div>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 className="gap-1"
-                onClick={() => navigate('/cases')}
+                onClick={() => navigate('/matters')}
               >
                 View All
                 <ArrowRight className="h-4 w-4" />
@@ -553,7 +553,7 @@ export default function Dashboard() {
                     <div 
                       key={c.id} 
                       className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/cases/${c.id}`)}
+                      onClick={() => navigate(`/matters/${c.id}`)}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-full bg-blue-500/10`}>
@@ -578,7 +578,7 @@ export default function Dashboard() {
                                 <Eye className="h-4 w-4 text-muted-foreground" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>View Case</TooltipContent>
+                            <TooltipContent>View Matter</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                         {(c as any).assigned_to && (
@@ -602,9 +602,9 @@ export default function Dashboard() {
               ) : (
                 <div className="text-center py-8 bg-muted/10 rounded-md">
                   <Briefcase className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm">No recent cases found.</p>
-                  <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/cases/create')}>
-                    <Plus className="h-4 w-4 mr-1" /> Create a Case
+                  <p className="text-muted-foreground text-sm">No recent matters found.</p>
+                  <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/matters/create')}>
+                    <Plus className="h-4 w-4 mr-1" /> Create a Matter
                   </Button>
                 </div>
               )}
@@ -639,7 +639,7 @@ export default function Dashboard() {
                     <div 
                       key={c.id}
                       className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/cases/${c.id}`)}
+                      onClick={() => navigate(`/matters/${c.id}`)}
                     >
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-full bg-amber-500/10">

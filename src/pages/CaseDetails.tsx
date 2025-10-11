@@ -60,11 +60,11 @@ export default function CaseDetails() {
     return (
       <div className="px-4 py-6">
         <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Case Not Found</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Matter Not Found</h2>
           <p className="text-muted-foreground mb-4">
-            The case you're looking for doesn't exist or you don't have access to it.
+            The matter you're looking for doesn't exist or you don't have access to it.
           </p>
-          <Button onClick={() => navigate("/cases")}>Back to Cases</Button>
+          <Button onClick={() => navigate("/matters")}>Back to Matters</Button>
         </div>
       </div>
     );
@@ -103,13 +103,13 @@ export default function CaseDetails() {
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}> 
+        <Button variant="ghost" size="icon" onClick={() => navigate("/matters")}> 
           <ArrowLeft className="h-4 w-4" /> 
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground">{caseData.title}</h1>
           <p className="text-muted-foreground">
-            Case #{caseData.case_number || caseData.id}
+            Matter #{caseData.case_number || caseData.id}
           </p>
         </div>
         <div className="flex gap-2">
@@ -122,18 +122,18 @@ export default function CaseDetails() {
         </div>
       </div>
 
-      {/* Case Information */}
+      {/* Matter Information */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Case Information</CardTitle>
+          <CardTitle>Matter Information</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Case Type and Issue */}
+          {/* Matter Type and Issue */}
           {caseType && (
             <div className="flex items-center gap-3">
               <Gavel className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Case Type</p>
+                <p className="text-sm text-muted-foreground">Matter Type</p>
                 <p className="font-medium">{caseType}</p>
               </div>
             </div>
@@ -143,7 +143,7 @@ export default function CaseDetails() {
             <div className="flex items-center gap-3">
               <Gavel className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Case Issue</p>
+                <p className="text-sm text-muted-foreground">Matter Issue</p>
                 <p className="font-medium">{caseIssue}</p>
               </div>
             </div>
@@ -263,7 +263,7 @@ export default function CaseDetails() {
       {/* Documents Section */}
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Case Documents</CardTitle>
+          <CardTitle>Matter Documents</CardTitle>
           <Button size="sm" onClick={() => setShowDocumentDialog(true)}>
             <Plus className="h-4 w-4 mr-1" /> Attach Document
           </Button>
@@ -280,8 +280,8 @@ export default function CaseDetails() {
         </CardHeader>
         <CardContent>
           <div className="flex gap-4">
-            <Button onClick={() => navigate(`/cases/${caseData.id}/edit`)}>
-              Edit Case
+            <Button onClick={() => navigate(`/matters/${caseData.id}/edit`)}>
+              Edit Matter
             </Button>
             <Button variant="outline" onClick={() => navigate("/documents")}> 
               View Documents

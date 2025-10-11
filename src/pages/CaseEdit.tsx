@@ -79,7 +79,7 @@ export default function CaseEdit() {
         case_issue_id: caseIssueId,
         custom_fields: dynamicValues,
       } as any);
-      navigate(`/cases/${caseData!.id}`);
+      navigate(`/matters/${caseData!.id}`);
     } catch {
       /* handled in hook */
     }
@@ -90,20 +90,20 @@ export default function CaseEdit() {
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <Breadcrumbs />
       <div className="flex items-center gap-2 mb-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/cases/${caseData.id}`)}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/matters/${caseData.id}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Case
+          Back to Matter
         </Button>
-        <h1 className="text-xl font-bold">Edit Case: {caseData.title}</h1>
+        <h1 className="text-xl font-bold">Edit Matter: {caseData.title}</h1>
       </div>
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Edit Case Information</CardTitle>
+          <CardTitle>Edit Matter Information</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <label className="font-medium">Case Title</label>
+              <label className="font-medium">Matter Title</label>
               <Input value={form.title} onChange={(e) => handleChange("title", e.target.value)} required />
             </div>
             <div className="space-y-2">
@@ -138,10 +138,10 @@ export default function CaseEdit() {
               <Textarea value={form.description} onChange={(e) => handleChange("description", e.target.value)} rows={4} />
             </div>
             
-            {/* Case Type and Issue selectors */}
+            {/* Matter Type and Issue selectors */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="font-medium">Case Type</label>
+                <label className="font-medium">Matter Type</label>
                 <Select 
                   value={caseTypeId} 
                   onValueChange={(value) => {
@@ -152,7 +152,7 @@ export default function CaseEdit() {
                     }
                   }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select case type" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select matter type" /></SelectTrigger>
                   <SelectContent>
                     {caseTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
                   </SelectContent>
@@ -161,13 +161,13 @@ export default function CaseEdit() {
               
               {caseTypeId && (
                 <div className="space-y-2">
-                  <label className="font-medium">Case Issue</label>
+                  <label className="font-medium">Matter Issue</label>
                   <Select 
                     value={caseIssueId} 
                     onValueChange={setCaseIssueId}
                     disabled={!caseTypeId || caseIssues.length === 0}
                   >
-                    <SelectTrigger><SelectValue placeholder="Select case issue" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select matter issue" /></SelectTrigger>
                     <SelectContent>
                       {caseIssues.map(issue => (
                         <SelectItem key={issue.id} value={issue.id}>{issue.name}</SelectItem>
@@ -192,7 +192,7 @@ export default function CaseEdit() {
             )}
 
             <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={() => navigate(`/cases/${caseData.id}`)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => navigate(`/matters/${caseData.id}`)}>Cancel</Button>
               <Button type="submit" disabled={submitting}>Save Changes</Button>
             </div>
           </form>

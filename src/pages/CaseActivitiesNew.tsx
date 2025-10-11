@@ -114,10 +114,10 @@ export default function CaseActivities() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/cases/${caseId}`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/matters/${caseId}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">Case Activities</h1>
+          <h1 className="text-2xl font-bold">Matter Activities</h1>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>

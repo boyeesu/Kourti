@@ -201,7 +201,7 @@ export function useCreateCase() {
       const userId = await getCurrentUserId();
       
       if (!userId) {
-        throw new Error("User is not authenticated. Please sign in to create a case.");
+        throw new Error("User is not authenticated. Please sign in to create a matter.");
       }
       
       // Get organization ID from user profile
@@ -240,11 +240,11 @@ export function useCreateCase() {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       toast({
         title: "Success",
-        description: "Case created successfully.",
+        description: "Matter created successfully.",
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create case.";
+      const errorMessage = error instanceof Error ? error.message : "Failed to create matter.";
       toast({
         variant: "destructive",
         title: "Error",
@@ -278,11 +278,11 @@ export function useUpdateCase() {
       queryClient.invalidateQueries({ queryKey: ['case', data?.id] });
       toast({
         title: "Success",
-        description: "Case updated successfully.",
+        description: "Matter updated successfully.",
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update case.";
+      const errorMessage = error instanceof Error ? error.message : "Failed to update matter.";
       toast({
         variant: "destructive",
         title: "Error",
@@ -312,11 +312,11 @@ export function useDeleteCase() {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       toast({
         title: "Success",
-        description: "Case deleted successfully.",
+        description: "Matter deleted successfully.",
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete case.";
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete matter.";
       toast({
         variant: "destructive",
         title: "Error",

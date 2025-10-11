@@ -24,7 +24,7 @@ const BulkImport = () => {
   const handleImportComplete = (data: any[]) => {
     toast.success(`Successfully imported ${data.length} ${entityType}`);
     // Navigate back to the respective module
-    navigate(entityType === "clients" ? "/clients" : "/cases");
+    navigate(entityType === "clients" ? "/clients" : "/matters");
   };
 
   if (!entityType || !["clients", "cases"].includes(entityType)) {
@@ -46,10 +46,10 @@ const BulkImport = () => {
       }
     },
     cases: {
-      title: "Case",
+      title: "Matter",
       fields: ["title", "description", "status", "priority", "client_name"],
       sampleData: {
-        title: "Contract Dispute Case",
+        title: "Contract Dispute Matter",
         description: "Client contract dispute resolution",
         status: "active",
         priority: "high",
@@ -67,7 +67,7 @@ const BulkImport = () => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(entityType === "clients" ? "/clients" : "/cases")}
+          onClick={() => navigate(entityType === "clients" ? "/clients" : "/matters")}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to {config.title}s

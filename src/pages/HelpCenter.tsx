@@ -23,12 +23,12 @@ export default function HelpCenter() {
   
   const faqs = [
     {
-      question: "How do I create a new case?",
-      answer: "You can create a new case by navigating to the 'Cases' page and clicking on the 'New Case' button in the top-right corner. Fill in the required details in the form and click 'Create Case'."
+      question: "How do I create a new matter?",
+      answer: "You can create a new matter by navigating to the 'Matters' page and clicking on the 'New Matter' button in the top-right corner. Fill in the required details in the form and click 'Create Matter'."
     },
     {
-      question: "How do I upload documents to a case?",
-      answer: "Navigate to the case details page by clicking on a case from the Cases list. Then, click on the 'Documents' tab and use the 'Upload Document' button to add files to the case."
+      question: "How do I upload documents to a matter?",
+      answer: "Navigate to the matter details page by clicking on a matter from the Matters list. Then, click on the 'Documents' tab and use the 'Upload Document' button to add files to the matter."
     },
     {
       question: "Can I share documents with clients?",
@@ -46,7 +46,7 @@ export default function HelpCenter() {
   
   const videos = [
     { title: "Getting Started with Kourti Legal", duration: "5:24", url: "#" },
-    { title: "Managing Cases Effectively", duration: "8:15", url: "#" },
+    { title: "Managing Matters Effectively", duration: "8:15", url: "#" },
     { title: "Document Management Best Practices", duration: "6:42", url: "#" },
     { title: "Using the AI Assistant for Research", duration: "10:18", url: "#" },
     { title: "Calendar and Task Management", duration: "4:30", url: "#" }
@@ -54,7 +54,7 @@ export default function HelpCenter() {
   
   const guides = [
     { title: "Complete User Guide", description: "Comprehensive guide to all features", url: "#" },
-    { title: "Case Management Workflow", description: "Best practices for case handling", url: "#" },
+    { title: "Matter Management Workflow", description: "Best practices for matter handling", url: "#" },
     { title: "Document Organization", description: "How to organize and tag documents", url: "#" },
     { title: "Client Portal Setup", description: "Setting up access for clients", url: "#" },
     { title: "Security Best Practices", description: "Keeping your data secure", url: "#" }

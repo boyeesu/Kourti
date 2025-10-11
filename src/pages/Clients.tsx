@@ -274,8 +274,8 @@ export default function Clients() {
                         <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>
                           Edit Client
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/cases?client=${client.id}`)}>
-                          View Cases
+                        <DropdownMenuItem onClick={() => navigate(`/matters?client=${client.id}`)}>
+                          View Matters
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate(`/contracts?client=${client.id}`)}>
                           View Contracts

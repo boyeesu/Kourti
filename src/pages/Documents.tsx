@@ -260,7 +260,7 @@ export default function Documents() {
                       <TableCell>
                          {(doc as any).case ? (
                            <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80" 
-                                  onClick={() => navigate(`/cases/${(doc as any).case.id}`)}>
+                                  onClick={() => navigate(`/matters/${(doc as any).case.id}`)}>
                              {(doc as any).case.title}
                            </Badge>
                          ) : (

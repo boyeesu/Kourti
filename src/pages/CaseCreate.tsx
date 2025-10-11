@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 const caseSchema = z.object({
-  title: z.string().min(1, "Case title is required"),
+  title: z.string().min(1, "Matter title is required"),
   status: z.string().min(1, "Status is required"),
   priority: z.string().min(1, "Priority is required"),
   description: z.string().optional(),
@@ -100,7 +100,7 @@ export default function CaseCreate() {
     try {
       // Validate required fields
       if (!caseTypeId) {
-        form.setError("case_type_id", { message: "Case type is required" });
+        form.setError("case_type_id", { message: "Matter type is required" });
         return;
       }
 
@@ -114,18 +114,19 @@ export default function CaseCreate() {
         court: data.court,
         next_hearing_date: data.next_hearing_date?.toISOString() || null,
         case_type_id: caseTypeId,
+        case_issue_id: caseIssueId || null,
         custom_fields: dynamicValues,
       } as CreateCaseData;
 
-      console.log('Submitting case data:', caseData);
+      console.log('Submitting matter data:', caseData);
       const newCase = await createCase.mutateAsync(caseData);
       
-      // Create notification for case creation
+      // Create notification for matter creation
       await createCaseNotification(newCase, 'created');
       
-      navigate(`/cases/${newCase.id}`);
+      navigate(`/matters/${newCase.id}`);
     } catch (error) {
-      console.error('Case creation error:', error);
+      console.error('Matter creation error:', error);
       /* error handled by mutation */
     }
   };
@@ -135,15 +136,15 @@ export default function CaseCreate() {
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}> <ArrowLeft className="h-4 w-4" /> </Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/matters")}> <ArrowLeft className="h-4 w-4" /> </Button>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Create New Case</h1>
-          <p className="text-muted-foreground">Add a new case to your organization</p>
+          <h1 className="text-3xl font-bold text-foreground">Create New Matter</h1>
+          <p className="text-muted-foreground">Add a new matter to your organization</p>
         </div>
       </div>
 
       <Card className="shadow-card">
-        <CardHeader><CardTitle>Case Details</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Matter Details</CardTitle></CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -151,14 +152,14 @@ export default function CaseCreate() {
                 {/* Static fields */}
                 <FormField control={form.control} name="title" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Case Title *</FormLabel>
-                    <FormControl><Input placeholder="Enter case title" {...field} /></FormControl>
+                    <FormLabel>Matter Title *</FormLabel>
+                    <FormControl><Input placeholder="Enter matter title" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
 
                 <FormField control={form.control} name="case_number" render={({ field }) => (
-                  <FormItem><FormLabel>Case Number</FormLabel><FormControl><Input placeholder="Auto-generated if empty" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Matter Number</FormLabel><FormControl><Input placeholder="Auto-generated if empty" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
 
                 <FormField control={form.control} name="client_id" render={({ field }) => (
@@ -208,10 +209,10 @@ export default function CaseCreate() {
               </div>
 
               <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Enter case description" className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Enter matter description" className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
 
-              {/* Case Type and Issue selectors */}
+              {/* Matter Type and Issue selectors */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
@@ -219,7 +220,7 @@ export default function CaseCreate() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="flex items-center gap-1">
-                        Case Type <span className="text-red-500">*</span>
+                        Matter Type <span className="text-red-500">*</span>
                       </FormLabel>
                       <FormControl>
                         <CaseTypeSelector
@@ -257,7 +258,7 @@ export default function CaseCreate() {
                     name="case_issue_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Case Issue *</FormLabel>
+                        <FormLabel>Matter Issue *</FormLabel>
                         <FormControl>
                           <Select 
                             value={caseIssueId} 
@@ -270,17 +271,17 @@ export default function CaseCreate() {
                             required
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder={isLoadingCaseIssues ? "Loading issues..." : "Select case issue"} />
+                              <SelectValue placeholder={isLoadingCaseIssues ? "Loading issues..." : "Select matter issue"} />
                             </SelectTrigger>
                             <SelectContent>
                               {isLoadingCaseIssues ? (
                                 <SelectItem value="loading" disabled>Loading issues...</SelectItem>
                               ) : caseIssues.length > 0 ? (
                                 caseIssues.map(issue => (
-                                  <SelectItem key={issue.id} value={issue.id}>{issue.name}</SelectItem>
+                                   <SelectItem key={issue.id} value={issue.id}>{issue.name}</SelectItem>
                                 ))
                               ) : (
-                                <SelectItem value="none" disabled>No issues available for this case type</SelectItem>
+                                <SelectItem value="none" disabled>No issues available for this matter type</SelectItem>
                               )}
                             </SelectContent>
                           </Select>
@@ -333,8 +334,8 @@ export default function CaseCreate() {
               </div>
 
               <div className="flex justify-end gap-4">
-                <Button type="button" variant="outline" onClick={() => navigate("/cases")}>Cancel</Button>
-                <Button type="submit" disabled={createCase.isPending}>{createCase.isPending ? "Creating..." : "Create Case"}</Button>
+                <Button type="button" variant="outline" onClick={() => navigate("/matters")}>Cancel</Button>
+                <Button type="submit" disabled={createCase.isPending}>{createCase.isPending ? "Creating..." : "Create Matter"}</Button>
               </div>
             </form>
           </Form>

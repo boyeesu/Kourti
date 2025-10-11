@@ -165,8 +165,8 @@ export default function ClientDetails() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/cases/create?client=${clientId}`)}>
-                Create New Case
+              <DropdownMenuItem onClick={() => navigate(`/matters/create?client=${clientId}`)}>
+                Create New Matter
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate(`/contracts/create?client=${clientId}`)}>
                 Create New Contract
@@ -226,7 +226,7 @@ export default function ClientDetails() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <p className="text-2xl font-bold text-blue-600">{cases.length}</p>
-                <p className="text-sm text-muted-foreground">Cases</p>
+                <p className="text-sm text-muted-foreground">Matters</p>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <p className="text-2xl font-bold text-green-600">{contractsArray.length}</p>
@@ -317,21 +317,21 @@ export default function ClientDetails() {
         </CardContent>
       </Card>
 
-      {/* Cases Section */}
+      {/* Matters Section */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Briefcase className="h-5 w-5" />
-            Cases ({cases.length})
+            Matters ({cases.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {cases.length === 0 ? (
             <div className="text-center py-8">
               <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-muted-foreground mb-4">No cases for this client</p>
-              <Button onClick={() => navigate(`/cases/create?client=${clientId}`)}>
-                Create First Case
+              <p className="text-muted-foreground mb-4">No matters for this client</p>
+              <Button onClick={() => navigate(`/matters/create?client=${clientId}`)}>
+                Create First Matter
               </Button>
             </div>
           ) : (
@@ -348,7 +348,7 @@ export default function ClientDetails() {
                 {cases.map((c) => (
                   <TableRow key={c.id} className="hover:bg-muted/50">
                     <TableCell>
-                      <Button variant="link" onClick={() => navigate(`/cases/${c.id}`)}>
+                      <Button variant="link" onClick={() => navigate(`/matters/${c.id}`)}>
                         {c.title}
                       </Button>
                     </TableCell>
