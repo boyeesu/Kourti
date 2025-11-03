@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,8 @@ import { useAIConversations, useConversationMessages } from "@/hooks/useAIConver
 import { ConversationSidebar } from "@/components/ConversationSidebar";
 import { DocumentSuggestions } from "@/components/DocumentSuggestions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -90,7 +92,7 @@ interface ReamAIHeaderProps {
   hasDocumentContext: boolean;
   documentContent: any;
   isBusy: boolean;
-  onQuickAction: (action: QuickAction) => void;
+  onQuickAction: (action: QuickAction) => void | Promise<void>;
 }
 
 function ReamAIHeader({
@@ -163,7 +165,7 @@ function ReamAIHeader({
     if (action.requiresDocument && !hasDocumentContext) return;
 
     setSelectedAction(action.label);
-    onQuickAction(action);
+    void onQuickAction(action);
     setTimeout(() => setSelectedAction(null), 250);
   };
 
@@ -249,6 +251,7 @@ function ReamAIHeader({
 
 export default function ReamAI() {
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
   // Conversation management
   const {
@@ -285,6 +288,117 @@ export default function ReamAI() {
   const [isDocSelectorOpen, setIsDocSelectorOpen] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const runExtractionForDocument = useCallback(
+    async ({
+      doc,
+      isContract,
+      filePath,
+    }: {
+      doc: any;
+      isContract: boolean;
+      filePath?: string | null;
+    }) => {
+      const documentType = isContract ? "contract" : "document";
+      const resolvedFilePath = filePath || doc?.file_path;
+
+      if (!resolvedFilePath) {
+        throw new Error("Document is missing a file path for extraction");
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        "extract-document-text",
+        {
+          body: {
+            documentId: !isContract ? doc.id : undefined,
+            contractId: isContract ? doc.id : undefined,
+            filePath: resolvedFilePath,
+            documentType,
+          },
+        }
+      );
+
+      if (error) {
+        throw new Error(error.message || "Failed to extract document text");
+      }
+
+      const extractedText: string =
+        data?.text ||
+        data?.content ||
+        data?.fullContent ||
+        data?.extractedText ||
+        "";
+
+      if (!extractedText?.trim()) {
+        return "";
+      }
+
+      if (isContract) {
+        const { error: updateError } = await supabase
+          .from("contracts")
+          .update({
+            terms: extractedText,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", doc.id);
+
+        if (updateError) {
+          console.error("Failed to persist extracted contract text:", updateError);
+        }
+      } else {
+        const { error: updateError } = await supabase
+          .from("documents")
+          .update({
+            content: extractedText,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", doc.id);
+
+        if (updateError) {
+          console.error("Failed to persist extracted document text:", updateError);
+        }
+      }
+
+      queryClient.setQueryData(
+        ["document-content", doc.id, documentType],
+        (existing: any) => ({
+          ...(existing || {}),
+          ...doc,
+          file_path: resolvedFilePath,
+          ...(isContract
+            ? { terms: extractedText }
+            : { content: extractedText }),
+          fullContent: extractedText,
+          type: documentType,
+        })
+      );
+
+      if (!isContract) {
+        queryClient.setQueryData(["documents"], (existing: any) => {
+          if (!Array.isArray(existing)) return existing;
+          return existing.map((item: any) =>
+            item.id === doc.id ? { ...item, content: extractedText } : item
+          );
+        });
+
+        queryClient.setQueryData(["document", doc.id], (existing: any) =>
+          existing ? { ...existing, content: extractedText } : existing
+        );
+      } else {
+        queryClient.setQueryData(["contract", doc.id], (existing: any) =>
+          existing ? { ...existing, terms: extractedText } : existing
+        );
+
+        void queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) && query.queryKey[0] === "contracts",
+        });
+      }
+
+      return extractedText;
+    },
+    [queryClient]
+  );
 
   // Load document from sessionStorage if passed from Documents page
   useEffect(() => {
@@ -481,56 +595,153 @@ export default function ReamAI() {
 
   // Handle document/contract selection
   async function handleSelectDoc(doc: any, isContract: boolean) {
-    setSelectedDoc({ ...doc, type: isContract ? "contract" : "document" });
-    setSelectedFile(null); // Clear any uploaded file
-    setIsDocSelectorOpen(false); // Close the popover
+    const documentType = isContract ? "contract" : "document";
+    const documentName = doc.title || doc.name || "Document";
+    let processingMessageUpdated = false;
+
+    setSelectedDoc({ ...doc, type: documentType });
+    setSelectedFile(null);
+    setIsDocSelectorOpen(false);
 
     // Add messages about the selection
     setMessages((msgs) => [
       ...msgs,
       {
         role: "user",
-        content: `I'd like to analyze this ${
-          isContract ? "contract" : "document"
-        }: ${doc.title || doc.name}`,
-        timestamp: new Date()
-      }
-    ]);
-
-    setMessages((msgs) => [
-      ...msgs,
+        content: `I'd like to analyze this ${documentType}: ${documentName}`,
+        timestamp: new Date(),
+      },
       {
         role: "assistant",
-        content: `I'm processing "${
-          doc.title || doc.name
-        }" for RAG analysis. This may take a moment as I chunk and embed the content for better retrieval...`,
-        timestamp: new Date()
-      }
+        content: `I'm processing "${documentName}" for RAG analysis. This may take a moment as I chunk and embed the content for better retrieval...`,
+        timestamp: new Date(),
+      },
     ]);
 
-    // Process document for RAG if we have organization context
-    if (organization?.id && doc.content) {
-      try {
-        await processDocument.mutateAsync({
-          documentId: !isContract ? doc.id : undefined,
-          contractId: isContract ? doc.id : undefined,
-          content: isContract ? doc.terms || doc.description || "" : doc.content || "",
-          documentType: isContract ? "contract" : "document"
-        });
+    let workingDoc = { ...doc, type: documentType };
+    let contentForProcessing = isContract
+      ? doc.terms || doc.description || ""
+      : doc.content || doc.summary || doc.terms || "";
 
-        // Update the message to show processing is complete
+    const isPdfDocument = Boolean(
+      (doc.mime_type && doc.mime_type.toLowerCase().includes("pdf")) ||
+        (doc.file_path && doc.file_path.toLowerCase().endsWith(".pdf"))
+    );
+    const needsExtraction = isPdfDocument && !contentForProcessing?.trim();
+
+    if (needsExtraction) {
+      if (doc.file_path) {
         setMessages((msgs) =>
           msgs.map((msg, i) =>
             i === msgs.length - 1
               ? {
                   ...msg,
-                  content: `✅ Successfully processed "${
-                    doc.title || doc.name
-                  }" for RAG analysis! The document has been chunked and embedded. You can now ask detailed questions about its content.`
+                  content: `I'm extracting text from "${documentName}" before processing it for RAG analysis...`,
                 }
               : msg
           )
         );
+
+        try {
+          setIsExtracting(true);
+          const extractedText = await runExtractionForDocument({
+            doc,
+            isContract,
+            filePath: doc.file_path,
+          });
+
+          if (extractedText) {
+            contentForProcessing = extractedText;
+            workingDoc = isContract
+              ? { ...workingDoc, terms: extractedText }
+              : { ...workingDoc, content: extractedText };
+
+            setSelectedDoc({ ...workingDoc, type: documentType });
+
+            setMessages((msgs) =>
+              msgs.map((msg, i) =>
+                i === msgs.length - 1
+                  ? {
+                      ...msg,
+                      content: `✅ Successfully extracted text from "${documentName}". Processing the document for RAG analysis...`,
+                    }
+                  : msg
+              )
+            );
+            processingMessageUpdated = true;
+          } else {
+            setMessages((msgs) =>
+              msgs.map((msg, i) =>
+                i === msgs.length - 1
+                  ? {
+                      ...msg,
+                      content: `⚠️ I couldn't extract readable text from "${documentName}". I'll continue with limited metadata.`,
+                    }
+                  : msg
+              )
+            );
+            processingMessageUpdated = true;
+          }
+        } catch (error) {
+          console.error("Error extracting document text:", error);
+          toast({
+            variant: "destructive",
+            title: "Extraction failed",
+            description:
+              "We couldn't extract text from this PDF. You can still continue, but responses may be limited to metadata.",
+          });
+
+          setMessages((msgs) =>
+            msgs.map((msg, i) =>
+              i === msgs.length - 1
+                ? {
+                    ...msg,
+                    content: `⚠️ Extraction failed for "${documentName}". I'll continue with limited metadata.`,
+                  }
+                : msg
+            )
+          );
+          processingMessageUpdated = true;
+        } finally {
+          setIsExtracting(false);
+        }
+      } else {
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1
+              ? {
+                  ...msg,
+                  content: `⚠️ I couldn't locate the original file for "${documentName}" to extract its text. I'll continue with limited metadata.`,
+                }
+              : msg
+          )
+        );
+        processingMessageUpdated = true;
+      }
+    }
+
+    const hasProcessableContent = Boolean(contentForProcessing?.trim());
+
+    if (organization?.id && hasProcessableContent) {
+      try {
+        await processDocument.mutateAsync({
+          documentId: !isContract ? doc.id : undefined,
+          contractId: isContract ? doc.id : undefined,
+          content: contentForProcessing,
+          documentType,
+        });
+
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1
+              ? {
+                  ...msg,
+                  content: `✅ Successfully processed "${documentName}" for RAG analysis! The document has been chunked and embedded. You can now ask detailed questions about its content.`,
+                }
+              : msg
+          )
+        );
+        processingMessageUpdated = true;
       } catch (error) {
         console.error("Error processing document:", error);
         setMessages((msgs) =>
@@ -538,23 +749,22 @@ export default function ReamAI() {
             i === msgs.length - 1
               ? {
                   ...msg,
-                  content: `⚠️ Loaded "${
-                    doc.title || doc.name
-                  }" but RAG processing failed. I can still analyze the document, but responses may be less contextual.`
+                  content: `⚠️ Loaded "${documentName}" but RAG processing failed. I can still analyze the document, but responses may be less contextual.`,
                 }
               : msg
           )
         );
+        processingMessageUpdated = true;
       }
-    } else {
+    }
+
+    if (!processingMessageUpdated) {
       setMessages((msgs) =>
         msgs.map((msg, i) =>
           i === msgs.length - 1
             ? {
                 ...msg,
-                content: `📄 Loaded "${
-                  doc.title || doc.name
-                }" for analysis. What would you like to know about it?`
+                content: `📄 Loaded "${documentName}" for analysis. What would you like to know about it?`,
               }
             : msg
         )
@@ -900,8 +1110,8 @@ Please provide a helpful response to this legal question. If you need specific d
     setInput(prompt);
   }
 
-  const handleQuickAction = (action: QuickAction) => {
-    if (isStreaming || isTyping) {
+  const handleQuickAction = async (action: QuickAction) => {
+    if (isStreaming || isTyping || isExtracting) {
       toast({
         title: "Please wait",
         description:
@@ -919,12 +1129,65 @@ Please provide a helpful response to this legal question. If you need specific d
       return;
     }
 
-    if (action.requiresDocument && documentContent && !documentContent.fullContent) {
-      toast({
-        title: "No extracted text",
-        description:
-          "This file doesn't have extracted text yet. Ask a general question or upload a text-based document."
-      });
+    if (
+      action.requiresDocument &&
+      selectedDoc &&
+      documentContent &&
+      !documentContent.fullContent
+    ) {
+      const isContract = selectedDoc.type === "contract";
+      const looksLikePdf = Boolean(
+        (selectedDoc.mime_type && selectedDoc.mime_type.toLowerCase().includes("pdf")) ||
+          (selectedDoc.file_path && selectedDoc.file_path.toLowerCase().endsWith(".pdf"))
+      );
+      const filePath = selectedDoc.file_path || documentContent.file_path;
+
+      if (looksLikePdf && filePath) {
+        try {
+          setIsExtracting(true);
+          const extractedText = await runExtractionForDocument({
+            doc: selectedDoc,
+            isContract,
+            filePath,
+          });
+
+          if (!extractedText) {
+            toast({
+              title: "Limited context",
+              description:
+                "We couldn't extract text from this PDF. Responses may be limited to metadata.",
+            });
+            return;
+          }
+
+          setSelectedDoc((current) => {
+            if (!current || current.id !== selectedDoc.id) {
+              return current;
+            }
+            return isContract
+              ? { ...current, terms: extractedText }
+              : { ...current, content: extractedText };
+          });
+        } catch (error) {
+          console.error("Quick action extraction failed:", error);
+          toast({
+            variant: "destructive",
+            title: "Extraction failed",
+            description:
+              "We couldn't extract text from this document. Try a text-based version or upload a different file.",
+          });
+          return;
+        } finally {
+          setIsExtracting(false);
+        }
+      } else {
+        toast({
+          title: "Limited context",
+          description:
+            "This document doesn't include extracted text yet and cannot be processed automatically.",
+        });
+        return;
+      }
     }
 
     void sendMessage(undefined, action.prompt);
