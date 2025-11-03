@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const corsOptions = {
+  allowMethods: ["POST", "OPTIONS"],
+  allowCredentials: true,
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -70,13 +71,6 @@ type SsoConfigRow = {
   created_at: string;
   updated_at: string;
 };
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
 
 function ensureConfigured() {
   if (!supabaseUrl || !serviceRoleKey) {
@@ -157,7 +151,7 @@ async function fetchExistingConfig(
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -165,7 +159,7 @@ serve(async (req: Request) => {
 
     const token = normalizeToken(req.headers.get("Authorization"));
     if (!token) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return createJsonResponse({ error: "Unauthorized" }, { status: 401, cors: corsOptions });
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -176,7 +170,7 @@ serve(async (req: Request) => {
     } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return createJsonResponse({ error: "Unauthorized" }, { status: 401, cors: corsOptions });
     }
 
     // Get user's organization_id
@@ -187,7 +181,7 @@ serve(async (req: Request) => {
       .single();
 
     if (profileError || !profile) {
-      return jsonResponse({ error: "User profile not found" }, 404);
+      return createJsonResponse({ error: "User profile not found" }, { status: 404, cors: corsOptions });
     }
 
     // Check if user has superadmin role in user_role_assignments
@@ -199,13 +193,13 @@ serve(async (req: Request) => {
 
     if (roleError) {
       console.error("Failed to check user permissions", roleError);
-      return jsonResponse({ error: "Failed to check user permissions" }, 500);
+      return createJsonResponse({ error: "Failed to check user permissions" }, { status: 500, cors: corsOptions });
     }
 
     const isSuperadmin = roleAssignments?.some((r: { role_name: string }) => r.role_name === "superadmin");
 
     if (!isSuperadmin) {
-      return jsonResponse({ error: "Only superadmins can manage SSO configurations" }, 403);
+      return createJsonResponse({ error: "Only superadmins can manage SSO configurations" }, { status: 403, cors: corsOptions });
     }
 
     const request = (await req.json()) as ManageSsoConfigRequest;
@@ -214,7 +208,7 @@ serve(async (req: Request) => {
       case "create": {
         const payload = request.payload;
         if (!payload.provider || !payload.clientId) {
-          return jsonResponse({ error: "provider and clientId are required" }, 400);
+          return createJsonResponse({ error: "provider and clientId are required" }, { status: 400, cors: corsOptions });
         }
 
         validateRedirectUri(payload.redirectUri);
@@ -238,22 +232,22 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to create SSO config", error);
-          return jsonResponse({ error: error.message }, 400);
+          return createJsonResponse({ error: error.message }, { status: 400, cors: corsOptions });
         }
 
-        return jsonResponse({ data });
+        return createJsonResponse({ data }, { cors: corsOptions });
       }
 
       case "update": {
         const payload = request.payload;
         if (!payload.id) {
-          return jsonResponse({ error: "id is required for updates" }, 400);
+          return createJsonResponse({ error: "id is required for updates" }, { status: 400, cors: corsOptions });
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+          return createJsonResponse({ error: "SSO configuration not found in your organization" }, { status: 404, cors: corsOptions });
         }
 
         const redirectUri = payload.redirectUri ?? existing.redirect_uri ?? null;
@@ -281,22 +275,22 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to update SSO config", error);
-          return jsonResponse({ error: error.message }, 400);
+          return createJsonResponse({ error: error.message }, { status: 400, cors: corsOptions });
         }
 
-        return jsonResponse({ data });
+        return createJsonResponse({ data }, { cors: corsOptions });
       }
 
       case "rotate": {
         const payload = request.payload;
         if (!payload.id || !payload.clientSecret) {
-          return jsonResponse({ error: "id and clientSecret are required for rotation" }, 400);
+          return createJsonResponse({ error: "id and clientSecret are required for rotation" }, { status: 400, cors: corsOptions });
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+          return createJsonResponse({ error: "SSO configuration not found in your organization" }, { status: 404, cors: corsOptions });
         }
 
         const { data, error } = await supabase
@@ -313,16 +307,16 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to rotate SSO secret", error);
-          return jsonResponse({ error: error.message }, 400);
+          return createJsonResponse({ error: error.message }, { status: 400, cors: corsOptions });
         }
 
-        return jsonResponse({ data });
+        return createJsonResponse({ data }, { cors: corsOptions });
       }
 
       case "delete": {
         const payload = request.payload;
         if (!payload.id) {
-          return jsonResponse({ error: "id is required for deletion" }, 400);
+          return createJsonResponse({ error: "id is required for deletion" }, { status: 400, cors: corsOptions });
         }
 
         const { error } = await supabase
@@ -333,22 +327,22 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to delete SSO config", error);
-          return jsonResponse({ error: error.message }, 400);
+          return createJsonResponse({ error: error.message }, { status: 400, cors: corsOptions });
         }
 
-        return jsonResponse({ success: true });
+        return createJsonResponse({ success: true }, { cors: corsOptions });
       }
 
       case "test": {
         const payload = request.payload;
         if (!payload.id) {
-          return jsonResponse({ error: "id is required for testing" }, 400);
+          return createJsonResponse({ error: "id is required for testing" }, { status: 400, cors: corsOptions });
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+          return createJsonResponse({ error: "SSO configuration not found in your organization" }, { status: 404, cors: corsOptions });
         }
 
         // Validate configuration completeness
@@ -371,38 +365,44 @@ serve(async (req: Request) => {
         }
 
         if (validationErrors.length > 0) {
-          return jsonResponse({
-            data: {
-              success: false,
-              errors: validationErrors,
-              message: "SSO configuration is incomplete",
+          return createJsonResponse(
+            {
+              data: {
+                success: false,
+                errors: validationErrors,
+                message: "SSO configuration is incomplete",
+              },
             },
-          });
+            { cors: corsOptions },
+          );
         }
 
         // All validations passed
-        return jsonResponse({
-          data: {
-            success: true,
-            message: `${existing.provider === "google" ? "Google Workspace" : "Microsoft Entra ID"} SSO configuration is valid and ready`,
-            config: {
-              provider: existing.provider,
-              client_id: existing.client_id,
-              redirect_uri: existing.redirect_uri,
-              tenant_id: existing.tenant_id,
-              domain_hint: existing.domain_hint,
-              is_enabled: existing.is_enabled,
+        return createJsonResponse(
+          {
+            data: {
+              success: true,
+              message: `${existing.provider === "google" ? "Google Workspace" : "Microsoft Entra ID"} SSO configuration is valid and ready`,
+              config: {
+                provider: existing.provider,
+                client_id: existing.client_id,
+                redirect_uri: existing.redirect_uri,
+                tenant_id: existing.tenant_id,
+                domain_hint: existing.domain_hint,
+                is_enabled: existing.is_enabled,
+              },
             },
           },
-        });
+          { cors: corsOptions },
+        );
       }
 
       default:
-        return jsonResponse({ error: "Unsupported action" }, 400);
+        return createJsonResponse({ error: "Unsupported action" }, { status: 400, cors: corsOptions });
     }
   } catch (error) {
     console.error("manage-sso-config error", error);
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return jsonResponse({ error: message }, 500);
+    return createJsonResponse({ error: message }, { status: 500, cors: corsOptions });
   }
 });

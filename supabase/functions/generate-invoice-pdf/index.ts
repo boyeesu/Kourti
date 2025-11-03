@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createCorsSecurityHeaders, createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
 };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -12,7 +12,7 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -81,23 +81,23 @@ serve(async (req: Request) => {
 
     console.log('PDF generated successfully');
 
+    const headers = new Headers(createCorsSecurityHeaders(corsOptions));
+    headers.set('Content-Type', 'application/pdf');
+    headers.set('Content-Disposition', `attachment; filename="invoice-${invoice.invoice_number}.pdf"`);
+
     return new Response(pdfBuffer as unknown as BodyInit, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="invoice-${invoice.invoice_number}.pdf"`,
-      },
+      headers,
     });
 
   } catch (error: any) {
     console.error('Error generating invoice PDF:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message || 'PDF generation failed',
-      success: false
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createJsonResponse(
+      {
+        error: error.message || 'PDF generation failed',
+        success: false,
+      },
+      { status: 500, cors: corsOptions },
+    );
   }
 });
 

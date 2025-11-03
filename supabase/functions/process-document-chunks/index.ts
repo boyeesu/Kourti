@@ -3,10 +3,10 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
 };
 
 type DocumentChunkInsert = {
@@ -55,7 +55,7 @@ function chunkText(text: string, maxTokens: number = 500): Array<{content: strin
 
 export const processDocumentChunksHandler = async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -226,13 +226,14 @@ export const processDocumentChunksHandler = async (req: Request) => {
     console.log(`Created ${chunks.length} chunks`);
 
     if (chunks.length === 0) {
-      return new Response(JSON.stringify({ 
-        success: true, 
-        chunksProcessed: 0,
-        message: 'Document too short for chunking'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createJsonResponse(
+        {
+          success: true,
+          chunksProcessed: 0,
+          message: 'Document too short for chunking',
+        },
+        { cors: corsOptions },
+      );
     }
 
     // Step 3: Generate embeddings in batches and store chunks
@@ -361,20 +362,21 @@ export const processDocumentChunksHandler = async (req: Request) => {
 
     console.log(`Successfully processed ${processedChunks.length} chunks`);
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      chunksProcessed: processedChunks.length,
-      totalChunks: chunks.length,
-      chunks: processedChunks,
-      documentId: documentId || contractId,
-      documentType
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createJsonResponse(
+      {
+        success: true,
+        chunksProcessed: processedChunks.length,
+        totalChunks: chunks.length,
+        chunks: processedChunks,
+        documentId: documentId || contractId,
+        documentType,
+      },
+      { cors: corsOptions },
+    );
 
   } catch (error: any) {
     console.error('Error in process-document-chunks function:', error);
-    return createErrorResponse(error, corsHeaders, 'Failed to process document chunks');
+    return createErrorResponse(error, corsOptions, 'Failed to process document chunks');
   }
 };
 

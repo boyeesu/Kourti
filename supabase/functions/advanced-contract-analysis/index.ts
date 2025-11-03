@@ -3,10 +3,10 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
 };
 
 const DEFAULT_CHAT_MODEL = 'gpt-4.1';
@@ -102,7 +102,7 @@ async function requestChatCompletion(body: Record<string, unknown>) {
 export const advancedContractAnalysisHandler = async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -386,18 +386,19 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
       }
     }
 
-    return new Response(JSON.stringify({
-      analysis,
-      success: true,
-      tokensUsed: data.usage?.total_tokens || 0,
-      modelUsed,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createJsonResponse(
+      {
+        analysis,
+        success: true,
+        tokensUsed: data.usage?.total_tokens || 0,
+        modelUsed,
+      },
+      { cors: corsOptions },
+    );
 
   } catch (error: any) {
     console.error('Error in advanced contract analysis:', error);
-    return createErrorResponse(error, corsHeaders, 'Analysis failed');
+    return createErrorResponse(error, corsOptions, 'Analysis failed');
   }
 };
 

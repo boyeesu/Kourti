@@ -1,3 +1,5 @@
+import { createJsonResponse, createCorsSecurityHeaders, CorsSecurityHeadersOptions } from './responseHeaders.ts';
+
 export type ErrorDetails = Record<string, unknown> | undefined;
 
 export class HttpError extends Error {
@@ -16,11 +18,9 @@ export class HttpError extends Error {
 
 export function createErrorResponse(
   error: unknown,
-  corsHeaders: Record<string, string>,
+  corsOptions: CorsSecurityHeadersOptions = {},
   fallbackMessage = 'Internal Server Error',
 ) {
-  const headers = { ...corsHeaders, 'Content-Type': 'application/json' };
-
   if (error instanceof HttpError) {
     const payload: Record<string, unknown> = {
       success: false,
@@ -32,20 +32,27 @@ export function createErrorResponse(
       payload.details = error.details;
     }
 
-    return new Response(JSON.stringify(payload), {
+    return createJsonResponse(payload, {
       status: error.status,
-      headers,
+      cors: corsOptions,
     });
   }
 
   const message = error instanceof Error ? error.message : fallbackMessage;
 
-  return new Response(JSON.stringify({
-    success: false,
-    error: message || fallbackMessage,
-    errorCode: 'INTERNAL_ERROR',
-  }), {
-    status: 500,
-    headers,
-  });
+  return createJsonResponse(
+    {
+      success: false,
+      error: message || fallbackMessage,
+      errorCode: 'INTERNAL_ERROR',
+    },
+    {
+      status: 500,
+      cors: corsOptions,
+    },
+  );
+}
+
+export function createCorsHeaders(options: CorsSecurityHeadersOptions = {}): Record<string, string> {
+  return createCorsSecurityHeaders(options);
 }
