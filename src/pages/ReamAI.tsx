@@ -286,6 +286,7 @@ export default function ReamAI() {
   const [isDocSelectorOpen, setIsDocSelectorOpen] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const contractToastRef = useRef<string | null>(null);
+  const lastAppliedContractRef = useRef<string | null>(null);
   const { toast } = useToast();
 
   // Load document from sessionStorage if passed from Documents page
@@ -355,24 +356,32 @@ export default function ReamAI() {
   // Auto-select contract from URL params
   useEffect(() => {
     if (!contractSearchParam) {
+      lastAppliedContractRef.current = null;
+      return;
+    }
+
+    if (lastAppliedContractRef.current === contractSearchParam) {
       return;
     }
 
     if (selectedDoc?.id === contractSearchParam) {
+      lastAppliedContractRef.current = contractSearchParam;
       return;
     }
 
     const contractFromList = contracts.find((c) => c.id === contractSearchParam);
     if (contractFromList) {
       handleSelectDoc(contractFromList, true);
+      lastAppliedContractRef.current = contractSearchParam;
       return;
     }
 
     if (contractFromParam) {
       handleSelectDoc(contractFromParam, true);
+      lastAppliedContractRef.current = contractSearchParam;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contractSearchParam, contracts, contractFromParam, selectedDoc?.id]);
+  }, [contractSearchParam, contracts, contractFromParam]);
 
   // Provide feedback if the contract fails to load
   useEffect(() => {
