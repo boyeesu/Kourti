@@ -301,7 +301,11 @@ export default function UserManagement() {
                           {canManageRoles && !isPendingInvitation ? (
                             <Select
                               value={user.role}
-                              onValueChange={(newRole) => handleChangeRole(user.user_id!, newRole)}
+                              onValueChange={(newRole) => {
+                                if (window.confirm(`Are you sure you want to change ${fullName}'s role to "${newRole}"? This will modify their access permissions.`)) {
+                                  handleChangeRole(user.user_id!, newRole);
+                                }
+                              }}
                               disabled={changeUserRole.isPending}
                             >
                               <SelectTrigger className="w-[180px]">

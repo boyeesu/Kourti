@@ -112,7 +112,7 @@ const TranscriptionsList: React.FC = () => {
                       <div className="flex items-center space-x-4 text-sm">
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-4 w-4" />
-                          <span>{format(new Date(transcription.created_at), 'MMM d, yyyy')}</span>
+                          <span>{format(new Date(transcription.created_at), 'MMM d, yyyy h:mm a')}</span>
                         </div>
                         {transcription.duration_seconds && (
                           <div className="flex items-center space-x-1">

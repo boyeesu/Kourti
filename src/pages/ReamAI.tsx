@@ -286,6 +286,20 @@ export default function ReamAI() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // Load document from sessionStorage if passed from Documents page
+  useEffect(() => {
+    const docData = sessionStorage.getItem('ream_ai_document');
+    if (docData) {
+      try {
+        const doc = JSON.parse(docData);
+        handleSelectDoc(doc, false);
+        sessionStorage.removeItem('ream_ai_document'); // Clear after loading
+      } catch (e) {
+        console.error('Failed to load document:', e);
+      }
+    }
+  }, []);
+
   // Get current organization for document processing
   const { data: organization } = useOrganization();
 

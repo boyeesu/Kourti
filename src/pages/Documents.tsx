@@ -309,7 +309,10 @@ export default function Documents() {
                               <Eye className="h-4 w-4 mr-2" />
                               View Document
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/ream-ai?documentId=${doc.id}`)}>
+                            <DropdownMenuItem onClick={() => {
+                              sessionStorage.setItem('ream_ai_document', JSON.stringify(doc));
+                              navigate('/ream-ai');
+                            }}>
                               <MessageSquare className="h-4 w-4 mr-2" />
                               AI Review
                             </DropdownMenuItem>

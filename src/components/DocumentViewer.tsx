@@ -153,32 +153,15 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
 
     const mimeType = document.mime_type || '';
 
-    // PDF viewer with better preview handling
+    // PDF viewer with inline iframe
     if (mimeType.includes('pdf')) {
       return (
-        <div className="h-96 flex flex-col bg-muted/30 rounded-lg overflow-hidden">
-          <div className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center">
-              <FileText className="h-16 w-16 text-primary mb-4 mx-auto" />
-              <h3 className="text-lg font-semibold mb-2">PDF Document</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {document.name}
-              </p>
-              <p className="text-xs text-muted-foreground mb-6">
-                Click below to view or download this PDF document
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button onClick={handleExternalView} size="lg">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open in New Tab
-                </Button>
-                <Button variant="outline" onClick={handleDownload} size="lg">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
-              </div>
-            </div>
-          </div>
+        <div className="h-[70vh] bg-background rounded-lg overflow-hidden">
+          <iframe
+            src={fileUrl}
+            className="w-full h-full border-0"
+            title={document.name}
+          />
         </div>
       );
     }
@@ -233,7 +216,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>

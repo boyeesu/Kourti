@@ -335,7 +335,11 @@ export default function App() { // Changed to App for React component export
               <TableBody>
                 {filteredCases.length > 0 ? (
                   filteredCases.map((case_item) => (
-                    <TableRow key={case_item.id} className="hover:bg-muted/50">
+                    <TableRow 
+                      key={case_item.id} 
+                      className="hover:bg-muted/50 cursor-pointer"
+                      onClick={() => navigate(`/matters/${case_item.id}`)}
+                    >
                       <TableCell>
                         <div>
                           <div className="font-medium text-foreground">{case_item.name}</div>

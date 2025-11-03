@@ -76,6 +76,11 @@ export default function CaseCreate() {
     console.log('Selected case issue ID:', caseIssueId);
   }, [caseTypes, caseTypeId, caseIssues, caseIssueId]);
   
+  // Remember last used matter type
+  const lastMatterType = typeof window !== 'undefined' 
+    ? localStorage.getItem('last_matter_type') 
+    : '';
+
   const form = useForm<CaseFormData>({
     resolver: zodResolver(caseSchema),
     defaultValues: {
@@ -85,10 +90,17 @@ export default function CaseCreate() {
       priority: "medium",
       client_id: "",
       court: "",
-      case_type_id: "",
+      case_type_id: lastMatterType || "",
       case_issue_id: "",
     },
   });
+
+  // Save matter type to localStorage when changed
+  useEffect(() => {
+    if (caseTypeId && typeof window !== 'undefined') {
+      localStorage.setItem('last_matter_type', caseTypeId);
+    }
+  }, [caseTypeId]);
 
   // Reset issue when type changes
   useEffect(() => {
