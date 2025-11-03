@@ -31,21 +31,42 @@ import { useUpdateCalendarEvent } from "@/hooks/useCalendar";
 import { useCases } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 
-const eventSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  start_date: z.string().min(1, "Start date is required"),
-  end_date: z.string().min(1, "End date is required"),
-  location: z.string().optional(),
-  event_type: z.enum(["meeting", "hearing", "deadline", "deposition", "review", "consultation"]),
-  case_id: z.string().optional(),
-  client_id: z.string().optional(),
-  attendees: z.array(z.string()).optional(),
-});
+const eventSchema = z
+  .object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    start_date: z.string().min(1, "Start date is required"),
+    end_date: z.string().min(1, "End date is required"),
+    location: z.string().optional(),
+    event_type: z.enum(["meeting", "hearing", "deadline", "deposition", "review", "consultation"]),
+    case_id: z.string().optional(),
+    client_id: z.string().optional(),
+    attendees: z.array(z.string()).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.start_date || !data.end_date) {
+      return;
+    }
+
+    const start = new Date(data.start_date);
+    const end = new Date(data.end_date);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return;
+    }
+
+    if (end <= start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End date must be after the start date",
+        path: ["end_date"],
+      });
+    }
+  });
 
 type EventFormValues = z.infer<typeof eventSchema>;
 
@@ -75,6 +96,44 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
       attendees: event.attendees || [],
     },
   });
+
+  const startDateValue = form.watch("start_date");
+  const previousStartDateRef = useRef(startDateValue);
+
+  useEffect(() => {
+    if (previousStartDateRef.current === startDateValue) {
+      return;
+    }
+
+    previousStartDateRef.current = startDateValue;
+
+    const startFieldState = form.getFieldState("start_date");
+    const endFieldState = form.getFieldState("end_date");
+
+    if (!startFieldState.isDirty) {
+      return;
+    }
+
+    if (!startDateValue) {
+      if (!endFieldState.isDirty) {
+        form.setValue("end_date", "", { shouldDirty: false, shouldValidate: true });
+      }
+      return;
+    }
+
+    if (endFieldState.isDirty) {
+      return;
+    }
+
+    const start = new Date(startDateValue);
+    if (Number.isNaN(start.getTime())) {
+      return;
+    }
+
+    const autoEnd = new Date(start.getTime() + 60 * 60 * 1000);
+    const formattedEnd = format(autoEnd, "yyyy-MM-dd'T'HH:mm");
+    form.setValue("end_date", formattedEnd, { shouldDirty: false, shouldValidate: true });
+  }, [startDateValue, form]);
 
   const onSubmit = async (data: EventFormValues) => {
     try {
