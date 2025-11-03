@@ -335,14 +335,18 @@ export default function App() { // Changed to App for React component export
               <TableBody>
                 {filteredCases.length > 0 ? (
                   filteredCases.map((case_item) => (
-                    <TableRow 
-                      key={case_item.id} 
-                      className="hover:bg-muted/50 cursor-pointer"
-                      onClick={() => navigate(`/matters/${case_item.id}`)}
+                    <TableRow
+                      key={case_item.id}
+                      className="hover:bg-muted/50 focus-within:bg-muted/50"
                     >
                       <TableCell>
-                        <div>
-                          <div className="font-medium text-foreground">{case_item.name}</div>
+                        <div className="space-y-1">
+                          <Link
+                            to={`/matters/${case_item.id}`}
+                            className="font-medium text-foreground outline-none transition hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:ring-offset-background rounded-sm"
+                          >
+                            {case_item.name}
+                          </Link>
                           <div className="text-sm text-muted-foreground">
                             Started {case_item.startDate}
                           </div>
@@ -380,7 +384,14 @@ export default function App() { // Changed to App for React component export
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="hover:bg-gray-100">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="hover:bg-gray-100"
+                              onClick={(event) => event.stopPropagation()}
+                              onKeyDown={(event) => event.stopPropagation()}
+                              onPointerDown={(event) => event.stopPropagation()}
+                            >
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
