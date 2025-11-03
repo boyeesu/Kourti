@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="https://storage.googleapis.com/gpt-engineer-file-uploads/HHCXzjPOUfg9KVVhfUadI6o8sMl2/uploads/1757594453813-Jonathan kaulana.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      NOTE: __CSP_NONCE__ must be replaced at runtime with a cryptographically
+      secure nonce (e.g., generated per-response on the server) to keep inline
+      styles/scripts compatible with the CSP below.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'nonce-__CSP_NONCE__'; img-src 'self' https://storage.googleapis.com data:; font-src 'self'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), camera=(), microphone=()" />
     <title>Kourti Legal</title>
     <meta name="description" content="Legal Practice Management Software">
     <meta name="author" content="Kourti Legal" />
@@ -20,8 +31,14 @@
     <script type="module" src="/src/main.tsx"></script>
 
     <!-- Fallback for no JavaScript -->
+    <style nonce="__CSP_NONCE__">
+      noscript .no-js-wrapper {
+        padding: 2rem;
+        text-align: center;
+      }
+    </style>
     <noscript>
-      <div style="padding: 2rem; text-align: center;">
+      <div class="no-js-wrapper">
         <h1>JavaScript Required</h1>
         <p>Please enable JavaScript to use Kourti Legal.</p>
       </div>
