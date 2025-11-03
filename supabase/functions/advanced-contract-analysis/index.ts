@@ -3,11 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const DEFAULT_CHAT_MODEL = 'gpt-4.1';
 const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -100,9 +96,18 @@ async function requestChatCompletion(body: Record<string, unknown>) {
 }
 
 export const advancedContractAnalysisHandler = async (req: Request) => {
+  const { headers: corsHeaders, isAllowed } = buildCorsHeaders(req.headers.get('origin'));
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    if (!isAllowed) {
+      return new Response('Origin not allowed', { status: 403, headers: corsHeaders });
+    }
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!isAllowed) {
+    return new Response('Origin not allowed', { status: 403, headers: corsHeaders });
   }
 
   try {

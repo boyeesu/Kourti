@@ -177,6 +177,7 @@ SUPABASE_URL, SUPABASE_ANON_KEY (for front-end)
 SUPABASE_SERVICE_ROLE_KEY (for edge functions if needed)
 DOCUMENSO_BASE_URL=<https://your-documenso-instance>
 DOCUMENSO_API_KEY=<your-documenso-api-key>
+ALLOWED_ORIGINS=<https://app.example.com,https://admin.example.com> # optional CORS allowlist for edge functions
 ```
 
 Set the Documenso secrets with the Supabase CLI for local and deployed environments:

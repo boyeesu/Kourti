@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+import { buildCorsHeaders } from "../_shared/cors.ts";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const SSO_STATE_SECRET = Deno.env.get("SSO_STATE_SECRET");
@@ -17,24 +19,6 @@ if (!SSO_STATE_SECRET) {
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   : null;
-
-const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  "http://localhost:3000",
-  "http://localhost:5173",
-].filter(Boolean);
-
-function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "*");
-  
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Credentials": "true",
-  };
-}
 
 type Provider = "google" | "microsoft";
 
@@ -287,10 +271,19 @@ async function redirectToMagicLink(email: string, provider: Provider, redirectTo
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
-  
+  const { headers: corsHeaders, isAllowed } = buildCorsHeaders(req.headers.get('origin'), {
+    allowCredentials: true,
+  });
+
   if (req.method === "OPTIONS") {
+    if (!isAllowed) {
+      return new Response("Origin not allowed", { status: 403, headers: corsHeaders });
+    }
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!isAllowed) {
+    return new Response("Origin not allowed", { status: 403, headers: corsHeaders });
   }
 
   if (!supabase) {

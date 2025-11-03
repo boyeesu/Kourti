@@ -1,14 +1,19 @@
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 export const generateEmbeddingsHandler = async (req: Request) => {
+  const { headers: corsHeaders, isAllowed } = buildCorsHeaders(req.headers.get('origin'));
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    if (!isAllowed) {
+      return new Response('Origin not allowed', { status: 403, headers: corsHeaders });
+    }
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!isAllowed) {
+    return new Response('Origin not allowed', { status: 403, headers: corsHeaders });
   }
 
   try {

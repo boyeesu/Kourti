@@ -1,9 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const documensoBaseUrl = (Deno.env.get("DOCUMENSO_BASE_URL") || Deno.env.get("DOCUMENSO_URL") || "").replace(/\/+$/, "");
 const documensoApiKey = Deno.env.get("DOCUMENSO_API_KEY") || Deno.env.get("DOCUMENSO_SECRET_KEY") || "";
@@ -55,10 +52,10 @@ function base64ToBytes(base64: string) {
   return bytes;
 }
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status = 200, corsHeaders?: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...(corsHeaders ?? {}), "Content-Type": "application/json" },
   });
 }
 
@@ -184,8 +181,17 @@ async function handleShareDocument(payload: ShareDocumentPayload) {
 }
 
 serve(async (req: Request) => {
+  const { headers: corsHeaders, isAllowed } = buildCorsHeaders(req.headers.get("origin"));
+
   if (req.method === "OPTIONS") {
+    if (!isAllowed) {
+      return new Response("Origin not allowed", { status: 403, headers: corsHeaders });
+    }
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (!isAllowed) {
+    return new Response("Origin not allowed", { status: 403, headers: corsHeaders });
   }
 
   try {
@@ -195,19 +201,19 @@ serve(async (req: Request) => {
 
     switch (payload.action) {
       case "upload":
-        return jsonResponse(await handleUpload(payload));
+        return jsonResponse(await handleUpload(payload), 200, corsHeaders);
       case "addSigner":
-        return jsonResponse(await handleAddSigner(payload));
+        return jsonResponse(await handleAddSigner(payload), 200, corsHeaders);
       case "getSigningUrl":
-        return jsonResponse(await handleGetSigningUrl(payload));
+        return jsonResponse(await handleGetSigningUrl(payload), 200, corsHeaders);
       case "shareDocument":
-        return jsonResponse(await handleShareDocument(payload));
+        return jsonResponse(await handleShareDocument(payload), 200, corsHeaders);
       default:
-        return jsonResponse({ error: "Unsupported action" }, 400);
+        return jsonResponse({ error: "Unsupported action" }, 400, corsHeaders);
     }
   } catch (error) {
     console.error("Documenso function error", error);
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse({ error: message }, 500, corsHeaders);
   }
 });

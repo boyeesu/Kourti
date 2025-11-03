@@ -1,9 +1,5 @@
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-
-const voiceCorsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const DEFAULT_CHAT_MODEL = 'gpt-4.1';
 const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -79,8 +75,17 @@ async function requestChatCompletion(apiKey: string, body: Record<string, unknow
 }
 
 export const voiceTranscriptionHandler = async (req: Request) => {
+  const { headers: corsHeaders, isAllowed } = buildCorsHeaders(req.headers.get('origin'));
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: voiceCorsHeaders });
+    if (!isAllowed) {
+      return new Response('Origin not allowed', { status: 403, headers: corsHeaders });
+    }
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!isAllowed) {
+    return new Response('Origin not allowed', { status: 403, headers: corsHeaders });
   }
 
   try {
@@ -141,7 +146,7 @@ export const voiceTranscriptionHandler = async (req: Request) => {
         transcript: transcriptionResult.text,
         duration: transcriptionResult.duration || null
       }), {
-        headers: { ...voiceCorsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
     } else if (action === 'summarize') {
@@ -178,7 +183,7 @@ export const voiceTranscriptionHandler = async (req: Request) => {
         summary,
         modelUsed,
       }), {
-        headers: { ...voiceCorsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
     } else {
@@ -187,7 +192,7 @@ export const voiceTranscriptionHandler = async (req: Request) => {
 
   } catch (error: any) {
     console.error('Error in voice-transcription function:', error);
-    return createErrorResponse(error, voiceCorsHeaders, 'Voice transcription failed');
+    return createErrorResponse(error, corsHeaders, 'Voice transcription failed');
   }
 };
 

@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -71,7 +68,7 @@ type SsoConfigRow = {
   updated_at: string;
 };
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: unknown, status = 200, corsHeaders: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -156,16 +153,28 @@ async function fetchExistingConfig(
 }
 
 serve(async (req: Request) => {
+  const { headers: corsHeaders, isAllowed } = buildCorsHeaders(req.headers.get("origin"));
+
   if (req.method === "OPTIONS") {
+    if (!isAllowed) {
+      return new Response("Origin not allowed", { status: 403, headers: corsHeaders });
+    }
+
     return new Response(null, { headers: corsHeaders });
   }
+
+  if (!isAllowed) {
+    return new Response("Origin not allowed", { status: 403, headers: corsHeaders });
+  }
+
+  const respond = (body: unknown, status = 200) => jsonResponse(body, status, corsHeaders);
 
   try {
     ensureConfigured();
 
     const token = normalizeToken(req.headers.get("Authorization"));
     if (!token) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return respond({ error: "Unauthorized" }, 401);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -176,7 +185,7 @@ serve(async (req: Request) => {
     } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return respond({ error: "Unauthorized" }, 401);
     }
 
     // Get user's organization_id
@@ -187,7 +196,7 @@ serve(async (req: Request) => {
       .single();
 
     if (profileError || !profile) {
-      return jsonResponse({ error: "User profile not found" }, 404);
+      return respond({ error: "User profile not found" }, 404);
     }
 
     // Check if user has superadmin role in user_role_assignments
@@ -199,13 +208,13 @@ serve(async (req: Request) => {
 
     if (roleError) {
       console.error("Failed to check user permissions", roleError);
-      return jsonResponse({ error: "Failed to check user permissions" }, 500);
+      return respond({ error: "Failed to check user permissions" }, 500);
     }
 
     const isSuperadmin = roleAssignments?.some((r: { role_name: string }) => r.role_name === "superadmin");
 
     if (!isSuperadmin) {
-      return jsonResponse({ error: "Only superadmins can manage SSO configurations" }, 403);
+      return respond({ error: "Only superadmins can manage SSO configurations" }, 403);
     }
 
     const request = (await req.json()) as ManageSsoConfigRequest;
@@ -214,7 +223,7 @@ serve(async (req: Request) => {
       case "create": {
         const payload = request.payload;
         if (!payload.provider || !payload.clientId) {
-          return jsonResponse({ error: "provider and clientId are required" }, 400);
+          return respond({ error: "provider and clientId are required" }, 400);
         }
 
         validateRedirectUri(payload.redirectUri);
@@ -238,22 +247,22 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to create SSO config", error);
-          return jsonResponse({ error: error.message }, 400);
+          return respond({ error: error.message }, 400);
         }
 
-        return jsonResponse({ data });
+        return respond({ data });
       }
 
       case "update": {
         const payload = request.payload;
         if (!payload.id) {
-          return jsonResponse({ error: "id is required for updates" }, 400);
+          return respond({ error: "id is required for updates" }, 400);
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+          return respond({ error: "SSO configuration not found in your organization" }, 404);
         }
 
         const redirectUri = payload.redirectUri ?? existing.redirect_uri ?? null;
@@ -281,22 +290,22 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to update SSO config", error);
-          return jsonResponse({ error: error.message }, 400);
+          return respond({ error: error.message }, 400);
         }
 
-        return jsonResponse({ data });
+        return respond({ data });
       }
 
       case "rotate": {
         const payload = request.payload;
         if (!payload.id || !payload.clientSecret) {
-          return jsonResponse({ error: "id and clientSecret are required for rotation" }, 400);
+          return respond({ error: "id and clientSecret are required for rotation" }, 400);
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+          return respond({ error: "SSO configuration not found in your organization" }, 404);
         }
 
         const { data, error } = await supabase
@@ -313,16 +322,16 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to rotate SSO secret", error);
-          return jsonResponse({ error: error.message }, 400);
+          return respond({ error: error.message }, 400);
         }
 
-        return jsonResponse({ data });
+        return respond({ data });
       }
 
       case "delete": {
         const payload = request.payload;
         if (!payload.id) {
-          return jsonResponse({ error: "id is required for deletion" }, 400);
+          return respond({ error: "id is required for deletion" }, 400);
         }
 
         const { error } = await supabase
@@ -333,22 +342,22 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to delete SSO config", error);
-          return jsonResponse({ error: error.message }, 400);
+          return respond({ error: error.message }, 400);
         }
 
-        return jsonResponse({ success: true });
+        return respond({ success: true });
       }
 
       case "test": {
         const payload = request.payload;
         if (!payload.id) {
-          return jsonResponse({ error: "id is required for testing" }, 400);
+          return respond({ error: "id is required for testing" }, 400);
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return jsonResponse({ error: "SSO configuration not found in your organization" }, 404);
+          return respond({ error: "SSO configuration not found in your organization" }, 404);
         }
 
         // Validate configuration completeness
@@ -371,7 +380,7 @@ serve(async (req: Request) => {
         }
 
         if (validationErrors.length > 0) {
-          return jsonResponse({
+          return respond({
             data: {
               success: false,
               errors: validationErrors,
@@ -381,7 +390,7 @@ serve(async (req: Request) => {
         }
 
         // All validations passed
-        return jsonResponse({
+        return respond({
           data: {
             success: true,
             message: `${existing.provider === "google" ? "Google Workspace" : "Microsoft Entra ID"} SSO configuration is valid and ready`,
@@ -398,11 +407,11 @@ serve(async (req: Request) => {
       }
 
       default:
-        return jsonResponse({ error: "Unsupported action" }, 400);
+        return respond({ error: "Unsupported action" }, 400);
     }
   } catch (error) {
     console.error("manage-sso-config error", error);
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return jsonResponse({ error: message }, 500);
+    return respond({ error: message }, 500);
   }
 });

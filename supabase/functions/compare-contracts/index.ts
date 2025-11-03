@@ -1,14 +1,20 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const { headers: corsHeaders, isAllowed } = buildCorsHeaders(req.headers.get('origin'));
+
   if (req.method === 'OPTIONS') {
+    if (!isAllowed) {
+      return new Response('Origin not allowed', { status: 403, headers: corsHeaders });
+    }
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!isAllowed) {
+    return new Response('Origin not allowed', { status: 403, headers: corsHeaders });
   }
 
   try {
