@@ -2,10 +2,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore Deno runtime
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
 };
 
 const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
@@ -16,7 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -42,39 +42,21 @@ serve(async (req: Request) => {
 
     if (!authHeader) {
       console.warn('Missing Authorization header');
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
     }
 
     const accessToken = authHeader.replace('Bearer ', '').trim();
 
     if (!accessToken) {
       console.warn('Authorization header present but token missing');
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
 
     if (authError || !user) {
       console.warn('Failed to resolve user from token', authError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -90,12 +72,9 @@ serve(async (req: Request) => {
 
     if (!profile?.organization_id) {
       console.warn('User profile missing organization');
-      return new Response(
-        JSON.stringify({ error: 'User must belong to an organization to create contracts' }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+      return createJsonResponse(
+        { error: 'User must belong to an organization to create contracts' },
+        { status: 403, cors: corsOptions },
       );
     }
 
@@ -241,27 +220,17 @@ ${template}`;
 
     console.log('Contract saved successfully:', savedContract.id);
 
-    return new Response(
-      JSON.stringify({
+    return createJsonResponse(
+      {
         success: true,
         contract: savedContract,
         generatedText: generatedContract,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      },
+      { cors: corsOptions },
     );
   } catch (error: unknown) {
     console.error('Error in ai-contract-generator:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return new Response(
-      JSON.stringify({
-        error: errorMessage,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return createJsonResponse({ error: errorMessage }, { status: 500, cors: corsOptions });
   }
 });

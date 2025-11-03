@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -24,15 +25,16 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
 ].filter(Boolean);
 
-function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
     ? requestOrigin
     : (ALLOWED_ORIGINS[0] || "*");
-  
+
   return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Credentials": "true",
+    origin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
   };
 }
 
@@ -287,14 +289,14 @@ async function redirectToMagicLink(email: string, provider: Provider, redirectTo
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
-  
+  const corsOptions = getCorsOptions(req.headers.get('origin'));
+
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   if (!supabase) {
-    return new Response("Supabase client is not configured", { status: 500, headers: corsHeaders });
+    return createJsonResponse({ error: "Supabase client is not configured" }, { status: 500, cors: corsOptions });
   }
 
   try {
@@ -308,12 +310,9 @@ serve(async (req) => {
       const redirectTo = Deno.env.get("APP_URL") ?? "";
       if (redirectTo) {
         const location = buildRedirectWithError(redirectTo, errorParam);
-        return new Response(null, { status: 302, headers: { Location: location } });
+        return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: location } });
       }
-      return new Response(JSON.stringify({ error: errorParam }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return createJsonResponse({ error: errorParam }, { status: 400, cors: corsOptions });
     }
 
     if (!code || !stateParam) {
@@ -381,21 +380,15 @@ serve(async (req) => {
     await upsertProfile(userId, email, config.organization_id, claims);
     const magicLink = await redirectToMagicLink(email, payload.provider, payload.redirect_to);
 
-    return new Response(null, {
-      status: 302,
-      headers: { Location: magicLink },
-    });
+    return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: magicLink } });
   } catch (error) {
     console.error("SSO callback handler error", error);
     const fallbackUrl = Deno.env.get("APP_URL") ?? "";
     if (fallbackUrl) {
       const location = buildRedirectWithError(fallbackUrl, "sso_callback_error");
-      return new Response(null, { status: 302, headers: { Location: location } });
+      return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: location } });
     }
     const errorMessage = error instanceof Error ? error.message : "Unexpected SSO error";
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return createJsonResponse({ error: errorMessage }, { status: 500, cors: corsOptions });
   }
 });

@@ -1,32 +1,26 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
     const { primaryText, comparisonText } = await req.json();
 
     if (!primaryText || !comparisonText) {
-      return new Response(
-        JSON.stringify({ error: 'Both documents are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createJsonResponse({ error: 'Both documents are required' }, { status: 400, cors: corsOptions });
     }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createJsonResponse({ error: 'OpenAI API key not configured' }, { status: 500, cors: corsOptions });
     }
 
     const systemPrompt = `You are an expert legal contract analyst. Compare two contract versions and identify differences with high precision.
@@ -91,9 +85,9 @@ Provide a detailed JSON comparison following the specified structure.`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: 'AI analysis failed', details: errorText }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      return createJsonResponse(
+        { error: 'AI analysis failed', details: errorText },
+        { status: 502, cors: corsOptions },
       );
     }
 
@@ -109,24 +103,15 @@ Provide a detailed JSON comparison following the specified structure.`;
       comparisonResult = JSON.parse(analysis);
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', analysis);
-      return new Response(
-        JSON.stringify({ error: 'Invalid response format from AI' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createJsonResponse({ error: 'Invalid response format from AI' }, { status: 500, cors: corsOptions });
     }
 
     console.log('Contract comparison completed successfully');
 
-    return new Response(
-      JSON.stringify(comparisonResult),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createJsonResponse(comparisonResult, { cors: corsOptions });
 
   } catch (error) {
     console.error('Error in compare-contracts function:', error);
-    return new Response(
-      JSON.stringify({ error: String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createJsonResponse({ error: String(error) }, { status: 500, cors: corsOptions });
   }
 });

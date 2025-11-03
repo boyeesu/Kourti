@@ -1,14 +1,14 @@
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
 };
 
 export const generateEmbeddingsHandler = async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -70,19 +70,20 @@ export const generateEmbeddingsHandler = async (req: Request) => {
 
     console.log(`Generated embedding with ${embedding.length} dimensions`);
 
-    return new Response(JSON.stringify({
-      success: true,
-      documentId,
-      documentType,
-      embedding,
-      embeddingLength: embedding.length
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createJsonResponse(
+      {
+        success: true,
+        documentId,
+        documentType,
+        embedding,
+        embeddingLength: embedding.length,
+      },
+      { cors: corsOptions },
+    );
 
   } catch (error: any) {
     console.error('Error in generate-embeddings function:', error);
-    return createErrorResponse(error, corsHeaders, 'Failed to generate embeddings');
+    return createErrorResponse(error, corsOptions, 'Failed to generate embeddings');
   }
 };
 

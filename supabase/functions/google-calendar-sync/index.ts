@@ -1,23 +1,20 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'No authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return createJsonResponse({ error: 'No authorization header' }, { status: 401, cors: corsOptions });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -28,10 +25,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
     }
 
     const { action, calendarId, timeMin, timeMax } = await req.json();
@@ -44,9 +38,9 @@ serve(async (req) => {
       .single();
 
     if (!ssoData?.metadata?.access_token) {
-      return new Response(
-        JSON.stringify({ error: 'Google Calendar not connected. Please configure Google SSO first.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      return createJsonResponse(
+        { error: 'Google Calendar not connected. Please configure Google SSO first.' },
+        { status: 400, cors: corsOptions },
       );
     }
 
@@ -67,9 +61,9 @@ serve(async (req) => {
       if (!calendarResponse.ok) {
         const errorText = await calendarResponse.text();
         console.error('Google Calendar API error:', errorText);
-        return new Response(
-          JSON.stringify({ error: 'Failed to fetch Google Calendar events' }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        return createJsonResponse(
+          { error: 'Failed to fetch Google Calendar events' },
+          { status: 502, cors: corsOptions },
         );
       }
 
@@ -88,22 +82,13 @@ serve(async (req) => {
         source: 'google_calendar'
       })) || [];
 
-      return new Response(
-        JSON.stringify({ events }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createJsonResponse({ events }, { cors: corsOptions });
     }
 
-    return new Response(
-      JSON.stringify({ error: 'Invalid action' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createJsonResponse({ error: 'Invalid action' }, { status: 400, cors: corsOptions });
 
   } catch (error) {
     console.error('Error in google-calendar-sync:', error);
-    return new Response(
-      JSON.stringify({ error: String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createJsonResponse({ error: String(error) }, { status: 500, cors: corsOptions });
   }
 });

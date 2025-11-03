@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
@@ -7,15 +8,16 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
 ].filter(Boolean);
 
-function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
     ? requestOrigin
     : (ALLOWED_ORIGINS[0] || "*");
-  
+
   return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Credentials": "true",
+    origin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
   };
 }
 
@@ -182,26 +184,20 @@ function buildAuthorizeUrl(config: SsoConfigRow, state: string, callbackUrl: str
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
-  
+  const corsOptions = getCorsOptions(req.headers.get('origin'));
+
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   if (!supabase) {
-    return new Response(JSON.stringify({ error: "Supabase client not configured" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return createJsonResponse({ error: "Supabase client not configured" }, { status: 500, cors: corsOptions });
   }
 
   try {
     const request: AuthorizeRequest = await req.json();
     if (!request.provider) {
-      return new Response(JSON.stringify({ error: "Missing provider" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return createJsonResponse({ error: "Missing provider" }, { status: 400, cors: corsOptions });
     }
 
     const config = await resolveConfig(request);
@@ -214,9 +210,9 @@ serve(async (req) => {
         organization_id: null,
         enforce_sso: false,
       };
-      return new Response(JSON.stringify(dryResponse), {
+      return createJsonResponse(dryResponse, {
         status: request.dry_run ? 200 : 404,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        cors: corsOptions,
       });
     }
 
@@ -234,18 +230,12 @@ serve(async (req) => {
         domain_match: request.email?.split("@").pop()?.toLowerCase() ?? null,
         redirect_to: config.redirect_uri ?? null,
       };
-      return new Response(JSON.stringify(dryResponse), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return createJsonResponse(dryResponse, { cors: corsOptions });
     }
 
     const redirectTo = request.redirect_to ?? config.redirect_uri;
     if (!redirectTo) {
-      return new Response(JSON.stringify({ error: "Missing redirect target" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return createJsonResponse({ error: "Missing redirect target" }, { status: 400, cors: corsOptions });
     }
 
     const callbackUrl = new URL(req.url);
@@ -265,21 +255,18 @@ serve(async (req) => {
     const state = await signState(statePayload);
     const authorizationUrl = buildAuthorizeUrl(config, state, callbackUrl.toString(), request);
 
-    return new Response(JSON.stringify({
-      authorization_url: authorizationUrl,
-      state,
-      provider: config.provider,
-      organization_id: config.organization_id,
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return createJsonResponse(
+      {
+        authorization_url: authorizationUrl,
+        state,
+        provider: config.provider,
+        organization_id: config.organization_id,
+      },
+      { cors: corsOptions },
+    );
   } catch (error) {
     console.error("SSO authorize handler error", error);
     const errorMessage = error instanceof Error ? error.message : "Unexpected error";
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return createJsonResponse({ error: errorMessage }, { status: 500, cors: corsOptions });
   }
 });

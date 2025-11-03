@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const corsOptions = {
+  allowMethods: ["POST", "OPTIONS"],
 };
 
 const documensoBaseUrl = (Deno.env.get("DOCUMENSO_BASE_URL") || Deno.env.get("DOCUMENSO_URL") || "").replace(/\/+$/, "");
@@ -53,13 +53,6 @@ function base64ToBytes(base64: string) {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
-}
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 }
 
 async function parseJsonSafe(response: Response) {
@@ -185,7 +178,7 @@ async function handleShareDocument(payload: ShareDocumentPayload) {
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -195,19 +188,19 @@ serve(async (req: Request) => {
 
     switch (payload.action) {
       case "upload":
-        return jsonResponse(await handleUpload(payload));
+        return createJsonResponse(await handleUpload(payload), { cors: corsOptions });
       case "addSigner":
-        return jsonResponse(await handleAddSigner(payload));
+        return createJsonResponse(await handleAddSigner(payload), { cors: corsOptions });
       case "getSigningUrl":
-        return jsonResponse(await handleGetSigningUrl(payload));
+        return createJsonResponse(await handleGetSigningUrl(payload), { cors: corsOptions });
       case "shareDocument":
-        return jsonResponse(await handleShareDocument(payload));
+        return createJsonResponse(await handleShareDocument(payload), { cors: corsOptions });
       default:
-        return jsonResponse({ error: "Unsupported action" }, 400);
+        return createJsonResponse({ error: "Unsupported action" }, { status: 400, cors: corsOptions });
     }
   } catch (error) {
     console.error("Documenso function error", error);
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return jsonResponse({ error: message }, 500);
+    return createJsonResponse({ error: message }, { status: 500, cors: corsOptions });
   }
 });

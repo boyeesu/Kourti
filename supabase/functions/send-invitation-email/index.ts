@@ -1,15 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore - Deno runtime import
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
+  allowCredentials: true,
 };
 
 interface InvitationEmailRequest {
@@ -26,7 +27,7 @@ interface InvitationEmailRequest {
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -77,41 +78,29 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (inviteError) {
       console.error('Error sending invitation email via Supabase:', inviteError);
-      return new Response(
-        JSON.stringify({
+      return createJsonResponse(
+        {
           error: 'Failed to send invitation email',
           details: inviteError.message,
-        }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        }
+        },
+        { status: 500, cors: corsOptions },
       );
     }
 
     console.log('Invitation sent successfully via Supabase Auth:', inviteData);
 
-    return new Response(
-      JSON.stringify({
+    return createJsonResponse(
+      {
         success: true,
         message: 'Invitation email sent successfully via Supabase Auth',
         user: inviteData.user,
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      }
+      },
+      { cors: corsOptions },
     );
 
   } catch (error: any) {
     console.error('Error in send-invitation-email function:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      }
-    );
+    return createJsonResponse({ error: error.message }, { status: 500, cors: corsOptions });
   }
 };
 

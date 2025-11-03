@@ -115,6 +115,11 @@ Examples:
 - Compare/Redline two contract versions and download diff as PDF.
 - Use the "Generate Contract" tool (AI) to create a draft; review, edit, then export as PDF/DOCX.
 
+### 3.1 Security & local testing notes
+- All Edge Functions now issue a shared CORS/security header set that includes `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`, and a default `Cache-Control: no-store, no-cache, must-revalidate` for authenticated JSON responses.
+- HSTS is automatically suppressed in local environments when `NODE_ENV=development`, `ENVIRONMENT=local`, or `SUPABASE_FUNCTIONS_ENV=local`. You can also force-disable it via `DISABLE_HSTS=true` (or `DISABLE_STRICT_TRANSPORT_SECURITY=true`) when running Supabase functions locally.
+- When manually invoking functions (e.g., `curl -I <function-url>`), expect to see the security header set on both success and error responses, including `OPTIONS` preflight replies.
+
 YAML Scheduler Example:
 ```yaml
 schedules:
