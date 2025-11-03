@@ -56,6 +56,10 @@ type QuickAction = {
   icon: LucideIcon;
 };
 
+type SendMessageOptions = {
+  overrideDocumentContent?: string;
+};
+
 const QUICK_ACTIONS: QuickAction[] = [
   {
     label: "Summarize",
@@ -773,7 +777,11 @@ export default function ReamAI() {
   }
 
   // Handle sending a message
-  async function sendMessage(e?: React.FormEvent, presetMessage?: string) {
+  async function sendMessage(
+    e?: React.FormEvent,
+    presetMessage?: string,
+    options?: SendMessageOptions
+  ) {
     e?.preventDefault();
 
     const userMessage = (presetMessage ?? input).trim();
@@ -835,6 +843,8 @@ export default function ReamAI() {
     ]);
 
     try {
+      const overrideDocumentContent = options?.overrideDocumentContent;
+
       let content: string = "";
       let contextInfo: string = "";
 
@@ -847,27 +857,35 @@ export default function ReamAI() {
           (relevantDocs.documents.length > 0 ||
             relevantDocs.contracts.length > 0))
       ) {
-        if (selectedDoc && documentContent) {
-          // Use the full content from the manually selected document
-          content = documentContent.fullContent || "";
+        if (selectedDoc && (documentContent || overrideDocumentContent)) {
+          const mergedDocumentContent = (documentContent ?? selectedDoc) as any;
+
+          // Use the full content from the manually selected document or the override provided
+          content =
+            overrideDocumentContent ??
+            documentContent?.fullContent ??
+            (documentContent?.type === "contract"
+              ? documentContent?.terms
+              : documentContent?.content) ??
+            "";
 
           // Add metadata for better context
           contextInfo = `Document: ${
-            documentContent.type === "contract"
-              ? documentContent.title
-              : documentContent.name
+            mergedDocumentContent.type === "contract"
+              ? mergedDocumentContent.title ?? mergedDocumentContent.name
+              : mergedDocumentContent.name ?? mergedDocumentContent.title ?? selectedDoc.name
           }
-Type: ${documentContent.type === "contract" ? "Contract" : "Document"}
-${documentContent.contract_type ? `Contract Type: ${documentContent.contract_type}` : ""}
-${documentContent.type === "contract" && documentContent.status ? `Status: ${documentContent.status}` : ""}
-${documentContent.value ? `Value: ${documentContent.currency || "USD"} ${documentContent.value}` : ""}
-${documentContent.type === "contract" && documentContent.start_date ? `Start Date: ${documentContent.start_date}` : ""}
-${documentContent.type === "contract" && documentContent.end_date ? `End Date: ${documentContent.end_date}` : ""}
-${documentContent.type === "document" && documentContent.effective_date ? `Effective Date: ${documentContent.effective_date}` : ""}
-${documentContent.type === "document" && documentContent.termination_date ? `Termination Date: ${documentContent.termination_date}` : ""}
+Type: ${mergedDocumentContent.type === "contract" ? "Contract" : "Document"}
+${mergedDocumentContent.contract_type ? `Contract Type: ${mergedDocumentContent.contract_type}` : ""}
+${mergedDocumentContent.type === "contract" && mergedDocumentContent.status ? `Status: ${mergedDocumentContent.status}` : ""}
+${mergedDocumentContent.value ? `Value: ${mergedDocumentContent.currency || "USD"} ${mergedDocumentContent.value}` : ""}
+${mergedDocumentContent.type === "contract" && mergedDocumentContent.start_date ? `Start Date: ${mergedDocumentContent.start_date}` : ""}
+${mergedDocumentContent.type === "contract" && mergedDocumentContent.end_date ? `End Date: ${mergedDocumentContent.end_date}` : ""}
+${mergedDocumentContent.type === "document" && mergedDocumentContent.effective_date ? `Effective Date: ${mergedDocumentContent.effective_date}` : ""}
+${mergedDocumentContent.type === "document" && mergedDocumentContent.termination_date ? `Termination Date: ${mergedDocumentContent.termination_date}` : ""}
 Created: ${
-            documentContent.created_at
-              ? new Date(documentContent.created_at).toLocaleDateString()
+            mergedDocumentContent.created_at
+              ? new Date(mergedDocumentContent.created_at).toLocaleDateString()
               : "Unknown"
           }
 
@@ -878,11 +896,12 @@ ${content}`;
 
           // If still no content, provide guidance
           if (!content.trim()) {
-            content = `Document "${
-              documentContent.type === "contract"
-                ? documentContent.title
-                : documentContent.name
-            }" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
+            const fallbackName =
+              mergedDocumentContent.type === "contract"
+                ? mergedDocumentContent.title ?? mergedDocumentContent.name ?? selectedDoc.name
+                : mergedDocumentContent.name ?? mergedDocumentContent.title ?? selectedDoc.name;
+
+            content = `Document "${fallbackName}" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
           }
         } else if (selectedFile && extractedContent) {
           // Use the extracted content
@@ -1129,6 +1148,8 @@ Please provide a helpful response to this legal question. If you need specific d
       return;
     }
 
+    let overrideDocumentContent: string | undefined;
+
     if (
       action.requiresDocument &&
       selectedDoc &&
@@ -1140,7 +1161,11 @@ Please provide a helpful response to this legal question. If you need specific d
         (selectedDoc.mime_type && selectedDoc.mime_type.toLowerCase().includes("pdf")) ||
           (selectedDoc.file_path && selectedDoc.file_path.toLowerCase().endsWith(".pdf"))
       );
-      const filePath = selectedDoc.file_path || documentContent.file_path;
+      const documentFilePath =
+        documentContent && typeof documentContent === "object" && "file_path" in documentContent
+          ? (documentContent as { file_path?: string }).file_path
+          : undefined;
+      const filePath = selectedDoc.file_path || documentFilePath;
 
       if (looksLikePdf && filePath) {
         try {
@@ -1160,7 +1185,9 @@ Please provide a helpful response to this legal question. If you need specific d
             return;
           }
 
-          setSelectedDoc((current) => {
+          overrideDocumentContent = extractedText;
+
+          setSelectedDoc((current: any) => {
             if (!current || current.id !== selectedDoc.id) {
               return current;
             }
@@ -1190,7 +1217,7 @@ Please provide a helpful response to this legal question. If you need specific d
       }
     }
 
-    void sendMessage(undefined, action.prompt);
+    void sendMessage(undefined, action.prompt, { overrideDocumentContent });
   };
 
   const activeDocumentLabel = selectedDoc
