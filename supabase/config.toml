@@ -35,6 +35,3 @@ verify_jwt = false
 
 [functions.sso-callback]
 verify_jwt = false
-
-[functions.send-calendar-reminder]
-verify_jwt = true

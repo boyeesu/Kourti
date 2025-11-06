@@ -187,7 +187,7 @@ export const voiceTranscriptionHandler = async (req: Request) => {
 
   } catch (error: any) {
     console.error('Error in voice-transcription function:', error);
-    return createErrorResponse(error, { origin: '*' }, 'Voice transcription failed');
+    return createErrorResponse(error, voiceCorsHeaders, 'Voice transcription failed');
   }
 };
 
