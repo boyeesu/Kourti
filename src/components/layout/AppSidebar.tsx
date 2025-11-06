@@ -39,7 +39,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/kourti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo-new.svg";
 import { cn } from "@/lib/utils";
 
 // Navigation item type definition

@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { buildDisplayName, getAuthRedirectUrl } from "@/utils/auth-helpers";
 import { env } from "@/lib/env";
-import logo from "@/assets/kourti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo-new.svg";
 
 const steps = [
   {

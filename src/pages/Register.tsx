@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Lock, Eye, EyeOff, User, Building, Globe2, LogIn } from "lucide-react";
-import logo from "@/assets/kourti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo-new.svg";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 

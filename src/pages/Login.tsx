@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Lock, Eye, EyeOff, Globe2, LogIn } from "lucide-react";
-import logo from "@/assets/kourti-legal-logo.png";
+import logo from "@/assets/kourti-legal-logo-new.svg";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -210,7 +210,7 @@ export default function Login() {
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
+            <img src={logo} alt="Kourti Legal" className="h-16 w-16 rounded-lg" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Welcome Back</CardTitle>
