@@ -11,7 +11,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, Globe2, LogIn } from "lucide-react
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/kourti-legal-logo-new.svg";
+import logo from "@/assets/kourti-legal-logo.png";
 
 type ProviderName = "google" | "microsoft";
 
@@ -255,7 +255,7 @@ export default function Auth() {
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kourti Legal" className="h-16 w-16 rounded-lg" />
+            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">

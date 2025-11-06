@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/kourti-legal-logo-new.svg";
+import logo from "@/assets/kourti-legal-logo.png";
 
 export default function SetPassword() {
   const [password, setPassword] = useState("");
