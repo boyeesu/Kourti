@@ -203,7 +203,16 @@ function LoadingFallback() {
 // App Component
 function InactivityHandler() {
   const { signOut } = useAuth();
-  useInactivityLogout({ onLogout: signOut });
+  const location = useLocation();
+  
+  // Disable inactivity logout on transcription pages
+  const isOnTranscriptionPage = location.pathname.startsWith('/voice-recorder') || 
+                                 location.pathname.startsWith('/transcriptions');
+  
+  useInactivityLogout({ 
+    onLogout: signOut, 
+    disabled: isOnTranscriptionPage 
+  });
   return null;
 }
 
