@@ -22,6 +22,7 @@ import {
 import { useDeleteCalendarEvent } from "@/hooks/useCalendar";
 import { useToast } from "@/hooks/use-toast";
 import { EventEditDialog } from "./EventEditDialog";
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 interface EventViewDialogProps {
   event: CalendarEvent | null;
@@ -33,6 +34,7 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
   const [showEditDialog, setShowEditDialog] = useState(false);
   const deleteEvent = useDeleteCalendarEvent();
   const { toast } = useToast();
+  const { createCalendarNotification } = useNotificationTriggers();
 
   if (!event) return null;
 
@@ -50,6 +52,8 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
 
   const handleDelete = async () => {
     try {
+      // Create notification before deletion
+      await createCalendarNotification(event, 'deleted');
       await deleteEvent.mutateAsync(event.id);
       onOpenChange(false);
     } catch (error) {

@@ -34,6 +34,7 @@ import { UploadCloud, Sparkles, Bot, Bell, ShieldCheck, FileText } from "lucide-
 import { useCases } from "@/hooks/useCases";
 import { useUploadDocument } from "@/hooks/useDocuments";
 import { Case } from "@/types";
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -67,6 +68,7 @@ export default function DocumentUpload() {
   const { toast } = useToast();
   // Assuming useUploadDocument returns a mutation object like useMutation
   const uploadDocument = useUploadDocument();
+  const { createDocumentNotification } = useNotificationTriggers();
 
   const { data: casesData = { cases: [], count: 0 } } = useCases();
 
@@ -118,7 +120,7 @@ export default function DocumentUpload() {
 
       // Use the logic from `codex` as it seems more complete for the document upload
       // and integrates all the fields from `formSchema`.
-      await uploadDocument.mutateAsync({
+      const newDocument = await uploadDocument.mutateAsync({
         name: values.name,
         file,
         case_id: selectedCase || undefined,
@@ -141,6 +143,9 @@ export default function DocumentUpload() {
           original_filename: file.name,
         },
       });
+
+      // Create notification
+      await createDocumentNotification(newDocument, 'created');
 
       toast({
         title: "Success",

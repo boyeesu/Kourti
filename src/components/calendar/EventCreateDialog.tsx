@@ -34,6 +34,7 @@ import { Plus, X } from "lucide-react";
 import { useCreateCalendarEvent } from "@/hooks/useCalendar";
 import { useCases } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 const eventSchema = z
   .object({
@@ -80,6 +81,7 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
   const createEvent = useCreateCalendarEvent();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
+  const { createCalendarNotification } = useNotificationTriggers();
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
@@ -158,7 +160,9 @@ export function EventCreateDialog({ children }: EventCreateDialogProps) {
       client_id: data.client_id === 'none' ? undefined : data.client_id,
     };
     try {
-      await createEvent.mutateAsync(payload);
+      const newEvent = await createEvent.mutateAsync(payload);
+      // Create notification
+      await createCalendarNotification(newEvent, 'created');
       form.reset();
       setOpen(false);
     } catch (error) {

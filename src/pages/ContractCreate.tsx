@@ -22,6 +22,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 interface ContractParty {
   id: string;
   name: string;
@@ -46,6 +47,7 @@ export default function ContractCreate() {
   const [template, setTemplate] = useState<string>("");
   const [additionalTerms, setAdditionalTerms] = useState<string>("");
   const [generatedContract, setGeneratedContract] = useState<any>(null);
+  const { createContractNotification } = useNotificationTriggers();
   const [contractData, setContractData] = useState({
     title: "",
     type: "",
@@ -253,6 +255,8 @@ export default function ContractCreate() {
       const result = await generateContract.mutateAsync(generationData);
       if (result.success) {
         setGeneratedContract(result.contract);
+        // Create notification
+        await createContractNotification(result.contract, 'created');
         setActiveTab("success");
       }
     } catch (error) {
