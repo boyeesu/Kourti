@@ -55,14 +55,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 export default function App() { // Changed to App for React component export
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { toast } = useToast();
-  const { createCaseNotification } = useNotificationTriggers();
 
   // Use real data hooks, combining error handling and pagination logic
   const {
@@ -145,13 +143,9 @@ export default function App() { // Changed to App for React component export
     : "";
 
   // Handle matter deletion
-  const handleDeleteCase = async (caseId: string, caseData?: any) => {
+  const handleDeleteCase = async (caseId: string) => {
     try {
       await deleteCase.mutateAsync(caseId);
-      // Create notification
-      if (caseData) {
-        await createCaseNotification(caseData, 'deleted');
-      }
       toast({
         title: "Matter Deleted",
         description: "The matter has been successfully deleted.",

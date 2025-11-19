@@ -12,14 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 export default function CaseEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: caseData, isLoading, error } = useCase(id!);
   const updateCase = useUpdateCase();
-  const { createCaseNotification } = useNotificationTriggers();
 
   const [form, setForm] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -74,15 +72,13 @@ export default function CaseEdit() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const updatedCase = await updateCase.mutateAsync({
+      await updateCase.mutateAsync({
         id: caseData!.id,
         ...form,
         case_type_id: caseTypeId,
         case_issue_id: caseIssueId,
         custom_fields: dynamicValues,
       } as any);
-      // Create notification
-      await createCaseNotification(updatedCase, 'updated');
       navigate(`/matters/${caseData!.id}`);
     } catch {
       /* handled in hook */

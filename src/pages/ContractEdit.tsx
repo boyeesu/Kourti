@@ -19,7 +19,6 @@ import {
   Loader2
 } from "lucide-react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 export default function ContractEdit() {
   const { id } = useParams();
@@ -27,7 +26,6 @@ export default function ContractEdit() {
   const { data: contract, isLoading } = useContract(id!);
   const updateContract = useUpdateContract();
   const deleteContract = useDeleteContract();
-  const { createContractNotification } = useNotificationTriggers();
   const [isModified, setIsModified] = useState(false);
   const [activeTab, setActiveTab] = useState("content");
 
@@ -92,12 +90,10 @@ export default function ContractEdit() {
 
   const handleSave = async () => {
     try {
-      const updatedContract = await updateContract.mutateAsync({
+      await updateContract.mutateAsync({
         id: id!,
         ...contractData,
       });
-      // Create notification
-      await createContractNotification(updatedContract, 'updated');
       setIsModified(false);
       navigate(`/contracts/${id}`);
     } catch (error) {
@@ -107,10 +103,6 @@ export default function ContractEdit() {
 
   const handleDelete = async () => {
     try {
-      // Create notification before deletion
-      if (contract) {
-        await createContractNotification(contract, 'deleted');
-      }
       await deleteContract.mutateAsync(id!);
       navigate("/contracts");
     } catch (error) {

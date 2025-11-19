@@ -30,7 +30,6 @@ import { CalendarEvent } from "@/types";
 import { useUpdateCalendarEvent } from "@/hooks/useCalendar";
 import { useCases } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
-import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -82,7 +81,6 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
   const [newAttendee, setNewAttendee] = useState("");
-  const { createCalendarNotification } = useNotificationTriggers();
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
@@ -148,12 +146,10 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
         client_id: data.client_id === 'none' ? undefined : data.client_id,
       };
       
-      const updatedEvent = await updateEvent.mutateAsync({
+      await updateEvent.mutateAsync({
         id: event.id,
         ...cleanedData,
       });
-      // Create notification
-      await createCalendarNotification(updatedEvent, 'updated');
       console.log('Calendar event updated successfully');
       onOpenChange(false, true); // Pass true to indicate successful update
     } catch (error) {

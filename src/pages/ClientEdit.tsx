@@ -36,7 +36,6 @@ import {
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { useEffect } from "react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 const clientSchema = z.object({
   name: z.string().min(1, "Client name is required"),
@@ -56,7 +55,6 @@ export default function ClientEdit() {
   const { data: client, isLoading } = useClient(clientId!);
   const updateClient = useUpdateClient();
   const deleteClient = useDeleteClient();
-  const { createClientNotification } = useNotificationTriggers();
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -87,7 +85,7 @@ export default function ClientEdit() {
 
   const onSubmit = async (data: ClientFormData) => {
     try {
-      const updatedData = {
+      const clientData = {
         id: clientId!,
         name: data.name,
         email: data.email || undefined,
@@ -98,9 +96,7 @@ export default function ClientEdit() {
         status: data.status,
       };
 
-      const updatedClient = await updateClient.mutateAsync(updatedData);
-      // Create notification
-      await createClientNotification(updatedClient, 'updated');
+      await updateClient.mutateAsync(clientData);
       navigate(`/clients/${clientId}`);
     } catch (error) {
       // Error is handled by the mutation
@@ -109,10 +105,6 @@ export default function ClientEdit() {
 
   const handleDelete = async () => {
     try {
-      // Create notification before deletion
-      if (client) {
-        await createClientNotification(client, 'deleted');
-      }
       await deleteClient.mutateAsync(clientId!);
       navigate("/clients");
     } catch (error) {

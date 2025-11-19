@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 const clientSchema = z.object({
   name: z.string().min(1, "Client name is required"),
@@ -46,7 +45,6 @@ interface ClientCreateProps {
 export default function ClientCreate({ onSuccess, showHeader = true }: ClientCreateProps) {
   const navigate = useNavigate();
   const createClient = useCreateClient();
-  const { createClientNotification } = useNotificationTriggers();
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -74,9 +72,6 @@ export default function ClientCreate({ onSuccess, showHeader = true }: ClientCre
       };
       
       const newClient = await createClient.mutateAsync(clientData);
-      
-      // Create notification
-      await createClientNotification(newClient, 'created');
       
       if (onSuccess) {
         onSuccess(newClient);
