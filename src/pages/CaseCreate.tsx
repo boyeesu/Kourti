@@ -60,13 +60,9 @@ export default function CaseCreate() {
   const createCase = useCreateCase();
   const { createCaseNotification } = useNotificationTriggers();
 
-  const lastMatterType = typeof window !== "undefined"
-    ? localStorage.getItem("last_matter_type")
-    : null;
-
   // hooks for case types, issues & fields
   const { data: caseTypes = [] } = useCaseTypes();
-  const [caseTypeId, setCaseTypeId] = useState<string>(lastMatterType ?? "");
+  const [caseTypeId, setCaseTypeId] = useState<string>("");
   const { data: caseIssues = [], isLoading: isLoadingCaseIssues } = useCaseIssues(caseTypeId);
   const [caseIssueId, setCaseIssueId] = useState<string>("");
   const { data: caseFields = [] } = useCaseFields(caseTypeId);
@@ -79,6 +75,11 @@ export default function CaseCreate() {
     console.log('Case issues loaded:', caseIssues);
     console.log('Selected case issue ID:', caseIssueId);
   }, [caseTypes, caseTypeId, caseIssues, caseIssueId]);
+  
+  // Remember last used matter type
+  const lastMatterType = typeof window !== 'undefined' 
+    ? localStorage.getItem('last_matter_type') 
+    : '';
 
   const form = useForm<CaseFormData>({
     resolver: zodResolver(caseSchema),
@@ -89,15 +90,10 @@ export default function CaseCreate() {
       priority: "medium",
       client_id: "",
       court: "",
-      case_type_id: lastMatterType ?? "",
+      case_type_id: lastMatterType || "",
       case_issue_id: "",
     },
   });
-
-  useEffect(() => {
-    const initialCaseTypeId = form.getValues("case_type_id") ?? "";
-    setCaseTypeId(initialCaseTypeId);
-  }, [form]);
 
   // Save matter type to localStorage when changed
   useEffect(() => {
@@ -129,7 +125,7 @@ export default function CaseCreate() {
         client_id: data.client_id || null,
         court: data.court,
         next_hearing_date: data.next_hearing_date?.toISOString() || null,
-        case_type_id: caseTypeId || null,
+        case_type_id: caseTypeId,
         case_issue_id: caseIssueId || null,
         custom_fields: dynamicValues,
       } as CreateCaseData;
@@ -240,13 +236,12 @@ export default function CaseCreate() {
                       </FormLabel>
                       <FormControl>
                         <CaseTypeSelector
-                          value={field.value ?? ""}
+                          value={caseTypeId}
                           onValueChange={(value, selectedCaseType) => {
                             console.log('Case type selected:', selectedCaseType?.name);
-                            const normalizedValue = value || "";
-                            setCaseTypeId(normalizedValue);
-                            field.onChange(normalizedValue);
-
+                            setCaseTypeId(value);
+                            field.onChange(value);
+                            
                             // Reset case issue when case type changes
                             setCaseIssueId("");
                             form.setValue("case_issue_id", "");

@@ -6,7 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { useVectorSearch } from "@/hooks/useVectorSearch";
 import { useRAGSearch, useProcessDocument } from "@/hooks/useRAGSearch";
 import { useDocuments } from "@/hooks/useDocuments";
-import { useContract, useContracts } from "@/hooks/useContracts";
+import { useContracts } from "@/hooks/useContracts";
 import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
 import { useDocumentContent } from "@/hooks/useDocumentContext";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -249,7 +249,6 @@ function ReamAIHeader({
 
 export default function ReamAI() {
   const [searchParams] = useSearchParams();
-  const contractSearchParam = searchParams.get("contract");
 
   // Conversation management
   const {
@@ -285,7 +284,6 @@ export default function ReamAI() {
   const [extractedContent, setExtractedContent] = useState<string | null>(null);
   const [isDocSelectorOpen, setIsDocSelectorOpen] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const contractToastRef = useRef<string | null>(null);
   const { toast } = useToast();
 
   // Load document from sessionStorage if passed from Documents page
@@ -309,11 +307,6 @@ export default function ReamAI() {
   const { data: documents = [], isLoading: docsLoading } = useDocuments();
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
   const contracts = contractsData?.contracts || [];
-  const {
-    data: contractFromParam,
-    isLoading: isContractLoading,
-    error: contractLoadError,
-  } = useContract(contractSearchParam ?? "");
 
   // Get document analysis functionality
   const { streamAnalysis, cancelStreaming, isStreaming } =
@@ -354,57 +347,15 @@ export default function ReamAI() {
 
   // Auto-select contract from URL params
   useEffect(() => {
-    if (!contractSearchParam) {
-      return;
-    }
-
-    if (selectedDoc?.id === contractSearchParam) {
-      return;
-    }
-
-    const contractFromList = contracts.find((c) => c.id === contractSearchParam);
-    if (contractFromList) {
-      handleSelectDoc(contractFromList, true);
-      return;
-    }
-
-    if (contractFromParam) {
-      handleSelectDoc(contractFromParam, true);
+    const contractId = searchParams.get("contract");
+    if (contractId && contracts.length > 0) {
+      const contract = contracts.find((c) => c.id === contractId);
+      if (contract) {
+        handleSelectDoc(contract, true);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contractSearchParam, contracts, contractFromParam, selectedDoc?.id]);
-
-  // Provide feedback if the contract fails to load
-  useEffect(() => {
-    if (!contractSearchParam) {
-      contractToastRef.current = null;
-      return;
-    }
-
-    const contractFound =
-      contracts.some((contract) => contract.id === contractSearchParam) || !!contractFromParam;
-
-    if (contractFound) {
-      contractToastRef.current = null;
-      return;
-    }
-
-    if (!isContractLoading && contractLoadError && contractToastRef.current !== contractSearchParam) {
-      toast({
-        title: "Unable to load contract",
-        description: "We couldn't find the requested contract. Please verify the link and try again.",
-        variant: "destructive",
-      });
-      contractToastRef.current = contractSearchParam;
-    }
-  }, [
-    contractSearchParam,
-    contracts,
-    contractFromParam,
-    contractLoadError,
-    isContractLoading,
-    toast,
-  ]);
+  }, [searchParams, contracts]);
 
   // Create initial conversation on mount if none exists
   useEffect(() => {
