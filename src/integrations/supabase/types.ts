@@ -93,7 +93,7 @@ export type Database = {
           action: string
           created_at: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           organization_id: string
@@ -106,7 +106,7 @@ export type Database = {
           action: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           organization_id: string
@@ -119,7 +119,7 @@ export type Database = {
           action?: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           organization_id?: string
@@ -2219,30 +2219,15 @@ export type Database = {
         }
         Returns: undefined
       }
-      current_user_is_org_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      current_user_is_org_admin: { Args: never; Returns: boolean }
       delete_organization_sso_config: {
         Args: { p_id: string }
         Returns: boolean
       }
-      disable_user: {
-        Args: { target_user_id: string }
-        Returns: Json
-      }
-      enable_user: {
-        Args: { target_user_id: string }
-        Returns: Json
-      }
-      generate_invoice_number: {
-        Args: { org_id: string }
-        Returns: string
-      }
-      get_current_user_organization_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      disable_user: { Args: { target_user_id: string }; Returns: Json }
+      enable_user: { Args: { target_user_id: string }; Returns: Json }
+      generate_invoice_number: { Args: { org_id: string }; Returns: string }
+      get_current_user_organization_id: { Args: never; Returns: string }
       get_document_analysis: {
         Args: { p_analysis_type?: string; p_document_id: string }
         Returns: {
@@ -2284,10 +2269,7 @@ export type Database = {
           verified_at: string
         }[]
       }
-      get_user_organization_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_user_organization_id: { Args: never; Returns: string }
       initialize_custom_role_permissions: {
         Args: {
           p_created_by: string
@@ -2306,10 +2288,7 @@ export type Database = {
         }
         Returns: Json
       }
-      is_user_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      is_user_admin: { Args: never; Returns: boolean }
       log_audit_event: {
         Args: {
           p_action: string
@@ -2391,6 +2370,12 @@ export type Database = {
           tenant_id: string | null
           updated_at: string
           updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organization_sso_configs"
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
       user_has_permission: {
