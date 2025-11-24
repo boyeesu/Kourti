@@ -1,3 +1,5 @@
+declare const Deno: any;
+
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
 import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 

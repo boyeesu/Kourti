@@ -1,3 +1,5 @@
+declare const Deno: any;
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
@@ -26,7 +28,6 @@ type Provider = "google" | "microsoft";
 type AuthorizeRequest = {
   provider?: Provider;
   email?: string;
-  organization_id?: string;
   redirect_to?: string;
   dry_run?: boolean;
 };
@@ -104,7 +105,10 @@ async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | 
   if (!provider) return null;
 
   const domain = request.email?.split("@").pop()?.toLowerCase().trim();
-  const organizationId = request.organization_id?.trim();
+  if (!domain) {
+    console.log("SSO: Email with domain is required for SSO configuration lookup");
+    return null;
+  }
 
   const selection = "id, provider, organization_id, is_enabled, tenant_id, client_id, client_secret, redirect_uri, domain_hint, domain";
 
@@ -119,27 +123,20 @@ async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | 
     query = modify(query);
     const { data, error } = await query.maybeSingle();
     if (error && error.code !== "PGRST116") {
-      console.error("Error resolving SSO config", { error, provider, organizationId, domain });
+      console.error("Error resolving SSO config", { error, provider, domain });
     }
     return (data as SsoConfigRow | null) ?? null;
   };
 
-  // First priority: Check by explicit organization_id
-  if (organizationId) {
-    const config = await runQuery((q) => q.eq("organization_id", organizationId));
-    if (config) return config;
-  }
-
-  // Second priority: Check by email domain
-  if (domain) {
-    const config = await runQuery((q) => q.eq("domain", domain));
-    if (config) {
-      console.log(`Found SSO config for domain: ${domain}`, { provider, organization_id: config.organization_id });
-      return config;
-    }
+  // SECURITY FIX: ONLY match by email domain - never trust client-provided organization_id
+  const config = await runQuery((q) => q.eq("domain", domain));
+  if (config) {
+    console.log(`Found SSO config for domain: ${domain}`, { provider, organization_id: config.organization_id });
+    return config;
   }
 
   // No matching config found
+  console.log(`No SSO config found for domain: ${domain}`, { provider });
   return null;
 }
 

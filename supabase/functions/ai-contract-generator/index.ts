@@ -1,3 +1,5 @@
+declare const Deno: any;
+
 // @ts-ignore Deno runtime
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore Deno runtime

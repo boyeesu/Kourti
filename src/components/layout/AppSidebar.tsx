@@ -205,7 +205,7 @@ const AppSidebar: React.FC = () => {
   );
 
   const NavItemContent = React.forwardRef<HTMLDivElement, { item: NavigationItem }>(
-    ({ item }, ref) => {
+    ({ item }, _ref) => {
       const active = isActive(item.url, item.end);
 
       const linkClass = cn(
@@ -219,7 +219,7 @@ const AppSidebar: React.FC = () => {
       const iconClass = cn("h-5 w-5", active ? "text-[hsl(var(--primary))]" : "text-muted-foreground");
 
       const content = (
-        <SidebarMenuItem key={item.url} ref={ref}>
+        <SidebarMenuItem key={item.url}>
           <SidebarMenuButton asChild isActive={active} className={cn("h-11 px-0", collapsed && "justify-center")}>
             <NavLink
               to={item.url}
