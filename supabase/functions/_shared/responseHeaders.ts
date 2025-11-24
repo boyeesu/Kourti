@@ -1,3 +1,5 @@
+declare const Deno: any;
+
 const DEFAULT_ALLOWED_HEADERS = [
   'authorization',
   'x-client-info',

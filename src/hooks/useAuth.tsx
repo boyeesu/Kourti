@@ -128,18 +128,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithProvider = async (provider: 'google' | 'microsoft', email?: string) => {
     try {
-      const organizationId = typeof window !== 'undefined'
-        ? window.sessionStorage.getItem('auth:selected_organization_id') ?? undefined
-        : undefined;
-
       const redirectTo = getAuthRedirectUrl('/auth/callback', env.APP_URL);
 
+      // SECURITY FIX: Removed client-side organization selection - now uses ONLY email domain matching
       // Directly initiate SSO flow - the authorize function will check config availability
       const { data, error } = await supabase.functions.invoke('sso-authorize', {
         body: {
           provider,
           email,
-          organization_id: organizationId,
           redirect_to: redirectTo,
         },
       });
