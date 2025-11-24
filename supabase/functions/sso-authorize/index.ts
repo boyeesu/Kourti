@@ -6,9 +6,14 @@ import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } f
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
+  Deno.env.get("SSO_ALLOWED_REDIRECT_ORIGINS"),
   "http://localhost:3000",
   "http://localhost:5173",
-].filter(Boolean);
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean);
+
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
