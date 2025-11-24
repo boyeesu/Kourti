@@ -2270,6 +2270,10 @@ export type Database = {
         }[]
       }
       get_user_organization_id: { Args: never; Returns: string }
+      has_permission: {
+        Args: { p_action: string; p_resource: string }
+        Returns: boolean
+      }
       initialize_custom_role_permissions: {
         Args: {
           p_created_by: string
@@ -2377,10 +2381,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      user_has_permission: {
-        Args: { p_action: string; p_resource: string; p_user_id: string }
-        Returns: boolean
       }
       user_has_specific_permission: {
         Args: { p_action: string; p_resource: string; p_user_id: string }
