@@ -40,11 +40,11 @@ interface Message {
 
 // Example prompts to help users
 const EXAMPLE_PROMPTS = [
-  "Summarize this document in 3 paragraphs",
-  "What are the key provisions in this contract?",
-  "Identify potential risks in this agreement",
-  "Extract all dates and deadlines from this document",
-  "Is there anything unusual about this contract?"
+  "What is a non-disclosure agreement?",
+  "Explain the difference between a contract and an agreement",
+  "What are common clauses in employment contracts?",
+  "How do I protect intellectual property?",
+  "What should I look for when reviewing a lease?"
 ];
 
 type QuickAction = {
@@ -75,13 +75,6 @@ const QUICK_ACTIONS: QuickAction[] = [
       "List all material obligations, deadlines, and compliance requirements in this document with clear bullet points.",
     requiresDocument: true,
     icon: ListChecks
-  },
-  {
-    label: "Draft Follow-up Email",
-    prompt:
-      "Draft a professional follow-up email summarizing the current findings and next steps for the client.",
-    requiresDocument: false,
-    icon: Send
   }
 ];
 
@@ -270,7 +263,7 @@ export default function ReamAI() {
     {
       role: "system",
       content:
-        "Welcome to Ream AI with RAG! Select or upload a document/contract, and I'll process it for intelligent retrieval. Your documents will be chunked and embedded for better context-aware responses.",
+        "Welcome to Ream AI! I can help you with legal questions, document analysis, and contract review. You can ask me anything directly, or select a document for context-aware analysis.",
       timestamp: new Date()
     }
   ]);
@@ -568,7 +561,8 @@ export default function ReamAI() {
 
     const userMessage = (presetMessage ?? input).trim();
 
-    if (!userMessage && !selectedDoc && !selectedFile) {
+    // Only require a message, not a document
+    if (!userMessage) {
       return;
     }
 
@@ -816,9 +810,11 @@ I'll answer based on the relevant information found above.`;
         try {
           // Use the AI for general legal questions
           await streamAnalysis({
-            content: `Legal Question: ${userMessage}
+            content: `You are a helpful legal AI assistant. Answer the following question clearly and professionally:
 
-Please provide a helpful response to this legal question. If you need specific document context to provide a complete answer, let the user know they can upload or select a document for more detailed analysis.`,
+Question: ${userMessage}
+
+Provide a comprehensive answer based on general legal knowledge. If the question would benefit from specific document context, mention that the user can select or upload a document for more detailed analysis.`,
             analysisType: "general",
             onProgress: (aiContent, done) => {
               setMessages((msgs) =>
@@ -845,7 +841,7 @@ Please provide a helpful response to this legal question. If you need specific d
         } catch (error) {
           console.error("Error with general query:", error);
           simulateTypingResponse(
-            "I'm here to help with legal questions and document analysis. Please upload or select a document for detailed analysis, or ask me a general legal question.",
+            "I'm here to help with legal questions and document analysis. I can answer general legal questions or provide detailed analysis when you select a document. How can I assist you today?",
             50
           );
         }
@@ -912,9 +908,9 @@ Please provide a helpful response to this legal question. If you need specific d
 
     if (action.requiresDocument && !selectedDoc && !selectedFile) {
       toast({
-        title: "Select a document",
+        title: "Document required",
         description:
-          "Choose or upload a document so Ream AI can ground its analysis."
+          "This action requires a document. Please select or upload a document first."
       });
       return;
     }
@@ -923,8 +919,9 @@ Please provide a helpful response to this legal question. If you need specific d
       toast({
         title: "No extracted text",
         description:
-          "This file doesn't have extracted text yet. Ask a general question or upload a text-based document."
+          "This file doesn't have extracted text yet. Try selecting a different document or ask a general question."
       });
+      return;
     }
 
     void sendMessage(undefined, action.prompt);
@@ -1130,7 +1127,7 @@ Please provide a helpful response to this legal question. If you need specific d
                         placeholder={
                           selectedDoc || selectedFile
                             ? "Ask about this document or request analysis..."
-                            : "Select a document first or ask a general legal question..."
+                            : "Ask me anything about legal matters, or select a document for context..."
                         }
                         value={input}
                         onChange={(e) => setInput(e.target.value)}

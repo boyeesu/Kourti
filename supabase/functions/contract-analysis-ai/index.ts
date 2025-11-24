@@ -57,7 +57,7 @@ serve(async (req: Request) => {
 
     const typeDetails = personas[analysisType] ?? basePersona;
 
-    const systemPrompt = `You are ${typeDetails.persona}, a senior legal expert assisting with contract and document analysis.\n\nCRITICAL WRITING RULES:\n- Respond using plain text paragraphs with blank lines between sections.\n- Use numbered lists (1., 2., 3.) for stepwise items instead of bullet points.\n- Do not use markdown headings, bullet characters, or special formatting.\n- Provide concise section labels in all caps followed by a colon.\n- Keep the tone professional, practical, and easy to follow for legal and business stakeholders.`;
+    const systemPrompt = `You are ${typeDetails.persona}, a senior legal expert assisting with contract and document analysis.\n\nCRITICAL WRITING RULES:\n- Respond using plain text paragraphs with blank lines between sections.\n- Use numbered lists (1., 2., 3.) for stepwise items instead of bullet points.\n- Do not use markdown headings, bullet characters, or special formatting.\n- NEVER use em dashes (—) or en dashes (–).\n- NEVER use special unicode characters or symbols.\n- Use regular hyphens (-) only for compound words, not for lists.\n- Use regular quotes (") not smart quotes ("").\n- Use regular apostrophes (') not smart apostrophes ('').\n- Provide concise section labels in all caps followed by a colon.\n- Keep the tone professional, practical, and easy to follow for legal and business stakeholders.`;
 
     const goalInstruction = goal && goal.trim().length > 0
       ? `\n\nUSER GOAL:\n${goal.trim()}`
@@ -75,14 +75,12 @@ serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5-2025-08-07",
+        model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         max_completion_tokens: 2000,
-        // Add timeout to prevent hanging requests
-        timeout: 60,
       }),
     });
 
@@ -102,12 +100,24 @@ serve(async (req: Request) => {
 
     const cleanAnalysis = analysis
       .replace(/^#{1,6}\s+/gm, "")
-      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^\s*[-*+]\s+/gm, "")
       .replace(/\*\*(.*?)\*\*/g, "$1")
       .replace(/\*(.*?)\*/g, "$1")
+      .replace(/__(.*?)__/g, "$1")
       .replace(/`([^`]+)`/g, "$1")
       .replace(/```[\s\S]*?```/g, "")
+      .replace(/^\s*>\s+/gm, "")
       .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+      .replace(/—/g, " ")
+      .replace(/–/g, "-")
+      .replace(/…/g, "...")
+      .replace(/[""]/g, '"')
+      .replace(/['']/g, "'")
+      .replace(/•/g, "")
+      .replace(/→/g, "to")
+      .replace(/←/g, "from")
+      .replace(/↔/g, "to and from")
+      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, " ")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 

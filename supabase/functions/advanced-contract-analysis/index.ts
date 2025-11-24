@@ -9,7 +9,7 @@ const corsOptions = {
   allowMethods: ['POST', 'OPTIONS'],
 };
 
-const DEFAULT_CHAT_MODEL = 'gpt-4.1';
+const DEFAULT_CHAT_MODEL = 'gpt-4o';
 const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
 
 function getChatModelCandidates() {
@@ -160,8 +160,14 @@ CRITICAL OUTPUT FORMATTING RULES:
 - NEVER use - bullet points in responses  
 - NEVER use ** bold formatting in responses
 - NEVER use * italic formatting in responses
+- NEVER use em dashes (—) or en dashes (–)
+- NEVER use special unicode characters or symbols
+- NEVER use markdown formatting of any kind
 - Use plain text with clear sections separated by double line breaks
 - Use numbered lists (1., 2., 3.) when listing items
+- Use regular hyphens (-) only for compound words, not for lists
+- Use regular quotes (") not smart quotes ("")
+- Use regular apostrophes (') not smart apostrophes ('')
 - Use structured paragraphs for readability
 - Write in a conversational, professional tone
 
@@ -180,7 +186,7 @@ When analyzing documents, always:
 - Identify what IS and IS NOT present in the document
 - Provide context-specific insights based on the actual content
 
-Respond directly to the user's question using ONLY the document content provided.`;
+Respond directly to the user's question using ONLY the document content provided. Use simple, clean text formatting without any special characters or markdown.`;
 
     let userPrompt = '';
     
@@ -349,10 +355,10 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
 
     let analysis = data.choices[0].message.content;
 
-    // Enhanced cleanup of analysis by removing ALL markdown formatting
+    // Enhanced cleanup of analysis by removing ALL markdown formatting and special symbols
     analysis = analysis
       .replace(/^#{1,6}\s+/gm, '') // Remove # headings
-      .replace(/^\s*[-*+]\s+/gm, '') // Remove -, *, + bullet points
+      .replace(/^\s*[-*+]\s+/gm, '') // Remove -, *, + bullet points at line start
       .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
       .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting  
       .replace(/__(.*?)__/g, '$1') // Remove underline formatting
@@ -360,6 +366,16 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
       .replace(/```[\s\S]*?```/g, '') // Remove code blocks
       .replace(/^\s*>\s+/gm, '') // Remove blockquotes
       .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links but keep text
+      .replace(/—/g, ' ') // Remove em dashes
+      .replace(/–/g, '-') // Replace en dashes with hyphens
+      .replace(/…/g, '...') // Replace ellipsis character
+      .replace(/[""]/g, '"') // Replace smart quotes with regular quotes
+      .replace(/['']/g, "'") // Replace smart apostrophes with regular apostrophes
+      .replace(/•/g, '') // Remove bullet points
+      .replace(/→/g, 'to') // Replace arrows
+      .replace(/←/g, 'from') // Replace arrows
+      .replace(/↔/g, 'to and from') // Replace arrows
+      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, ' ') // Replace various unicode spaces with regular space
       .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks
       .trim();
 
