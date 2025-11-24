@@ -1551,7 +1551,7 @@ export type Database = {
           client_secret: string | null
           created_at: string
           created_by: string | null
-          domain: string | null
+          domain: string
           domain_hint: string | null
           id: string
           is_enabled: boolean
@@ -1568,7 +1568,7 @@ export type Database = {
           client_secret?: string | null
           created_at?: string
           created_by?: string | null
-          domain?: string | null
+          domain: string
           domain_hint?: string | null
           id?: string
           is_enabled?: boolean
@@ -1585,7 +1585,7 @@ export type Database = {
           client_secret?: string | null
           created_at?: string
           created_by?: string | null
-          domain?: string | null
+          domain?: string
           domain_hint?: string | null
           id?: string
           is_enabled?: boolean
@@ -2359,7 +2359,7 @@ export type Database = {
           client_secret: string | null
           created_at: string
           created_by: string | null
-          domain: string | null
+          domain: string
           domain_hint: string | null
           id: string
           is_enabled: boolean

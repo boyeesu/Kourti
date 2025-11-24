@@ -197,7 +197,19 @@ serve(async (req) => {
       return createJsonResponse({ error: "Missing provider" }, { status: 400, cors: corsOptions });
     }
 
+    // SECURITY FIX: Timing oracle mitigation - normalize all response times
+    const minResponseTime = 200; // milliseconds
+    const requestStartTime = Date.now();
+
     const config = await resolveConfig(request);
+
+    // Calculate remaining time to meet minimum response time
+    const elapsedTime = Date.now() - requestStartTime;
+    const delayNeeded = Math.max(0, minResponseTime - elapsedTime);
+    
+    if (delayNeeded > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayNeeded));
+    }
 
     if (!config) {
       const dryResponse: DryRunResponse = {
@@ -207,8 +219,9 @@ serve(async (req) => {
         organization_id: null,
         enforce_sso: false,
       };
+      // SECURITY FIX: Always return 200 for dry_run to prevent enumeration
       return createJsonResponse(dryResponse, {
-        status: request.dry_run ? 200 : 404,
+        status: 200,
         cors: corsOptions,
       });
     }
