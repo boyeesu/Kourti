@@ -113,8 +113,36 @@ async function verifyState(state: string): Promise<StatePayload> {
 
   const payload = JSON.parse(new TextDecoder().decode(payloadBytes)) as StatePayload;
 
+  // SECURITY FIX: Comprehensive input validation
   if (!payload.config_id || !payload.provider || !payload.redirect_to) {
     throw new Error("State payload missing required fields");
+  }
+
+  // Validate UUID format for config_id
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(payload.config_id)) {
+    throw new Error("Invalid configuration format");
+  }
+
+  // Validate provider enum
+  if (!['google', 'microsoft'].includes(payload.provider)) {
+    throw new Error("Invalid provider");
+  }
+
+  // Validate redirect URL against allowlist
+  try {
+    const redirectUrl = new URL(payload.redirect_to);
+    const allowedOrigins = [Deno.env.get('APP_URL'), 'http://localhost:3000', 'http://localhost:5173'].filter(Boolean);
+    if (!allowedOrigins.some(origin => redirectUrl.origin === origin)) {
+      throw new Error("Invalid redirect URL");
+    }
+  } catch {
+    throw new Error("Invalid redirect URL format");
+  }
+
+  // Validate organization_id if present
+  if (payload.organization_id && !uuidRegex.test(payload.organization_id)) {
+    throw new Error("Invalid organization format");
   }
 
   if (Date.now() - payload.created_at > MAX_STATE_AGE_MS) {
@@ -392,13 +420,23 @@ serve(async (req) => {
 
     return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: magicLink } });
   } catch (error) {
-    console.error("SSO callback handler error", error);
+    // SECURITY FIX: Generic error messages - log detailed errors server-side only
+    const errorId = crypto.randomUUID().substring(0, 8);
+    console.error(`[SSO-ERROR-${errorId}] SSO callback handler error`, error);
+    
     const fallbackUrl = Deno.env.get("APP_URL") ?? "";
     if (fallbackUrl) {
-      const location = buildRedirectWithError(fallbackUrl, "sso_callback_error");
+      const location = buildRedirectWithError(
+        fallbackUrl, 
+        "authentication_failed"
+      );
       return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: location } });
     }
-    const errorMessage = error instanceof Error ? error.message : "Unexpected SSO error";
-    return createJsonResponse({ error: errorMessage }, { status: 500, cors: corsOptions });
+    
+    // Generic error message for client - reference error ID for support
+    return createJsonResponse(
+      { error: "Authentication failed. Please try again or contact support.", error_id: errorId }, 
+      { status: 500, cors: corsOptions }
+    );
   }
 });
