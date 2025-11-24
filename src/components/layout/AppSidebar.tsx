@@ -187,72 +187,76 @@ const AppSidebar: React.FC = () => {
     }
   };
 
-  const NavItemWithPermission = ({ item }: { item: NavigationItem }) => {
-    // Check if user has read access to this resource
-    const hasAccess = useCanPerformAction(
-      item.permission?.resource || 'cases',
-      item.permission?.action || 'read'
-    );
+  const NavItemWithPermission = React.forwardRef<HTMLDivElement, { item: NavigationItem }>(
+    ({ item }, ref) => {
+      // Check if user has read access to this resource
+      const hasAccess = useCanPerformAction(
+        item.permission?.resource || 'cases',
+        item.permission?.action || 'read'
+      );
 
-    // Hide item if user doesn't have access
-    if (item.permission && !hasAccess) {
-      return null;
+      // Hide item if user doesn't have access
+      if (item.permission && !hasAccess) {
+        return null;
+      }
+
+      return <NavItemContent item={item} ref={ref} />;
     }
+  );
 
-    return <NavItemContent item={item} />;
-  };
+  const NavItemContent = React.forwardRef<HTMLDivElement, { item: NavigationItem }>(
+    ({ item }, ref) => {
+      const active = isActive(item.url, item.end);
 
-  const NavItemContent = ({ item }: { item: NavigationItem }) => {
-    const active = isActive(item.url, item.end);
+      const linkClass = cn(
+        "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+        collapsed && "justify-center px-0 gap-0",
+        active
+          ? "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]"
+          : "text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground"
+      );
 
-    const linkClass = cn(
-      "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-      collapsed && "justify-center px-0 gap-0",
-      active
-        ? "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]"
-        : "text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground"
-    );
+      const iconClass = cn("h-5 w-5", active ? "text-[hsl(var(--primary))]" : "text-muted-foreground");
 
-    const iconClass = cn("h-5 w-5", active ? "text-[hsl(var(--primary))]" : "text-muted-foreground");
+      const content = (
+        <SidebarMenuItem key={item.url} ref={ref}>
+          <SidebarMenuButton asChild isActive={active} className={cn("h-11 px-0", collapsed && "justify-center")}>
+            <NavLink
+              to={item.url}
+              end={item.end}
+              className={linkClass}
+              onClick={(event) => {
+                if (item.url === "/invoices") {
+                  event.preventDefault();
+                  setShowInvoiceSoon(true);
+                }
+              }}
+            >
+              <item.icon className={iconClass} />
+              {!collapsed && (
+                <span className="truncate">{item.title}</span>
+              )}
+              {!collapsed && item.badge && (
+                <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
+                  {item.badge}
+                </Badge>
+              )}
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
 
-    const content = (
-      <SidebarMenuItem key={item.url}>
-        <SidebarMenuButton asChild isActive={active} className={cn("h-11 px-0", collapsed && "justify-center")}>
-          <NavLink
-            to={item.url}
-            end={item.end}
-            className={linkClass}
-            onClick={(event) => {
-              if (item.url === "/invoices") {
-                event.preventDefault();
-                setShowInvoiceSoon(true);
-              }
-            }}
-          >
-            <item.icon className={iconClass} />
-            {!collapsed && (
-              <span className="truncate">{item.title}</span>
-            )}
-            {!collapsed && item.badge && (
-              <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
-                {item.badge}
-              </Badge>
-            )}
-          </NavLink>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    );
+      if (!item.permission) {
+        return content;
+      }
 
-    if (!item.permission) {
-      return content;
+      return (
+        <PermissionGate key={item.url} resource={item.permission.resource} action={item.permission.action} fallback={null}>
+          {content}
+        </PermissionGate>
+      );
     }
-
-    return (
-      <PermissionGate key={item.url} resource={item.permission.resource} action={item.permission.action} fallback={null}>
-        {content}
-      </PermissionGate>
-    );
-  };
+  );
 
   return (
     <TooltipProvider delayDuration={150}>
