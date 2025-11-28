@@ -271,7 +271,7 @@ export default function ReamAI() {
     {
       role: "system",
       content:
-        "Welcome to Ream AI with RAG! Select or upload a document/contract, and I'll process it for intelligent retrieval. Your documents will be chunked and embedded for better context-aware responses.",
+        "Welcome to Ream AI!",
       timestamp: new Date()
     }
   ]);
