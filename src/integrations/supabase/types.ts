@@ -2325,6 +2325,22 @@ export type Database = {
           title: string
         }[]
       }
+      match_document_chunks: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          contract_id: string
+          document_id: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
       match_documents: {
         Args: {
           match_count?: number
