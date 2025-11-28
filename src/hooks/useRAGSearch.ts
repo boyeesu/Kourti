@@ -37,7 +37,6 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
 
         if (embeddingError) {
           logError('Failed to generate query embedding', { error: embeddingError });
-          // Fall back to text search
           return performTextFallbackSearch(query);
         }
 
@@ -46,12 +45,8 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
           return performTextFallbackSearch(query);
         }
 
-        // Step 2: For now, fall back to text search until we fix the vector function
-        logInfo('Vector function not yet available, using text search fallback');
-        return performTextFallbackSearch(query);
-
-        /*
-        // TODO: Enable this when vector function is working
+        // Step 2: Perform vector similarity search
+        logInfo('Performing vector search with embedding');
         const { data: searchData, error: searchError } = await supabase.rpc(
           'match_document_chunks',
           {
@@ -62,20 +57,57 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
         );
 
         if (searchError) {
-          console.error('Vector search error:', searchError);
+          logError('Vector search error, falling back to text search', { error: searchError });
           return performTextFallbackSearch(query);
         }
 
         if (!searchData || searchData.length === 0) {
-          console.log('No vector search results, trying text fallback');
+          logInfo('No vector search results, trying text fallback');
           return performTextFallbackSearch(query);
         }
 
-        // TODO: Enable this when vector function is working
-        const enrichedResults: RAGSearchResult[] = [];
-        console.log(`Found ${enrichedResults.length} RAG search results`);
+        // Enrich results with document/contract names
+        const documentIds = Array.from(new Set(searchData
+          .map((r: any) => r.document_id)
+          .filter(Boolean))) as string[];
+        const contractIds = Array.from(new Set(searchData
+          .map((r: any) => r.contract_id)
+          .filter(Boolean))) as string[];
+
+        const [documentsResponse, contractsResponse] = await Promise.all([
+          documentIds.length
+            ? supabase.from('documents').select('id, name').in('id', documentIds)
+            : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
+          contractIds.length
+            ? supabase.from('contracts').select('id, title').in('id', contractIds)
+            : Promise.resolve({ data: [] as { id: string; title: string }[], error: null })
+        ]);
+
+        const documentNameMap = new Map<string, string>(
+          (documentsResponse.data || []).map((doc) => [doc.id, doc.name || 'Unknown Document'])
+        );
+        const contractNameMap = new Map<string, string>(
+          (contractsResponse.data || []).map((contract) => [contract.id, contract.title || 'Unknown Contract'])
+        );
+
+        const enrichedResults: RAGSearchResult[] = searchData.map((chunk: any) => {
+          const hasDocument = Boolean(chunk.document_id);
+          return {
+            chunkId: chunk.id,
+            documentId: chunk.document_id || undefined,
+            contractId: chunk.contract_id || undefined,
+            content: chunk.content,
+            similarity: chunk.similarity,
+            metadata: chunk.metadata,
+            documentName: hasDocument
+              ? documentNameMap.get(chunk.document_id) || 'Unknown Document'
+              : contractNameMap.get(chunk.contract_id) || 'Unknown Contract',
+            documentType: hasDocument ? 'document' : 'contract'
+          };
+        });
+
+        logInfo('Vector search completed', { resultCount: enrichedResults.length });
         return enrichedResults;
-        */
 
       } catch (error) {
         logError('RAG search error', { error });
