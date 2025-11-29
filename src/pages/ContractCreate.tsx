@@ -83,27 +83,40 @@ export default function ContractCreate() {
     content: "",
     required: false
   });
+  const [jurisdiction, setJurisdiction] = useState<string>("");
   const contractTypes = ["Service Agreement", "Non-Disclosure Agreement", "Employment Contract", "Purchase Agreement", "Lease Agreement", "Partnership Agreement", "Licensing Agreement", "Consulting Agreement", "Supply Agreement", "Distribution Agreement"];
   const partyRoles = ["Client", "Contractor", "Vendor", "Partner", "Licensee", "Licensor", "Buyer", "Seller", "Tenant", "Landlord"];
   const standardClauses = [{
     title: "Confidentiality",
-    content: "Both parties agree to maintain confidentiality of all proprietary information shared during the course of this agreement.",
+    content: "Both parties agree to maintain confidentiality of all proprietary information shared during the course of this agreement. This includes trade secrets, business strategies, financial data, customer information, and any other non-public information disclosed during the term of this agreement.",
     required: true
   }, {
     title: "Termination",
-    content: "Either party may terminate this agreement with 30 days written notice to the other party.",
+    content: "Either party may terminate this agreement with 30 days written notice to the other party. Upon termination, all obligations shall cease except those that by their nature survive termination, including confidentiality, indemnification, and dispute resolution provisions.",
     required: true
   }, {
     title: "Governing Law",
-    content: "This agreement shall be governed by and construed in accordance with the laws of [Jurisdiction].",
+    content: `This agreement shall be governed by and construed in accordance with the laws of ${jurisdiction || "[Please specify jurisdiction]"}. Any disputes arising under this agreement shall be resolved in the courts of ${jurisdiction || "[Please specify jurisdiction]"}.`,
     required: true
   }, {
     title: "Force Majeure",
-    content: "Neither party shall be liable for any failure to perform due to circumstances beyond their reasonable control.",
+    content: "Neither party shall be liable for any failure to perform due to circumstances beyond their reasonable control, including but not limited to acts of God, natural disasters, war, terrorism, riots, embargoes, acts of civil or military authorities, fire, floods, accidents, strikes, or shortages of transportation, facilities, fuel, energy, labor, or materials.",
     required: false
   }, {
     title: "Intellectual Property",
-    content: "All intellectual property created in connection with this agreement shall be owned by [Party Name].",
+    content: "All intellectual property created in connection with this agreement shall be owned by the commissioning party unless otherwise agreed in writing. Each party retains ownership of its pre-existing intellectual property.",
+    required: false
+  }, {
+    title: "Indemnification",
+    content: "Each party agrees to indemnify, defend, and hold harmless the other party from and against any claims, damages, losses, costs, and expenses (including reasonable attorney fees) arising from or related to any breach of this agreement or negligent or wrongful acts.",
+    required: false
+  }, {
+    title: "Limitation of Liability",
+    content: "Neither party shall be liable for any indirect, incidental, special, consequential, or punitive damages, regardless of the cause of action or whether such party has been advised of the possibility of such damages. The total liability of either party shall not exceed the total fees paid under this agreement.",
+    required: false
+  }, {
+    title: "Dispute Resolution",
+    content: "Any dispute arising out of or relating to this agreement shall first be attempted to be resolved through good faith negotiation. If negotiation fails, the parties agree to submit to binding arbitration before a mutually agreed arbitrator, with each party bearing their own costs.",
     required: false
   }];
   const addParty = () => {
@@ -718,7 +731,27 @@ export default function ContractCreate() {
 
                     <Card>
                       <CardHeader>
+                        <CardTitle className="text-base">Jurisdiction Settings</CardTitle>
+                        <CardDescription>Specify the legal jurisdiction for your contract</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="jurisdiction">Governing Jurisdiction <span className="text-destructive">*</span></Label>
+                          <Input 
+                            id="jurisdiction"
+                            placeholder="e.g., State of New York, United States"
+                            value={jurisdiction}
+                            onChange={(e) => setJurisdiction(e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">This will be used in the Governing Law clause and dispute resolution provisions.</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
                         <CardTitle className="text-base">Standard Clauses</CardTitle>
+                        <CardDescription>Select clauses to include in your contract</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         {standardClauses.map((clause, index) => {
