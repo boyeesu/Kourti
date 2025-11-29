@@ -1,7 +1,9 @@
 declare const Deno: any;
 
 // @ts-ignore Deno runtime
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+// @ts-ignore Deno runtime
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore Deno runtime
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
@@ -10,7 +12,7 @@ const corsOptions = {
   allowMethods: ['POST', 'OPTIONS'],
 };
 
-const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -24,9 +26,9 @@ serve(async (req: Request) => {
   try {
     console.log('Contract generation request received');
 
-    if (!anthropicApiKey) {
-      console.error('ANTHROPIC_API_KEY not found');
-      throw new Error('Anthropic API key not configured');
+    if (!openAIApiKey) {
+      console.error('OPENAI_API_KEY not found');
+      throw new Error('OpenAI API key not configured');
     }
 
     const { 
@@ -158,39 +160,35 @@ Please use this template as a guide for structure and style:
 ${template}`;
     }
 
-    console.log('Sending request to Anthropic Claude');
+    console.log('Sending request to OpenAI GPT-5');
 
-    // Call Anthropic Claude API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Call OpenAI API with GPT-5
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4000,
-        system: systemPrompt,
+        model: 'gpt-5-2025-08-07',
         messages: [
-          {
-            role: 'user',
-            content: userPrompt,
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
+        max_completion_tokens: 4000,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Anthropic API error:', errorText);
-      throw new Error(`Anthropic API error: ${response.status} ${errorText}`);
+      console.error('OpenAI API error:', errorText);
+      throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('Received response from Anthropic');
+    console.log('Received response from OpenAI');
 
-    const generatedContract = data.content[0].text;
+    const generatedContract = data.choices[0].message.content;
 
     // Create the contract in the database
     const contractData = {

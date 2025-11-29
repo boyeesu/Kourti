@@ -219,11 +219,21 @@ export default function ContractCreate() {
     },
   ], []);
   const addStandardClause = (standardClause: typeof standardClauses[0]) => {
+    // Check if clause with the same title already exists
+    const alreadyExists = clauses.some(c => c.title === standardClause.title);
+    if (alreadyExists) {
+      return; // Don't add duplicate
+    }
     const clause: ContractClause = {
       id: `clause-${Date.now()}`,
       ...standardClause
     };
     setClauses([...clauses, clause]);
+  };
+
+  // Check if a standard clause is already added
+  const isClauseAdded = (clauseTitle: string) => {
+    return clauses.some(c => c.title === clauseTitle);
   };
   const removeClause = (clauseId: string) => {
     setClauses(clauses.filter(c => c.id !== clauseId));
@@ -706,21 +716,32 @@ export default function ContractCreate() {
                         <CardTitle className="text-base">Standard Clauses</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {standardClauses.map((clause, index) => <div key={index} className="p-3 border rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <h5 className="font-medium">{clause.title}</h5>
-                              <Badge variant={clause.required ? "default" : "secondary"} className="text-xs">
-                                {clause.required ? "Required" : "Optional"}
-                              </Badge>
+                        {standardClauses.map((clause, index) => {
+                          const alreadyAdded = isClauseAdded(clause.title);
+                          return (
+                            <div key={index} className={`p-3 border rounded-lg ${alreadyAdded ? 'opacity-60 bg-muted/50' : ''}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <h5 className="font-medium">{clause.title}</h5>
+                                <Badge variant={alreadyAdded ? "outline" : clause.required ? "default" : "secondary"} className="text-xs">
+                                  {alreadyAdded ? "Added" : clause.required ? "Required" : "Optional"}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-3">
+                                {clause.content.substring(0, 100)}...
+                              </p>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => addStandardClause(clause)}
+                                disabled={alreadyAdded}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                {alreadyAdded ? "Added" : "Add"}
+                              </Button>
                             </div>
-                            <p className="text-sm text-muted-foreground mb-3">
-                              {clause.content.substring(0, 100)}...
-                            </p>
-                            <Button type="button" variant="outline" size="sm" onClick={() => addStandardClause(clause)}>
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
-                          </div>)}
+                          );
+                        })}
                       </CardContent>
                     </Card>
                   </div>
