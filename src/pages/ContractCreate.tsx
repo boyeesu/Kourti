@@ -244,6 +244,11 @@ export default function ContractCreate() {
       alert("Please fill in the required fields (Title and Type).");
       return;
     }
+    if (clauses.length === 0) {
+      alert("Please add at least one clause before generating the contract.");
+      setActiveTab("clauses");
+      return;
+    }
     try {
       const generationData = {
         basicInfo: {
