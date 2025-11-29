@@ -85,80 +85,148 @@ serve(async (req: Request) => {
     const userId = user.id;
     const organizationId = profile.organization_id;
 
-    // Build the system prompt
-    const systemPrompt = `You are an expert contract lawyer and legal document generator. Your task is to create comprehensive, legally sound contracts based on the provided information.
+    // Build the comprehensive system prompt for senior lawyer quality
+    const systemPrompt = `You are a Senior Partner at a prestigious international law firm with over 25 years of experience drafting complex commercial contracts. You are known for your meticulous attention to detail, comprehensive coverage of all legal contingencies, and ability to protect your clients' interests while maintaining fairness and balance.
 
-Key Requirements:
-- Generate complete, professional contract text
-- Use proper legal language and structure
-- Include all standard contract sections (preamble, definitions, terms, clauses, signatures)
-- Ensure the contract is tailored to the specific type and parties involved
-- Fill in placeholder information with the provided details
-- Make the contract legally comprehensive and enforceable
+CRITICAL REQUIREMENTS FOR CONTRACT GENERATION:
 
-Contract Structure should include:
-1. Title and Preamble
-2. Parties identification
-3. Recitals/Background
-4. Definitions (if needed)
-5. Main terms and obligations
-6. Additional clauses and conditions
-7. Termination provisions
-8. Governing law and dispute resolution
-9. General provisions
-10. Signature blocks
+1. PROFESSIONAL STRUCTURE:
+   - Begin with a formal title page including contract name, date, and reference number
+   - Include a comprehensive Table of Contents with article and section numbers
+   - Use proper legal numbering (Article I, Section 1.1, Subsection 1.1.1)
+   - Include formal recitals/whereas clauses establishing context and intent
+   - End with proper execution blocks with signature lines, dates, and witness provisions
 
-Always generate a complete, ready-to-use contract document.`;
+2. DEFINITIONS SECTION (Article I):
+   - Define ALL key terms used throughout the contract
+   - Include definitions for: Agreement, Effective Date, Term, Confidential Information, Intellectual Property, Services/Deliverables, Compensation, Business Day, Force Majeure Event, Material Breach, etc.
+   - Use clear, precise legal language
+
+3. COMPREHENSIVE COVERAGE - Include ALL of the following sections:
+   - RECITALS: Background, purpose, and context of the agreement
+   - DEFINITIONS: All defined terms
+   - SCOPE OF AGREEMENT: Detailed description of services, deliverables, or subject matter
+   - TERM AND RENEWAL: Start date, duration, renewal provisions, anniversary dates
+   - COMPENSATION AND PAYMENT: Fees, payment schedule, invoicing, late payment penalties, currency
+   - REPRESENTATIONS AND WARRANTIES: By each party regarding authority, compliance, accuracy
+   - COVENANTS AND OBLIGATIONS: Specific duties and responsibilities of each party
+   - CONFIDENTIALITY: Detailed confidentiality obligations with exceptions
+   - INTELLECTUAL PROPERTY: Ownership, licensing, work product provisions
+   - INDEMNIFICATION: Mutual indemnification provisions
+   - LIMITATION OF LIABILITY: Caps, exclusions, carve-outs
+   - TERMINATION: For cause, for convenience, effects of termination
+   - DISPUTE RESOLUTION: Negotiation, mediation, arbitration, or litigation procedures
+   - GOVERNING LAW AND JURISDICTION: Choice of law and venue
+   - FORCE MAJEURE: Definition and consequences
+   - NOTICES: How formal notices must be delivered
+   - GENERAL PROVISIONS: Amendment, waiver, severability, entire agreement, counterparts, assignment
+
+4. LANGUAGE AND STYLE:
+   - Use formal legal language throughout
+   - Be precise and unambiguous
+   - Include specific dates, amounts, and deadlines where provided
+   - Use "shall" for obligations, "may" for permissions
+   - Include cross-references between related sections
+   - Add explanatory provisions where complex concepts require clarification
+
+5. PROTECTIVE PROVISIONS:
+   - Include appropriate disclaimers
+   - Add survival clauses for provisions that should survive termination
+   - Include insurance requirements if applicable
+   - Add compliance with laws provisions
+   - Include audit rights where appropriate
+
+6. EXECUTION SECTION:
+   - Include signature blocks for all parties
+   - Add date lines, title lines, and address lines
+   - Include witness signature lines if appropriate
+   - Add notarization provisions if required
+
+Generate a complete, execution-ready contract that a senior partner would be proud to present to a client. The contract should be comprehensive enough to address foreseeable disputes and protect all parties' interests.`;
 
     // Build the user prompt with all the form data
-    let userPrompt = `Contract Request Data:
+    let userPrompt = `Please draft a comprehensive legal contract based on the following information:
+
+═══════════════════════════════════════════════════════════════════
+CONTRACT DETAILS
+═══════════════════════════════════════════════════════════════════
 
 BASIC INFORMATION:
-- Title: ${basicInfo.title}
-- Type: ${basicInfo.type}
-- Description: ${basicInfo.description || 'Not specified'}
-- Value: ${basicInfo.value ? `${basicInfo.currency || 'USD'} ${basicInfo.value}` : 'Not specified'}
-- Start Date: ${basicInfo.startDate || 'To be determined'}
-- End Date: ${basicInfo.endDate || 'To be determined'}
+• Contract Title: ${basicInfo.title}
+• Contract Type: ${basicInfo.type}
+• Description: ${basicInfo.description || 'Not specified - please infer from contract type'}
+• Contract Value: ${basicInfo.value ? `${basicInfo.currency || 'USD'} ${basicInfo.value}` : 'To be specified in the contract'}
+• Effective Date: ${basicInfo.startDate || 'Upon execution by all parties'}
+• Expiration/End Date: ${basicInfo.endDate || 'To be determined based on contract type'}
 
-PARTIES:`;
+═══════════════════════════════════════════════════════════════════
+CONTRACTING PARTIES
+═══════════════════════════════════════════════════════════════════`;
 
     if (parties && parties.length > 0) {
       parties.forEach((party: any, index: number) => {
         userPrompt += `
-${index + 1}. ${party.name} (${party.type})
-   - Role: ${party.role}
-   - Email: ${party.email}
-   - Address: ${party.address || 'Not provided'}`;
+
+PARTY ${index + 1}:
+• Legal Name: ${party.name}
+• Entity Type: ${party.type === 'organization' ? 'Corporation/Business Entity' : 'Individual'}
+• Role in Agreement: ${party.role}
+• Contact Email: ${party.email}
+• Address: ${party.address || 'To be completed'}`;
       });
     } else {
-      userPrompt += '\nNo specific parties provided - please include placeholder party sections.';
+      userPrompt += '\n\nNo specific parties provided - please include placeholder party sections with [PARTY A] and [PARTY B] designations.';
     }
 
     if (terms) {
       userPrompt += `
 
-SPECIFIC TERMS:
+═══════════════════════════════════════════════════════════════════
+SPECIFIC TERMS AND CONDITIONS
+═══════════════════════════════════════════════════════════════════
+
 ${terms}`;
     }
 
     if (clauses && clauses.length > 0) {
       userPrompt += `
 
-REQUIRED CLAUSES:`;
-      clauses.forEach((clause: any) => {
+═══════════════════════════════════════════════════════════════════
+REQUIRED CLAUSES (MUST BE INCLUDED)
+═══════════════════════════════════════════════════════════════════`;
+      clauses.forEach((clause: any, index: number) => {
         userPrompt += `
-- ${clause.title}: ${clause.content}${clause.required ? ' (REQUIRED)' : ''}`;
+
+${index + 1}. ${clause.title.toUpperCase()}${clause.required ? ' [MANDATORY]' : ' [OPTIONAL]'}
+   Content requirement: ${clause.content}`;
       });
     }
 
     if (template) {
       userPrompt += `
 
-TEMPLATE TO FOLLOW:
+═══════════════════════════════════════════════════════════════════
+TEMPLATE/STYLE REFERENCE
+═══════════════════════════════════════════════════════════════════
+
 Please use this template as a guide for structure and style:
 ${template}`;
     }
+
+    userPrompt += `
+
+═══════════════════════════════════════════════════════════════════
+FINAL INSTRUCTIONS
+═══════════════════════════════════════════════════════════════════
+
+Generate a complete, professional contract document that:
+1. Is immediately ready for execution
+2. Includes all standard protective provisions
+3. Uses proper legal formatting and numbering
+4. Addresses all contingencies appropriate for a ${basicInfo.type}
+5. Reflects the highest standards of legal draftsmanship
+
+Please generate the complete contract now.`;
 
     console.log('Sending request to OpenAI GPT-5');
 
@@ -175,7 +243,7 @@ ${template}`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 4000,
+        max_completion_tokens: 8000,
       }),
     });
 
