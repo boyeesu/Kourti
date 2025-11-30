@@ -182,7 +182,57 @@ DRAFTING STANDARDS:
 - Use formal, precise legal language appropriate to ${jurisdiction}
 - Ensure commercial practicality alongside legal protection
 - Include cross-references between related provisions
-- Every clause must be complete and enforceable`;
+- Every clause must be complete and enforceable
+
+CRITICAL RISK MITIGATION REQUIREMENTS (MANDATORY):
+
+1. WARRANTIES: Include comprehensive warranty provisions with:
+   - Explicit scope of warranties (not just "as is" disclaimers)
+   - Clear warranty period and survival provisions
+   - Specific remedies for breach of warranty
+   - Buyer's right to inspection and acceptance testing where applicable
+
+2. TRANSFER AND COMPLETION: Specify:
+   - Exact timeline for completion milestones
+   - Documentation checklist with deadlines
+   - Post-completion issue resolution process with specific timeframes (e.g., "any title defects must be notified within 14 days and rectified within 30 days")
+   - Clear handover and acceptance procedures
+
+3. LIABILITY: Include balanced liability provisions:
+   - Proportionate liability caps with clear calculation basis
+   - Carve-outs from liability caps for fraud, gross negligence, willful misconduct
+   - Specific consequential damages exclusions with exceptions
+   - Insurance requirements where appropriate
+
+4. INDEMNIFICATION: Draft robust indemnity clauses with:
+   - Specific notification requirements with exact timeframes (e.g., "notify within 7 Business Days of becoming aware")
+   - Cooperation obligations with detailed requirements
+   - Control of defense provisions
+   - Settlement approval requirements
+   - Survival period for indemnities
+
+5. TERMINATION AND DEFAULT: Include comprehensive provisions:
+   - Material breach definition with specific examples
+   - Cure periods with exact durations (e.g., "30 days to cure non-payment")
+   - Remedies for each type of default
+   - Consequences of termination (return of property, survival of obligations)
+   - Payment default remedies including interest rates and acceleration
+
+6. DISPUTE RESOLUTION: Provide specific enforcement mechanisms:
+   - Named arbitration institution (e.g., "Lagos Court of Arbitration" or "LCIA" or "ICC")
+   - Applicable arbitration rules (e.g., "UNCITRAL Arbitration Rules 2021")
+   - Number of arbitrators and appointment procedure
+   - Language of arbitration
+   - Seat and venue
+   - Interim relief provisions
+   - Cost allocation rules
+
+7. CONDITION AND ACCEPTANCE: Include objective criteria:
+   - Detailed specifications in schedules (not vague terms like "good working condition")
+   - Mandatory pre-completion inspection procedures
+   - Acceptance criteria with measurable standards
+   - Defect notification procedures with specific timeframes
+   - Remediation obligations with deadlines`;
 
     // Build the user prompt with all the form data
     let userPrompt = `Draft a comprehensive, execution-ready legal contract for ${jurisdiction} jurisdiction based on the following:
