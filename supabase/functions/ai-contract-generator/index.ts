@@ -228,9 +228,9 @@ Generate a complete, professional contract document that:
 
 Please generate the complete contract now.`;
 
-    console.log('Sending request to OpenAI GPT-5');
+    console.log('Sending request to OpenAI GPT-4.1');
 
-    // Call OpenAI API with GPT-5
+    // Call OpenAI API with GPT-4.1
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -238,7 +238,7 @@ Please generate the complete contract now.`;
         'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
