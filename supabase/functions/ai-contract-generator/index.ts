@@ -85,152 +85,179 @@ serve(async (req: Request) => {
     const userId = user.id;
     const organizationId = profile.organization_id;
 
-    // Build the comprehensive system prompt for senior lawyer quality
-    const systemPrompt = `You are a Senior Partner at a prestigious international law firm with over 25 years of experience drafting complex commercial contracts. You are known for your meticulous attention to detail, comprehensive coverage of all legal contingencies, and ability to protect your clients' interests while maintaining fairness and balance.
+    // Extract jurisdiction from the contract data
+    const jurisdiction = basicInfo.jurisdiction || 'Nigeria';
 
-CRITICAL FORMATTING REQUIREMENTS:
-- DO NOT use any markdown formatting (no #, ##, ###, *, **, ---, em dashes, or similar)
-- Use plain text with proper legal formatting
-- Use UPPERCASE for section headers (e.g., "ARTICLE I - DEFINITIONS")
-- Use numbered sections (1.1, 1.2, 2.1, etc.) for subsections
-- Use line breaks and spacing for readability
-- The output must be clean, professional, and ready for PDF generation
+    // Build the comprehensive system prompt for senior lawyer quality with jurisdiction awareness
+    const systemPrompt = `You are a Senior Partner at a prestigious international law firm with over 30 years of experience drafting complex commercial contracts across multiple jurisdictions. You have practiced law in major legal centers including New York, London, Lagos, Dubai, Singapore, and Hong Kong. You are renowned for your meticulous attention to detail, comprehensive coverage of all legal contingencies, and ability to protect clients' interests while maintaining commercial practicality.
 
-CRITICAL CONTENT REQUIREMENTS:
-- DO NOT include placeholder text like "[Specify...]" or "[To be completed]"
-- FILL IN ALL SECTIONS with appropriate content based on the contract type and information provided
-- If specific information is not provided, draft reasonable standard terms appropriate for the contract type
-- Every section must contain actual legal language, not instructions or placeholders
+GOVERNING JURISDICTION: ${jurisdiction}
 
-PROFESSIONAL STRUCTURE:
+You MUST draft this contract according to the legal traditions, conventions, statutory framework, and professional standards of ${jurisdiction}. Adapt your drafting style, terminology, and structure to match what a senior partner at a top law firm in ${jurisdiction} would produce.
 
-1. CONTRACT HEADER:
-   Begin with the contract title, reference number, and effective date in a formal header format.
+JURISDICTION-SPECIFIC DRAFTING GUIDELINES:
 
-2. PARTIES SECTION:
-   Identify all parties with their full legal names, entity types, addresses, and roles in the agreement.
+FOR COMMON LAW JURISDICTIONS (Nigeria, UK, US, India, Singapore, Hong Kong, Australia, Canada, Ghana, Kenya):
+- Use detailed definitions with precise language
+- Include comprehensive representations and warranties
+- Employ indemnification clauses with specific carve-outs
+- Use "shall" for obligations and "may" for permissions
+- Include detailed boilerplate provisions
+- Structure using Articles, Sections, and Subsections
 
-3. RECITALS/WHEREAS CLAUSES:
-   Establish the background, purpose, and context of the agreement based on the contract type.
+FOR NIGERIAN JURISDICTION:
+- Reference Companies and Allied Matters Act (CAMA) 2020 where applicable
+- Include stamp duty acknowledgment provisions
+- Reference Nigerian courts or Lagos Court of Arbitration for disputes
+- Consider NDPR (Nigeria Data Protection Regulation) for data provisions
+- Use Nigerian business day conventions (Monday to Friday, excluding public holidays)
+- Include provisions for VAT and withholding tax where applicable
+- Reference relevant Nigerian sector-specific regulations
 
-4. DEFINITIONS (ARTICLE I):
-   Define ALL key terms used throughout the contract including: Agreement, Effective Date, Term, Confidential Information, Intellectual Property, Services/Deliverables, Compensation, Business Day, Force Majeure Event, Material Breach, and any contract-type-specific terms.
+FOR UK JURISDICTION:
+- Reference relevant UK statutes (Sale of Goods Act, Consumer Rights Act, Companies Act 2006)
+- Use English law drafting conventions
+- Include provisions addressing UK GDPR compliance
+- Reference English courts or LCIA for arbitration
 
-5. COMPREHENSIVE COVERAGE - Include ALL of the following with COMPLETE content:
-   - SCOPE OF AGREEMENT: Detailed description based on contract type
-   - TERM AND RENEWAL: Specific dates, duration, renewal provisions
-   - COMPENSATION AND PAYMENT: Specific amounts, payment schedule, invoicing terms, late payment penalties
-   - REPRESENTATIONS AND WARRANTIES: By each party regarding authority, compliance, accuracy
-   - COVENANTS AND OBLIGATIONS: Specific duties for each party based on contract type
-   - CONFIDENTIALITY: Detailed confidentiality obligations with standard exceptions
-   - INTELLECTUAL PROPERTY: Ownership and licensing provisions appropriate for the contract type
-   - INDEMNIFICATION: Mutual indemnification provisions
-   - LIMITATION OF LIABILITY: Caps, exclusions, carve-outs
-   - TERMINATION: For cause, for convenience, effects of termination
-   - DISPUTE RESOLUTION: Specific procedures (negotiation, mediation, arbitration, or litigation)
-   - GOVERNING LAW AND JURISDICTION: Specific jurisdiction and choice of law
-   - FORCE MAJEURE: Definition and consequences
-   - NOTICES: Specific notice addresses and delivery methods
-   - GENERAL PROVISIONS: Amendment, waiver, severability, entire agreement, counterparts, assignment
+FOR US JURISDICTION:
+- Specify governing state law (Delaware, New York, California as applicable)
+- Include choice of venue and forum selection
+- Address federal vs. state law considerations
+- Include jury trial waiver provisions where appropriate
+- Reference UCC for commercial transactions
 
-6. SCHEDULES AND EXHIBITS:
-   Include complete schedules with actual content, not placeholders. Draft reasonable terms based on the contract type if specific details are not provided.
+FOR CIVIL LAW JURISDICTIONS (France, Germany, UAE, Saudi Arabia, Brazil):
+- Use more concise, principle-based drafting
+- Include explicit good faith obligations
+- Reference applicable civil codes
+- Use broader force majeure provisions
 
-7. EXECUTION SECTION:
-   Include signature blocks with spaces for signatures, printed names, titles, and dates for all parties.
+FORMATTING REQUIREMENTS (MANDATORY):
+- NO markdown symbols whatsoever (no #, ##, *, **, ---, or em dashes)
+- Use UPPERCASE for all section headers
+- Use proper legal numbering: ARTICLE I, Section 1.1, 1.2, etc.
+- Use clean paragraph breaks for readability
+- Output must be ready for direct PDF conversion
 
-LANGUAGE AND STYLE:
-- Use formal legal language throughout
-- Be precise and unambiguous
-- Use "shall" for obligations, "may" for permissions
-- Include cross-references between related sections
-- Write complete, executable provisions
+CONTENT REQUIREMENTS (MANDATORY):
+- NO placeholder text such as "[Specify...]", "[To be completed]", or "[Insert...]"
+- COMPLETE every section with substantive legal provisions
+- Draft reasonable standard terms where specific details are not provided
+- Every provision must be enforceable under ${jurisdiction} law
 
-Generate a complete, execution-ready contract that requires minimal editing. Every section must contain actual legal terms appropriate for the contract type.`;
+CONTRACT STRUCTURE:
+
+1. HEADER: Contract title, reference number, date of execution
+
+2. PARTIES: Full legal names, entity types (using ${jurisdiction} terminology), registered addresses, roles
+
+3. RECITALS: Background and purpose using "WHEREAS" clauses for common law or "RECITALS" for civil law
+
+4. ARTICLE I - DEFINITIONS: Define all capitalized terms including Agreement, Effective Date, Term, Business Day (per ${jurisdiction} conventions), Confidential Information, Intellectual Property, Material Breach, Force Majeure
+
+5. SUBSTANTIVE ARTICLES (include ALL with complete content):
+   - Scope and subject matter
+   - Term and renewal provisions
+   - Compensation, payment terms, currency, taxes applicable in ${jurisdiction}
+   - Representations and warranties (scope appropriate for ${jurisdiction})
+   - Covenants and obligations of each party
+   - Confidentiality with standard exceptions
+   - Intellectual property ownership and licensing
+   - Indemnification (as enforceable in ${jurisdiction})
+   - Limitation of liability (considering ${jurisdiction} enforceability limits)
+   - Termination rights and consequences
+   - Dispute resolution appropriate for ${jurisdiction}
+   - Governing law: ${jurisdiction}
+   - Force majeure
+   - Notices with delivery methods
+   - General provisions: amendment, waiver, severability, entire agreement, assignment, counterparts
+
+6. SCHEDULES: Include complete schedules with substantive content appropriate to the contract type
+
+7. EXECUTION: Signature blocks with provisions for witnesses, notarization, or company seals as required in ${jurisdiction}
+
+DRAFTING STANDARDS:
+- Write as a senior partner at a Magic Circle or top-tier ${jurisdiction} firm would draft
+- Use formal, precise legal language appropriate to ${jurisdiction}
+- Ensure commercial practicality alongside legal protection
+- Include cross-references between related provisions
+- Every clause must be complete and enforceable`;
 
     // Build the user prompt with all the form data
-    let userPrompt = `Please draft a comprehensive legal contract based on the following information:
+    let userPrompt = `Draft a comprehensive, execution-ready legal contract for ${jurisdiction} jurisdiction based on the following:
 
-═══════════════════════════════════════════════════════════════════
 CONTRACT DETAILS
-═══════════════════════════════════════════════════════════════════
+================
 
-BASIC INFORMATION:
-• Contract Title: ${basicInfo.title}
-• Contract Type: ${basicInfo.type}
-• Description: ${basicInfo.description || 'Not specified - please infer from contract type'}
-• Contract Value: ${basicInfo.value ? `${basicInfo.currency || 'USD'} ${basicInfo.value}` : 'To be specified in the contract'}
-• Effective Date: ${basicInfo.startDate || 'Upon execution by all parties'}
-• Expiration/End Date: ${basicInfo.endDate || 'To be determined based on contract type'}
+Title: ${basicInfo.title}
+Type: ${basicInfo.type}
+Description: ${basicInfo.description || 'Standard ' + basicInfo.type + ' agreement'}
+Value: ${basicInfo.value ? `${basicInfo.currency || 'USD'} ${basicInfo.value}` : 'As specified in payment terms'}
+Effective Date: ${basicInfo.startDate || 'Upon execution by all parties'}
+End Date: ${basicInfo.endDate || 'Per term provisions'}
+Jurisdiction: ${jurisdiction}
 
-═══════════════════════════════════════════════════════════════════
-CONTRACTING PARTIES
-═══════════════════════════════════════════════════════════════════`;
+PARTIES
+=======`;
 
     if (parties && parties.length > 0) {
       parties.forEach((party: any, index: number) => {
         userPrompt += `
 
-PARTY ${index + 1}:
-• Legal Name: ${party.name}
-• Entity Type: ${party.type === 'organization' ? 'Corporation/Business Entity' : 'Individual'}
-• Role in Agreement: ${party.role}
-• Contact Email: ${party.email}
-• Address: ${party.address || 'To be completed'}`;
+Party ${index + 1}:
+Name: ${party.name}
+Type: ${party.type === 'organization' ? 'Corporate Entity' : 'Individual'}
+Role: ${party.role}
+Email: ${party.email}
+Address: ${party.address || 'Registered address in ' + jurisdiction}`;
       });
     } else {
-      userPrompt += '\n\nNo specific parties provided - please include placeholder party sections with [PARTY A] and [PARTY B] designations.';
+      userPrompt += `
+
+Party 1: [First Party] - to be identified in execution
+Party 2: [Second Party] - to be identified in execution`;
     }
 
     if (terms) {
       userPrompt += `
 
-═══════════════════════════════════════════════════════════════════
-SPECIFIC TERMS AND CONDITIONS
-═══════════════════════════════════════════════════════════════════
-
+SPECIFIC TERMS
+==============
 ${terms}`;
     }
 
     if (clauses && clauses.length > 0) {
       userPrompt += `
 
-═══════════════════════════════════════════════════════════════════
-REQUIRED CLAUSES (MUST BE INCLUDED)
-═══════════════════════════════════════════════════════════════════`;
+REQUIRED CLAUSES
+================`;
       clauses.forEach((clause: any, index: number) => {
         userPrompt += `
-
-${index + 1}. ${clause.title.toUpperCase()}${clause.required ? ' [MANDATORY]' : ' [OPTIONAL]'}
-   Content requirement: ${clause.content}`;
+${index + 1}. ${clause.title}: ${clause.content}`;
       });
     }
 
     if (template) {
       userPrompt += `
 
-═══════════════════════════════════════════════════════════════════
-TEMPLATE/STYLE REFERENCE
-═══════════════════════════════════════════════════════════════════
-
-Please use this template as a guide for structure and style:
+TEMPLATE REFERENCE
+==================
+Use this as a structural guide:
 ${template}`;
     }
 
     userPrompt += `
 
-FINAL INSTRUCTIONS
-
-Generate a complete, professional contract document that:
-1. Is immediately ready for execution with minimal edits
-2. Contains NO placeholder text, brackets with instructions, or incomplete sections
-3. Uses plain text formatting (no markdown symbols like #, *, --, or em dashes)
-4. Fills in ALL schedules and exhibits with appropriate content for a ${basicInfo.type}
-5. Uses proper legal numbering (Article I, Section 1.1, etc.) with UPPERCASE headers
-6. Includes specific terms, dates, and provisions based on the information provided
-7. Where specific details are not provided, draft reasonable standard terms for this contract type
-
-The output must be clean, professional, and suitable for direct PDF conversion or copying.
+INSTRUCTIONS
+============
+Generate a complete, professional contract that:
+1. Is immediately ready for execution by parties in ${jurisdiction}
+2. Contains NO placeholders, brackets, or incomplete sections
+3. Uses plain text formatting suitable for PDF generation
+4. Reflects the drafting standards of a senior partner at a top ${jurisdiction} law firm
+5. Includes all schedules with substantive content
+6. Is legally enforceable under ${jurisdiction} law
 
 Generate the complete contract now.`;
 
