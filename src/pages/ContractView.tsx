@@ -1,4 +1,6 @@
- // --- AI Review Dialog Component ---
+// --- AI Review Dialog Component ---
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 function AIReviewDialog({ contractText }: { contractText: string }) {
   const [context, setContext] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,49 +34,69 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
   }
 
   return (
-    <DialogContent className="max-w-xl">
-      <DialogHeader>
+    <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogHeader className="flex-shrink-0">
         <DialogTitle>AI Review for Contract</DialogTitle>
         <DialogDescription>
           The AI will read, summarize, identify key clauses, and redline critical issues/risk areas in this contract.
         </DialogDescription>
       </DialogHeader>
-      <div className="space-y-3 py-2">
-        <label className="font-medium text-sm">Review Context (optional)</label>
-        <Textarea
-          value={context}
-          onChange={e => setContext(e.target.value)}
-          placeholder="e.g. Focus on indemnity and limitation of liability. Flag missing non-compete or dubious payment schedule terms."
-          rows={3}
-        />
-        <div className="text-xs text-muted-foreground">
-          Tips: Be specific if you want the AI to pay attention to something ("Summarize for a junior associate." "Highlight jurisdictional risk." "Is there a change of control clause?")
+      
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="space-y-4 pr-4">
+          {!results && (
+            <div className="space-y-3 py-2">
+              <label className="font-medium text-sm">Review Context (optional)</label>
+              <Textarea
+                value={context}
+                onChange={e => setContext(e.target.value)}
+                placeholder="e.g. Focus on indemnity and limitation of liability. Flag missing non-compete or dubious payment schedule terms."
+                rows={3}
+              />
+              <div className="text-xs text-muted-foreground">
+                Tips: Be specific if you want the AI to pay attention to something ("Summarize for a junior associate." "Highlight jurisdictional risk." "Is there a change of control clause?")
+              </div>
+            </div>
+          )}
+
+          {error && <div className="text-destructive text-sm py-2">{error}</div>}
+          
+          {results && (
+            <div className="space-y-6 py-2">
+              <div>
+                <h4 className="font-semibold mb-2 text-primary">Summary</h4>
+                <div className="bg-muted/60 border border-border rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed">
+                  {results.summary}
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2 text-primary">Key Clauses Extracted</h4>
+                <div className="bg-muted/60 border border-border rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed">
+                  {results.clauses}
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2 text-primary">Redlines & Review Comments</h4>
+                <div className="bg-muted/60 border border-border rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed">
+                  {results.redlines}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-      <DialogFooter>
-        <Button onClick={handleReview} disabled={loading} className="w-full">
-          {loading ? "Running AI Review..." : "Run Review"}
-        </Button>
-      </DialogFooter>
-      <div className="py-2">
-        {error && <div className="text-red-600 text-sm">{error}</div>}
-        {results && (
-          <div className="space-y-4 mt-2">
-            <div>
-              <h4 className="font-semibold mb-1">Summary</h4>
-              <div className="bg-muted/60 border rounded p-2 text-sm whitespace-pre-wrap">{results.summary}</div>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-1">Key Clauses Extracted</h4>
-              <div className="bg-muted/60 border rounded p-2 text-sm whitespace-pre-wrap">{results.clauses}</div>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-1">Redlines & Review Comments</h4>
-              <div className="bg-muted/60 border rounded p-2 text-sm whitespace-pre-wrap">{results.redlines}</div>
-            </div>
-          </div>
+      </ScrollArea>
+
+      <DialogFooter className="flex-shrink-0 pt-4 border-t border-border">
+        {results ? (
+          <Button onClick={() => setResults(null)} variant="outline" className="w-full">
+            Run Another Review
+          </Button>
+        ) : (
+          <Button onClick={handleReview} disabled={loading} className="w-full">
+            {loading ? "Running AI Review..." : "Run Review"}
+          </Button>
         )}
-      </div>
+      </DialogFooter>
     </DialogContent>
   );
 }
