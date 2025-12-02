@@ -42,7 +42,7 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
         </DialogDescription>
       </DialogHeader>
       
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="flex-1 min-h-0 max-h-[60vh] overflow-auto">
         <div className="space-y-4 pr-4">
           {!results && (
             <div className="space-y-3 py-2">
