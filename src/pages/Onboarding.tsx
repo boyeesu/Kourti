@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildDisplayName, getAuthRedirectUrl } from "@/utils/auth-helpers";
 import { env } from "@/lib/env";
 import logo from "@/assets/kourti-legal-logo.png";
+import { useNotificationTriggers } from "@/hooks/useNotificationTriggers";
+import { trackEvent, AnalyticsEvents, identifyUser } from "@/lib/analytics";
 
 const steps = [
   {
@@ -131,6 +133,7 @@ export default function Onboarding() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { createOnboardingNotification } = useNotificationTriggers();
 
   useEffect(() => {
     if (!user) {
@@ -354,6 +357,16 @@ export default function Onboarding() {
           }
         }
       }
+
+      // Track onboarding completion and send welcome notification
+      trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED, { 
+        orgSize: formData.organization.size,
+        practiceAreas: formData.practiceAreas.length 
+      });
+      identifyUser(user?.id || '', orgData.id);
+      
+      // Create welcome notification
+      await createOnboardingNotification(formData.organization.name);
 
       toast({
         title: "Onboarding completed!",
