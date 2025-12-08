@@ -1,3 +1,5 @@
+declare const Deno: any;
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
@@ -111,8 +113,36 @@ async function verifyState(state: string): Promise<StatePayload> {
 
   const payload = JSON.parse(new TextDecoder().decode(payloadBytes)) as StatePayload;
 
+  // SECURITY FIX: Comprehensive input validation
   if (!payload.config_id || !payload.provider || !payload.redirect_to) {
     throw new Error("State payload missing required fields");
+  }
+
+  // Validate UUID format for config_id
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(payload.config_id)) {
+    throw new Error("Invalid configuration format");
+  }
+
+  // Validate provider enum
+  if (!['google', 'microsoft'].includes(payload.provider)) {
+    throw new Error("Invalid provider");
+  }
+
+  // Validate redirect URL against allowlist
+  try {
+    const redirectUrl = new URL(payload.redirect_to);
+    const allowedOrigins = [Deno.env.get('APP_URL'), 'http://localhost:3000', 'http://localhost:5173'].filter(Boolean);
+    if (!allowedOrigins.some(origin => redirectUrl.origin === origin)) {
+      throw new Error("Invalid redirect URL");
+    }
+  } catch {
+    throw new Error("Invalid redirect URL format");
+  }
+
+  // Validate organization_id if present
+  if (payload.organization_id && !uuidRegex.test(payload.organization_id)) {
+    throw new Error("Invalid organization format");
   }
 
   if (Date.now() - payload.created_at > MAX_STATE_AGE_MS) {
@@ -324,6 +354,7 @@ serve(async (req) => {
       throw new Error("Invalid or expired state parameter");
     }
 
+    // SECURITY FIX: Get ALL enabled configs for provider first, then match by email domain after token exchange
     const { data: configs } = await supabase
       .from("organization_sso_configs")
       .select("id, provider, organization_id, client_id, client_secret, tenant_id, is_enabled, domain")
@@ -334,31 +365,38 @@ serve(async (req) => {
       throw new Error(`No enabled SSO config for provider: ${payload.provider}`);
     }
 
-    let config = configs[0];
-    if (payload.organization_id) {
-      const match = configs.find((c: typeof config) => c.organization_id === payload.organization_id);
-      if (match) config = match;
-    }
+    // First, try to exchange token with any matching config to get the email
+    // We need email first to determine which org config to use
+    let tokenResponse: any = null;
+    let email: string = "";
+    let finalConfig: any = null;
 
+    // For now, use first config to exchange token and get email
+    const tempConfig = configs[0];
     const callbackUrl = new URL(req.url);
     callbackUrl.search = "";
 
-    const tokenResponse = await exchangeToken(config, code, callbackUrl.toString());
+    tokenResponse = await exchangeToken(tempConfig, code, callbackUrl.toString());
     const claims = parseJwt(tokenResponse.id_token ?? "");
-    const email = claims.email as string;
+    email = claims.email as string;
 
     if (!email) {
       throw new Error("No email claim in ID token");
     }
 
-    // Verify user's email domain matches organization's SSO domain
+    // Now match config by email domain - THIS IS THE SECURITY FIX
     const emailDomain = email.split("@")[1]?.toLowerCase();
-    const configDomain = (config as any).domain?.toLowerCase();
-    
-    if (configDomain && emailDomain !== configDomain) {
-      console.error("Email domain mismatch", { email, emailDomain, configDomain, organizationId: config.organization_id });
-      throw new Error(`Your email domain (${emailDomain}) is not authorized for this organization's SSO`);
+    if (!emailDomain) {
+      throw new Error("Invalid email format");
     }
+
+    finalConfig = configs.find((c: any) => c.domain?.toLowerCase() === emailDomain);
+    if (!finalConfig) {
+      console.error("No SSO config found for email domain", { email, emailDomain, provider: payload.provider });
+      throw new Error(`Your email domain (${emailDomain}) is not configured for SSO with this provider`);
+    }
+
+    const config = finalConfig;
 
     // Check if user already exists and verify org access
     const { data: existingProfile } = await supabase
@@ -382,13 +420,23 @@ serve(async (req) => {
 
     return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: magicLink } });
   } catch (error) {
-    console.error("SSO callback handler error", error);
+    // SECURITY FIX: Generic error messages - log detailed errors server-side only
+    const errorId = crypto.randomUUID().substring(0, 8);
+    console.error(`[SSO-ERROR-${errorId}] SSO callback handler error`, error);
+    
     const fallbackUrl = Deno.env.get("APP_URL") ?? "";
     if (fallbackUrl) {
-      const location = buildRedirectWithError(fallbackUrl, "sso_callback_error");
+      const location = buildRedirectWithError(
+        fallbackUrl, 
+        "authentication_failed"
+      );
       return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: location } });
     }
-    const errorMessage = error instanceof Error ? error.message : "Unexpected SSO error";
-    return createJsonResponse({ error: errorMessage }, { status: 500, cors: corsOptions });
+    
+    // Generic error message for client - reference error ID for support
+    return createJsonResponse(
+      { error: "Authentication failed. Please try again or contact support.", error_id: errorId }, 
+      { status: 500, cors: corsOptions }
+    );
   }
 });

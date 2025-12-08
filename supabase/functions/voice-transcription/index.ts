@@ -1,3 +1,5 @@
+declare const Deno: any;
+
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
 
 const voiceCorsHeaders = {
@@ -187,7 +189,7 @@ export const voiceTranscriptionHandler = async (req: Request) => {
 
   } catch (error: any) {
     console.error('Error in voice-transcription function:', error);
-    return createErrorResponse(error, voiceCorsHeaders, 'Voice transcription failed');
+    return createErrorResponse(error, { allowMethods: ['POST', 'OPTIONS'] }, 'Voice transcription failed');
   }
 };
 

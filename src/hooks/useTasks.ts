@@ -5,6 +5,8 @@ import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Task } from '@/types';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { AppError, tryCatch } from '@/lib/error-handling';
+import { trackEvent, AnalyticsEvents } from '@/lib/analytics';
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 // Use Database type for type safety with Supabase
 type TaskRow = Tables<'tasks'>;
@@ -62,6 +64,7 @@ export function useTasks(caseId: string) {
 export function useCreateTask() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { createTaskNotification } = useNotificationTriggers();
   
   return useMutation<TaskRow, AppError, CreateTaskData>({
     mutationFn: async (data: CreateTaskData) => {
@@ -89,9 +92,13 @@ export function useCreateTask() {
       if (error) throw error;
       return result!;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', variables.case_id] });
       toast({ title: 'Task created', description: 'Task successfully added.' });
+      
+      // Track and notify
+      trackEvent(AnalyticsEvents.TASK_CREATED, { priority: variables.priority });
+      createTaskNotification(result, 'created', variables.assigned_to);
     },
     onError: (error: AppError) => {
       toast({ 

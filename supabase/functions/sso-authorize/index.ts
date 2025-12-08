@@ -1,12 +1,19 @@
+declare const Deno: any;
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
+  Deno.env.get("SSO_ALLOWED_REDIRECT_ORIGINS"),
   "http://localhost:3000",
   "http://localhost:5173",
-].filter(Boolean);
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean);
+
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
@@ -26,7 +33,6 @@ type Provider = "google" | "microsoft";
 type AuthorizeRequest = {
   provider?: Provider;
   email?: string;
-  organization_id?: string;
   redirect_to?: string;
   dry_run?: boolean;
 };
@@ -104,7 +110,10 @@ async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | 
   if (!provider) return null;
 
   const domain = request.email?.split("@").pop()?.toLowerCase().trim();
-  const organizationId = request.organization_id?.trim();
+  if (!domain) {
+    console.log("SSO: Email with domain is required for SSO configuration lookup");
+    return null;
+  }
 
   const selection = "id, provider, organization_id, is_enabled, tenant_id, client_id, client_secret, redirect_uri, domain_hint, domain";
 
@@ -119,27 +128,20 @@ async function resolveConfig(request: AuthorizeRequest): Promise<SsoConfigRow | 
     query = modify(query);
     const { data, error } = await query.maybeSingle();
     if (error && error.code !== "PGRST116") {
-      console.error("Error resolving SSO config", { error, provider, organizationId, domain });
+      console.error("Error resolving SSO config", { error, provider, domain });
     }
     return (data as SsoConfigRow | null) ?? null;
   };
 
-  // First priority: Check by explicit organization_id
-  if (organizationId) {
-    const config = await runQuery((q) => q.eq("organization_id", organizationId));
-    if (config) return config;
-  }
-
-  // Second priority: Check by email domain
-  if (domain) {
-    const config = await runQuery((q) => q.eq("domain", domain));
-    if (config) {
-      console.log(`Found SSO config for domain: ${domain}`, { provider, organization_id: config.organization_id });
-      return config;
-    }
+  // SECURITY FIX: ONLY match by email domain - never trust client-provided organization_id
+  const config = await runQuery((q) => q.eq("domain", domain));
+  if (config) {
+    console.log(`Found SSO config for domain: ${domain}`, { provider, organization_id: config.organization_id });
+    return config;
   }
 
   // No matching config found
+  console.log(`No SSO config found for domain: ${domain}`, { provider });
   return null;
 }
 
@@ -200,7 +202,19 @@ serve(async (req) => {
       return createJsonResponse({ error: "Missing provider" }, { status: 400, cors: corsOptions });
     }
 
+    // SECURITY FIX: Timing oracle mitigation - normalize all response times
+    const minResponseTime = 200; // milliseconds
+    const requestStartTime = Date.now();
+
     const config = await resolveConfig(request);
+
+    // Calculate remaining time to meet minimum response time
+    const elapsedTime = Date.now() - requestStartTime;
+    const delayNeeded = Math.max(0, minResponseTime - elapsedTime);
+    
+    if (delayNeeded > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayNeeded));
+    }
 
     if (!config) {
       const dryResponse: DryRunResponse = {
@@ -210,8 +224,9 @@ serve(async (req) => {
         organization_id: null,
         enforce_sso: false,
       };
+      // SECURITY FIX: Always return 200 for dry_run to prevent enumeration
       return createJsonResponse(dryResponse, {
-        status: request.dry_run ? 200 : 404,
+        status: 200,
         cors: corsOptions,
       });
     }

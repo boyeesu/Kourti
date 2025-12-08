@@ -12,6 +12,7 @@ import { useDocumentContent } from "@/hooks/useDocumentContext";
 import { useOrganization } from "@/hooks/useOrganization";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { cn, formatDate } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -263,7 +264,7 @@ export default function ReamAI() {
     {
       role: "system",
       content:
-        "Welcome to Ream AI! I can help you with legal questions, document analysis, and contract review. You can ask me anything directly, or select a document for context-aware analysis.",
+        "Welcome to Ream AI!",
       timestamp: new Date()
     }
   ]);
@@ -472,7 +473,7 @@ export default function ReamAI() {
   void getInputProps;
   void isDragActive;
 
-  // Handle document/contract selection
+  // Handle document/contract selection with content extraction
   async function handleSelectDoc(doc: any, isContract: boolean) {
     setSelectedDoc({ ...doc, type: isContract ? "contract" : "document" });
     setSelectedFile(null); // Clear any uploaded file
@@ -496,18 +497,67 @@ export default function ReamAI() {
         role: "assistant",
         content: `I'm processing "${
           doc.title || doc.name
-        }" for RAG analysis. This may take a moment as I chunk and embed the content for better retrieval...`,
-        timestamp: new Date()
+        }" for RAG analysis. This may take a moment...`,
+        timestamp: new Date(),
+        isStreaming: true
       }
     ]);
 
-    // Process document for RAG if we have organization context
-    if (organization?.id && doc.content) {
+    let contentToProcess = isContract 
+      ? (doc.terms || doc.description || "") 
+      : (doc.content || "");
+
+    // If document has file_path but no content, extract it first
+    if (!isContract && doc.file_path && !doc.content) {
       try {
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1
+              ? { ...msg, content: `📄 Extracting text content from "${doc.name}"...` }
+              : msg
+          )
+        );
+
+        const { data: extractResult, error: extractError } = await supabase.functions.invoke(
+          'extract-document-text',
+          {
+            body: { documentId: doc.id, filePath: doc.file_path }
+          }
+        );
+
+        if (extractError) {
+          console.error('Content extraction error:', extractError);
+          toast({
+            title: "Extraction Warning",
+            description: "Could not extract text from the file. Analysis may be limited.",
+            variant: "default"
+          });
+        } else if (extractResult?.content) {
+          contentToProcess = extractResult.content;
+          // Update doc object for context
+          doc.content = extractResult.content;
+          console.log('Extracted content length:', extractResult.contentLength);
+        }
+      } catch (error) {
+        console.error('Error extracting document content:', error);
+      }
+    }
+
+    // Process document for RAG if we have organization context and content
+    if (organization?.id && contentToProcess && contentToProcess.length > 50) {
+      try {
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1
+              ? { ...msg, content: `🔄 Chunking and embedding "${doc.title || doc.name}" for RAG search...` }
+              : msg
+          )
+        );
+
         await processDocument.mutateAsync({
           documentId: !isContract ? doc.id : undefined,
           contractId: isContract ? doc.id : undefined,
-          content: isContract ? doc.terms || doc.description || "" : doc.content || "",
+          content: contentToProcess,
           documentType: isContract ? "contract" : "document"
         });
 
@@ -519,7 +569,8 @@ export default function ReamAI() {
                   ...msg,
                   content: `✅ Successfully processed "${
                     doc.title || doc.name
-                  }" for RAG analysis! The document has been chunked and embedded. You can now ask detailed questions about its content.`
+                  }" for RAG analysis! The document has been chunked and embedded. You can now ask detailed questions about its content.`,
+                  isStreaming: false
                 }
               : msg
           )
@@ -533,21 +584,24 @@ export default function ReamAI() {
                   ...msg,
                   content: `⚠️ Loaded "${
                     doc.title || doc.name
-                  }" but RAG processing failed. I can still analyze the document, but responses may be less contextual.`
+                  }" but RAG processing failed. I can still analyze the document, but responses may be less contextual.`,
+                  isStreaming: false
                 }
               : msg
           )
         );
       }
     } else {
+      const hasContent = contentToProcess && contentToProcess.length > 50;
       setMessages((msgs) =>
         msgs.map((msg, i) =>
           i === msgs.length - 1
             ? {
                 ...msg,
-                content: `📄 Loaded "${
-                  doc.title || doc.name
-                }" for analysis. What would you like to know about it?`
+                content: hasContent
+                  ? `📄 Loaded "${doc.title || doc.name}" for analysis. What would you like to know about it?`
+                  : `📄 Document "${doc.title || doc.name}" loaded, but no text content is available. The document may be an image-based PDF requiring OCR. You can still ask questions and I'll help based on available metadata.`,
+                isStreaming: false
               }
             : msg
         )

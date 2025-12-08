@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileText, Bot, Target, Sparkles, CheckCircle } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Upload, FileText, Bot, Target, Sparkles, CheckCircle, Copy, Edit3, Save, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCreateContract } from "@/hooks/useContracts";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 interface AnalysisResult {
@@ -36,7 +38,11 @@ export default function ContractReview() {
   const [analysisType, setAnalysisType] = useState<"contract_review" | "document_review" | "key_information">("contract_review");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedAnalysis, setEditedAnalysis] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const createContractMutation = useCreateContract();
 
   const normalizeResult = (raw: any): AnalysisResult => {
     const analysis = raw?.analysis;
@@ -55,8 +61,6 @@ export default function ContractReview() {
 
   const handleFileUpload = (uploadedFile: File) => {
     setFile(uploadedFile);
-    // In a real app, you'd extract text from the file
-    // For now, we'll use placeholder text
     setTextContent(`Contract content from ${uploadedFile.name} would be extracted here...`);
   };
 
@@ -121,6 +125,74 @@ export default function ContractReview() {
       });
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleCopyAnalysis = async () => {
+    const textToCopy = isEditing ? editedAnalysis : result?.analysis;
+    if (!textToCopy) return;
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      toast({
+        title: "Copied",
+        description: "Contract analysis copied to clipboard.",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy to clipboard.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleStartEditing = () => {
+    if (result) {
+      setEditedAnalysis(result.analysis);
+      setIsEditing(true);
+    }
+  };
+
+  const handleCancelEditing = () => {
+    setIsEditing(false);
+    setEditedAnalysis("");
+  };
+
+  const handleSaveEdit = () => {
+    if (result && editedAnalysis) {
+      setResult({ ...result, analysis: editedAnalysis });
+      setIsEditing(false);
+      toast({
+        title: "Changes Saved",
+        description: "Your edits have been saved.",
+      });
+    }
+  };
+
+  const handleSaveAsContract = async () => {
+    if (!result) return;
+
+    setIsSaving(true);
+    try {
+      const contractTitle = file?.name?.replace(/\.[^/.]+$/, "") || `AI Reviewed Contract - ${new Date().toLocaleDateString()}`;
+      
+      await createContractMutation.mutateAsync({
+        title: contractTitle,
+        description: goal || "AI-generated contract review",
+        terms: isEditing ? editedAnalysis : result.analysis,
+        status: "active",
+        contract_type: analysisType === "contract_review" ? "service" : "general",
+      });
+
+      toast({
+        title: "Contract Saved",
+        description: "Contract has been saved successfully.",
+      });
+    } catch (error: any) {
+      // Error toast is handled by the mutation hook
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -330,8 +402,8 @@ export default function ContractReview() {
       {result && (
         <div className="space-y-6">
           <Card className="border-primary/20">
-            <CardHeader>
-              <div className="flex items-center justify-between">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3">
                   <div className="bg-gradient-to-br from-primary to-primary/80 p-2 rounded-lg">
                     <Bot className="h-5 w-5 text-primary-foreground" />
@@ -350,13 +422,73 @@ export default function ContractReview() {
                   </Badge>
                 </div>
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyAnalysis}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
+                {!isEditing ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStartEditing}
+                  >
+                    <Edit3 className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSaveEdit}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelEditing}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleSaveAsContract}
+                  disabled={isSaving}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? "Saving..." : "Save as Contract"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none">
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {result.analysis}
-                </div>
-              </div>
+              <ScrollArea className="h-[500px] w-full rounded-md border p-4 bg-muted/30">
+                {isEditing ? (
+                  <Textarea
+                    value={editedAnalysis}
+                    onChange={(e) => setEditedAnalysis(e.target.value)}
+                    className="min-h-[460px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm leading-relaxed"
+                  />
+                ) : (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {result.analysis}
+                    </div>
+                  </div>
+                )}
+              </ScrollArea>
             </CardContent>
           </Card>
 
@@ -369,12 +501,11 @@ export default function ContractReview() {
                 setTextContent("");
                 setGoal("");
                 setSelectedGoal("");
+                setIsEditing(false);
+                setEditedAnalysis("");
               }}
             >
               Analyze New Document
-            </Button>
-            <Button variant="outline">
-              Export Analysis
             </Button>
           </div>
         </div>

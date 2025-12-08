@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.12 (cd3cf9e)"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -93,7 +93,7 @@ export type Database = {
           action: string
           created_at: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           organization_id: string
@@ -106,7 +106,7 @@ export type Database = {
           action: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           organization_id: string
@@ -119,7 +119,7 @@ export type Database = {
           action?: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           organization_id?: string
@@ -1551,7 +1551,7 @@ export type Database = {
           client_secret: string | null
           created_at: string
           created_by: string | null
-          domain: string | null
+          domain: string
           domain_hint: string | null
           id: string
           is_enabled: boolean
@@ -1568,7 +1568,7 @@ export type Database = {
           client_secret?: string | null
           created_at?: string
           created_by?: string | null
-          domain?: string | null
+          domain: string
           domain_hint?: string | null
           id?: string
           is_enabled?: boolean
@@ -1585,7 +1585,7 @@ export type Database = {
           client_secret?: string | null
           created_at?: string
           created_by?: string | null
-          domain?: string | null
+          domain?: string
           domain_hint?: string | null
           id?: string
           is_enabled?: boolean
@@ -2219,30 +2219,15 @@ export type Database = {
         }
         Returns: undefined
       }
-      current_user_is_org_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      current_user_is_org_admin: { Args: never; Returns: boolean }
       delete_organization_sso_config: {
         Args: { p_id: string }
         Returns: boolean
       }
-      disable_user: {
-        Args: { target_user_id: string }
-        Returns: Json
-      }
-      enable_user: {
-        Args: { target_user_id: string }
-        Returns: Json
-      }
-      generate_invoice_number: {
-        Args: { org_id: string }
-        Returns: string
-      }
-      get_current_user_organization_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      disable_user: { Args: { target_user_id: string }; Returns: Json }
+      enable_user: { Args: { target_user_id: string }; Returns: Json }
+      generate_invoice_number: { Args: { org_id: string }; Returns: string }
+      get_current_user_organization_id: { Args: never; Returns: string }
       get_document_analysis: {
         Args: { p_analysis_type?: string; p_document_id: string }
         Returns: {
@@ -2284,9 +2269,10 @@ export type Database = {
           verified_at: string
         }[]
       }
-      get_user_organization_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
+      get_user_organization_id: { Args: never; Returns: string }
+      has_permission: {
+        Args: { p_action: string; p_resource: string }
+        Returns: boolean
       }
       initialize_custom_role_permissions: {
         Args: {
@@ -2306,10 +2292,7 @@ export type Database = {
         }
         Returns: Json
       }
-      is_user_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      is_user_admin: { Args: never; Returns: boolean }
       log_audit_event: {
         Args: {
           p_action: string
@@ -2340,6 +2323,22 @@ export type Database = {
           similarity: number
           terms: string
           title: string
+        }[]
+      }
+      match_document_chunks: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          contract_id: string
+          document_id: string
+          id: string
+          metadata: Json
+          similarity: number
         }[]
       }
       match_documents: {
@@ -2380,7 +2379,7 @@ export type Database = {
           client_secret: string | null
           created_at: string
           created_by: string | null
-          domain: string | null
+          domain: string
           domain_hint: string | null
           id: string
           is_enabled: boolean
@@ -2392,10 +2391,12 @@ export type Database = {
           updated_at: string
           updated_by: string | null
         }
-      }
-      user_has_permission: {
-        Args: { p_action: string; p_resource: string; p_user_id: string }
-        Returns: boolean
+        SetofOptions: {
+          from: "*"
+          to: "organization_sso_configs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       user_has_specific_permission: {
         Args: { p_action: string; p_resource: string; p_user_id: string }

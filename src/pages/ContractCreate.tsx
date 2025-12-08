@@ -83,27 +83,40 @@ export default function ContractCreate() {
     content: "",
     required: false
   });
+  const [jurisdiction, setJurisdiction] = useState<string>("");
   const contractTypes = ["Service Agreement", "Non-Disclosure Agreement", "Employment Contract", "Purchase Agreement", "Lease Agreement", "Partnership Agreement", "Licensing Agreement", "Consulting Agreement", "Supply Agreement", "Distribution Agreement"];
   const partyRoles = ["Client", "Contractor", "Vendor", "Partner", "Licensee", "Licensor", "Buyer", "Seller", "Tenant", "Landlord"];
   const standardClauses = [{
     title: "Confidentiality",
-    content: "Both parties agree to maintain confidentiality of all proprietary information shared during the course of this agreement.",
+    content: "Both parties agree to maintain confidentiality of all proprietary information shared during the course of this agreement. This includes trade secrets, business strategies, financial data, customer information, and any other non-public information disclosed during the term of this agreement.",
     required: true
   }, {
     title: "Termination",
-    content: "Either party may terminate this agreement with 30 days written notice to the other party.",
+    content: "Either party may terminate this agreement with 30 days written notice to the other party. Upon termination, all obligations shall cease except those that by their nature survive termination, including confidentiality, indemnification, and dispute resolution provisions.",
     required: true
   }, {
     title: "Governing Law",
-    content: "This agreement shall be governed by and construed in accordance with the laws of [Jurisdiction].",
+    content: `This agreement shall be governed by and construed in accordance with the laws of ${jurisdiction || "[Please specify jurisdiction]"}. Any disputes arising under this agreement shall be resolved in the courts of ${jurisdiction || "[Please specify jurisdiction]"}.`,
     required: true
   }, {
     title: "Force Majeure",
-    content: "Neither party shall be liable for any failure to perform due to circumstances beyond their reasonable control.",
+    content: "Neither party shall be liable for any failure to perform due to circumstances beyond their reasonable control, including but not limited to acts of God, natural disasters, war, terrorism, riots, embargoes, acts of civil or military authorities, fire, floods, accidents, strikes, or shortages of transportation, facilities, fuel, energy, labor, or materials.",
     required: false
   }, {
     title: "Intellectual Property",
-    content: "All intellectual property created in connection with this agreement shall be owned by [Party Name].",
+    content: "All intellectual property created in connection with this agreement shall be owned by the commissioning party unless otherwise agreed in writing. Each party retains ownership of its pre-existing intellectual property.",
+    required: false
+  }, {
+    title: "Indemnification",
+    content: "Each party agrees to indemnify, defend, and hold harmless the other party from and against any claims, damages, losses, costs, and expenses (including reasonable attorney fees) arising from or related to any breach of this agreement or negligent or wrongful acts.",
+    required: false
+  }, {
+    title: "Limitation of Liability",
+    content: "Neither party shall be liable for any indirect, incidental, special, consequential, or punitive damages, regardless of the cause of action or whether such party has been advised of the possibility of such damages. The total liability of either party shall not exceed the total fees paid under this agreement.",
+    required: false
+  }, {
+    title: "Dispute Resolution",
+    content: "Any dispute arising out of or relating to this agreement shall first be attempted to be resolved through good faith negotiation. If negotiation fails, the parties agree to submit to binding arbitration before a mutually agreed arbitrator, with each party bearing their own costs.",
     required: false
   }];
   const addParty = () => {
@@ -219,11 +232,21 @@ export default function ContractCreate() {
     },
   ], []);
   const addStandardClause = (standardClause: typeof standardClauses[0]) => {
+    // Check if clause with the same title already exists
+    const alreadyExists = clauses.some(c => c.title === standardClause.title);
+    if (alreadyExists) {
+      return; // Don't add duplicate
+    }
     const clause: ContractClause = {
       id: `clause-${Date.now()}`,
       ...standardClause
     };
     setClauses([...clauses, clause]);
+  };
+
+  // Check if a standard clause is already added
+  const isClauseAdded = (clauseTitle: string) => {
+    return clauses.some(c => c.title === clauseTitle);
   };
   const removeClause = (clauseId: string) => {
     setClauses(clauses.filter(c => c.id !== clauseId));
@@ -232,6 +255,11 @@ export default function ContractCreate() {
     e.preventDefault();
     if (!contractData.title || !contractData.type) {
       alert("Please fill in the required fields (Title and Type).");
+      return;
+    }
+    if (clauses.length === 0) {
+      alert("Please add at least one clause before generating the contract.");
+      setActiveTab("clauses");
       return;
     }
     try {
@@ -703,24 +731,55 @@ export default function ContractCreate() {
 
                     <Card>
                       <CardHeader>
+                        <CardTitle className="text-base">Jurisdiction Settings</CardTitle>
+                        <CardDescription>Specify the legal jurisdiction for your contract</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="jurisdiction">Governing Jurisdiction <span className="text-destructive">*</span></Label>
+                          <Input 
+                            id="jurisdiction"
+                            placeholder="e.g., State of New York, United States"
+                            value={jurisdiction}
+                            onChange={(e) => setJurisdiction(e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">This will be used in the Governing Law clause and dispute resolution provisions.</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
                         <CardTitle className="text-base">Standard Clauses</CardTitle>
+                        <CardDescription>Select clauses to include in your contract</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {standardClauses.map((clause, index) => <div key={index} className="p-3 border rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <h5 className="font-medium">{clause.title}</h5>
-                              <Badge variant={clause.required ? "default" : "secondary"} className="text-xs">
-                                {clause.required ? "Required" : "Optional"}
-                              </Badge>
+                        {standardClauses.map((clause, index) => {
+                          const alreadyAdded = isClauseAdded(clause.title);
+                          return (
+                            <div key={index} className={`p-3 border rounded-lg ${alreadyAdded ? 'opacity-60 bg-muted/50' : ''}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <h5 className="font-medium">{clause.title}</h5>
+                                <Badge variant={alreadyAdded ? "outline" : clause.required ? "default" : "secondary"} className="text-xs">
+                                  {alreadyAdded ? "Added" : clause.required ? "Required" : "Optional"}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-3">
+                                {clause.content.substring(0, 100)}...
+                              </p>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => addStandardClause(clause)}
+                                disabled={alreadyAdded}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                {alreadyAdded ? "Added" : "Add"}
+                              </Button>
                             </div>
-                            <p className="text-sm text-muted-foreground mb-3">
-                              {clause.content.substring(0, 100)}...
-                            </p>
-                            <Button type="button" variant="outline" size="sm" onClick={() => addStandardClause(clause)}>
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
-                          </div>)}
+                          );
+                        })}
                       </CardContent>
                     </Card>
                   </div>
