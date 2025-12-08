@@ -1,13 +1,21 @@
 declare const Deno: any;
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// SMTP configuration
+const smtpConfig = {
+  hostname: Deno.env.get("SMTP_HOST") || "",
+  port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
+  username: Deno.env.get("SMTP_USER") || "",
+  password: Deno.env.get("SMTP_PASS") || "",
+  fromEmail: Deno.env.get("SMTP_FROM_EMAIL") || "noreply@example.com",
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,14 +94,27 @@ const handler = async (req: Request): Promise<Response> => {
       metadata,
     });
 
-    const emailResponse = await resend.emails.send({
-      from: `${organizationName} <notifications@resend.dev>`,
-      to: [recipientEmail],
+    // Send email via SMTP
+    const client = new SmtpClient();
+    
+    await client.connectTLS({
+      hostname: smtpConfig.hostname,
+      port: smtpConfig.port,
+      username: smtpConfig.username,
+      password: smtpConfig.password,
+    });
+
+    await client.send({
+      from: `${organizationName} <${smtpConfig.fromEmail}>`,
+      to: recipientEmail,
       subject: emailSubject,
+      content: message,
       html: htmlContent,
     });
 
-    console.log("Notification email sent successfully:", emailResponse);
+    await client.close();
+
+    console.log("Notification email sent successfully via SMTP to:", recipientEmail);
 
     // Also create in-app notification
     await supabase.from('notifications').insert({
@@ -105,7 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
       status: 'unread',
     });
 
-    return new Response(JSON.stringify({ success: true, emailResponse }), {
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
