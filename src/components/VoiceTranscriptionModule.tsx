@@ -394,11 +394,11 @@ const VoiceTranscriptionModule: React.FC = () => {
             variant: "destructive",
           });
         } else {
-          // Get public URL
-          const { data: urlData } = supabase.storage
+          // Get signed URL for private bucket (1 hour expiry)
+          const { data: urlData } = await supabase.storage
             .from('documents')
-            .getPublicUrl(filePath);
-          audioFileUrl = urlData.publicUrl;
+            .createSignedUrl(filePath, 3600);
+          audioFileUrl = urlData?.signedUrl || null;
         }
       }
 
