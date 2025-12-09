@@ -1,24 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-// @ts-ignore - Deno runtime import
-import nodemailer from "npm:nodemailer@6.9.8";
+// @ts-ignore: Deno module
+import { Resend } from "npm:resend@4.0.0";
 
-declare const Deno: {
-  env: {
-    get(key: string): string | undefined;
-  };
-};
-
-// SMTP configuration
-const smtpConfig = {
-  host: Deno.env.get("SMTP_HOST") || "",
-  port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
-  secure: Deno.env.get("SMTP_PORT") === "465",
-  auth: {
-    user: Deno.env.get("SMTP_USER") || "",
-    pass: Deno.env.get("SMTP_PASS") || "",
-  },
-};
-
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "noreply@example.com";
 
 const corsHeaders = {
@@ -75,40 +59,27 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailSubject = `You're invited to join ${organizationName}`;
 
-    console.log("Preparing to send invitation email via SMTP:", {
-      to: email,
-      subject: emailSubject,
-      smtpHost: smtpConfig.host,
-    });
+    console.log("Sending invitation email via Resend:", { to: email, subject: emailSubject });
 
-    // Create transporter
-    const transporter = nodemailer.createTransport(smtpConfig);
-
-    // Verify SMTP connection
-    try {
-      await transporter.verify();
-      console.log("SMTP connection verified successfully");
-    } catch (verifyError: any) {
-      console.error("SMTP verification failed:", verifyError.message);
-      // Continue anyway, some SMTP servers don't support verify
-    }
-
-    // Send email
-    const info = await transporter.sendMail({
+    const { data, error } = await resend.emails.send({
       from: `${organizationName} <${fromEmail}>`,
-      to: email,
+      to: [email],
       subject: emailSubject,
-      text: `Hello ${firstName}, You've been invited to join ${organizationName} as a ${role}. Click here to accept: ${signupUrl}`,
       html: htmlContent,
     });
 
-    console.log("Invitation email sent successfully:", info.messageId);
+    if (error) {
+      console.error("Resend error:", error);
+      throw new Error(error.message);
+    }
+
+    console.log("Invitation email sent successfully:", data?.id);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Invitation email sent successfully via SMTP',
-        messageId: info.messageId,
+        message: 'Invitation email sent successfully',
+        messageId: data?.id,
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
@@ -116,7 +87,7 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error('Error in send-invitation-email function:', error);
     return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
+      JSON.stringify({ error: error.message }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
@@ -152,7 +123,6 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-          <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 40px 30px; border-radius: 12px 12px 0 0; text-align: center;">
               <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">
@@ -163,24 +133,18 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
               </p>
             </td>
           </tr>
-          
-          <!-- Content -->
           <tr>
             <td style="padding: 40px 30px;">
               <p style="color: #333333; font-size: 18px; margin: 0 0 20px;">
                 Hello ${fullName},
               </p>
-              
               <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
                 <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <strong>${roleDisplay}</strong>.
               </p>
-              
               ${departmentLine}
-              
               <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
                 Click the button below to create your account and get started:
               </p>
-              
               <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                 <tr>
                   <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
@@ -190,15 +154,12 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
                   </td>
                 </tr>
               </table>
-              
               <p style="color: #888888; font-size: 13px; margin: 25px 0 0;">
                 If the button doesn't work, copy and paste this link into your browser:<br>
                 <a href="${signupUrl}" style="color: #1a365d; word-break: break-all;">${signupUrl}</a>
               </p>
             </td>
           </tr>
-          
-          <!-- Footer -->
           <tr>
             <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 12px 12px; border-top: 1px solid #e9ecef;">
               <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
