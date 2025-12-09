@@ -1,8 +1,12 @@
-declare const Deno: any;
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import nodemailer from "npm:nodemailer@6.9.8";
+
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -10,12 +14,16 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // SMTP configuration
 const smtpConfig = {
-  hostname: Deno.env.get("SMTP_HOST") || "",
+  host: Deno.env.get("SMTP_HOST") || "",
   port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
-  username: Deno.env.get("SMTP_USER") || "",
-  password: Deno.env.get("SMTP_PASS") || "",
-  fromEmail: Deno.env.get("SMTP_FROM_EMAIL") || "noreply@example.com",
+  secure: Deno.env.get("SMTP_PORT") === "465",
+  auth: {
+    user: Deno.env.get("SMTP_USER") || "",
+    pass: Deno.env.get("SMTP_PASS") || "",
+  },
 };
+
+const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "noreply@example.com";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +42,8 @@ interface NotificationEmailRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  console.log("send-notification-email function invoked");
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -42,12 +52,12 @@ const handler = async (req: Request): Promise<Response> => {
     const requestData: NotificationEmailRequest = await req.json();
     const { type, recipientUserId, subject, title, message, actionUrl, actionText, metadata } = requestData;
 
-    console.log('Sending notification email:', { type, recipientUserId, title });
+    console.log('Processing notification email:', { type, recipientUserId, title });
 
     // Get recipient's email from profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('email, first_name, last_name')
+      .select('email, first_name, last_name, organization_id')
       .eq('user_id', recipientUserId)
       .single();
 
@@ -61,20 +71,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     const recipientEmail = profile.email;
     const recipientName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Team Member';
+    const organizationId = profile.organization_id;
 
     // Get organization name
-    const { data: orgProfile } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('user_id', recipientUserId)
-      .single();
-
-    let organizationName = 'Kourti Legal';
-    if (orgProfile?.organization_id) {
+    let organizationName = 'Ream AI Legal';
+    if (organizationId) {
       const { data: org } = await supabase
         .from('organizations')
         .select('name')
-        .eq('id', orgProfile.organization_id)
+        .eq('id', organizationId)
         .single();
       if (org?.name) organizationName = org.name;
     }
@@ -94,46 +99,56 @@ const handler = async (req: Request): Promise<Response> => {
       metadata,
     });
 
-    // Send email via SMTP
-    const client = new SmtpClient();
-    
-    await client.connectTLS({
-      hostname: smtpConfig.hostname,
-      port: smtpConfig.port,
-      username: smtpConfig.username,
-      password: smtpConfig.password,
-    });
-
-    await client.send({
-      from: `${organizationName} <${smtpConfig.fromEmail}>`,
+    console.log("Preparing to send email via SMTP:", {
       to: recipientEmail,
       subject: emailSubject,
-      content: message,
+      smtpHost: smtpConfig.host,
+    });
+
+    // Create transporter
+    const transporter = nodemailer.createTransport(smtpConfig);
+
+    // Verify SMTP connection
+    try {
+      await transporter.verify();
+      console.log("SMTP connection verified successfully");
+    } catch (verifyError: any) {
+      console.error("SMTP verification failed:", verifyError.message);
+      // Continue anyway, some SMTP servers don't support verify
+    }
+
+    // Send email
+    const info = await transporter.sendMail({
+      from: `${organizationName} <${fromEmail}>`,
+      to: recipientEmail,
+      subject: emailSubject,
+      text: message,
       html: htmlContent,
     });
 
-    await client.close();
-
-    console.log("Notification email sent successfully via SMTP to:", recipientEmail);
+    console.log("Email sent successfully:", info.messageId);
 
     // Also create in-app notification
-    await supabase.from('notifications').insert({
-      user_id: recipientUserId,
-      organization_id: orgProfile?.organization_id,
-      title,
-      description: message,
-      type: mapTypeToNotificationType(type),
-      status: 'unread',
-    });
+    if (organizationId) {
+      await supabase.from('notifications').insert({
+        user_id: recipientUserId,
+        organization_id: organizationId,
+        title,
+        description: message,
+        type: mapTypeToNotificationType(type),
+        status: 'unread',
+      });
+      console.log("In-app notification created for user:", recipientUserId);
+    }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, messageId: info.messageId }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
     console.error("Error in send-notification-email function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, stack: error.stack }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
