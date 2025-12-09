@@ -1,18 +1,30 @@
-declare const Deno: any;
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore - Deno runtime import
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import nodemailer from "npm:nodemailer@6.9.8";
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// SMTP configuration
+const smtpConfig = {
+  host: Deno.env.get("SMTP_HOST") || "",
+  port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
+  secure: Deno.env.get("SMTP_PORT") === "465",
+  auth: {
+    user: Deno.env.get("SMTP_USER") || "",
+    pass: Deno.env.get("SMTP_PASS") || "",
+  },
+};
 
-const corsOptions = {
-  allowMethods: ['POST', 'OPTIONS'],
-  allowCredentials: true,
+const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "noreply@example.com";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 interface InvitationEmailRequest {
@@ -27,9 +39,10 @@ interface InvitationEmailRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
+  console.log("send-invitation-email function invoked");
+
   if (req.method === 'OPTIONS') {
-    return createEmptyResponse({ status: 204, cors: corsOptions });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -44,66 +57,166 @@ const handler = async (req: Request): Promise<Response> => {
       invitationUrl,
     }: InvitationEmailRequest = await req.json();
 
-    console.log('Sending invitation email to:', email);
+    console.log('Processing invitation email for:', email);
 
-    // Get the origin from the request or use a fallback
-    const origin = req.headers.get('origin') || supabaseUrl.replace(/\/$/, '');
-    
-    // Construct the redirect URL - redirect to password setup page for invited users
-    let redirectUrl = invitationUrl;
+    // Generate a proper signup URL with token
+    const origin = new URL(invitationUrl).origin;
+    const signupUrl = `${origin}/register?email=${encodeURIComponent(email)}&invited=true`;
+
+    const htmlContent = buildInvitationEmailHtml({
+      firstName,
+      lastName,
+      role,
+      department,
+      organizationName,
+      inviterName,
+      signupUrl,
+    });
+
+    const emailSubject = `You're invited to join ${organizationName}`;
+
+    console.log("Preparing to send invitation email via SMTP:", {
+      to: email,
+      subject: emailSubject,
+      smtpHost: smtpConfig.host,
+    });
+
+    // Create transporter
+    const transporter = nodemailer.createTransport(smtpConfig);
+
+    // Verify SMTP connection
     try {
-      const parsedUrl = new URL(invitationUrl);
-      // Use the origin from invitation URL but redirect to password setup
-      redirectUrl = `${parsedUrl.origin}/auth/set-password`;
-    } catch (_err) {
-      console.warn('Invalid invitation URL provided, using origin/auth/set-password');
-      redirectUrl = `${origin}/auth/set-password`;
+      await transporter.verify();
+      console.log("SMTP connection verified successfully");
+    } catch (verifyError: any) {
+      console.error("SMTP verification failed:", verifyError.message);
+      // Continue anyway, some SMTP servers don't support verify
     }
 
-    console.log('Using redirect URL:', redirectUrl);
+    // Send email
+    const info = await transporter.sendMail({
+      from: `${organizationName} <${fromEmail}>`,
+      to: email,
+      subject: emailSubject,
+      text: `Hello ${firstName}, You've been invited to join ${organizationName} as a ${role}. Click here to accept: ${signupUrl}`,
+      html: htmlContent,
+    });
 
-    // Use Supabase's built-in invite user by email functionality
-    const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-      email,
-      {
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          role: role,
-          department: department || null,
-          organization: organizationName,
-          invited_by: inviterName,
-        },
-        redirectTo: redirectUrl,
-      }
-    );
+    console.log("Invitation email sent successfully:", info.messageId);
 
-    if (inviteError) {
-      console.error('Error sending invitation email via Supabase:', inviteError);
-      return createJsonResponse(
-        {
-          error: 'Failed to send invitation email',
-          details: inviteError.message,
-        },
-        { status: 500, cors: corsOptions },
-      );
-    }
-
-    console.log('Invitation sent successfully via Supabase Auth:', inviteData);
-
-    return createJsonResponse(
-      {
+    return new Response(
+      JSON.stringify({
         success: true,
-        message: 'Invitation email sent successfully via Supabase Auth',
-        user: inviteData.user,
-      },
-      { cors: corsOptions },
+        message: 'Invitation email sent successfully via SMTP',
+        messageId: info.messageId,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
 
   } catch (error: any) {
     console.error('Error in send-invitation-email function:', error);
-    return createJsonResponse({ error: error.message }, { status: 500, cors: corsOptions });
+    return new Response(
+      JSON.stringify({ error: error.message, stack: error.stack }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
   }
 };
+
+interface InvitationEmailHtmlParams {
+  firstName: string;
+  lastName: string;
+  role: string;
+  department?: string;
+  organizationName: string;
+  inviterName: string;
+  signupUrl: string;
+}
+
+function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
+  const { firstName, lastName, role, department, organizationName, inviterName, signupUrl } = params;
+  
+  const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'there';
+  const roleDisplay = role.charAt(0).toUpperCase() + role.slice(1);
+  const departmentLine = department ? `<p style="color: #666666; font-size: 14px; margin: 8px 0 0;">Department: ${department}</p>` : '';
+  
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation to ${organizationName}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 40px 30px; border-radius: 12px 12px 0 0; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">
+                🎉 You're Invited!
+              </h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
+                Join ${organizationName}
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #333333; font-size: 18px; margin: 0 0 20px;">
+                Hello ${fullName},
+              </p>
+              
+              <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
+                <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <strong>${roleDisplay}</strong>.
+              </p>
+              
+              ${departmentLine}
+              
+              <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
+                Click the button below to create your account and get started:
+              </p>
+              
+              <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
+                    <a href="${signupUrl}" style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
+                      Accept Invitation
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="color: #888888; font-size: 13px; margin: 25px 0 0;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${signupUrl}" style="color: #1a365d; word-break: break-all;">${signupUrl}</a>
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 12px 12px; border-top: 1px solid #e9ecef;">
+              <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
+                This invitation was sent by ${organizationName}.<br>
+                If you didn't expect this email, you can safely ignore it.
+              </p>
+              <p style="color: #aaaaaa; font-size: 12px; margin: 15px 0 0; text-align: center;">
+                © ${new Date().getFullYear()} ${organizationName}. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
 
 serve(handler);
