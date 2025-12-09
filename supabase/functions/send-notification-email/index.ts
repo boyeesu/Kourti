@@ -1,5 +1,8 @@
+// @ts-ignore: Deno module
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+// @ts-ignore: Deno module
 import nodemailer from "npm:nodemailer@6.9.8";
 
 declare const Deno: {
