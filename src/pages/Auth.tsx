@@ -63,7 +63,20 @@ export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Check if this is an invited user
+  const searchParams = new URLSearchParams(location.search);
+  const invitedEmail = searchParams.get('email');
+  const isInvited = searchParams.get('invited') === 'true';
+
   const from = location.state?.from?.pathname || "/onboarding";
+
+  // Pre-fill email and switch to signup mode for invited users
+  useEffect(() => {
+    if (isInvited && invitedEmail) {
+      setFormData(prev => ({ ...prev, email: decodeURIComponent(invitedEmail) }));
+      setIsSignUp(true);
+    }
+  }, [isInvited, invitedEmail]);
 
   useEffect(() => {
     if (user) {
@@ -78,28 +91,43 @@ export default function Auth() {
     try {
       let result;
       if (isSignUp) {
-        // Pass organization details in metadata - database trigger will create organization
-        result = await signUp(formData.email, formData.password, {
-          email: formData.email,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          organization: formData.organization.name,
-          organization_details: {
-            name: formData.organization.name,
-            description: formData.organization.description,
-            address: formData.organization.address,
-            state: formData.organization.state,
-            country: formData.organization.country,
-            phone: formData.organization.phone,
-            email: formData.organization.email,
-          },
-        });
+        // For invited users, don't pass organization details - they'll be linked via the invitation
+        const metadata = isInvited 
+          ? {
+              email: formData.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+            }
+          : {
+              email: formData.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              organization: formData.organization.name,
+              organization_details: {
+                name: formData.organization.name,
+                description: formData.organization.description,
+                address: formData.organization.address,
+                state: formData.organization.state,
+                country: formData.organization.country,
+                phone: formData.organization.phone,
+                email: formData.organization.email,
+              },
+            };
+
+        result = await signUp(formData.email, formData.password, metadata);
         
         if (!result.error) {
           toast({
             title: "Account created!",
-            description: "Please check your email to verify your account.",
+            description: isInvited 
+              ? "Your account has been created. You can now sign in."
+              : "Please check your email to verify your account.",
           });
+          
+          // For invited users, redirect to dashboard after successful signup
+          if (isInvited) {
+            navigate("/dashboard", { replace: true });
+          }
         }
       } else {
         result = await signIn(formData.email, formData.password);
@@ -150,12 +178,14 @@ export default function Auth() {
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">
-              {isSignUp ? "Create Account" : "Welcome Back"}
+              {isInvited ? "Accept Invitation" : (isSignUp ? "Create Account" : "Welcome Back")}
             </CardTitle>
             <p className="text-muted-foreground mt-2">
-              {isSignUp 
-                ? "Join Kourti Legal to manage your practice" 
-                : "Sign in to your Kourti Legal account"
+              {isInvited 
+                ? "Set your password to complete your account setup"
+                : (isSignUp 
+                    ? "Join Kourti Legal to manage your practice" 
+                    : "Sign in to your Kourti Legal account")
               }
             </p>
           </div>
@@ -163,7 +193,7 @@ export default function Auth() {
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
+            {isSignUp && !isInvited && (
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -355,22 +385,24 @@ export default function Auth() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
+                  disabled={isInvited}
                 />
               </div>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{isInvited ? "Create Password" : "Password"}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder={isInvited ? "Create a secure password" : "Enter your password"}
                   className="pl-10 pr-10"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
+                  minLength={8}
                 />
                 <Button
                   type="button"
@@ -386,31 +418,45 @@ export default function Auth() {
                   )}
                 </Button>
               </div>
+              {isInvited && (
+                <p className="text-xs text-muted-foreground">
+                  Password must be at least 8 characters long
+                </p>
+              )}
             </div>
             
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Loading..." : (isSignUp ? (
-                <>
-                  Create Account & Organization
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </>
-              ) : "Sign In")}
+              {loading ? "Loading..." : (
+                isInvited ? (
+                  <>
+                    Create Account
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                ) : isSignUp ? (
+                  <>
+                    Create Account & Organization
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                ) : "Sign In"
+              )}
             </Button>
           </form>
           
-          <div className="mt-6">
-            <Separator className="my-4" />
-            <div className="text-center text-sm text-muted-foreground">
-              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-              <Button
-                variant="link"
-                className="p-0 h-auto text-primary hover:underline font-medium"
-                onClick={() => setIsSignUp(!isSignUp)}
-              >
-                {isSignUp ? "Sign in" : "Sign up"}
-              </Button>
+          {!isInvited && (
+            <div className="mt-6">
+              <Separator className="my-4" />
+              <div className="text-center text-sm text-muted-foreground">
+                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-primary hover:underline font-medium"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp ? "Sign in" : "Sign up"}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>
