@@ -116,6 +116,16 @@ export default function Auth() {
 
         result = await signUp(formData.email, formData.password, metadata);
         
+        // Handle timeout errors - the account may have been created despite the timeout
+        if (result.error?.message?.includes("timeout") || result.error?.message?.includes("504")) {
+          toast({
+            title: "Account may have been created",
+            description: "The server is busy. Please try signing in with your email and password. If that doesn't work, wait a moment and try signing up again.",
+          });
+          setIsSignUp(false); // Switch to sign-in mode
+          return;
+        }
+        
         if (!result.error) {
           toast({
             title: "Account created!",
@@ -124,9 +134,15 @@ export default function Auth() {
               : "Please check your email to verify your account.",
           });
           
-          // For invited users, redirect to dashboard after successful signup
+          // For invited users, try signing in automatically
           if (isInvited) {
-            navigate("/dashboard", { replace: true });
+            const signInResult = await signIn(formData.email, formData.password);
+            if (!signInResult.error) {
+              navigate("/dashboard", { replace: true });
+            } else {
+              // If auto sign-in fails, switch to sign-in mode
+              setIsSignUp(false);
+            }
           }
         }
       } else {
@@ -150,6 +166,12 @@ export default function Auth() {
             description: "This email is already registered. Please sign in instead.",
           });
           setIsSignUp(false); // Switch to sign-in mode
+        } else if (result.error.message?.includes("timeout") || result.error.message?.includes("504")) {
+          toast({
+            variant: "destructive",
+            title: "Server busy",
+            description: "The server is taking too long to respond. Please try again in a moment.",
+          });
         } else {
           toast({
             variant: "destructive",
