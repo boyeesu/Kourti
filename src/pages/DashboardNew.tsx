@@ -18,9 +18,9 @@ import {
   BarChart as RechartBarChart,
   Bar
 } from "recharts";
-import { 
-  FileText, 
-  Users, 
+import {
+  FileText,
+  Users,
   Briefcase,
   TrendingUp,
   AlertTriangle,
@@ -50,16 +50,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Components
-const StatCard = ({ 
-  title, 
-  value, 
-  icon, 
-  description, 
-  trend, 
-  loading, 
+const StatCard = ({
+  title,
+  value,
+  icon,
+  description,
+  trend,
+  loading,
   iconColor = "text-primary",
   iconBgColor = "bg-primary/10"
-}: { 
+}: {
   title: string;
   value: string | number;
   icon: React.ReactNode;
@@ -163,12 +163,8 @@ export default function Dashboard() {
       }));
     }
 
-    // Fallback to sample data
-    return [
-      { name: 'Active', value: 45, color: '#3b82f6' },
-      { name: 'Pending', value: 23, color: '#f59e0b' },
-      { name: 'Closed', value: 12, color: '#10b981' }
-    ];
+    // Return empty array if no data
+    return [];
   }, [casesData]);
 
   // Generate monthly activity data based on real data if available
@@ -177,12 +173,12 @@ export default function Dashboard() {
     if (casesData?.cases && contractsData) {
       const monthlyData: Record<string, { cases: number; contracts: number }> = {};
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
+
       // Initialize all months to zero
       months.forEach(month => {
         monthlyData[month] = { cases: 0, contracts: 0 };
       });
-      
+
       // Count cases by month
       casesData.cases.forEach((c: Case) => {
         if (c.created_at) {
@@ -190,7 +186,7 @@ export default function Dashboard() {
           monthlyData[month].cases += 1;
         }
       });
-      
+
       // Count contracts by month - handle both array and object formats
       const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
       contractsList.forEach((contract: Contract) => {
@@ -199,7 +195,7 @@ export default function Dashboard() {
           monthlyData[month].contracts += 1;
         }
       });
-      
+
       // Transform to array format for the chart
       return months.map(month => ({
         month,
@@ -208,21 +204,8 @@ export default function Dashboard() {
       }));
     }
 
-    // Fallback to sample data
-    return [
-      { month: 'Jan', cases: 12, contracts: 8 },
-      { month: 'Feb', cases: 19, contracts: 12 },
-      { month: 'Mar', cases: 15, contracts: 9 },
-      { month: 'Apr', cases: 22, contracts: 15 },
-      { month: 'May', cases: 18, contracts: 11 },
-      { month: 'Jun', cases: 24, contracts: 16 },
-      { month: 'Jul', cases: 20, contracts: 14 },
-      { month: 'Aug', cases: 25, contracts: 18 },
-      { month: 'Sep', cases: 17, contracts: 13 },
-      { month: 'Oct', cases: 21, contracts: 16 },
-      { month: 'Nov', cases: 16, contracts: 12 },
-      { month: 'Dec', cases: 10, contracts: 8 }
-    ];
+    // Return empty array if no data
+    return [];
   }, [casesData, contractsData]);
 
   // Weekly activity data
@@ -253,7 +236,7 @@ export default function Dashboard() {
   function getStatusColor(status: string): string {
     switch (status.toLowerCase()) {
       case 'active': return '#3b82f6';
-      case 'pending': 
+      case 'pending':
       case 'in_progress': return '#f59e0b';
       case 'closed': return '#10b981';
       case 'expired': return '#ef4444';
@@ -345,7 +328,7 @@ export default function Dashboard() {
           iconColor="text-blue-500"
           iconBgColor="bg-blue-500/10"
         />
-        
+
         <StatCard
           title="Total Clients"
           value={dashboardLoading ? "—" : dashboardData?.totalClients ?? "0"}
@@ -355,7 +338,7 @@ export default function Dashboard() {
           iconColor="text-green-500"
           iconBgColor="bg-green-500/10"
         />
-        
+
         <StatCard
           title="Documents"
           value={dashboardLoading ? "—" : dashboardData?.totalDocuments ?? "0"}
@@ -365,7 +348,7 @@ export default function Dashboard() {
           iconColor="text-amber-500"
           iconBgColor="bg-amber-500/10"
         />
-        
+
         {isAdmin && (
           <div className="relative">
             <StatCard
@@ -413,36 +396,36 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={recentActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                      <XAxis 
-                        dataKey="month" 
+                      <XAxis
+                        dataKey="month"
                         axisLine={false}
                         tickLine={false}
                       />
-                      <YAxis 
+                      <YAxis
                         axisLine={false}
                         tickLine={false}
                         width={30}
                       />
                       <RechartsTooltip content={<CustomTooltip />} />
-                      <Legend 
-                        verticalAlign="top" 
+                      <Legend
+                        verticalAlign="top"
                         height={36}
                         iconType="circle"
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="cases" 
-                        name="Matters" 
-                        stroke="#3b82f6" 
+                      <Line
+                        type="monotone"
+                        dataKey="cases"
+                        name="Matters"
+                        stroke="#3b82f6"
                         strokeWidth={3}
                         dot={{ r: 4 }}
                         activeDot={{ r: 6 }}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="contracts" 
-                        name="Contracts" 
-                        stroke="#10b981" 
+                      <Line
+                        type="monotone"
+                        dataKey="contracts"
+                        name="Contracts"
+                        stroke="#10b981"
                         strokeWidth={3}
                         dot={{ r: 4 }}
                         activeDot={{ r: 6 }}
@@ -454,19 +437,19 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height={300}>
                     <RechartBarChart data={weeklyActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                      <XAxis 
-                        dataKey="day" 
+                      <XAxis
+                        dataKey="day"
                         axisLine={false}
                         tickLine={false}
                       />
-                      <YAxis 
+                      <YAxis
                         axisLine={false}
                         tickLine={false}
                         width={30}
                       />
                       <RechartsTooltip content={<CustomTooltip />} />
-                      <Legend 
-                        verticalAlign="top" 
+                      <Legend
+                        verticalAlign="top"
                         height={36}
                         iconType="circle"
                       />
@@ -510,8 +493,8 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <RechartsTooltip content={<CustomTooltip />} />
-                  <Legend 
-                    verticalAlign="bottom" 
+                  <Legend
+                    verticalAlign="bottom"
                     height={36}
                     iconType="circle"
                   />
@@ -536,9 +519,9 @@ export default function Dashboard() {
                   Latest matter activities
                 </CardDescription>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="gap-1"
                 onClick={() => navigate('/matters')}
               >
@@ -550,8 +533,8 @@ export default function Dashboard() {
               {recentCases.length > 0 ? (
                 <div className="space-y-4">
                   {recentCases.map((c: Case) => (
-                    <div 
-                      key={c.id} 
+                    <div
+                      key={c.id}
                       className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => navigate(`/matters/${c.id}`)}
                     >
@@ -622,9 +605,9 @@ export default function Dashboard() {
                 </CardTitle>
                 <CardDescription>Next {windowDays} days</CardDescription>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="gap-1"
                 onClick={() => navigate('/calendar')}
               >
@@ -636,7 +619,7 @@ export default function Dashboard() {
               {upcomingCases.length > 0 || upcomingContracts.length > 0 ? (
                 <div className="space-y-4">
                   {upcomingCases.map((c: Case) => (
-                    <div 
+                    <div
                       key={c.id}
                       className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => navigate(`/matters/${c.id}`)}
@@ -658,9 +641,9 @@ export default function Dashboard() {
                       </Button>
                     </div>
                   ))}
-                  
+
                   {upcomingContracts.map((contract: Contract) => (
-                    <div 
+                    <div
                       key={contract.id}
                       className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => navigate(`/contracts/${contract.id}`)}
