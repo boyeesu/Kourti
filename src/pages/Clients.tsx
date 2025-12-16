@@ -13,14 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -185,108 +178,130 @@ export default function Clients() {
           <CardTitle>Client Directory</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Cases</TableHead>
-                <TableHead>Contracts</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="w-[50px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((client) => (
-                <TableRow key={client.id} className="hover:bg-muted/50">
-                  {/* Client ------------------------------------------------*/}
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                          {getInitials(client.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <button
-                          onClick={() => navigate(`/clients/${client.id}`)}
-                          className="font-medium text-foreground hover:text-primary text-left"
-                        >
-                          {client.name}
-                        </button>
-                      </div>
+          <DataTable
+            columns={[
+              {
+                id: "client",
+                header: "Client",
+                accessorKey: "name",
+                minWidth: "200px",
+                cell: (client) => (
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                        {getInitials(client.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <button
+                        onClick={() => navigate(`/clients/${client.id}`)}
+                        className="font-medium text-foreground hover:text-primary text-left"
+                      >
+                        {client.name}
+                      </button>
                     </div>
-                  </TableCell>
-
-                  {/* Contact ----------------------------------------------*/}
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-3 w-3 text-muted-foreground" />
-                        <span>{client.email || "No email"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-3 w-3 text-muted-foreground" />
-                        <span>{client.phone || "No phone"}</span>
-                      </div>
+                  </div>
+                ),
+              },
+              {
+                id: "contact",
+                header: "Contact",
+                sortable: false,
+                minWidth: "200px",
+                cell: (client) => (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-3 w-3 text-muted-foreground" />
+                      <span>{client.email || "No email"}</span>
                     </div>
-                  </TableCell>
-
-                  {/* Type --------------------------------------------------*/}
-                  <TableCell>
-                    <Badge variant="outline">Individual</Badge>
-                  </TableCell>
-
-                  {/* Status ------------------------------------------------*/}
-                  <TableCell>
-                    <Badge className={getStatusColor(client.status)} variant="outline">
-                      {client.status ?? "-"}
-                    </Badge>
-                  </TableCell>
-
-                  {/* Counts ------------------------------------------------*/}
-                  <TableCell className="font-medium">
-                    {client.cases?.[0]?.count ?? 0}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {client.contracts?.[0]?.count ?? 0}
-                  </TableCell>
-
-                  {/* Created ----------------------------------------------*/}
-                  <TableCell className="text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-3 w-3 text-muted-foreground" />
+                      <span>{client.phone || "No phone"}</span>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: "type",
+                header: "Type",
+                sortable: false,
+                minWidth: "120px",
+                cell: () => <Badge variant="outline">Individual</Badge>,
+              },
+              {
+                id: "status",
+                header: "Status",
+                accessorKey: "status",
+                minWidth: "120px",
+                cell: (client) => (
+                  <Badge className={getStatusColor(client.status)} variant="outline">
+                    {client.status ?? "-"}
+                  </Badge>
+                ),
+              },
+              {
+                id: "cases",
+                header: "Cases",
+                accessorFn: (client) => client.cases?.[0]?.count ?? 0,
+                minWidth: "100px",
+                cell: (client) => (
+                  <span className="font-medium">{client.cases?.[0]?.count ?? 0}</span>
+                ),
+              },
+              {
+                id: "contracts",
+                header: "Contracts",
+                accessorFn: (client) => client.contracts?.[0]?.count ?? 0,
+                minWidth: "120px",
+                cell: (client) => (
+                  <span className="font-medium">{client.contracts?.[0]?.count ?? 0}</span>
+                ),
+              },
+              {
+                id: "created",
+                header: "Created",
+                accessorKey: "created_at",
+                minWidth: "120px",
+                cell: (client) => (
+                  <span className="text-sm text-muted-foreground">
                     {new Date(client.created_at).toLocaleDateString()}
-                  </TableCell>
-
-                  {/* Actions ----------------------------------------------*/}
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}`)}>
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>
-                          Edit Client
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/matters?client=${client.id}`)}>
-                          View Matters
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/contracts?client=${client.id}`)}>
-                          View Contracts
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </span>
+                ),
+              },
+              {
+                id: "actions",
+                header: "Actions",
+                sortable: false,
+                minWidth: "80px",
+                cell: (client) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}`)}>
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>
+                        Edit Client
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/matters?client=${client.id}`)}>
+                        View Matters
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/contracts?client=${client.id}`)}>
+                        View Contracts
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ),
+              },
+            ] as ColumnDef<Client>[]}
+            data={filtered}
+            emptyMessage="No clients found"
+            getRowKey={(row) => row.id}
+          />
         </CardContent>
       </Card>
 

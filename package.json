@@ -45,13 +45,24 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@supabase/supabase-js": "^2.39.3",
     "@tanstack/react-query": "^5.17.19",
+    "@tiptap/extension-highlight": "^3.13.0",
+    "@tiptap/extension-text-align": "^3.13.0",
+    "@tiptap/extension-underline": "^3.13.0",
+    "@tiptap/pm": "^3.13.0",
+    "@tiptap/react": "^3.13.0",
+    "@tiptap/starter-kit": "^3.13.0",
     "@types/papaparse": "^5.3.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
     "cmdk": "^1.1.1",
     "date-fns": "^3.3.1",
+    "docx": "^9.5.1",
     "embla-carousel-react": "^8.6.0",
+    "file-saver": "^2.0.5",
+    "html-to-docx": "^1.8.0",
+    "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
+    "jspdf": "^3.0.4",
     "lovable-tagger": "^1.1.9",
     "lucide-react": "^0.323.0",
     "papaparse": "^5.5.3",
@@ -71,6 +82,7 @@
     "zod": "^4.0.17"
   },
   "devDependencies": {
+    "@types/file-saver": "^2.0.7",
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
@@ -85,6 +97,6 @@
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.3.3",
-    "vite": "^5.0.12"
+    "vite": "^7.3.0"
   }
 }

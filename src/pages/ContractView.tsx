@@ -41,7 +41,7 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
           The AI will read, summarize, identify key clauses, and redline critical issues/risk areas in this contract.
         </DialogDescription>
       </DialogHeader>
-      
+
       <ScrollArea className="flex-1 min-h-0 max-h-[60vh] overflow-auto">
         <div className="space-y-4 pr-4">
           {!results && (
@@ -60,7 +60,7 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
           )}
 
           {error && <div className="text-destructive text-sm py-2">{error}</div>}
-          
+
           {results && (
             <div className="space-y-6 py-2">
               <div>
@@ -128,13 +128,29 @@ import {
   Sparkles,
   AlertTriangle,
   CheckCircle,
-  Bot
+  Bot,
+  Save,
+  X,
+  FileDown
 } from "lucide-react";
 import { summarizeContract, extractKeyClauses, redlineContract } from "@/lib/openaiService";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { exportAsPdf, exportAsDocx, exportContractAsPdf } from "@/lib/documentExport";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function ContractView() {
   const { id } = useParams();
   const { data: contract, isLoading, error } = useContract(id!);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   if (isLoading) {
     return (
@@ -169,7 +185,76 @@ export default function ContractView() {
     );
   }
 
-  const handleDownload = () => {
+  const handleSaveEdit = async () => {
+    if (!contract || !editedContent) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('contracts')
+        .update({ terms: editedContent })
+        .eq('id', contract.id);
+
+      if (error) throw error;
+
+      toast.success('Contract updated successfully');
+      setIsEditMode(false);
+      // Refresh the contract data
+      window.location.reload();
+    } catch (err) {
+      console.error('Save failed:', err);
+      toast.error('Failed to save contract');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditedContent("");
+  };
+
+  const handleStartEdit = () => {
+    setEditedContent(contract?.terms || "");
+    setIsEditMode(true);
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!contract) return;
+
+    try {
+      await exportContractAsPdf(
+        {
+          title: contract.title,
+          content: contract.terms || '',
+          type: contract.contract_type,
+          value: contract.value,
+          currency: contract.currency,
+          startDate: contract.start_date,
+          endDate: contract.end_date,
+        },
+        contract.title
+      );
+      toast.success('Contract downloaded as PDF');
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      toast.error('Failed to download PDF');
+    }
+  };
+
+  const handleDownloadDOCX = async () => {
+    if (!contract) return;
+
+    try {
+      await exportAsDocx(contract.terms || '', contract.title);
+      toast.success('Contract downloaded as DOCX');
+    } catch (err) {
+      console.error('DOCX download failed:', err);
+      toast.error('Failed to download DOCX');
+    }
+  };
+
+  const handleDownload = async () => {
     if (!contract.terms) return;
     const blob = new Blob([contract.terms], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -213,7 +298,7 @@ export default function ContractView() {
   return (
     <div className="p-6 space-y-6">
       <Breadcrumbs />
-      
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">
@@ -239,28 +324,69 @@ export default function ContractView() {
           </div>
           <p className="text-muted-foreground">{contract.contract_type || 'Contract'}</p>
         </div>
-        
+
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
             <Share className="h-4 w-4 mr-2" />
             Share
           </Button>
-          <Button variant="outline" size="sm" onClick={handleDownload} disabled={!contract.terms}>
-            <Download className="h-4 w-4 mr-2" />
-            Download
-          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={!contract.terms}>
+                <FileDown className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleDownloadPDF}>
+                <FileText className="h-4 w-4 mr-2" />
+                Download as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownloadDOCX}>
+                <FileText className="h-4 w-4 mr-2" />
+                Download as DOCX
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download as TXT
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button variant="outline" size="sm" asChild>
             <Link to={`/contracts/${contract.id}/history`}>
               <GitBranch className="h-4 w-4 mr-2" />
               History
             </Link>
           </Button>
-          <Button asChild>
-            <Link to={`/contracts/${contract.id}/edit`}>
+
+          {isEditMode ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelEdit}
+                disabled={isSaving}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveEdit}
+                disabled={isSaving}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={handleStartEdit} disabled={!contract.terms}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
-            </Link>
-          </Button>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -351,7 +477,7 @@ export default function ContractView() {
                     {contract.status}
                   </Badge>
                 </div>
-                
+
                 {contract.client_id && (
                   <div>
                     <p className="text-sm text-muted-foreground">Client</p>
@@ -394,11 +520,19 @@ export default function ContractView() {
                   Contract Document
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Eye className="h-4 w-4" />
-                    Read-only view
-                  </div>
-                  {contract.terms && (
+                  {!isEditMode && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Eye className="h-4 w-4" />
+                      Read-only view
+                    </div>
+                  )}
+                  {isEditMode && (
+                    <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200">
+                      <Edit className="h-3 w-3 mr-1" />
+                      Editing Mode
+                    </Badge>
+                  )}
+                  {contract.terms && !isEditMode && (
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="default" className="flex gap-1 items-center">
@@ -413,11 +547,19 @@ export default function ContractView() {
             </CardHeader>
             <CardContent>
               {contract.terms ? (
-                <div className="prose max-w-none">
-                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/30 p-6 rounded-lg border max-h-96 overflow-y-auto">
-                    {contract.terms}
-                  </pre>
-                </div>
+                isEditMode ? (
+                  <RichTextEditor
+                    content={editedContent}
+                    onChange={setEditedContent}
+                    editable={true}
+                  />
+                ) : (
+                  <div className="prose max-w-none">
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/30 p-6 rounded-lg border max-h-96 overflow-y-auto">
+                      {contract.terms}
+                    </pre>
+                  </div>
+                )
               ) : (
                 <div className="text-center py-12">
                   <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
