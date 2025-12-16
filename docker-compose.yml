@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+        VITE_DOCUMENSO_URL: ${VITE_DOCUMENSO_URL}
+        VITE_DOCUMENSO_API_KEY: ${VITE_DOCUMENSO_API_KEY}
+        VITE_OPENAI_API_KEY: ${VITE_OPENAI_API_KEY}
+        VITE_APP_URL: ${VITE_APP_URL}
+        VITE_API_TIMEOUT: ${VITE_API_TIMEOUT}
+    ports:
+      - "8080:80"
+    restart: always
