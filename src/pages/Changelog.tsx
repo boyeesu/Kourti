@@ -48,12 +48,23 @@ export default function Changelog() {
                     "Live Document Editing: Users can now edit documents directly within the document module using a rich text editor",
                     "AI-Generated Contract Editing: Live editing capability for AI-generated contracts directly on screen",
                     "Document Download: Added ability to download generated contracts as .doc or .pdf files",
-                    "TipTap Editor Integration: Integrated TipTap rich text editor for enhanced document editing experience"
+                    "TipTap Editor Integration: Integrated TipTap rich text editor for enhanced document editing experience",
+                    "Dark Mode: Full dark mode support across all modules with light, dark, and system theme options",
+                    "Changelog Page: Track all customer-facing changes, new features, and improvements",
+                    "Analytics Utility Functions: Real-time data calculation functions for accurate metrics"
                 ],
                 improved: [
+                    "Analytics Dashboard: All analytics modules now use real data from the database instead of placeholder values",
+                    "Real-time Metrics: Dashboard and analytics pages display actual business metrics with accurate month-over-month percentage changes",
+                    "Data Accuracy: Case status distribution, client activity, revenue trends, and contract metrics now reflect real database queries",
+                    "Dynamic Calculations: Analytics charts automatically update based on selected time periods (1 month, 3 months, 6 months, 1 year)",
+                    "Functional Refresh: Refresh button now properly reloads all analytics data",
+                    "Honest UX: Empty states and zero values displayed when no data exists, instead of misleading placeholder numbers",
                     "Document viewer now supports inline editing",
                     "Contract creation workflow enhanced with live preview and editing",
-                    "Better document processing status visibility"
+                    "Better document processing status visibility",
+                    "Theme toggle accessible from header and mobile navigation",
+                    "Consistent color system optimized for both light and dark themes"
                 ]
             }
         },

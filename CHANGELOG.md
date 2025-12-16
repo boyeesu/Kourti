@@ -11,8 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dark Mode**: Full dark mode support across all modules with light, dark, and system theme options
 - Changelog page to track all customer-facing changes
 - Link to changelog from Help Center
+- Analytics utility functions for real-time data calculations
 
 ### Improved
+- **Analytics Dashboard**: All analytics modules now use real data from the database instead of placeholder values
+- **Real-time Metrics**: Dashboard and analytics pages display actual business metrics with accurate month-over-month percentage changes
+- **Data Accuracy**: Case status distribution, client activity, revenue trends, and contract metrics now reflect real database queries
+- **Dynamic Calculations**: Analytics charts automatically update based on selected time periods (1 month, 3 months, 6 months, 1 year)
+- **Functional Refresh**: Refresh button now properly reloads all analytics data
+- **Honest UX**: Empty states and zero values displayed when no data exists, instead of misleading placeholder numbers
 - Theme toggle accessible from header and mobile navigation
 - Consistent color system optimized for both light and dark themes
 - Enhanced user experience with theme persistence across sessions

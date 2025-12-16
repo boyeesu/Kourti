@@ -276,21 +276,7 @@ export default function Contracts() {
             </SelectContent>
           </Select>
         </div>
-        {/* Status Type */}
-        <div className="sm:w-[150px] w-full">
-          <select defaultValue="all" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm">
-            <option value="all">All Status Types</option>
-            <option value="fulfilled">Fulfilled</option>
-            <option value="unfulfilled">Unfulfilled</option>
-          </select>
-        </div>
-        {/* Date Created */}
-        <div className="flex gap-1 items-center">
-          <label className="text-xs text-muted-foreground">Created:</label>
-          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
-          <span className="px-1 text-xs text-muted-foreground">-</span>
-          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
-        </div>
+
       </div>
 
       {/* Contracts Table */}

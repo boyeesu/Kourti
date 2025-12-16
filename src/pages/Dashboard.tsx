@@ -42,6 +42,7 @@ import { Case, Contract } from "@/types";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
+import { calculateCaseStatusData } from "@/lib/analyticsUtils";
 
 export default function Dashboard() {
   const [windowDays] = useState(7);
@@ -59,24 +60,7 @@ export default function Dashboard() {
 
   // Process case status data for pie chart - ONLY use real data
   const casesByStatus = useMemo(() => {
-    // Only use real data if available
-    if (casesData?.cases && casesData.cases.length > 0) {
-      const statusMap: Record<string, number> = {};
-      casesData.cases.forEach((c: Case) => {
-        const status = c.status || 'unknown';
-        statusMap[status] = (statusMap[status] || 0) + 1;
-      });
-
-      // Transform to format needed for pie chart
-      return Object.entries(statusMap).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' '),
-        value,
-        color: getStatusColor(name)
-      }));
-    }
-
-    // Return empty array if no data
-    return [];
+    return calculateCaseStatusData(casesData?.cases || []);
   }, [casesData]);
 
   // Generate monthly activity data based on real activity data
@@ -130,18 +114,6 @@ export default function Dashboard() {
     // Return empty array if no data
     return [];
   }, [activitiesData]);
-
-  // Helper function to get color based on status
-  function getStatusColor(status: string): string {
-    switch (status.toLowerCase()) {
-      case 'active': return '#3b82f6';
-      case 'pending':
-      case 'in_progress': return '#f59e0b';
-      case 'closed': return '#10b981';
-      case 'expired': return '#ef4444';
-      default: return '#6b7280';
-    }
-  }
 
   // Handle loading states
   if (dashboardLoading && casesLoading && activitiesLoading) {

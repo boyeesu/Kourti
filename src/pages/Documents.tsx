@@ -211,13 +211,7 @@ export default function Documents() {
           </Select>
         </div>
 
-        {/* Date Created */}
-        <div className="flex gap-1 items-center">
-          <label className="text-xs text-muted-foreground">Created:</label>
-          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
-          <span className="px-1 text-xs text-muted-foreground">-</span>
-          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
-        </div>
+
       </div>
 
       {/* Documents Table */}

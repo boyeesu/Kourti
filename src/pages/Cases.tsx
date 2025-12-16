@@ -53,6 +53,7 @@ export default function App() { // Changed to App for React component export
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const { toast } = useToast();
 
   // Use real data hooks, combining error handling and pagination logic
@@ -220,11 +221,15 @@ export default function App() { // Changed to App for React component export
       case_item.clientId === clientQuery ||
       case_item.client.toLowerCase() === clientQuery.toLowerCase();
 
+    const matchesPriority =
+      priorityFilter === "all" || case_item.priority.toLowerCase() === priorityFilter;
+
     return (
       matchesLocalSearch &&
       matchesGlobalSearch &&
       matchesStatus &&
-      matchesClient
+      matchesClient &&
+      matchesPriority
     );
   });
 
@@ -284,15 +289,15 @@ export default function App() { // Changed to App for React component export
             )}
           </SelectContent>
         </Select>
-        {/* Fate Filter Example */}
-        <Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
           <SelectTrigger className="w-[140px] h-10">
-            <SelectValue placeholder="Fate" />
+            <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Fates</SelectItem>
-            <SelectItem value="fulfilled">Fulfilled</SelectItem>
-            <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
+            <SelectItem value="all">All Priorities</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
           </SelectContent>
         </Select>
         {clientQuery && (
@@ -513,7 +518,7 @@ export default function App() { // Changed to App for React component export
             </div>
           )}
         </CardContent>
-      </Card>
-    </div>
+      </Card >
+    </div >
   );
 }

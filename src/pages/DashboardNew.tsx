@@ -46,6 +46,7 @@ import { formatDate, formatCurrency, cn } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { calculateCaseStatusData } from "@/lib/analyticsUtils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -147,24 +148,7 @@ export default function Dashboard() {
 
   // Process case status data for pie chart
   const casesByStatus = useMemo(() => {
-    // If we have real data, use it
-    if (casesData?.cases) {
-      const statusMap: Record<string, number> = {};
-      casesData.cases.forEach((c: Case) => {
-        const status = c.status || 'unknown';
-        statusMap[status] = (statusMap[status] || 0) + 1;
-      });
-
-      // Transform to format needed for pie chart
-      return Object.entries(statusMap).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' '),
-        value,
-        color: getStatusColor(name)
-      }));
-    }
-
-    // Return empty array if no data
-    return [];
+    return calculateCaseStatusData(casesData?.cases || []);
   }, [casesData]);
 
   // Generate monthly activity data based on real data if available
@@ -210,16 +194,8 @@ export default function Dashboard() {
 
   // Weekly activity data
   const weeklyActivity = useMemo(() => {
-    // Generate weekly data (simplified example)
-    return [
-      { day: 'Mon', cases: 5, contracts: 3 },
-      { day: 'Tue', cases: 8, contracts: 4 },
-      { day: 'Wed', cases: 7, contracts: 6 },
-      { day: 'Thu', cases: 10, contracts: 5 },
-      { day: 'Fri', cases: 12, contracts: 7 },
-      { day: 'Sat', cases: 4, contracts: 2 },
-      { day: 'Sun', cases: 3, contracts: 1 }
-    ];
+    // Return empty array - TODO: Implement real weekly aggregation
+    return [];
   }, []);
 
   // Generate recent cases
@@ -232,17 +208,7 @@ export default function Dashboard() {
     return [];
   }, [casesData]);
 
-  // Helper function to get color based on status
-  function getStatusColor(status: string): string {
-    switch (status.toLowerCase()) {
-      case 'active': return '#3b82f6';
-      case 'pending':
-      case 'in_progress': return '#f59e0b';
-      case 'closed': return '#10b981';
-      case 'expired': return '#ef4444';
-      default: return '#6b7280';
-    }
-  }
+
 
   // Get status badge styles
   function getStatusBadge(status: string) {

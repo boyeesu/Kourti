@@ -45,8 +45,10 @@ A new utility file with functions to calculate real metrics from database data:
 #### Removed Mock Data:
 - ❌ Fallback sample data for `casesByStatus`
 - ❌ Fallback sample data for `recentActivity`
+- ❌ Local helper functions (refactored to use centralized utils)
 
 #### Added Real Data:
+- ✅ Standardized on `calculateCaseStatusData` utility from `analyticsUtils.ts`
 - ✅ Returns empty arrays when no data is available (instead of fake data)
 - ✅ Only displays charts when real data exists
 - ✅ Proper loading states while fetching data
@@ -56,9 +58,13 @@ A new utility file with functions to calculate real metrics from database data:
 #### Removed Mock Data:
 - ❌ Fallback sample data for `casesByStatus`
 - ❌ Fallback sample data for `recentActivity`
+- ❌ Fallback sample data for `weeklyActivity` (previously hardcoded)
+- ❌ Local helper functions (refactored to use centralized utils)
 
 #### Added Real Data:
+- ✅ Standardized on `calculateCaseStatusData` utility from `analyticsUtils.ts`
 - ✅ Returns empty arrays when no data is available
+- ✅ `weeklyActivity` returns empty array pending real implementation (placeholder removed)
 - ✅ Clean UI with proper empty states
 - ✅ All visualizations based on actual database queries
 
