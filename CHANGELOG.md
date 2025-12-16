@@ -8,8 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Dark Mode**: Full dark mode support across all modules with light, dark, and system theme options
 - Changelog page to track all customer-facing changes
 - Link to changelog from Help Center
+
+### Improved
+- Theme toggle accessible from header and mobile navigation
+- Consistent color system optimized for both light and dark themes
+- Enhanced user experience with theme persistence across sessions
 
 ## [1.2.0] - 2025-12-16
 
