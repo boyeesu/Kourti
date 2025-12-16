@@ -199,8 +199,12 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
               <Card>
                 <CardContent className="p-6">
                   <div
-                    className="prose max-w-none"
+                    className="prose prose-sm sm:prose lg:prose-lg max-w-none"
                     dangerouslySetInnerHTML={{ __html: contract.terms || "" }}
+                    style={{
+                      lineHeight: '1.8',
+                      fontSize: '0.95rem',
+                    }}
                   />
                 </CardContent>
               </Card>

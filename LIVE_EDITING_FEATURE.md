@@ -13,6 +13,8 @@ This implementation adds live document editing capabilities and download functio
   - Text alignment (Left, Center, Right, Justify)
   - Undo/Redo functionality
   - Clean, modern toolbar interface
+  - **Preserves original document formatting** - prevents scattered text
+  - Proper paragraph spacing and structure retention
 
 ### 2. **Document Export Utilities** (`documentExport.ts`)
 - **PDF Export**: Converts HTML content to PDF with proper formatting
@@ -26,17 +28,21 @@ This implementation adds live document editing capabilities and download functio
 - **Download Options**: Export contracts as PDF or DOCX
 - **Auto-save**: Changes are saved to the database
 - **Visual Feedback**: Loading states and success/error toasts
+- **Improved Preview**: Better typography and spacing for readability
+- **Format Preservation**: Original contract structure is maintained during editing
 
-### 4. **Document Viewer with Edit** (`DocumentViewerWithEdit.tsx`)
-- **Live Editing**: Edit documents directly in the viewer
-- **Download Options**: Export as PDF or DOCX from the viewer
-- **Save Changes**: Updates are persisted to the database
-- **Cancel Functionality**: Discard changes and revert to original
+### 4. **Enhanced Document Viewer** (`DocumentViewer.tsx`)
+- **Improved Preview**: Properly renders HTML content with formatting
+- **Better Typography**: Uses prose classes for optimal readability
+- **Download Options**: Original download functionality maintained
+- **No Edit Mode**: Documents are view-only to preserve integrity
+- **Responsive Layout**: Adapts to different screen sizes
 
 ### 5. **Enhanced Documents Page** (`Documents.tsx`)
 - **Export Options**: Added PDF and DOCX export to document dropdown menu
-- **Live Editing**: Click on any document to view and edit
+- **View-Only Documents**: Documents can be viewed but not edited
 - **Integrated Downloads**: Export documents directly from the list view
+- **Contract Editing Only**: Live editing is reserved for AI-generated contracts
 
 ## How to Use
 
@@ -47,12 +53,15 @@ This implementation adds live document editing capabilities and download functio
 4. **Save**: Click "Save Changes" to persist edits
 5. **Download**: Use the download dropdown to export as PDF or DOCX
 
-### For Documents:
-1. **View Document**: Click on any document in the list
-2. **Edit**: Switch to "Edit" tab in the viewer
-3. **Make Changes**: Use the rich text editor to modify content
-4. **Save**: Click "Save Changes" to update the document
-5. **Export**: Use dropdown menu to export as PDF or DOCX
+**Note**: The rich text editor preserves the original formatting and structure of the contract, preventing text from becoming scattered.
+
+### For Documents (View Only):
+1. **View Document**: Click on any document in the list to open the viewer
+2. **Preview**: Document content is displayed with proper formatting
+3. **Export**: Use the dropdown menu in the document list to export as PDF or DOCX
+4. **Download**: Original files can be downloaded from the viewer
+
+**Note**: Documents are view-only to preserve their integrity. Only AI-generated contracts can be edited live.
 
 ### From Document List:
 1. **Quick Export**: Click the three-dot menu on any document
@@ -78,13 +87,14 @@ This implementation adds live document editing capabilities and download functio
 
 ### Key Files Modified/Created:
 1. **Created**:
-   - `src/components/RichTextEditor.tsx`
-   - `src/lib/documentExport.ts`
-   - `src/components/DocumentViewerWithEdit.tsx`
+   - `src/components/RichTextEditor.tsx` - Rich text editor with format preservation
+   - `src/lib/documentExport.ts` - PDF and DOCX export utilities
+   - `src/components/DocumentViewerWithEdit.tsx` - (Available but not used for documents)
 
 2. **Modified**:
-   - `src/components/ContractSuccess.tsx`
-   - `src/pages/Documents.tsx`
+   - `src/components/ContractSuccess.tsx` - Added live editing for contracts
+   - `src/pages/Documents.tsx` - Added export options
+   - `src/components/DocumentViewer.tsx` - Improved HTML rendering and formatting
 
 ### Database Integration:
 - Updates are saved to the `documents` and `contracts` tables
@@ -93,11 +103,14 @@ This implementation adds live document editing capabilities and download functio
 
 ## User Experience Improvements
 
-1. **Immediate Editing**: No need to navigate to separate edit pages
+1. **Immediate Contract Editing**: Edit AI-generated contracts without navigating to separate pages
 2. **Visual Feedback**: Toast notifications for all actions
-3. **Format Preservation**: HTML content maintains formatting in exports
+3. **Format Preservation**: HTML content maintains formatting in both preview and exports
 4. **Multiple Export Formats**: Users can choose PDF or DOCX based on needs
-5. **Non-destructive Editing**: Cancel button allows reverting changes
+5. **Non-destructive Editing**: Cancel button allows reverting changes for contracts
+6. **Improved Typography**: Better readability with proper prose styling
+7. **Document Integrity**: Documents are view-only to prevent accidental modifications
+8. **Clear Separation**: Contracts can be edited, documents can only be viewed and exported
 
 ## Future Enhancements
 

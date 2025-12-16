@@ -39,7 +39,7 @@ import {
 import { Document } from "@/types";
 
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
-import { DocumentViewerWithEdit } from '@/components/DocumentViewerWithEdit';
+import { DocumentViewer } from '@/components/DocumentViewer';
 import { InternalShareDialog } from '@/components/InternalShareDialog';
 import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
 import { useToast } from '@/hooks/use-toast';
@@ -51,7 +51,7 @@ export default function Documents() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [shareDocument, setShareDocument] = useState<Document | null>(null);
   const { term: globalSearch } = useSearch();
-  const { data: documents = [], isLoading, refetch } = useDocuments();
+  const { data: documents = [], isLoading } = useDocuments();
   const { toast } = useToast();
 
   // Compute filtered documents before any early returns (Rules of Hooks)
@@ -427,7 +427,7 @@ export default function Documents() {
 
       {/* Document Viewer */}
       {selectedDocument && (
-        <DocumentViewerWithEdit
+        <DocumentViewer
           open={!!selectedDocument}
           onOpenChange={() => setSelectedDocument(null)}
           document={{
@@ -435,9 +435,10 @@ export default function Documents() {
             name: selectedDocument.name || (selectedDocument as any).title || 'Untitled Document',
             file_path: (selectedDocument as any).file_path,
             mime_type: (selectedDocument as any).mime_type,
+            file_size: (selectedDocument as any).file_size,
             content: (selectedDocument as any).content,
+            metadata: (selectedDocument as any).metadata,
           }}
-          onUpdate={() => refetch()}
         />
       )}
 

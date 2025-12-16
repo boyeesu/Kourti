@@ -30,7 +30,17 @@ interface RichTextEditorProps {
 export function RichTextEditor({ content, onChange, editable = true }: RichTextEditorProps) {
     const editor = useEditor({
         extensions: [
-            StarterKit,
+            StarterKit.configure({
+                // Preserve formatting better
+                heading: {
+                    levels: [1, 2, 3, 4, 5, 6],
+                },
+                paragraph: {
+                    HTMLAttributes: {
+                        class: 'mb-4',
+                    },
+                },
+            }),
             Underline,
             Highlight.configure({ multicolor: true }),
             TextAlign.configure({
@@ -39,13 +49,22 @@ export function RichTextEditor({ content, onChange, editable = true }: RichTextE
         ],
         content,
         editable,
+        editorProps: {
+            attributes: {
+                class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none focus:outline-none',
+            },
+        },
         onUpdate: ({ editor }) => {
             onChange(editor.getHTML());
+        },
+        parseOptions: {
+            preserveWhitespace: 'full',
         },
     });
 
     useEffect(() => {
-        if (editor && content !== editor.getHTML()) {
+        if (editor && content && content !== editor.getHTML()) {
+            // Preserve the original content structure
             editor.commands.setContent(content);
         }
     }, [content, editor]);

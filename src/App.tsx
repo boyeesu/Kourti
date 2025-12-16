@@ -57,6 +57,7 @@ const InvoiceCreate = lazy(() => import('./pages/InvoiceCreate'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
+const Changelog = lazy(() => import('./pages/Changelog'));
 const ContractUpload = lazy(() => import('./pages/ContractUpload'));
 
 type ProtectedRouteConfig = {
@@ -109,6 +110,7 @@ const protectedRoutes: ProtectedRouteConfig[] = [
   { path: '/transcriptions/:id', component: TranscriptionView, boundaryName: 'Transcription View', permission: { resource: 'documents', action: 'read' } },
   { path: '/bulk-import', component: BulkImport, boundaryName: 'Bulk Import', permission: { resource: 'documents', action: 'manage' } },
   { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center', suspense: true },
+  { path: '/changelog', component: Changelog, boundaryName: 'Changelog', suspense: true },
   { path: '/users', component: UserManagement, boundaryName: 'User Management', permission: { resource: 'users', action: 'manage' } },
   { path: '/settings', component: Settings, boundaryName: 'Settings', permission: { resource: 'settings', action: 'manage' } },
   { path: '*', component: NotFound },
@@ -147,14 +149,14 @@ function createRouteElement({ component: Component, boundaryName, suspense, perm
 // Component to track page views for analytics
 function PageViewTracker() {
   const location = useLocation();
-  
+
   useEffect(() => {
-    logInfo('Page view', { 
+    logInfo('Page view', {
       path: location.pathname,
       search: location.search
     });
   }, [location]);
-  
+
   return null;
 }
 
@@ -216,48 +218,48 @@ const App = () => (
         <PageViewTracker />
         <AuthProvider>
           <InactivityHandler />
-              <Routes>
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/auth/set-password" element={<SetPassword />} />
-                <Route
-                  path="/onboarding"
-                  element={(
-                    <ProtectedRoute>
-                      <ModuleErrorBoundary name="Onboarding">
-                        <Onboarding />
-                      </ModuleErrorBoundary>
-                    </ProtectedRoute>
-                  )}
-                />
-                <Route
-                  path="/*"
-                  element={(
-                    <ProtectedRoute>
-                      <OrganizationCheck>
-                        <SearchProvider>
-                          <CasesProvider>
-                            <AppLayout>
-                              <Routes>
-                                {protectedRoutes.map((route) => (
-                                  <Route
-                                    key={route.path}
-                                    path={route.path}
-                                    element={createRouteElement(route)}
-                                  />
-                                ))}
-                              </Routes>
-                            </AppLayout>
-                          </CasesProvider>
-                        </SearchProvider>
-                      </OrganizationCheck>
-                    </ProtectedRoute>
-                  )}
-                />
-              </Routes>
-            </AuthProvider>
-          </BrowserRouter>
-        </NotificationsProvider>
-      </TooltipProvider>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/set-password" element={<SetPassword />} />
+            <Route
+              path="/onboarding"
+              element={(
+                <ProtectedRoute>
+                  <ModuleErrorBoundary name="Onboarding">
+                    <Onboarding />
+                  </ModuleErrorBoundary>
+                </ProtectedRoute>
+              )}
+            />
+            <Route
+              path="/*"
+              element={(
+                <ProtectedRoute>
+                  <OrganizationCheck>
+                    <SearchProvider>
+                      <CasesProvider>
+                        <AppLayout>
+                          <Routes>
+                            {protectedRoutes.map((route) => (
+                              <Route
+                                key={route.path}
+                                path={route.path}
+                                element={createRouteElement(route)}
+                              />
+                            ))}
+                          </Routes>
+                        </AppLayout>
+                      </CasesProvider>
+                    </SearchProvider>
+                  </OrganizationCheck>
+                </ProtectedRoute>
+              )}
+            />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </NotificationsProvider>
+  </TooltipProvider>
 );
 
 export default App;
