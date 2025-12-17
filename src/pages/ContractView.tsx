@@ -135,7 +135,7 @@ import {
 } from "lucide-react";
 import { summarizeContract, extractKeyClauses, redlineContract } from "@/lib/openaiService";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import { exportAsPdf, exportAsDocx, exportContractAsPdf } from "@/lib/documentExport";
+import { exportAsDocx, exportContractAsPdf } from "@/lib/documentExport";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
