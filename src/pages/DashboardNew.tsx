@@ -203,9 +203,71 @@ export default function Dashboard() {
 
   // Weekly activity data
   const weeklyActivity = useMemo(() => {
-    // Return empty array - TODO: Implement real weekly aggregation
-    return [];
-  }, []);
+    if (!casesData?.cases && !contractsData) {
+      return [];
+    }
+
+    const weeksToShow = 8;
+    const now = new Date();
+    const normalizeDate = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const getWeekStart = (date: Date) => {
+      const normalized = normalizeDate(date);
+      const dayOfWeek = normalized.getDay();
+      const diff = (dayOfWeek + 6) % 7;
+      normalized.setDate(normalized.getDate() - diff);
+      return normalized;
+    };
+
+    const currentWeekStart = getWeekStart(now);
+    const weekStarts = Array.from({ length: weeksToShow }, (_, index) => {
+      const start = new Date(currentWeekStart);
+      start.setDate(start.getDate() - (weeksToShow - 1 - index) * 7);
+      return start;
+    });
+
+    const weeklyBuckets = new Map<string, { day: string; cases: number; contracts: number }>();
+    weekStarts.forEach((start) => {
+      const key = start.toISOString().slice(0, 10);
+      weeklyBuckets.set(key, {
+        day: formatDate(start, { month: "short", day: "numeric" }),
+        cases: 0,
+        contracts: 0
+      });
+    });
+
+    const earliestWeekStart = weekStarts[0];
+    const incrementBucket = (dateValue: string | null | undefined, type: "cases" | "contracts") => {
+      if (!dateValue) return;
+      const date = new Date(dateValue);
+      if (Number.isNaN(date.getTime())) return;
+      const weekStart = getWeekStart(date);
+      if (weekStart < earliestWeekStart) return;
+      const key = weekStart.toISOString().slice(0, 10);
+      const bucket = weeklyBuckets.get(key);
+      if (bucket) {
+        bucket[type] += 1;
+      }
+    };
+
+    casesData?.cases?.forEach((caseItem: Case) => {
+      incrementBucket(caseItem.created_at, "cases");
+    });
+
+    const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
+    contractsList.forEach((contract: Contract) => {
+      incrementBucket(contract.created_at, "contracts");
+    });
+
+    return weekStarts.map((start) => {
+      const key = start.toISOString().slice(0, 10);
+      const bucket = weeklyBuckets.get(key);
+      return {
+        day: bucket?.day ?? formatDate(start, { month: "short", day: "numeric" }),
+        cases: bucket?.cases ?? 0,
+        contracts: bucket?.contracts ?? 0
+      };
+    });
+  }, [casesData, contractsData]);
 
   // Generate recent cases
   const recentCases = useMemo(() => {
