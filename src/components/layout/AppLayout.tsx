@@ -532,16 +532,16 @@ function AppLayoutInner({
       <CommandPalette />
       <MobileAccessNotice />
       <div className="app-shell flex min-h-screen w-full bg-[hsl(var(--background))]">
-        <aside className="hidden shrink-0 px-2 py-4 md:flex md:w-[220px] lg:w-[260px] lg:px-3 lg:py-5">
+        <aside className="hidden shrink-0 px-2 py-3 md:flex md:w-[220px] lg:w-[260px] lg:px-3 lg:py-4">
           <div className="workspace-sidebar h-full w-full overflow-hidden">
             <AppSidebar />
           </div>
         </aside>
 
-        <div className="flex flex-col flex-1 min-w-0 gap-5 px-3 py-5 sm:px-5 lg:gap-6 lg:px-8">
-          <header className="workspace-header surface-panel px-4 py-5 sm:px-5 lg:px-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col flex-1 min-w-0 gap-3 px-3 py-3 sm:px-4 lg:gap-4 lg:px-6">
+          <header className="workspace-header surface-panel px-3 py-3 sm:px-4 lg:px-5">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <MobileNavigation />
                   <div className="flex flex-col">
@@ -552,14 +552,14 @@ function AppLayoutInner({
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className="hidden items-center gap-2 rounded-full border border-[hsl(var(--surface-border))] bg-[hsl(var(--muted))] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:flex">
+                <div className="flex items-center gap-2">
+                  <div className="hidden items-center gap-2 rounded-full border border-[hsl(var(--surface-border))] bg-[hsl(var(--muted))] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:flex">
                     <span className={cn("h-2 w-2 rounded-full", toneClassMap[moduleMeta.tone])} />
                     <span>{moduleMeta.status}</span>
                   </div>
                   <Button
                     variant="default"
-                    className="hidden items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[hsl(var(--primary))/0.9] sm:flex"
+                    className="hidden items-center gap-2 rounded-md bg-[hsl(var(--primary))] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[hsl(var(--primary))/0.9] sm:flex"
                     onClick={() => navigate('/cases/create')}
                   >
                     <Plus className="h-4 w-4" />
@@ -569,17 +569,17 @@ function AppLayoutInner({
                   <DeadlineReminders />
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigate('/help-center')}
-                          aria-label="Help Center"
-                          className="hidden h-10 w-10 items-center justify-center rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground sm:flex"
-                        >
-                          <HelpCircle className="h-5 w-5" />
-                        </Button>
-                      </TooltipTrigger>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate('/help-center')}
+                        aria-label="Help Center"
+                        className="hidden h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground sm:flex"
+                      >
+                        <HelpCircle className="h-5 w-5" />
+                      </Button>
+                    </TooltipTrigger>
                       <TooltipContent>Help Center</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -591,9 +591,9 @@ function AppLayoutInner({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="ml-1 flex h-10 w-10 items-center justify-center rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-0 text-foreground transition-colors hover:border-[hsl(var(--primary))]"
+                        className="ml-1 flex h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-0 text-foreground transition-colors hover:border-[hsl(var(--primary))]"
                       >
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="h-7 w-7">
                           <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
                           <AvatarFallback className="bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))] text-sm">
                             {userInitials}
@@ -642,9 +642,9 @@ function AppLayoutInner({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div
-                  className="flex flex-1 cursor-pointer items-center gap-2 rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground"
+                  className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--background))] px-3 py-1.5 text-sm text-muted-foreground shadow-sm transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground"
                   onClick={() => setSearchDialogOpen(true)}
                 >
                   <SearchIcon className="h-4 w-4 flex-shrink-0" />
