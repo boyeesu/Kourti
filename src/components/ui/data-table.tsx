@@ -113,7 +113,7 @@ export function DataTable<T>({
     };
 
     return (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-md border overflow-x-auto bg-[hsl(var(--surface))]">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -127,7 +127,7 @@ export function DataTable<T>({
                                     <Button
                                         variant="ghost"
                                         onClick={() => handleSort(column.id)}
-                                        className="-ml-3 h-8 data-[state=open]:bg-accent hover:bg-accent/50"
+                                        className="-ml-3 h-7 px-2 text-[11px] uppercase tracking-[0.08em] data-[state=open]:bg-accent hover:bg-accent/50"
                                     >
                                         {column.header}
                                         {getSortIcon(column.id)}
