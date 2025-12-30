@@ -211,8 +211,8 @@ export default function Dashboard() {
   const recentCases = useMemo(() => {
     if (casesData?.cases) {
       return casesData.cases
-        .slice(0, 5)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        .toSorted((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5);
     }
     return [];
   }, [casesData]);
