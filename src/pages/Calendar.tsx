@@ -11,7 +11,8 @@ import {
   Users,
   List,
   Grid3X3,
-  RefreshCw
+  RefreshCw,
+  Download
 } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendar";
 import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
@@ -21,6 +22,14 @@ import { CalendarEvent } from "@/types";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { env } from "@/lib/env";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -32,6 +41,8 @@ export default function Calendar() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasSsoConfig, setHasSsoConfig] = useState(false);
   const { toast } = useToast();
+  const calendarFeedUrl = `${env.APP_URL}/api/calendar/ics`;
+  const calendarSubscribeUrl = calendarFeedUrl.replace(/^https?:\/\//, "webcal://");
 
   // Combine internal and external events
   const allEvents = [...events, ...externalEvents];
@@ -263,6 +274,30 @@ export default function Calendar() {
                   {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                 </CardTitle>
                 <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1">
+                        <Download className="h-4 w-4" />
+                        Add to Calendar
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-72">
+                      <DropdownMenuLabel>Calendar Feed</DropdownMenuLabel>
+                      <DropdownMenuItem asChild>
+                        <a href={calendarFeedUrl} target="_blank" rel="noreferrer">
+                          Download ICS (one-time import)
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a href={calendarSubscribeUrl}>
+                          Subscribe (auto-updates)
+                        </a>
+                      </DropdownMenuItem>
+                      <div className="px-3 pb-2 text-xs text-muted-foreground">
+                        Subscription keeps your device calendar updated automatically.
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   {hasSsoConfig && (
                     <Button
                       variant="outline"
