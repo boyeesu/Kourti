@@ -49,6 +49,7 @@ import { Badge } from "@/components/ui/badge";
 import { calculateCaseStatusData } from "@/lib/analyticsUtils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { format, startOfMonth, subMonths } from "date-fns";
 
 // Components
 const StatCard = ({
@@ -156,18 +157,24 @@ export default function Dashboard() {
     // If we have real case and contract data, calculate monthly trends
     if (casesData?.cases && contractsData) {
       const monthlyData: Record<string, { cases: number; contracts: number }> = {};
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const currentMonth = startOfMonth(new Date());
+      const monthLabels = Array.from({ length: 12 }, (_, index) => {
+        const monthDate = subMonths(currentMonth, 11 - index);
+        return format(monthDate, "MMM yyyy");
+      });
 
       // Initialize all months to zero
-      months.forEach(month => {
-        monthlyData[month] = { cases: 0, contracts: 0 };
+      monthLabels.forEach(monthLabel => {
+        monthlyData[monthLabel] = { cases: 0, contracts: 0 };
       });
 
       // Count cases by month
       casesData.cases.forEach((c: Case) => {
         if (c.created_at) {
-          const month = months[new Date(c.created_at).getMonth()];
-          monthlyData[month].cases += 1;
+          const monthKey = format(startOfMonth(new Date(c.created_at)), "MMM yyyy");
+          if (monthlyData[monthKey]) {
+            monthlyData[monthKey].cases += 1;
+          }
         }
       });
 
@@ -175,16 +182,18 @@ export default function Dashboard() {
       const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
       contractsList.forEach((contract: Contract) => {
         if (contract.created_at) {
-          const month = months[new Date(contract.created_at).getMonth()];
-          monthlyData[month].contracts += 1;
+          const monthKey = format(startOfMonth(new Date(contract.created_at)), "MMM yyyy");
+          if (monthlyData[monthKey]) {
+            monthlyData[monthKey].contracts += 1;
+          }
         }
       });
 
       // Transform to array format for the chart
-      return months.map(month => ({
-        month,
-        cases: monthlyData[month].cases,
-        contracts: monthlyData[month].contracts
+      return monthLabels.map(monthLabel => ({
+        month: monthLabel,
+        cases: monthlyData[monthLabel].cases,
+        contracts: monthlyData[monthLabel].contracts
       }));
     }
 
