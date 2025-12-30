@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { useFetchData } from "@/lib/api";
 import { useContracts } from '@/hooks/useContracts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { 
-  Users, 
-  FileText, 
+import {
+  Users,
+  FileText,
   DollarSign,
   Scale,
   RefreshCw
@@ -16,90 +16,118 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import {
+  calculateCaseStatusData,
+  calculateClientActivity,
+  calculateMonthlyRevenue,
+  calculateMonthOverMonthMetrics
+} from "@/lib/analyticsUtils";
 
-// Mock data for charts
-const caseStatusData = [
-  { name: 'Open', value: 45, color: '#3b82f6' },
-  { name: 'In Progress', value: 32, color: '#f59e0b' },
-  { name: 'Closed', value: 23, color: '#10b981' },
-];
-
-const clientActivityData = [
-  { month: 'Jan', new: 12, active: 145 },
-  { month: 'Feb', new: 8, active: 152 },
-  { month: 'Mar', new: 15, active: 167 },
-  { month: 'Apr', new: 11, active: 171 },
-  { month: 'May', new: 19, active: 189 },
-  { month: 'Jun', new: 14, active: 203 },
-];
-
-const revenueData = [
-  { month: 'Jan', revenue: 45000, contracts: 12000 },
-  { month: 'Feb', revenue: 52000, contracts: 15000 },
-  { month: 'Mar', revenue: 48000, contracts: 11000 },
-  { month: 'Apr', revenue: 61000, contracts: 18000 },
-  { month: 'May', revenue: 55000, contracts: 14000 },
-  { month: 'Jun', revenue: 67000, contracts: 22000 },
-];
 
 export default function Analytics() {
   const [selectedPeriod, setSelectedPeriod] = useState("6months");
 
   // Fetch real data
-  const { data: cases, isLoading: casesLoading } = useFetchData({
+  const { data: cases, isLoading: casesLoading, refetch: refetchCases } = useFetchData({
     table: 'cases',
     queryKey: ['analytics-cases'],
     select: 'id, status, created_at, title, priority',
   });
 
-  const { data: clients, isLoading: clientsLoading } = useFetchData({
+  const { data: clients, isLoading: clientsLoading, refetch: refetchClients } = useFetchData({
     table: 'clients',
     queryKey: ['analytics-clients'],
     select: 'id, created_at, name, status',
   });
 
-  const { data: contractsData, isLoading: contractsLoading } = useContracts(1, 1000);
+  const { data: contractsData, isLoading: contractsLoading, refetch: refetchContracts } = useContracts(1, 1000);
   const contracts = contractsData?.contracts || [];
 
-  const { data: invoices, isLoading: invoicesLoading } = useFetchData({
+  const { data: invoices, isLoading: invoicesLoading, refetch: refetchInvoices } = useFetchData({
     table: 'invoices',
     queryKey: ['analytics-invoices'],
     select: 'id, total_amount, status, created_at, due_date',
   });
 
-  const { data: documents, isLoading: documentsLoading } = useFetchData({
+  const { data: documents, isLoading: documentsLoading, refetch: refetchDocuments } = useFetchData({
     table: 'documents',
     queryKey: ['analytics-documents'],
     select: 'id, created_at, name',
   });
 
-  const { data: events, isLoading: eventsLoading } = useFetchData({
+  const { data: events, isLoading: eventsLoading, refetch: refetchEvents } = useFetchData({
     table: 'calendar_events',
     queryKey: ['analytics-events'],
     select: 'id, created_at, event_type, start_date, end_date',
   });
 
-  // Calculate metrics
-  const totalCases = cases?.data?.length || 0;
-  const totalClients = clients?.data?.length || 0;
+  // Calculate real metrics from data
+  const casesArray = cases?.data || [];
+  const clientsArray = clients?.data || [];
+  const invoicesArray = invoices?.data || [];
+  const documentsArray = documents?.data || [];
+
+  // Calculate case status distribution (real data)
+  const caseStatusData = useMemo(() => {
+    return calculateCaseStatusData(casesArray);
+  }, [casesArray]);
+
+  // Calculate client activity trends (real data)
+  const clientActivityData = useMemo(() => {
+    const months = selectedPeriod === "1month" ? 1 :
+      selectedPeriod === "3months" ? 3 :
+        selectedPeriod === "1year" ? 12 : 6;
+    return calculateClientActivity(clientsArray, months);
+  }, [clientsArray, selectedPeriod]);
+
+  // Calculate revenue trends (real data)
+  const revenueData = useMemo(() => {
+    const months = selectedPeriod === "1month" ? 1 :
+      selectedPeriod === "3months" ? 3 :
+        selectedPeriod === "1year" ? 12 : 6;
+    return calculateMonthlyRevenue(invoicesArray, contracts, months);
+  }, [invoicesArray, contracts, selectedPeriod]);
+
+  // Calculate month-over-month changes (real data)
+  const casesChange = useMemo(() => calculateMonthOverMonthMetrics(casesArray), [casesArray]);
+  const clientsChange = useMemo(() => calculateMonthOverMonthMetrics(clientsArray), [clientsArray]);
+  const revenueChange = useMemo(() => {
+    const paidInvoices = invoicesArray.filter(inv => inv.status === 'paid');
+    return calculateMonthOverMonthMetrics(paidInvoices);
+  }, [invoicesArray]);
+  const contractsChange = useMemo(() => calculateMonthOverMonthMetrics(contracts), [contracts]);
+
+  // Calculate totals
+  const totalCases = casesArray.length;
+  const totalClients = clientsArray.length;
   const totalContracts = contracts.length;
-  const totalInvoices = invoices?.data?.length || 0;
-  const totalDocuments = documents?.data?.length || 0;
+  const totalInvoices = invoicesArray.length;
+  const totalDocuments = documentsArray.length;
   const totalEvents = events?.data?.length || 0;
 
-  const totalRevenue = invoices?.data?.reduce((sum, inv) =>
-    inv.status === 'paid' ? sum + (inv.total_amount || 0) : sum, 0) || 0;
+  const totalRevenue = invoicesArray.reduce((sum, inv) =>
+    inv.status === 'paid' ? sum + (inv.total_amount || 0) : sum, 0);
 
   const totalContractValue = contracts.reduce((sum, contract) =>
     sum + (contract.value || 0), 0);
 
-  const isLoading = casesLoading || clientsLoading || contractsLoading || 
+  const isLoading = casesLoading || clientsLoading || contractsLoading ||
     invoicesLoading || documentsLoading || eventsLoading;
+
+  // Refresh all data
+  const handleRefresh = () => {
+    refetchCases();
+    refetchClients();
+    refetchContracts();
+    refetchInvoices();
+    refetchDocuments();
+    refetchEvents();
+  };
 
   return (
     <div className="px-4 py-6 space-y-6 animate-fade-in">
       <Breadcrumbs />
-      
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Analytics Dashboard</h1>
@@ -117,7 +145,7 @@ export default function Analytics() {
               <SelectItem value="1year">1 Year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -135,7 +163,9 @@ export default function Analytics() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Cases</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : totalCases}</p>
-                <p className="text-xs text-green-600">↑ 12% vs last month</p>
+                <p className={`text-xs ${casesChange.direction === 'up' ? 'text-green-600' : casesChange.direction === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                  {casesChange.formatted} vs last month
+                </p>
               </div>
             </div>
           </CardContent>
@@ -150,7 +180,9 @@ export default function Analytics() {
               <div>
                 <p className="text-sm text-muted-foreground">Active Clients</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : totalClients}</p>
-                <p className="text-xs text-green-600">↑ 8% vs last month</p>
+                <p className={`text-xs ${clientsChange.direction === 'up' ? 'text-green-600' : clientsChange.direction === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                  {clientsChange.formatted} vs last month
+                </p>
               </div>
             </div>
           </CardContent>
@@ -165,7 +197,9 @@ export default function Analytics() {
               <div>
                 <p className="text-sm text-muted-foreground">Revenue (Paid)</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : formatCurrency(totalRevenue)}</p>
-                <p className="text-xs text-green-600">↑ 15% vs last month</p>
+                <p className={`text-xs ${revenueChange.direction === 'up' ? 'text-green-600' : revenueChange.direction === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                  {revenueChange.formatted} vs last month
+                </p>
               </div>
             </div>
           </CardContent>
@@ -180,7 +214,9 @@ export default function Analytics() {
               <div>
                 <p className="text-sm text-muted-foreground">Contract Value</p>
                 <p className="text-2xl font-bold">{isLoading ? "—" : formatCurrency(totalContractValue)}</p>
-                <p className="text-xs text-green-600">↑ 22% vs last month</p>
+                <p className={`text-xs ${contractsChange.direction === 'up' ? 'text-green-600' : contractsChange.direction === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                  {contractsChange.formatted} vs last month
+                </p>
               </div>
             </div>
           </CardContent>
@@ -266,9 +302,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                   <p className="text-2xl font-bold text-green-600">
-                     {((cases as any)?.data?.filter((c: any) => c.status === 'open') || []).length}
-                   </p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {((cases as any)?.data?.filter((c: any) => c.status === 'open') || []).length}
+                  </p>
                   <p className="text-sm text-muted-foreground">Open Cases</p>
                 </div>
               </CardContent>
@@ -276,9 +312,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                   <p className="text-2xl font-bold text-purple-600">
-                     {((cases as any)?.data?.filter((c: any) => c.priority === 'high') || []).length}
-                   </p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {((cases as any)?.data?.filter((c: any) => c.priority === 'high') || []).length}
+                  </p>
                   <p className="text-sm text-muted-foreground">High Priority</p>
                 </div>
               </CardContent>
@@ -320,9 +356,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                   <p className="text-2xl font-bold text-blue-600">
-                     {((clients as any)?.data?.filter((c: any) => c.status === 'active') || []).length}
-                   </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {((clients as any)?.data?.filter((c: any) => c.status === 'active') || []).length}
+                  </p>
                   <p className="text-sm text-muted-foreground">Active Clients</p>
                 </div>
               </CardContent>
@@ -330,14 +366,14 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                   <p className="text-2xl font-bold text-purple-600">
-                     {((clients as any)?.data?.filter((c: any) => {
-                       const created = new Date(c.created_at);
-                       const now = new Date();
-                       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                       return created >= thirtyDaysAgo;
-                     }) || []).length}
-                   </p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {((clients as any)?.data?.filter((c: any) => {
+                      const created = new Date(c.created_at);
+                      const now = new Date();
+                      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                      return created >= thirtyDaysAgo;
+                    }) || []).length}
+                  </p>
                   <p className="text-sm text-muted-foreground">New This Month</p>
                 </div>
               </CardContent>
@@ -419,9 +455,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                   <p className="text-2xl font-bold text-yellow-600">
-                     {((invoices as any)?.data?.filter((i: any) => ['draft', 'sent'].includes(i.status)) || []).length}
-                   </p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {((invoices as any)?.data?.filter((i: any) => ['draft', 'sent'].includes(i.status)) || []).length}
+                  </p>
                   <p className="text-sm text-muted-foreground">Pending</p>
                 </div>
               </CardContent>
@@ -429,9 +465,9 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                   <p className="text-2xl font-bold text-red-600">
-                     {((invoices as any)?.data?.filter((i: any) => i.status === 'overdue') || []).length}
-                   </p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {((invoices as any)?.data?.filter((i: any) => i.status === 'overdue') || []).length}
+                  </p>
                   <p className="text-sm text-muted-foreground">Overdue</p>
                 </div>
               </CardContent>
@@ -481,14 +517,14 @@ export default function Analytics() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                   <p className="text-2xl font-bold text-purple-600">
-                     {((documents as any)?.data?.filter((d: any) => {
-                       const created = new Date(d.created_at);
-                       const now = new Date();
-                       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                       return created >= sevenDaysAgo;
-                     }) || []).length}
-                   </p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {((documents as any)?.data?.filter((d: any) => {
+                      const created = new Date(d.created_at);
+                      const now = new Date();
+                      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                      return created >= sevenDaysAgo;
+                    }) || []).length}
+                  </p>
                   <p className="text-sm text-muted-foreground">This Week</p>
                 </div>
               </CardContent>

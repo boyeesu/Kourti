@@ -668,86 +668,112 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl shadow-card">
-        <CardHeader className="text-center pb-2">
-          <div className="flex justify-center mb-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center px-4 py-10">
+      <Card className="w-full max-w-5xl shadow-card border border-border/60">
+        <CardHeader className="text-center space-y-3">
+          <div className="flex justify-center">
             <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
           </div>
-          <Progress value={progress} className="w-full mb-6" />
-          <div className="flex justify-center space-x-4 mb-6">
-            {steps.map((step) => {
-              const Icon = step.icon;
-              return (
-                <div
-                  key={step.id}
-                  className={`flex flex-col items-center space-y-2 ${
-                    step.id === currentStep
-                      ? "text-primary"
-                      : step.id < currentStep
-                      ? "text-muted-foreground"
-                      : "text-muted-foreground/50"
-                  }`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      step.id === currentStep
-                        ? "bg-primary text-primary-foreground"
-                        : step.id < currentStep
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="text-xs text-center">
-                    <div className="font-medium">{step.title}</div>
-                  </div>
-                </div>
-              );
-            })}
+          <div>
+            <CardTitle className="text-2xl font-semibold">Welcome to Kourti Legal</CardTitle>
+            <p className="text-muted-foreground">
+              Let&apos;s get your workspace ready in just a few steps.
+            </p>
           </div>
-          <CardTitle>{steps[currentStep - 1]?.title}</CardTitle>
-          <p className="text-muted-foreground">
-            {steps[currentStep - 1]?.description}
-          </p>
         </CardHeader>
         
         <CardContent>
-          {renderStepContent()}
-          
-          <div className="flex justify-between mt-8">
-            <div className="space-x-2">
-              {currentStep === 1 ? (
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/auth")}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Login
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </Button>
-              )}
+          <div className="grid gap-8 lg:grid-cols-[260px,1fr]">
+            <aside className="space-y-6 rounded-xl border border-border/60 bg-muted/40 p-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Progress</p>
+                <div className="mt-2 space-y-2">
+                  <Progress value={progress} className="w-full" />
+                  <p className="text-xs text-muted-foreground">
+                    Step {currentStep} of {steps.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {steps.map((step) => {
+                  const Icon = step.icon;
+                  const isActive = step.id === currentStep;
+                  const isComplete = step.id < currentStep;
+                  return (
+                    <div
+                      key={step.id}
+                      className={`flex items-start gap-3 rounded-lg border p-3 ${
+                        isActive
+                          ? "border-primary/50 bg-primary/5 text-foreground"
+                          : isComplete
+                          ? "border-border/60 bg-background text-muted-foreground"
+                          : "border-border/30 bg-background/60 text-muted-foreground"
+                      }`}
+                    >
+                      <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : isComplete
+                            ? "bg-primary/20 text-primary"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{step.title}</p>
+                        <p className="text-xs text-muted-foreground">{step.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </aside>
+
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold">{steps[currentStep - 1]?.title}</h2>
+                <p className="text-sm text-muted-foreground">{steps[currentStep - 1]?.description}</p>
+              </div>
+
+              {renderStepContent()}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-x-2">
+                  {currentStep === 1 ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/auth")}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to Login
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={handlePrevious}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Previous
+                    </Button>
+                  )}
+                </div>
+
+                {currentStep === steps.length ? (
+                  <Button onClick={handleFinish}>
+                    Get Started
+                    <CheckCircle className="w-4 h-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button onClick={handleNext}>
+                    Next
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+              </div>
             </div>
-            
-            {currentStep === steps.length ? (
-              <Button onClick={handleFinish}>
-                Get Started
-                <CheckCircle className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleNext}>
-                Next
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>

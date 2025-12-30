@@ -21,9 +21,9 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
-import { 
-  FileText, 
-  Users, 
+import {
+  FileText,
+  Users,
   Briefcase,
   TrendingUp,
   AlertTriangle,
@@ -42,6 +42,7 @@ import { Case, Contract } from "@/types";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
+import { calculateCaseStatusData } from "@/lib/analyticsUtils";
 
 export default function Dashboard() {
   const [windowDays] = useState(7);
@@ -53,34 +54,13 @@ export default function Dashboard() {
   const { data: userRoleData } = useUserRole();
   const { data: casesData, isLoading: casesLoading } = useCases();
   const { data: activitiesData, isLoading: activitiesLoading } = useAllActivities();
-  
+
   const role = userRoleData?.role;
   const isAdmin = role === "superadmin" || role === "admin";
 
-  // Process case status data for pie chart
+  // Process case status data for pie chart - ONLY use real data
   const casesByStatus = useMemo(() => {
-    // If we have real data, use it
-    if (casesData?.cases) {
-      const statusMap: Record<string, number> = {};
-      casesData.cases.forEach((c: Case) => {
-        const status = c.status || 'unknown';
-        statusMap[status] = (statusMap[status] || 0) + 1;
-      });
-
-      // Transform to format needed for pie chart
-      return Object.entries(statusMap).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' '),
-        value,
-        color: getStatusColor(name)
-      }));
-    }
-
-    // Fallback to sample data
-    return [
-      { name: 'Active', value: 45, color: '#3b82f6' },
-      { name: 'Pending', value: 23, color: '#f59e0b' },
-      { name: 'Closed', value: 12, color: '#10b981' }
-    ];
+    return calculateCaseStatusData(casesData?.cases || []);
   }, [casesData]);
 
   // Generate monthly activity data based on real activity data
@@ -89,12 +69,12 @@ export default function Dashboard() {
     if (activitiesData && activitiesData.length > 0) {
       const monthlyData: Record<string, Record<string, number>> = {};
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
+
       // Initialize all months
       months.forEach(month => {
         monthlyData[month] = {};
       });
-      
+
       // Count activities by month and type
       activitiesData.forEach((activity: any) => {
         if (activity.created_at) {
@@ -103,25 +83,25 @@ export default function Dashboard() {
           monthlyData[month][activityType] = (monthlyData[month][activityType] || 0) + 1;
         }
       });
-      
+
       // Transform to array format for the chart with top activity types
       const allActivityTypes = new Set<string>();
       Object.values(monthlyData).forEach(monthData => {
         Object.keys(monthData).forEach(type => allActivityTypes.add(type));
       });
-      
+
       // Get top 3 most common activity types
       const typeCounts: Record<string, number> = {};
       activitiesData.forEach((activity: any) => {
         const type = activity.activity_type || 'Other';
         typeCounts[type] = (typeCounts[type] || 0) + 1;
       });
-      
+
       const topTypes = Object.entries(typeCounts)
-        .sort(([,a], [,b]) => b - a)
+        .sort(([, a], [, b]) => b - a)
         .slice(0, 3)
         .map(([type]) => type);
-      
+
       return months.map(month => {
         const result: any = { month };
         topTypes.forEach(type => {
@@ -131,34 +111,9 @@ export default function Dashboard() {
       });
     }
 
-    // Fallback to sample data
-    return [
-      { month: 'Jan', Meeting: 5, Court: 3, Research: 8 },
-      { month: 'Feb', Meeting: 8, Court: 2, Research: 12 },
-      { month: 'Mar', Meeting: 6, Court: 4, Research: 9 },
-      { month: 'Apr', Meeting: 10, Court: 6, Research: 15 },
-      { month: 'May', Meeting: 7, Court: 3, Research: 11 },
-      { month: 'Jun', Meeting: 12, Court: 5, Research: 16 },
-      { month: 'Jul', Meeting: 9, Court: 4, Research: 14 },
-      { month: 'Aug', Meeting: 11, Court: 7, Research: 18 },
-      { month: 'Sep', Meeting: 8, Court: 3, Research: 13 },
-      { month: 'Oct', Meeting: 10, Court: 5, Research: 16 },
-      { month: 'Nov', Meeting: 7, Court: 2, Research: 12 },
-      { month: 'Dec', Meeting: 5, Court: 1, Research: 8 }
-    ];
+    // Return empty array if no data
+    return [];
   }, [activitiesData]);
-
-  // Helper function to get color based on status
-  function getStatusColor(status: string): string {
-    switch (status.toLowerCase()) {
-      case 'active': return '#3b82f6';
-      case 'pending': 
-      case 'in_progress': return '#f59e0b';
-      case 'closed': return '#10b981';
-      case 'expired': return '#ef4444';
-      default: return '#6b7280';
-    }
-  }
 
   // Handle loading states
   if (dashboardLoading && casesLoading && activitiesLoading) {
@@ -301,18 +256,18 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={recentActivity}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                  <XAxis 
-                    dataKey="month" 
+                  <XAxis
+                    dataKey="month"
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis 
+                  <YAxis
                     axisLine={false}
                     tickLine={false}
                     width={30}
                   />
-                   <Legend 
-                    verticalAlign="top" 
+                  <Legend
+                    verticalAlign="top"
                     height={36}
                     iconType="circle"
                   />
@@ -320,12 +275,12 @@ export default function Dashboard() {
                   {recentActivity.length > 0 && Object.keys(recentActivity[0]).filter(key => key !== 'month').map((activityType, index) => {
                     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
                     return (
-                      <Line 
+                      <Line
                         key={activityType}
-                        type="monotone" 
-                        dataKey={activityType} 
-                        name={activityType} 
-                        stroke={colors[index % colors.length]} 
+                        type="monotone"
+                        dataKey={activityType}
+                        name={activityType}
+                        stroke={colors[index % colors.length]}
                         strokeWidth={3}
                         activeDot={{ r: 8 }}
                       />
@@ -363,8 +318,8 @@ export default function Dashboard() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Legend 
-                    verticalAlign="bottom" 
+                  <Legend
+                    verticalAlign="bottom"
                     height={36}
                     iconType="circle"
                   />
@@ -387,9 +342,9 @@ export default function Dashboard() {
                 </CardTitle>
                 <p className="text-muted-foreground text-sm">Next {windowDays} days</p>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="gap-1"
                 onClick={() => navigate('/calendar')}
               >
@@ -436,9 +391,9 @@ export default function Dashboard() {
                 </CardTitle>
                 <p className="text-muted-foreground text-sm">Expiring soon</p>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="gap-1"
                 onClick={() => navigate('/contracts')}
               >
@@ -458,8 +413,8 @@ export default function Dashboard() {
                   </TableHeader>
                   <TableBody>
                     {upcomingContracts.map((contract: Contract) => (
-                      <TableRow 
-                        key={contract.id} 
+                      <TableRow
+                        key={contract.id}
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => navigate(`/contracts/${contract.id}`)}
                       >

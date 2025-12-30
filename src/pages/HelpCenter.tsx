@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { HelpCircle, Search, FileText, MessageCircle, Video, Book, ExternalLink, Send, Mail, Phone } from "lucide-react";
+import { HelpCircle, Search, FileText, MessageCircle, Video, Book, ExternalLink, Send, Mail, Phone, History } from "lucide-react";
 
 export default function HelpCenter() {
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -20,7 +21,8 @@ export default function HelpCenter() {
     message: "",
   });
   const { toast } = useToast();
-  
+  const navigate = useNavigate();
+
   const faqs = [
     {
       question: "How do I create a new matter?",
@@ -43,7 +45,7 @@ export default function HelpCenter() {
       answer: "The Ream AI assistant can help with legal research, document analysis, and contract review. Navigate to the 'Ream AI' page, type your question or upload a document, and the AI will provide relevant information and insights."
     }
   ];
-  
+
   const videos = [
     { title: "Getting Started with Kourti Legal", duration: "5:24", url: "#" },
     { title: "Managing Matters Effectively", duration: "8:15", url: "#" },
@@ -51,7 +53,7 @@ export default function HelpCenter() {
     { title: "Using the AI Assistant for Research", duration: "10:18", url: "#" },
     { title: "Calendar and Task Management", duration: "4:30", url: "#" }
   ];
-  
+
   const guides = [
     { title: "Complete User Guide", description: "Comprehensive guide to all features", url: "#" },
     { title: "Matter Management Workflow", description: "Best practices for matter handling", url: "#" },
@@ -59,24 +61,24 @@ export default function HelpCenter() {
     { title: "Client Portal Setup", description: "Setting up access for clients", url: "#" },
     { title: "Security Best Practices", description: "Keeping your data secure", url: "#" }
   ];
-  
+
   // Filter FAQs based on search query
-  const filteredFaqs = faqs.filter(faq => 
-    searchQuery === "" || 
+  const filteredFaqs = faqs.filter(faq =>
+    searchQuery === "" ||
     faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
     faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSupportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Here you would typically send the form data to your support system
     // For now, we'll just show a success toast
     toast({
       title: "Support request submitted",
       description: "We'll get back to you within 24 hours via email.",
     });
-    
+
     // Reset form
     setSupportForm({
       name: "",
@@ -97,7 +99,7 @@ export default function HelpCenter() {
           to help you make the most of Kourti Legal
         </p>
       </div>
-      
+
       {/* Search */}
       <div className="relative max-w-xl mx-auto mb-8">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -109,7 +111,7 @@ export default function HelpCenter() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
-      
+
       {/* Main content */}
       <Tabs defaultValue="faqs" className="w-full">
         <TabsList className="grid w-full grid-cols-4 mb-8">
@@ -130,7 +132,7 @@ export default function HelpCenter() {
             <span>Contact Support</span>
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="faqs">
           <Card className="shadow-sm">
             <CardHeader>
@@ -169,7 +171,7 @@ export default function HelpCenter() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="videos">
           <Card className="shadow-sm">
             <CardHeader>
@@ -183,7 +185,7 @@ export default function HelpCenter() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {videos.map((video, index) => (
+                {videos.map((video, index) => (
                   <Card key={index} className="overflow-hidden hover:shadow-md transition-shadow">
                     <div className="h-40 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center">
                       <Video className="h-12 w-12 text-primary/50" />
@@ -201,7 +203,7 @@ export default function HelpCenter() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="guides">
           <Card className="shadow-sm">
             <CardHeader>
@@ -231,7 +233,7 @@ export default function HelpCenter() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="support">
           <Card className="shadow-sm">
             <CardHeader>
@@ -248,7 +250,7 @@ export default function HelpCenter() {
                 {/* Contact Information */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Get in Touch</h3>
-                  
+
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                       <Mail className="h-5 w-5 text-primary" />
@@ -258,7 +260,7 @@ export default function HelpCenter() {
                         <div className="text-xs text-muted-foreground">Response within 24 hours</div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                       <Phone className="h-5 w-5 text-primary" />
                       <div>
@@ -267,7 +269,7 @@ export default function HelpCenter() {
                         <div className="text-xs text-muted-foreground">Mon-Fri, 9 AM - 6 PM EST</div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                       <MessageCircle className="h-5 w-5 text-primary" />
                       <div>
@@ -280,11 +282,11 @@ export default function HelpCenter() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Support Request Form */}
                 <div>
                   <h3 className="font-semibold text-lg mb-4">Submit a Support Request</h3>
-                  
+
                   <form onSubmit={handleSupportSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -297,7 +299,7 @@ export default function HelpCenter() {
                           required
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="support-email">Email *</Label>
                         <Input
@@ -310,11 +312,11 @@ export default function HelpCenter() {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="support-category">Category</Label>
-                      <Select 
-                        value={supportForm.category} 
+                      <Select
+                        value={supportForm.category}
                         onValueChange={(value) => setSupportForm({ ...supportForm, category: value })}
                       >
                         <SelectTrigger>
@@ -330,7 +332,7 @@ export default function HelpCenter() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="support-subject">Subject *</Label>
                       <Input
@@ -341,7 +343,7 @@ export default function HelpCenter() {
                         required
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="support-message">Message *</Label>
                       <Textarea
@@ -353,7 +355,7 @@ export default function HelpCenter() {
                         required
                       />
                     </div>
-                    
+
                     <Button type="submit" className="w-full">
                       <Send className="h-4 w-4 mr-2" />
                       Submit Support Request
@@ -365,7 +367,7 @@ export default function HelpCenter() {
           </Card>
         </TabsContent>
       </Tabs>
-      
+
       {/* Support section */}
       <Card className="shadow-sm mt-8 bg-muted/30">
         <CardContent className="p-6">
@@ -377,11 +379,15 @@ export default function HelpCenter() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" className="flex items-center gap-2" onClick={() => navigate('/changelog')}>
+                <History className="h-4 w-4" />
+                <span>Changelog</span>
+              </Button>
               <Button variant="outline" className="flex items-center gap-2">
                 <ExternalLink className="h-4 w-4" />
                 <span>Knowledge Base</span>
               </Button>
-              <Button 
+              <Button
                 className="flex items-center gap-2"
                 onClick={() => {
                   const tabsTrigger = document.querySelector('[value="support"]') as HTMLElement;

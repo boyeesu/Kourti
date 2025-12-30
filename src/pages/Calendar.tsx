@@ -78,6 +78,8 @@ export default function Calendar() {
     if (!hasSsoConfig) return;
 
     setIsSyncing(true);
+    let syncedCount = 0;
+
     try {
       const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
@@ -93,9 +95,11 @@ export default function Calendar() {
 
         if (!googleError && googleData?.events) {
           setExternalEvents(prev => [...prev.filter(e => e.source !== 'google_calendar'), ...googleData.events]);
+          syncedCount++;
         }
       } catch (err) {
-        console.log('Google Calendar not configured');
+        // Silently ignore - Google Calendar not configured or function not available
+        console.debug('Google Calendar sync not available');
       }
 
       // Try Microsoft Teams Calendar
@@ -106,17 +110,23 @@ export default function Calendar() {
 
         if (!teamsError && teamsData?.events) {
           setExternalEvents(prev => [...prev.filter(e => e.source !== 'microsoft_teams'), ...teamsData.events]);
+          syncedCount++;
         }
       } catch (err) {
-        console.log('Microsoft Teams Calendar not configured');
+        // Silently ignore - Microsoft Teams Calendar not configured or function not available
+        console.debug('Teams Calendar sync not available');
       }
 
-      toast({
-        title: "Calendar Synced",
-        description: "External calendars have been synchronized."
-      });
+      // Only show success toast if at least one calendar was synced
+      if (syncedCount > 0) {
+        toast({
+          title: "Calendar Synced",
+          description: "External calendars have been synchronized."
+        });
+      }
     } catch (error) {
-      console.error('Calendar sync error:', error);
+      // Silently handle sync errors - calendars may not be configured
+      console.debug('Calendar sync error:', error);
     } finally {
       setIsSyncing(false);
     }
@@ -173,10 +183,10 @@ export default function Calendar() {
     const year = date.getFullYear();
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1);
-    
+
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
+
     const days = [];
     for (let i = 0; i < 42; i++) {
       const day = new Date(startDate);
@@ -191,7 +201,7 @@ export default function Calendar() {
     return allEvents.filter(event => {
       const startDate = new Date(event.start_date).toISOString().split('T')[0];
       const endDate = new Date(event.end_date).toISOString().split('T')[0];
-      
+
       // Check if the date falls within the event's date range
       return dateStr >= startDate && dateStr <= endDate;
     });
@@ -203,11 +213,11 @@ export default function Calendar() {
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    
+
     return allEvents.filter(event => {
       const eventStart = new Date(event.start_date);
       const eventEnd = new Date(event.end_date);
-      
+
       // Include events that start, end, or span within the month
       return (eventStart <= lastDay && eventEnd >= firstDay);
     }).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
@@ -217,7 +227,7 @@ export default function Calendar() {
     const today = new Date().toISOString().split('T')[0];
     const eventStart = new Date(event.start_date).toISOString().split('T')[0];
     const eventEnd = new Date(event.end_date).toISOString().split('T')[0];
-    
+
     // Include events that are happening today (start, end, or span today)
     return today >= eventStart && today <= eventEnd;
   });
@@ -266,18 +276,18 @@ export default function Calendar() {
                     </Button>
                   )}
                   <div className="flex items-center gap-1 mr-2">
-                    <Button 
-                      variant={calendarView === 'month' ? 'default' : 'outline'} 
-                      size="sm" 
+                    <Button
+                      variant={calendarView === 'month' ? 'default' : 'outline'}
+                      size="sm"
                       onClick={() => setCalendarView('month')}
                       className="gap-1"
                     >
                       <Grid3X3 className="h-4 w-4" />
                       Month
                     </Button>
-                    <Button 
-                      variant={calendarView === 'list' ? 'default' : 'outline'} 
-                      size="sm" 
+                    <Button
+                      variant={calendarView === 'list' ? 'default' : 'outline'}
+                      size="sm"
                       onClick={() => setCalendarView('list')}
                       className="gap-1"
                     >
@@ -309,7 +319,7 @@ export default function Calendar() {
                       const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                       const isToday = day.toDateString() === new Date().toDateString();
                       const dayEvents = getEventsForDate(day);
-                      
+
                       return (
                         <div
                           key={index}
@@ -320,9 +330,8 @@ export default function Calendar() {
                             hover:bg-accent cursor-pointer
                           `}
                         >
-                          <div className={`text-sm font-medium mb-1 ${
-                            isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
-                          }`}>
+                          <div className={`text-sm font-medium mb-1 ${isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
+                            }`}>
                             {day.getDate()}
                           </div>
                           <div className="space-y-1">
@@ -350,8 +359,8 @@ export default function Calendar() {
                 <div className="space-y-3">
                   {getEventsForMonth().length > 0 ? (
                     getEventsForMonth().map(event => (
-                      <div 
-                        key={event.id} 
+                      <div
+                        key={event.id}
                         className="p-4 rounded-lg border bg-card cursor-pointer transition-colors hover:bg-accent/50"
                         onClick={() => handleEventClick(event)}
                       >
@@ -372,7 +381,7 @@ export default function Calendar() {
                                   <Clock className="h-4 w-4" />
                                   <span>
                                     {format(new Date(event.start_date), 'h:mm a')} - {format(new Date(event.end_date), 'h:mm a')}
-                                    {format(new Date(event.start_date), 'yyyy-MM-dd') !== format(new Date(event.end_date), 'yyyy-MM-dd') && 
+                                    {format(new Date(event.start_date), 'yyyy-MM-dd') !== format(new Date(event.end_date), 'yyyy-MM-dd') &&
                                       ` (${format(new Date(event.end_date), 'MMM d')})`
                                     }
                                   </span>
@@ -425,41 +434,41 @@ export default function Calendar() {
             </CardHeader>
             <CardContent>
               {todayEvents.length > 0 ? (
-                 <div className="space-y-3">
-                   {todayEvents.map(event => (
-                      <div 
-                        key={event.id} 
-                        className="p-3 rounded-lg border bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50"
-                        onClick={() => handleEventClick(event)}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium text-sm">{event.title}</h4>
-                          <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
-                            {event.event_type}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {new Date(event.start_date).toLocaleTimeString()}
-                          </div>
-                          {event.location && (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {event.location}
-                            </div>
-                          )}
-                          {event.attendees && event.attendees.length > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {event.attendees.slice(0, 2).join(", ")}
-                              {event.attendees.length > 2 && ` +${event.attendees.length - 2} more`}
-                            </div>
-                          )}
-                        </div>
+                <div className="space-y-3">
+                  {todayEvents.map(event => (
+                    <div
+                      key={event.id}
+                      className="p-3 rounded-lg border bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50"
+                      onClick={() => handleEventClick(event)}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium text-sm">{event.title}</h4>
+                        <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
+                          {event.event_type}
+                        </Badge>
                       </div>
-                   ))}
-                 </div>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {new Date(event.start_date).toLocaleTimeString()}
+                        </div>
+                        {event.location && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {event.location}
+                          </div>
+                        )}
+                        {event.attendees && event.attendees.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {event.attendees.slice(0, 2).join(", ")}
+                            {event.attendees.length > 2 && ` +${event.attendees.length - 2} more`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p className="text-muted-foreground text-sm">No events scheduled for today</p>
               )}
@@ -474,31 +483,31 @@ export default function Calendar() {
             </CardHeader>
             <CardContent>
               {upcomingEvents.length > 0 ? (
-                 <div className="space-y-3">
-                   {upcomingEvents.slice(0, 5).map(event => (
-                      <div 
-                        key={event.id} 
-                        className="p-3 rounded-lg border bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50"
-                        onClick={() => handleEventClick(event)}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium text-sm">{event.title}</h4>
-                          <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
-                            {event.event_type}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          <div>{new Date(event.start_date).toLocaleDateString()}</div>
-                          <div>{new Date(event.start_date).toLocaleTimeString()}</div>
-                        </div>
+                <div className="space-y-3">
+                  {upcomingEvents.slice(0, 5).map(event => (
+                    <div
+                      key={event.id}
+                      className="p-3 rounded-lg border bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50"
+                      onClick={() => handleEventClick(event)}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium text-sm">{event.title}</h4>
+                        <Badge className={getEventTypeColor(event.event_type)} variant="secondary">
+                          {event.event_type}
+                        </Badge>
                       </div>
-                   ))}
-                   {upcomingEvents.length > 5 && (
-                     <Button variant="outline" size="sm" className="w-full">
-                       View {upcomingEvents.length - 5} more
-                     </Button>
-                   )}
-                 </div>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <div>{new Date(event.start_date).toLocaleDateString()}</div>
+                        <div>{new Date(event.start_date).toLocaleTimeString()}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {upcomingEvents.length > 5 && (
+                    <Button variant="outline" size="sm" className="w-full">
+                      View {upcomingEvents.length - 5} more
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <p className="text-muted-foreground text-sm">No upcoming events</p>
               )}
@@ -507,7 +516,7 @@ export default function Calendar() {
         </div>
       </div>
 
-      <EventViewDialog 
+      <EventViewDialog
         event={selectedEvent}
         open={showEventDialog}
         onOpenChange={setShowEventDialog}

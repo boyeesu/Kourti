@@ -13,6 +13,7 @@ Unlock the power of AI and automation in your legal workflows. Kourti Legal deli
 - **Case & Client Management**: Organize, search, and manage all legal case data, clients, and client interactions securely.
 - **Role-Based Dashboards**: Customized dashboards and widgets per user role (admin, lawyer, staff, client).
 - **Smart Notifications & Reminders**: Automated reminders, due dates, and case activity notifications.
+- **Dark Mode Support**: Full dark mode with light, dark, and system theme options for comfortable viewing in any environment.
 - **Modern UI/UX**: Built with React, shadcn-ui, TypeScript, and Tailwind CSS.
 - **Seamless Integrations**: Native OpenAI, Supabase Edge Functions, embeddable API for e-signature, and more.
 - **Enterprise SSO**: Per-organization OAuth (Google Workspace / Microsoft Entra ID) with secure Supabase Edge functions.

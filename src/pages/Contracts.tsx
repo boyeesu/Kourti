@@ -7,27 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useContracts } from "@/hooks/useContracts";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { 
+import { DataTable, ColumnDef } from "@/components/ui/data-table";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Eye, 
-  Edit, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
   MoreVertical,
   FileCheck,
   User,
@@ -35,7 +28,7 @@ import {
   AlertTriangle,
   GitBranch,
   Zap,
-  
+
   RefreshCw
 } from "lucide-react";
 import {
@@ -64,30 +57,30 @@ export default function Contracts() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const { term: globalSearch } = useSearch();
-  
+
   // Use pagination parameters in the hook
-  const { 
-    data, 
-    isLoading, 
-    error, 
-    refetch 
+  const {
+    data,
+    isLoading,
+    error,
+    refetch
   } = useContracts(page, pageSize, statusFilter !== "all" ? statusFilter : undefined);
-  
+
   const contracts = data?.contracts || [];
   const totalCount = data?.count || 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  
+
   const clientFilter = searchParams.get("client")?.toLowerCase() || "";
 
   // Create a memoized function to determine expiry status
   const getExpiryStatus = (contract: any) => {
     if (!contract.end_date) return { isExpiring: false, isExpired: false };
-    
+
     const today = new Date();
     const expiryDate = new Date(contract.end_date);
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(today.getDate() + 30);
-    
+
     return {
       isExpiring: expiryDate > today && expiryDate <= thirtyDaysFromNow,
       isExpired: expiryDate < today
@@ -145,7 +138,7 @@ export default function Contracts() {
       clientFilter === "" ||
       String(contract.client_id).toLowerCase() === clientFilter ||
       (contract as any).client?.name?.toLowerCase().includes(clientFilter);
-      
+
     return matchesLocal && matchesGlobal && matchesClient;
   });
 
@@ -174,8 +167,8 @@ export default function Contracts() {
             <div className="mt-2">
               <Badge variant="outline" className="px-2 py-1">
                 Client: {clientFilter}
-                <button 
-                  className="ml-2 hover:text-destructive" 
+                <button
+                  className="ml-2 hover:text-destructive"
                   onClick={() => navigate("/contracts")}
                   aria-label="Clear client filter"
                 >
@@ -186,15 +179,15 @@ export default function Contracts() {
           )}
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="shadow-sm flex-1 sm:flex-none" onClick={() => navigate("/contracts/create")}> 
+          <Button variant="outline" className="shadow-sm flex-1 sm:flex-none" onClick={() => navigate("/contracts/create")}>
             <Plus className="h-4 w-4 mr-2" />
             New Contract
           </Button>
-          <Button variant="default" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/contracts/compare")}> 
+          <Button variant="default" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/contracts/compare")}>
             <GitBranch className="h-4 w-4 mr-2" />
             Compare Contracts
           </Button>
-          <Button variant="secondary" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/ream-ai")}> 
+          <Button variant="secondary" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/ream-ai")}>
             <Zap className="h-4 w-4 mr-2" />
             Ream AI Analysis
           </Button>
@@ -283,21 +276,7 @@ export default function Contracts() {
             </SelectContent>
           </Select>
         </div>
-        {/* Status Type */}
-        <div className="sm:w-[150px] w-full">
-          <select defaultValue="all" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm">
-            <option value="all">All Status Types</option>
-            <option value="fulfilled">Fulfilled</option>
-            <option value="unfulfilled">Unfulfilled</option>
-          </select>
-        </div>
-        {/* Date Created */}
-        <div className="flex gap-1 items-center">
-          <label className="text-xs text-muted-foreground">Created:</label>
-          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
-          <span className="px-1 text-xs text-muted-foreground">-</span>
-          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
-        </div>
+
       </div>
 
       {/* Contracts Table */}
@@ -309,104 +288,106 @@ export default function Contracts() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[200px]">Contract</TableHead>
-                  <TableHead className="min-w-[150px]">Client</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="min-w-[150px]">Created By</TableHead>
-                  <TableHead className="w-[50px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredContracts.length > 0 ? (
-                  filteredContracts.map((contract) => {
-                    return (
-                      <TableRow key={contract.id} className="hover:bg-muted/50">
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{contract.title}</div>
-                            {contract.description && (
-                              <div className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
-                                {contract.description}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {(contract as any).client?.name || contract.client_id || 'No client'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(contract.status)} variant="secondary">
-                            {contract.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <div className="text-sm">
-                                {(contract as any).created_by_user?.first_name || 'User'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(contract.created_at).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" aria-label="More options">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link to={`/contracts/${contract.id}`} className="flex items-center">
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Contract
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link to={`/contracts/${contract.id}/edit`} className="flex items-center">
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Contract
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link to={`/contracts/${contract.id}/history`} className="flex items-center">
-                                  <GitBranch className="h-4 w-4 mr-2" />
-                                  Version History
-                                </Link>
-                              </DropdownMenuItem>
-                               <DropdownMenuItem asChild>
-                                 <Link to={`/ream-ai?contract=${contract.id}`} className="flex items-center">
-                                   <Zap className="h-4 w-4 mr-2" />
-                                   Ream AI Analysis
-                                 </Link>
-                               </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
-                        <FileCheck className="h-8 w-8 mb-2" />
-                        <p>No contracts found matching your criteria.</p>
+          <DataTable
+            columns={[
+              {
+                id: "contract",
+                header: "Contract",
+                accessorKey: "title",
+                minWidth: "250px",
+                cell: (contract) => (
+                  <div>
+                    <div className="font-medium">{contract.title}</div>
+                    {contract.description && (
+                      <div className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
+                        {contract.description}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                id: "client",
+                header: "Client",
+                accessorFn: (contract) => (contract as any).client?.name || contract.client_id || 'No client',
+                minWidth: "180px",
+              },
+              {
+                id: "status",
+                header: "Status",
+                accessorKey: "status",
+                minWidth: "130px",
+                cell: (contract) => (
+                  <Badge className={getStatusColor(contract.status)} variant="secondary">
+                    {contract.status}
+                  </Badge>
+                ),
+              },
+              {
+                id: "createdBy",
+                header: "Created By",
+                sortable: false,
+                minWidth: "180px",
+                cell: (contract) => (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="text-sm">
+                        {(contract as any).created_by_user?.first_name || 'User'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(contract.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: "actions",
+                header: "Actions",
+                sortable: false,
+                minWidth: "80px",
+                cell: (contract) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label="More options">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link to={`/contracts/${contract.id}`} className="flex items-center">
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Contract
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/contracts/${contract.id}/edit`} className="flex items-center">
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Contract
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/contracts/${contract.id}/history`} className="flex items-center">
+                          <GitBranch className="h-4 w-4 mr-2" />
+                          Version History
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/ream-ai?contract=${contract.id}`} className="flex items-center">
+                          <Zap className="h-4 w-4 mr-2" />
+                          Ream AI Analysis
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ),
+              },
+            ] as ColumnDef<any>[]}
+            data={filteredContracts}
+            emptyMessage="No contracts found matching your criteria."
+            getRowKey={(row) => row.id}
+          />
 
           {/* Pagination */}
           {totalCount > 0 && (
@@ -432,7 +413,7 @@ export default function Contracts() {
               </Button>
             </div>
           )}
-          
+
           {/* Empty state for zero contracts */}
           {totalCount === 0 && (
             <div className="text-center py-12">

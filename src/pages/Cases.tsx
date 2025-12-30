@@ -8,14 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, ColumnDef } from "@/components/ui/data-table";
 import {
   Select,
   SelectContent,
@@ -60,6 +53,7 @@ export default function App() { // Changed to App for React component export
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const { toast } = useToast();
 
   // Use real data hooks, combining error handling and pagination logic
@@ -136,10 +130,10 @@ export default function App() { // Changed to App for React component export
   // Determine the client name if a client query parameter is present
   const clientFilterName = clientQuery
     ? caseRows.find(
-        (c) =>
-          c.clientId === clientQuery ||
-          c.client.toLowerCase() === clientQuery.toLowerCase(),
-      )?.client || clientQuery
+      (c) =>
+        c.clientId === clientQuery ||
+        c.client.toLowerCase() === clientQuery.toLowerCase(),
+    )?.client || clientQuery
     : "";
 
   // Handle matter deletion
@@ -227,11 +221,15 @@ export default function App() { // Changed to App for React component export
       case_item.clientId === clientQuery ||
       case_item.client.toLowerCase() === clientQuery.toLowerCase();
 
+    const matchesPriority =
+      priorityFilter === "all" || case_item.priority.toLowerCase() === priorityFilter;
+
     return (
       matchesLocalSearch &&
       matchesGlobalSearch &&
       matchesStatus &&
-      matchesClient
+      matchesClient &&
+      matchesPriority
     );
   });
 
@@ -248,11 +246,11 @@ export default function App() { // Changed to App for React component export
           <p className="text-muted-foreground">Manage and track all your legal matters</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=matters")}> 
+          <Button variant="outline" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/bulk-import?type=matters")}>
             <Upload className="h-4 w-4 mr-2" />
             Bulk Import
           </Button>
-          <Button className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/matters/create")}> 
+          <Button className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/matters/create")}>
             <Plus className="h-4 w-4 mr-2" />
             New Matter
           </Button>
@@ -291,15 +289,15 @@ export default function App() { // Changed to App for React component export
             )}
           </SelectContent>
         </Select>
-        {/* Fate Filter Example */}
-        <Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
           <SelectTrigger className="w-[140px] h-10">
-            <SelectValue placeholder="Fate" />
+            <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Fates</SelectItem>
-            <SelectItem value="fulfilled">Fulfilled</SelectItem>
-            <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
+            <SelectItem value="all">All Priorities</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
           </SelectContent>
         </Select>
         {clientQuery && (
@@ -318,144 +316,167 @@ export default function App() { // Changed to App for React component export
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-x-auto"> {/* Added overflow-x-auto for responsiveness */}
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[150px]">Matter Name</TableHead>
-                  <TableHead className="min-w-[120px]">Client</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="min-w-[100px]">Priority</TableHead>
-                  <TableHead className="min-w-[150px]">Assigned To</TableHead>
-                  <TableHead className="min-w-[120px]">Due Date</TableHead>
-                  <TableHead className="min-w-[100px]">Documents</TableHead>
-                  <TableHead className="w-[50px] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCases.length > 0 ? (
-                  filteredCases.map((case_item) => (
-                    <TableRow
-                      key={case_item.id}
-                      className="hover:bg-muted/50 focus-within:bg-muted/50"
+          <DataTable
+            columns={[
+              {
+                id: "name",
+                header: "Matter Name",
+                accessorKey: "name",
+                minWidth: "200px",
+                cell: (case_item) => (
+                  <div className="space-y-1">
+                    <Link
+                      to={`/matters/${case_item.id}`}
+                      className="font-medium text-foreground outline-none transition hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:ring-offset-background rounded-sm"
                     >
-                      <TableCell>
-                        <div className="space-y-1">
-                          <Link
-                            to={`/matters/${case_item.id}`}
-                            className="font-medium text-foreground outline-none transition hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:ring-offset-background rounded-sm"
-                          >
-                            {case_item.name}
-                          </Link>
-                          <div className="text-sm text-muted-foreground">
-                            Started {case_item.startDate}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{case_item.client}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(case_item.status)}>
-                          {case_item.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getPriorityColor(case_item.priority)}>
-                          {case_item.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          {case_item.assignedTo}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {case_item.dueDate}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          {case_item.documentsCount}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="hover:bg-gray-100"
-                              onClick={(event) => event.stopPropagation()}
-                              onKeyDown={(event) => event.stopPropagation()}
-                              onPointerDown={(event) => event.stopPropagation()}
+                      {case_item.name}
+                    </Link>
+                    <div className="text-sm text-muted-foreground">
+                      Started {case_item.startDate}
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: "client",
+                header: "Client",
+                accessorKey: "client",
+                minWidth: "150px",
+              },
+              {
+                id: "status",
+                header: "Status",
+                accessorKey: "status",
+                minWidth: "120px",
+                cell: (case_item) => (
+                  <Badge className={getStatusColor(case_item.status)}>
+                    {case_item.status}
+                  </Badge>
+                ),
+              },
+              {
+                id: "priority",
+                header: "Priority",
+                accessorKey: "priority",
+                minWidth: "120px",
+                cell: (case_item) => (
+                  <Badge className={getPriorityColor(case_item.priority)}>
+                    {case_item.priority}
+                  </Badge>
+                ),
+              },
+              {
+                id: "assignedTo",
+                header: "Assigned To",
+                accessorKey: "assignedTo",
+                minWidth: "150px",
+                cell: (case_item) => (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    {case_item.assignedTo}
+                  </div>
+                ),
+              },
+              {
+                id: "dueDate",
+                header: "Due Date",
+                accessorKey: "dueDate",
+                minWidth: "150px",
+                cell: (case_item) => (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    {case_item.dueDate}
+                  </div>
+                ),
+              },
+              {
+                id: "documentsCount",
+                header: "Documents",
+                accessorKey: "documentsCount",
+                minWidth: "120px",
+                cell: (case_item) => (
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    {case_item.documentsCount}
+                  </div>
+                ),
+              },
+              {
+                id: "actions",
+                header: "Actions",
+                sortable: false,
+                minWidth: "80px",
+                className: "text-right",
+                cell: (case_item) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-gray-100"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[180px]">
+                      <DropdownMenuItem asChild>
+                        <Link to={`/matters/${case_item.id}`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/matters/${case_item.id}/edit`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Matter
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/matters/${case_item.id}/documents`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
+                          <FileText className="h-4 w-4 mr-2" />
+                          View Documents
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-destructive/10 rounded-sm">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Matter
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the matter
+                              and remove all associated data.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteCase(case_item.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[180px]">
-                            <DropdownMenuItem asChild>
-                              <Link to={`/matters/${case_item.id}`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to={`/matters/${case_item.id}/edit`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit Matter
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to={`/matters/${case_item.id}/documents`} className="flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-muted rounded-sm">
-                                <FileText className="h-4 w-4 mr-2" />
-                                View Documents
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive flex items-center cursor-pointer px-2 py-1.5 text-sm hover:bg-destructive/10 rounded-sm">
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Matter
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the matter
-                                    and remove all associated data.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDeleteCase(case_item.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Delete Matter
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                      No matters found matching your criteria.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                              Delete Matter
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ),
+              },
+            ] as ColumnDef<CaseRow>[]}
+            data={filteredCases}
+            emptyMessage="No matters found matching your criteria."
+            getRowKey={(row) => row.id}
+          />
+
 
           {/* Conditional rendering for empty states */}
           {filteredCases.length === 0 && cases.length === 0 && (
@@ -497,7 +518,7 @@ export default function App() { // Changed to App for React component export
             </div>
           )}
         </CardContent>
-      </Card>
-    </div>
+      </Card >
+    </div >
   );
 }

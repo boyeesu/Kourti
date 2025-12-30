@@ -141,10 +141,11 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
         throw new Error(`File upload failed: ${uploadError.message}`);
       }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // Get signed URL for private bucket (1 hour expiry)
+      const { data: signedUrlData } = await supabase.storage
         .from('documents')
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 3600);
+      const fileUrl = signedUrlData?.signedUrl || '';
 
       // Extract text content for searchability
       let extractedText = '';
@@ -162,7 +163,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
         value: contractData.value ? parseFloat(contractData.value) : undefined,
         currency: contractData.currency,
         status: 'draft',
-        terms: extractedText || `Contract document uploaded: ${uploadedFile.name}\n\nFile: ${publicUrl}`,
+        terms: extractedText || `Contract document uploaded: ${uploadedFile.name}\n\nFile: ${fileUrl}`,
       };
 
       await createContract.mutateAsync(contractPayload);

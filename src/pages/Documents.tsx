@@ -7,27 +7,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { 
+import { DataTable, ColumnDef } from "@/components/ui/data-table";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Upload, 
-  Search, 
-  Filter, 
-  Eye, 
-  Download, 
+import {
+  Upload,
+  Search,
+  Filter,
+  Eye,
+  Download,
   Share,
   MoreVertical,
   FileText,
@@ -48,6 +41,8 @@ import { Document } from "@/types";
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { InternalShareDialog } from '@/components/InternalShareDialog';
+import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Documents() {
   const navigate = useNavigate();
@@ -57,13 +52,14 @@ export default function Documents() {
   const [shareDocument, setShareDocument] = useState<Document | null>(null);
   const { term: globalSearch } = useSearch();
   const { data: documents = [], isLoading } = useDocuments();
+  const { toast } = useToast();
 
   // Compute filtered documents before any early returns (Rules of Hooks)
   const filteredDocuments = useMemo(() => {
     if (!documents || !Array.isArray(documents)) {
       return [];
     }
-    
+
     return documents.filter((doc: Document) => {
       const docTitle = doc.title || doc.name || '';
       const matchesTerm = (t: string) =>
@@ -93,12 +89,12 @@ export default function Documents() {
 
   const handleDownload = async (doc: Document) => {
     if (!doc.file_path) return;
-    
+
     try {
       const { data } = await supabase.storage
         .from('documents')
         .download(doc.file_path);
-      
+
       if (data) {
         const url = URL.createObjectURL(data);
         const a = document.createElement('a');
@@ -214,14 +210,8 @@ export default function Documents() {
             </SelectContent>
           </Select>
         </div>
-       
-       {/* Date Created */}
-        <div className="flex gap-1 items-center">
-          <label className="text-xs text-muted-foreground">Created:</label>
-          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
-          <span className="px-1 text-xs text-muted-foreground">-</span>
-          <input type="date" className="h-10 px-2 rounded-md border border-input bg-background text-sm" />
-        </div>
+
+
       </div>
 
       {/* Documents Table */}
@@ -233,105 +223,158 @@ export default function Documents() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Linked Case</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Uploaded By</TableHead>
-                  <TableHead>Comments</TableHead>
-                  <TableHead>Last Accessed</TableHead>
-                  <TableHead className="w-[50px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredDocuments.map((doc: Document) => (
-                  <TableRow key={doc.id}>
-                     <TableCell>
-                       <div className="flex items-center gap-3">
-                         {getFileIcon(doc.file_type || 'file')}
-                         <div>
-                           <div className="font-medium">{doc.title || doc.name}</div>
-                         </div>
-                       </div>
-                     </TableCell>
-                      <TableCell>
-                         {(doc as any).case ? (
-                           <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80" 
-                                  onClick={() => navigate(`/matters/${(doc as any).case.id}`)}>
-                             {(doc as any).case.title}
-                           </Badge>
-                         ) : (
-                           <span className="text-muted-foreground text-sm">No case linked</span>
-                         )}
-                       </TableCell>
-                     <TableCell>
-                       <Badge className="bg-muted text-muted-foreground" variant="secondary">
-                         {doc.status || 'Uploaded'}
-                       </Badge>
-                     </TableCell>
-                     <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="text-sm">
-                              {(doc as any).profiles?.first_name && (doc as any).profiles?.last_name
-                                ? `${(doc as any).profiles.first_name} ${(doc as any).profiles.last_name}`
-                                : 'Unknown User'}
-                            </div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(doc.created_at).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                     <TableCell>
-                       <div className="flex items-center gap-1">
-                         <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                         <span className="text-sm">0</span>
-                       </div>
-                     </TableCell>
-                     <TableCell className="text-sm text-muted-foreground">
-                       {new Date(doc.created_at).toLocaleDateString()}
-                     </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedDocument(doc)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Document
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              sessionStorage.setItem('ream_ai_document', JSON.stringify(doc));
-                              navigate('/ream-ai');
-                            }}>
-                              <MessageSquare className="h-4 w-4 mr-2" />
-                              AI Review
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDownload(doc)}>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleShare(doc)}>
-                              <Share className="h-4 w-4 mr-2" />
-                              Share Internally
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            columns={[
+              {
+                id: "document",
+                header: "Document",
+                accessorFn: (doc) => doc.title || doc.name,
+                minWidth: "250px",
+                cell: (doc) => (
+                  <div className="flex items-center gap-3">
+                    {getFileIcon(doc.file_type || 'file')}
+                    <div className="font-medium">{doc.title || doc.name}</div>
+                  </div>
+                ),
+              },
+              {
+                id: "case",
+                header: "Linked Case",
+                sortable: false,
+                minWidth: "150px",
+                cell: (doc) => (
+                  (doc as any).case ? (
+                    <Badge
+                      variant="secondary"
+                      className="cursor-pointer hover:bg-secondary/80"
+                      onClick={() => navigate(`/matters/${(doc as any).case.id}`)}
+                    >
+                      {(doc as any).case.title}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No case linked</span>
+                  )
+                ),
+              },
+              {
+                id: "status",
+                header: "Status",
+                accessorKey: "status",
+                minWidth: "120px",
+                cell: (doc) => (
+                  <Badge className="bg-muted text-muted-foreground" variant="secondary">
+                    {doc.status || 'Uploaded'}
+                  </Badge>
+                ),
+              },
+              {
+                id: "uploadedBy",
+                header: "Uploaded By",
+                sortable: false,
+                minWidth: "180px",
+                cell: (doc) => (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="text-sm">
+                        {(doc as any).profiles?.first_name && (doc as any).profiles?.last_name
+                          ? `${(doc as any).profiles.first_name} ${(doc as any).profiles.last_name}`
+                          : 'Unknown User'}
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(doc.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: "comments",
+                header: "Comments",
+                sortable: false,
+                minWidth: "100px",
+                cell: () => (
+                  <div className="flex items-center gap-1">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">0</span>
+                  </div>
+                ),
+              },
+              {
+                id: "lastAccessed",
+                header: "Last Accessed",
+                accessorKey: "created_at",
+                minWidth: "130px",
+                cell: (doc) => (
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(doc.created_at).toLocaleDateString()}
+                  </span>
+                ),
+              },
+              {
+                id: "actions",
+                header: "Actions",
+                sortable: false,
+                minWidth: "80px",
+                cell: (doc) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setSelectedDocument(doc)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Document
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        sessionStorage.setItem('ream_ai_document', JSON.stringify(doc));
+                        navigate('/ream-ai');
+                      }}>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        AI Review
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare(doc)}>
+                        <Share className="h-4 w-4 mr-2" />
+                        Share Internally
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={async () => {
+                        try {
+                          await exportAsPdf(doc.content || '', (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase(), doc.name || 'Document');
+                          toast({ title: 'Success', description: 'Document exported as PDF.' });
+                        } catch (error) {
+                          toast({ variant: 'destructive', title: 'Error', description: 'Failed to export PDF.' });
+                        }
+                      }}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export as PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={async () => {
+                        try {
+                          await exportAsDocx(doc.content || '', (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase());
+                          toast({ title: 'Success', description: 'Document exported as DOCX.' });
+                        } catch (error) {
+                          toast({ variant: 'destructive', title: 'Error', description: 'Failed to export DOCX.' });
+                        }
+                      }}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export as DOCX
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ),
+              },
+            ] as ColumnDef<Document>[]}
+            data={filteredDocuments}
+            emptyMessage="No documents found matching your criteria."
+            getRowKey={(row) => row.id}
+          />
 
           {filteredDocuments.length === 0 && (
             <div className="text-center py-8">

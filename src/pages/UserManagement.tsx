@@ -9,14 +9,14 @@ import { useAllRoles } from "@/hooks/useAllRoles";
 import { useOrganizationUsers, useToggleUserStatus, useDeleteInvitation, useResendInvitation, useChangeUserRole } from "@/hooks/useOrganizationUsers";
 import { UserPlus, Users, Shield, User, UserMinus, UserCheck, Trash2, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, ColumnDef } from "@/components/ui/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator 
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 
 export default function UserManagement() {
@@ -83,8 +83,8 @@ export default function UserManagement() {
       case 'superadmin': return <Shield className="h-4 w-4 text-purple-600" />;
       case 'admin':
       case 'administrator': return <Users className="h-4 w-4 text-blue-600" />;
-      case 'finance': return <Users className="h-4 w-4 text-green-700"/>;
-      case 'legal': return <Users className="h-4 w-4 text-red-600"/>;
+      case 'finance': return <Users className="h-4 w-4 text-green-700" />;
+      case 'legal': return <Users className="h-4 w-4 text-red-600" />;
       default: return <User className="h-4 w-4 text-gray-600" />;
     }
   };
@@ -236,9 +236,9 @@ export default function UserManagement() {
                   />
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full" 
+                <Button
+                  type="submit"
+                  className="w-full"
                   disabled={inviteUser.isPending}
                 >
                   {inviteUser.isPending ? 'Inviting...' : 'Invite User'}
@@ -260,155 +260,183 @@ export default function UserManagement() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Added</TableHead>
-                    {isSuperAdmin && <TableHead>Actions</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => {
+            <DataTable
+              columns={[
+                {
+                  id: "user",
+                  header: "User",
+                  accessorFn: (user) => `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+                  minWidth: "200px",
+                  cell: (user) => {
                     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
                     const initials = getInitials(user.first_name || 'U', user.last_name || 'U');
                     const isDisabled = user.status === 'disabled';
-                    const isPendingInvitation = user.user_type === 'invitation';
-                    
+
                     return (
-                      <TableRow key={user.id} className={isDisabled ? 'opacity-60' : ''}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className={`bg-primary/10 text-primary font-medium ${isDisabled ? 'opacity-50' : ''}`}>
-                                {initials}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{fullName || 'No name'}</div>
-                              {isDisabled && <div className="text-xs text-muted-foreground">Disabled</div>}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          {canManageRoles && !isPendingInvitation ? (
-                            <Select
-                              value={user.role}
-                              onValueChange={(newRole) => {
-                                if (window.confirm(`Are you sure you want to change ${fullName}'s role to "${newRole}"? This will modify their access permissions.`)) {
-                                  handleChangeRole(user.user_id!, newRole);
-                                }
-                              }}
-                              disabled={changeUserRole.isPending}
-                            >
-                              <SelectTrigger className="w-[180px]">
-                                <SelectValue>
-                                  <Badge className={getRoleColor(user.role)} variant="secondary">
-                                    <div className="flex items-center gap-1">
-                                      {getRoleIcon(user.role)}
-                                      {user.role}
-                                    </div>
-                                  </Badge>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {roles
-                                  .filter((r) => userRole?.role === 'superadmin' || (r.role !== 'superadmin' && r.role_name !== 'superadmin'))
-                                  .map((r) => (
-                                    <SelectItem key={r.role || r.role_name} value={r.role || r.role_name}>
-                                      {r.display_name || r.role_name || r.role}
-                                      {r.source === 'custom' && ' (Custom)'}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className={`bg-primary/10 text-primary font-medium ${isDisabled ? 'opacity-50' : ''}`}>
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{fullName || 'No name'}</div>
+                          {isDisabled && <div className="text-xs text-muted-foreground">Disabled</div>}
+                        </div>
+                      </div>
+                    );
+                  },
+                },
+                {
+                  id: "email",
+                  header: "Email",
+                  accessorKey: "email",
+                  minWidth: "220px",
+                },
+                {
+                  id: "role",
+                  header: "Role",
+                  accessorKey: "role",
+                  minWidth: "180px",
+                  cell: (user) => {
+                    const isPendingInvitation = user.user_type === 'invitation';
+                    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+
+                    return canManageRoles && !isPendingInvitation ? (
+                      <Select
+                        value={user.role}
+                        onValueChange={(newRole) => {
+                          if (window.confirm(`Are you sure you want to change ${fullName}'s role to "${newRole}"? This will modify their access permissions.`)) {
+                            handleChangeRole(user.user_id!, newRole);
+                          }
+                        }}
+                        disabled={changeUserRole.isPending}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue>
                             <Badge className={getRoleColor(user.role)} variant="secondary">
                               <div className="flex items-center gap-1">
                                 {getRoleIcon(user.role)}
                                 {user.role}
                               </div>
                             </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>{user.department || 'Not specified'}</TableCell>
-                        <TableCell>{getVerificationBadge(user.verification_status)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {isPendingInvitation ? 'Invitation' : 'User'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                        {isSuperAdmin && (
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <Users className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {isPendingInvitation ? (
-                                  <>
-                                    <DropdownMenuItem onClick={() => handleResendInvitation(user)}>
-                                      <Mail className="mr-2 h-4 w-4" />
-                                      Resend Invitation
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
-                                      onClick={() => handleDeleteInvitation(user.id)}
-                                      className="text-destructive"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete Invitation
-                                    </DropdownMenuItem>
-                                  </>
-                                ) : (
-                                  <>
-                                    {isDisabled ? (
-                                      <DropdownMenuItem onClick={() => handleEnableUser(user.user_id!)}>
-                                        <UserCheck className="mr-2 h-4 w-4" />
-                                        Enable User
-                                      </DropdownMenuItem>
-                                    ) : (
-                                      <DropdownMenuItem 
-                                        onClick={() => handleDisableUser(user.user_id!)}
-                                        className="text-destructive"
-                                      >
-                                        <UserMinus className="mr-2 h-4 w-4" />
-                                        Disable User
-                                      </DropdownMenuItem>
-                                    )}
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        )}
-                      </TableRow>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles
+                            .filter((r) => userRole?.role === 'superadmin' || (r.role !== 'superadmin' && r.role_name !== 'superadmin'))
+                            .map((r) => (
+                              <SelectItem key={r.role || r.role_name} value={r.role || r.role_name}>
+                                {r.display_name || r.role_name || r.role}
+                                {r.source === 'custom' && ' (Custom)'}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge className={getRoleColor(user.role)} variant="secondary">
+                        <div className="flex items-center gap-1">
+                          {getRoleIcon(user.role)}
+                          {user.role}
+                        </div>
+                      </Badge>
                     );
-                  })}
-                </TableBody>
-              </Table>
+                  },
+                },
+                {
+                  id: "department",
+                  header: "Department",
+                  accessorKey: "department",
+                  minWidth: "150px",
+                  cell: (user) => user.department || 'Not specified',
+                },
+                {
+                  id: "status",
+                  header: "Status",
+                  accessorKey: "verification_status",
+                  minWidth: "120px",
+                  cell: (user) => getVerificationBadge(user.verification_status),
+                },
+                {
+                  id: "type",
+                  header: "Type",
+                  accessorKey: "user_type",
+                  minWidth: "120px",
+                  cell: (user) => (
+                    <Badge variant="outline">
+                      {user.user_type === 'invitation' ? 'Invitation' : 'User'}
+                    </Badge>
+                  ),
+                },
+                {
+                  id: "added",
+                  header: "Added",
+                  accessorKey: "created_at",
+                  minWidth: "130px",
+                  cell: (user) => new Date(user.created_at).toLocaleDateString(),
+                },
+                ...(isSuperAdmin ? [{
+                  id: "actions",
+                  header: "Actions",
+                  sortable: false,
+                  minWidth: "80px",
+                  cell: (user: any) => {
+                    const isDisabled = user.status === 'disabled';
+                    const isPendingInvitation = user.user_type === 'invitation';
 
-              {users.length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No users found</h3>
-                  <p className="text-muted-foreground">
-                    Start by inviting your first team member
-                  </p>
-                </div>
-              )}
-            </div>
+                    return (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <Users className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {isPendingInvitation ? (
+                            <>
+                              <DropdownMenuItem onClick={() => handleResendInvitation(user)}>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Resend Invitation
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteInvitation(user.id)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Invitation
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <>
+                              {isDisabled ? (
+                                <DropdownMenuItem onClick={() => handleEnableUser(user.user_id!)}>
+                                  <UserCheck className="mr-2 h-4 w-4" />
+                                  Enable User
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => handleDisableUser(user.user_id!)}
+                                  className="text-destructive"
+                                >
+                                  <UserMinus className="mr-2 h-4 w-4" />
+                                  Disable User
+                                </DropdownMenuItem>
+                              )}
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    );
+                  },
+                } as ColumnDef<any>] : []),
+              ] as ColumnDef<any>[]}
+              data={users}
+              emptyMessage="No users found"
+              getRowKey={(row) => row.id}
+              rowClassName={(user) => user.status === 'disabled' ? 'opacity-60' : ''}
+            />
           </CardContent>
         </Card>
       </div>

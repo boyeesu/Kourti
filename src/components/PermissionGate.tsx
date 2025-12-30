@@ -25,11 +25,11 @@ export function PermissionGate({
     );
   }
 
-  // If there's an error checking permissions, allow access to prevent blocking users
-  // The RPC function will handle actual authorization
+  // Fail-closed: deny access on error for defense-in-depth security
+  // RLS policies on Supabase tables still enforce actual authorization
   if (error) {
-    console.warn('Permission check error, allowing access:', error);
-    return <>{children}</>;
+    console.error('Permission check failed:', error);
+    return <>{fallback}</>;
   }
 
   if (!hasPermission) {

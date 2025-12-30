@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, userData?: UserData) => {
     try {
       // Use origin + path as redirect URL for better UX
-      const redirectUrl = getAuthRedirectUrl('/auth/confirm', env.APP_URL);
+      const redirectUrl = getAuthRedirectUrl('/auth/callback', env.APP_URL);
 
       const { error } = await supabase.auth.signUp({
         email,

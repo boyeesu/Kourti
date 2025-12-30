@@ -82,13 +82,22 @@ export function useDocuments() {
         (data || []).map(async (doc) => {
           const metadata = doc.metadata as any;
           const caseId = metadata?.case_id;
-          if (caseId) {
-            const { data: caseData } = await supabase
-              .from('cases')
-              .select('id, title')
-              .eq('id', caseId)
-              .single();
-            return { ...doc, case: caseData };
+          if (caseId && typeof caseId === 'string') {
+            try {
+              const { data: caseData, error: caseError } = await supabase
+                .from('cases')
+                .select('id, title')
+                .eq('id', caseId)
+                .maybeSingle();
+
+              // Only attach case data if query was successful and data exists
+              if (!caseError && caseData) {
+                return { ...doc, case: caseData };
+              }
+            } catch (err) {
+              // Silently handle errors - case might not exist or be inaccessible
+              console.debug('Error fetching case for document:', doc.id, err);
+            }
           }
           return { ...doc, case: null };
         })
@@ -125,13 +134,25 @@ export function useDocument(id: string) {
       let documentWithCase = { ...data } as any;
       const metadata = data.metadata as any;
       const caseId = metadata?.case_id;
-      if (caseId) {
-        const { data: caseData } = await supabase
-          .from('cases')
-          .select('id, title')
-          .eq('id', caseId)
-          .single();
-        documentWithCase.case = caseData;
+      if (caseId && typeof caseId === 'string') {
+        try {
+          const { data: caseData, error: caseError } = await supabase
+            .from('cases')
+            .select('id, title')
+            .eq('id', caseId)
+            .maybeSingle();
+
+          // Only attach case data if query was successful and data exists
+          if (!caseError && caseData) {
+            documentWithCase.case = caseData;
+          } else {
+            documentWithCase.case = null;
+          }
+        } catch (err) {
+          // Silently handle errors - case might not exist or be inaccessible
+          console.debug('Error fetching case for document:', data.id, err);
+          documentWithCase.case = null;
+        }
       } else {
         documentWithCase.case = null;
       }
@@ -157,7 +178,7 @@ export function useDocumentsByClient(clientId: string) {
 
       // Query for documents directly associated with client OR associated with client's cases
       const queries = [];
-      
+
       // Direct client documents
       queries.push(
         supabase
@@ -200,7 +221,7 @@ export function useDocumentsByClient(clientId: string) {
 
       // Execute all queries
       const results = await Promise.all(queries);
-      
+
       // Check for errors
       for (const result of results) {
         if (result.error) throw result.error;
@@ -208,7 +229,7 @@ export function useDocumentsByClient(clientId: string) {
 
       // Combine all documents and remove duplicates
       const allDocuments = results.flatMap(result => result.data || []);
-      const uniqueDocuments = allDocuments.filter((doc, index, self) => 
+      const uniqueDocuments = allDocuments.filter((doc, index, self) =>
         index === self.findIndex(d => d.id === doc.id)
       );
 
@@ -324,7 +345,7 @@ export function useUploadDocument() {
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${orgId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      
+
       // Upload file to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')

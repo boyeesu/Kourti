@@ -20,7 +20,7 @@ import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 // import { NotificationIcon } from '@/components/ui/notifications';
 import NotificationsDropdown from "./NotificationsDropdown";
-import { 
+import {
   User,
   Settings,
   ShieldCheck,
@@ -52,6 +52,7 @@ import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 import { useUserPermission } from '@/hooks/usePermissions';
 import { PermissionGate } from '@/components/PermissionGate';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 // Navigation item type
 export type NavItem = {
@@ -99,7 +100,7 @@ function CommandPalette() {
 
     return base;
   }, [canManageSettings]);
-  
+
   const actionOptions = [
     { label: 'New Case', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/cases/create' },
     { label: 'New Client', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients/create' },
@@ -152,7 +153,7 @@ function DeadlineReminders() {
 
   // You can add notification creation logic here if needed
   // For example, create database notifications for deadlines
-  
+
   return null;
 }
 
@@ -368,7 +369,11 @@ function MobileNavigation() {
                 </div>
               ))}
             </div>
-            <div className="p-4 border-t mt-auto">
+            <div className="p-4 border-t mt-auto space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Theme</span>
+                <ThemeToggle />
+              </div>
               <Button
                 variant="outline"
                 className="w-full justify-start"
@@ -469,7 +474,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <AppLayoutInner 
+      <AppLayoutInner
         children={children}
         term={term}
         setTerm={setTerm}
@@ -577,6 +582,9 @@ function AppLayoutInner({
                       </TooltipTrigger>
                       <TooltipContent>Help Center</TooltipContent>
                     </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <ThemeToggle />
                   </TooltipProvider>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -806,12 +814,12 @@ function AppLayoutInner({
                   {!hasSearchTerm
                     ? 'Type at least 2 characters to search across the workspace.'
                     : globalSearchError
-                    ? 'Unable to search the workspace. Please try again.'
-                    : isGlobalSearchLoading
-                    ? 'Searching workspace...'
-                    : hasSearchResults
-                    ? 'Keep typing to narrow down your results.'
-                    : 'No results found for your search.'}
+                      ? 'Unable to search the workspace. Please try again.'
+                      : isGlobalSearchLoading
+                        ? 'Searching workspace...'
+                        : hasSearchResults
+                          ? 'Keep typing to narrow down your results.'
+                          : 'No results found for your search.'}
                 </CommandEmpty>
               </CommandList>
             </CommandDialog>

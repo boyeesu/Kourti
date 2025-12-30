@@ -1,14 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useVoiceTranscriptions } from '@/hooks/useVoiceTranscriptions';
-import { 
-  FileAudio, 
-  Plus, 
-  Clock, 
-  Calendar, 
+import {
+  FileAudio,
+  Plus,
+  Clock,
+  Calendar,
   FileText,
   Loader2,
   Mic
@@ -49,30 +49,30 @@ const TranscriptionsList: React.FC = () => {
         </Button>
       </div>
 
-  {error && (
-    <Card>
-      <CardContent className="flex items-center justify-center py-8">
-        <div className="text-center">
-          <FileAudio className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">
-            {error.message === 'User not authenticated' 
-              ? 'Authentication Required' 
-              : 'Error Loading Transcriptions'}
-          </h3>
-          <p className="text-muted-foreground mb-4">
-            {error.message === 'User not authenticated'
-              ? 'Please log in to view your transcriptions.'
-              : 'There was an error loading your transcriptions. Please try again.'}
-          </p>
-          {error.message === 'User not authenticated' && (
-            <Button onClick={() => navigate('/auth')}>
-              Go to Login
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )}
+      {error && (
+        <Card>
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <FileAudio className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {error.message === 'User not authenticated'
+                  ? 'Authentication Required'
+                  : 'Error Loading Transcriptions'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {error.message === 'User not authenticated'
+                  ? 'Please log in to view your transcriptions.'
+                  : 'There was an error loading your transcriptions. Please try again.'}
+              </p>
+              {error.message === 'User not authenticated' && (
+                <Button onClick={() => navigate('/auth')}>
+                  Go to Login
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {!error && (!transcriptions || transcriptions.length === 0) ? (
         <Card>
@@ -96,8 +96,8 @@ const TranscriptionsList: React.FC = () => {
       ) : (
         <div className="grid gap-6">
           {transcriptions?.map((transcription) => (
-            <Card 
-              key={transcription.id} 
+            <Card
+              key={transcription.id}
               className="cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => {
                 console.log('🔗 Navigating to transcription:', transcription.id);
@@ -108,20 +108,18 @@ const TranscriptionsList: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-xl mb-1">{transcription.title}</CardTitle>
-                    <CardDescription>
-                      <div className="flex items-center space-x-4 text-sm">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>{format(new Date(transcription.created_at), 'MMM d, yyyy h:mm a')}</span>
-                        </div>
-                        {transcription.duration_seconds && (
-                          <div className="flex items-center space-x-1">
-                            <Clock className="h-4 w-4" />
-                            <span>{transcription.duration_seconds}s</span>
-                          </div>
-                        )}
+                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                      <div className="flex items-center space-x-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{format(new Date(transcription.created_at), 'MMM d, yyyy h:mm a')}</span>
                       </div>
-                    </CardDescription>
+                      {transcription.duration_seconds && (
+                        <div className="flex items-center space-x-1">
+                          <Clock className="h-4 w-4" />
+                          <span>{transcription.duration_seconds}s</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <Badge variant={transcription.status === 'completed' ? 'default' : 'secondary'}>
                     {transcription.status}
@@ -138,14 +136,14 @@ const TranscriptionsList: React.FC = () => {
                         <span className="text-sm font-medium">Transcript</span>
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-3">
-                        {transcription.transcript.length > 200 
+                        {transcription.transcript.length > 200
                           ? `${transcription.transcript.substring(0, 200)}...`
                           : transcription.transcript
                         }
                       </p>
                     </div>
                   )}
-                  
+
                   {/* Summary Preview */}
                   {transcription.summary && (
                     <div>
@@ -154,14 +152,14 @@ const TranscriptionsList: React.FC = () => {
                         <span className="text-sm font-medium">Summary</span>
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        {transcription.summary.length > 150 
+                        {transcription.summary.length > 150
                           ? `${transcription.summary.substring(0, 150)}...`
                           : transcription.summary
                         }
                       </p>
                     </div>
                   )}
-                  
+
                   {!transcription.transcript && !transcription.summary && (
                     <p className="text-sm text-muted-foreground italic">
                       No content available

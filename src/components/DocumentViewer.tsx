@@ -37,17 +37,17 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
 
   const loadFile = async () => {
     if (!document.file_path) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const { data, error } = await supabase.storage
         .from('documents')
         .download(document.file_path);
-      
+
       if (error) throw error;
-      
+
       const url = URL.createObjectURL(data);
       setFileUrl(url);
     } catch (err) {
@@ -59,21 +59,21 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
 
   const handleDownload = async () => {
     if (!document.file_path) return;
-    
+
     try {
       const { data } = await supabase.storage
         .from('documents')
         .download(document.file_path);
-      
+
       if (data) {
-    const url = URL.createObjectURL(data);
-    const a = globalThis.document.createElement('a');
-    a.href = url;
-    a.download = document.metadata?.original_filename || document.name;
-    globalThis.document.body.appendChild(a);
-    a.click();
-    globalThis.document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        const url = URL.createObjectURL(data);
+        const a = globalThis.document.createElement('a');
+        a.href = url;
+        a.download = document.metadata?.original_filename || document.name;
+        globalThis.document.body.appendChild(a);
+        a.click();
+        globalThis.document.body.removeChild(a);
+        URL.revokeObjectURL(url);
       }
     } catch (err) {
       console.error('Download failed:', err);
@@ -82,12 +82,12 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
 
   const handleExternalView = async () => {
     if (!document.file_path) return;
-    
+
     try {
       const { data } = await supabase.storage
         .from('documents')
         .createSignedUrl(document.file_path, 3600);
-      
+
       if (data?.signedUrl) {
         window.open(data.signedUrl, '_blank');
       }
@@ -101,12 +101,12 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
     const units = ['B', 'KB', 'MB', 'GB'];
     let size = bytes;
     let unitIndex = 0;
-    
+
     while (size >= 1024 && unitIndex < units.length - 1) {
       size /= 1024;
       unitIndex++;
     }
-    
+
     return `${Math.round(size * 10) / 10} ${units[unitIndex]}`;
   };
 
@@ -134,10 +134,17 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
     }
 
     if (!document.file_path && document.content) {
-      // Text content from database
+      // Text/HTML content from database - render as HTML to preserve formatting
       return (
-        <div className="max-h-96 overflow-auto p-4 bg-muted/30 rounded-lg">
-          <pre className="whitespace-pre-wrap text-sm">{document.content}</pre>
+        <div className="max-h-[70vh] overflow-auto p-6 bg-background rounded-lg border">
+          <div
+            className="prose prose-sm sm:prose lg:prose-lg max-w-none"
+            dangerouslySetInnerHTML={{ __html: document.content }}
+            style={{
+              lineHeight: '1.8',
+              fontSize: '0.95rem',
+            }}
+          />
         </div>
       );
     }
@@ -249,7 +256,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
             </div>
           </div>
         </DialogHeader>
-        
+
         <div className="flex-1 overflow-hidden">
           {renderDocumentContent()}
         </div>
