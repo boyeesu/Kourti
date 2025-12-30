@@ -32,6 +32,10 @@ type ShareDocumentPayload = {
   documentId: string;
   email: string;
   message?: string;
+  sender?: {
+    name?: string;
+    email?: string;
+  };
 };
 
 type DocumensoRequest = UploadPayload | AddSignerPayload | GetSigningUrlPayload | ShareDocumentPayload;
@@ -159,12 +163,19 @@ async function handleShareDocument(payload: ShareDocumentPayload) {
     throw new Error("Document ID and email are required.");
   }
 
+  const senderLabel =
+    payload.sender?.name && payload.sender?.email
+      ? `${payload.sender.name} <${payload.sender.email}>`
+      : payload.sender?.name || payload.sender?.email || "";
+  const senderLine = senderLabel ? `Sent by ${senderLabel}.` : "";
+  const messageParts = [payload.message?.trim(), senderLine].filter(Boolean);
+
   const response = await fetch(`${documensoBaseUrl}/v1/documents/${payload.documentId}/share`, {
     method: "POST",
     headers: buildHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       emails: [payload.email],
-      message: payload.message ?? "",
+      message: messageParts.join("\n\n"),
     }),
   });
 

@@ -125,6 +125,9 @@ export interface CalendarEvent {
   attendees?: string[];
   reminder_date?: string;
   source?: 'internal' | 'google_calendar' | 'microsoft_teams';
+  external_event_id?: string;
+  external_source?: 'google_calendar' | 'microsoft_teams';
+  external_calendar_id?: string;
 }
 
 export interface Document {

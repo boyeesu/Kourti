@@ -19,6 +19,11 @@ interface ShareDocumentResponse {
   success: boolean
 }
 
+interface ShareDocumentSender {
+  name?: string
+  email?: string
+}
+
 /**
  * Upload a File to Documenso and create a document record
  */
@@ -95,7 +100,8 @@ export async function getSigningUrl(
 export async function shareDocument(
   documentId: string,
   email: string,
-  message: string
+  message: string,
+  sender?: ShareDocumentSender
 ): Promise<ShareDocumentResponse> {
   const { data, error } = await supabase.functions.invoke('documenso-api', {
     body: {
@@ -103,6 +109,7 @@ export async function shareDocument(
       documentId,
       email,
       message,
+      sender,
     },
   });
 

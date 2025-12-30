@@ -186,6 +186,9 @@ export type Database = {
           created_by: string | null
           description: string | null
           end_date: string
+          external_calendar_id: string | null
+          external_event_id: string | null
+          external_source: string | null
           event_type: string | null
           id: string
           location: string | null
@@ -202,6 +205,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_date: string
+          external_calendar_id?: string | null
+          external_event_id?: string | null
+          external_source?: string | null
           event_type?: string | null
           id?: string
           location?: string | null
@@ -218,6 +224,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_date?: string
+          external_calendar_id?: string | null
+          external_event_id?: string | null
+          external_source?: string | null
           event_type?: string | null
           id?: string
           location?: string | null
@@ -251,6 +260,69 @@ export type Database = {
           {
             foreignKeyName: "fk_calendar_events_created_by_profile"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_calendar_integrations: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string | null
+          external_email: string | null
+          external_user_id: string | null
+          id: string
+          organization_id: string
+          provider: string
+          refresh_token: string | null
+          scope: string | null
+          token_type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at?: string | null
+          external_email?: string | null
+          external_user_id?: string | null
+          id?: string
+          organization_id: string
+          provider: string
+          refresh_token?: string | null
+          scope?: string | null
+          token_type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string | null
+          external_email?: string | null
+          external_user_id?: string | null
+          id?: string
+          organization_id?: string
+          provider?: string
+          refresh_token?: string | null
+          scope?: string | null
+          token_type?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_calendar_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_calendar_integrations_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
@@ -1662,6 +1734,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          calendar_ics_token: string | null
           created_at: string
           department: string | null
           disabled_at: string | null
@@ -1686,6 +1759,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          calendar_ics_token?: string | null
           created_at?: string
           department?: string | null
           disabled_at?: string | null
@@ -1710,6 +1784,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          calendar_ics_token?: string | null
           created_at?: string
           department?: string | null
           disabled_at?: string | null

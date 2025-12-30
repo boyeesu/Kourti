@@ -49,6 +49,7 @@ import { Badge } from "@/components/ui/badge";
 import { calculateCaseStatusData } from "@/lib/analyticsUtils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { format, startOfMonth, subMonths } from "date-fns";
 
 // Components
 const StatCard = ({
@@ -156,18 +157,24 @@ export default function Dashboard() {
     // If we have real case and contract data, calculate monthly trends
     if (casesData?.cases && contractsData) {
       const monthlyData: Record<string, { cases: number; contracts: number }> = {};
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const currentMonth = startOfMonth(new Date());
+      const monthLabels = Array.from({ length: 12 }, (_, index) => {
+        const monthDate = subMonths(currentMonth, 11 - index);
+        return format(monthDate, "MMM yyyy");
+      });
 
       // Initialize all months to zero
-      months.forEach(month => {
-        monthlyData[month] = { cases: 0, contracts: 0 };
+      monthLabels.forEach(monthLabel => {
+        monthlyData[monthLabel] = { cases: 0, contracts: 0 };
       });
 
       // Count cases by month
       casesData.cases.forEach((c: Case) => {
         if (c.created_at) {
-          const month = months[new Date(c.created_at).getMonth()];
-          monthlyData[month].cases += 1;
+          const monthKey = format(startOfMonth(new Date(c.created_at)), "MMM yyyy");
+          if (monthlyData[monthKey]) {
+            monthlyData[monthKey].cases += 1;
+          }
         }
       });
 
@@ -175,16 +182,18 @@ export default function Dashboard() {
       const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
       contractsList.forEach((contract: Contract) => {
         if (contract.created_at) {
-          const month = months[new Date(contract.created_at).getMonth()];
-          monthlyData[month].contracts += 1;
+          const monthKey = format(startOfMonth(new Date(contract.created_at)), "MMM yyyy");
+          if (monthlyData[monthKey]) {
+            monthlyData[monthKey].contracts += 1;
+          }
         }
       });
 
       // Transform to array format for the chart
-      return months.map(month => ({
-        month,
-        cases: monthlyData[month].cases,
-        contracts: monthlyData[month].contracts
+      return monthLabels.map(monthLabel => ({
+        month: monthLabel,
+        cases: monthlyData[monthLabel].cases,
+        contracts: monthlyData[monthLabel].contracts
       }));
     }
 
@@ -194,16 +203,78 @@ export default function Dashboard() {
 
   // Weekly activity data
   const weeklyActivity = useMemo(() => {
-    // Return empty array - TODO: Implement real weekly aggregation
-    return [];
-  }, []);
+    if (!casesData?.cases && !contractsData) {
+      return [];
+    }
+
+    const weeksToShow = 8;
+    const now = new Date();
+    const normalizeDate = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const getWeekStart = (date: Date) => {
+      const normalized = normalizeDate(date);
+      const dayOfWeek = normalized.getDay();
+      const diff = (dayOfWeek + 6) % 7;
+      normalized.setDate(normalized.getDate() - diff);
+      return normalized;
+    };
+
+    const currentWeekStart = getWeekStart(now);
+    const weekStarts = Array.from({ length: weeksToShow }, (_, index) => {
+      const start = new Date(currentWeekStart);
+      start.setDate(start.getDate() - (weeksToShow - 1 - index) * 7);
+      return start;
+    });
+
+    const weeklyBuckets = new Map<string, { day: string; cases: number; contracts: number }>();
+    weekStarts.forEach((start) => {
+      const key = start.toISOString().slice(0, 10);
+      weeklyBuckets.set(key, {
+        day: formatDate(start, { month: "short", day: "numeric" }),
+        cases: 0,
+        contracts: 0
+      });
+    });
+
+    const earliestWeekStart = weekStarts[0];
+    const incrementBucket = (dateValue: string | null | undefined, type: "cases" | "contracts") => {
+      if (!dateValue) return;
+      const date = new Date(dateValue);
+      if (Number.isNaN(date.getTime())) return;
+      const weekStart = getWeekStart(date);
+      if (weekStart < earliestWeekStart) return;
+      const key = weekStart.toISOString().slice(0, 10);
+      const bucket = weeklyBuckets.get(key);
+      if (bucket) {
+        bucket[type] += 1;
+      }
+    };
+
+    casesData?.cases?.forEach((caseItem: Case) => {
+      incrementBucket(caseItem.created_at, "cases");
+    });
+
+    const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
+    contractsList.forEach((contract: Contract) => {
+      incrementBucket(contract.created_at, "contracts");
+    });
+
+    return weekStarts.map((start) => {
+      const key = start.toISOString().slice(0, 10);
+      const bucket = weeklyBuckets.get(key);
+      return {
+        day: bucket?.day ?? formatDate(start, { month: "short", day: "numeric" }),
+        cases: bucket?.cases ?? 0,
+        contracts: bucket?.contracts ?? 0
+      };
+    });
+  }, [casesData, contractsData]);
 
   // Generate recent cases
   const recentCases = useMemo(() => {
     if (casesData?.cases) {
       return casesData.cases
-        .slice(0, 5)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        .toSorted((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5);
     }
     return [];
   }, [casesData]);

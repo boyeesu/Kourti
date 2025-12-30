@@ -6,6 +6,8 @@ import { Label } from './label'
 import { useForm } from 'react-hook-form'
 import { shareDocument } from '@/lib/documensoClient'
 import { useToast } from '@/hooks/use-toast'
+import { useProfile } from '@/hooks/useProfile'
+import { supabase } from '@/integrations/supabase/client'
 
 interface ShareDocumentProps {
   documentId: string
@@ -20,6 +22,7 @@ interface FormData {
 export function ShareDocumentDialog({ documentId, children }: ShareDocumentProps) {
   const [open, setOpen] = React.useState(false)
   const { toast } = useToast()
+  const { data: profile } = useProfile()
   const {
     register,
     handleSubmit,
@@ -29,7 +32,20 @@ export function ShareDocumentDialog({ documentId, children }: ShareDocumentProps
 
   async function onSubmit(data: FormData) {
     try {
-      await shareDocument(documentId, data.email, data.message)
+      const { data: authData } = await supabase.auth.getUser()
+      const senderName = [
+        profile?.first_name,
+        profile?.last_name,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim()
+      const senderEmail = profile?.email || authData.user?.email || ''
+
+      await shareDocument(documentId, data.email, data.message, {
+        name: senderName || authData.user?.user_metadata?.name || 'Kourti user',
+        email: senderEmail,
+      })
       toast({ title: 'Document shared', description: 'Email sent successfully.' })
       setOpen(false)
       reset()
@@ -72,6 +88,9 @@ export function ShareDocumentDialog({ documentId, children }: ShareDocumentProps
             {errors.email && (
               <p className="text-sm text-red-500">{errors.email.message}</p>
             )}
+            <p className="text-xs text-muted-foreground">
+              The recipient will see who sent this document.
+            </p>
           </div>
           <div className="grid gap-1">
             <Label htmlFor="message">Message (optional)</Label>
