@@ -1,4 +1,4 @@
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -54,7 +54,7 @@ export function RichTextEditor({ content, onChange, editable = true }: RichTextE
                 class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none focus:outline-none',
             },
         },
-        onUpdate: ({ editor }) => {
+        onUpdate: ({ editor }: { editor: Editor }) => {
             onChange(editor.getHTML());
         },
         parseOptions: {
