@@ -69,7 +69,7 @@ export default function Register() {
       return;
     }
     alert("Registration successful. Please check your email to confirm your account.");
-    navigate("/login");
+    navigate("/auth");
   };
 
   useEffect(() => {
@@ -170,8 +170,8 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
-      <Card className="w-[65vw] max-w-3xl shadow-card">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center px-4 py-10">
+      <Card className="w-full max-w-4xl shadow-card border border-border/50">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
             <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
@@ -193,7 +193,7 @@ export default function Register() {
             )}
 
             {(providerState.google.available || providerState.google.checking || providerState.microsoft.available || providerState.microsoft.checking) && (
-              <div className="space-y-2">
+              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/40 p-4">
                 <p className="text-sm font-medium text-muted-foreground">
                   {enforceSso
                     ? 'Your organization requires SSO to finish onboarding. Continue with the provider configured by your admin.'
@@ -208,7 +208,7 @@ export default function Register() {
                       key={provider}
                       type="button"
                       variant="outline"
-                      className="w-full justify-start gap-2"
+                      className="w-full justify-start gap-2 bg-background"
                       disabled={disabled}
                       onClick={() => handleProvider(provider)}
                     >
@@ -225,7 +225,7 @@ export default function Register() {
             )}
 
             {enforceSso && (
-              <div className="rounded-md border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
+              <div className="rounded-md border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
                 <p className="font-medium text-primary">Single sign-on required</p>
                 <p className="text-muted-foreground">
                   The organization you&apos;re joining only allows access through their configured SSO provider. Use the button above to continue.
@@ -235,162 +235,175 @@ export default function Register() {
           </div>
 
           {!enforceSso && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-<Input
-  id="firstName"
-  name="firstName"
-  autoComplete="given-name"
-  placeholder="John"
-  className="pl-10"
-  value={formData.firstName}
-  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-  required
-/>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    autoComplete="given-name"
+                    placeholder="John"
+                    className="pl-10"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    required
+                  />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
-<Input
-  id="lastName"
-  name="lastName"
-  autoComplete="family-name"
-  placeholder="Doe"
-  value={formData.lastName}
-  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-  required
-/>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  autoComplete="family-name"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  required
+                />
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-<Input
-  id="email"
-  name="email"
-  type="email"
-  placeholder="john@example.com"
-  className="pl-10"
-  autoComplete="email"
-  value={formData.email}
-  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-  required
-/>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="email">Work Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="john@example.com"
+                    className="pl-10"
+                    autoComplete="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="organization">Organization</Label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="organization"
+                    name="organization"
+                    autoComplete="organization"
+                    placeholder="Your law firm"
+                    className="pl-10"
+                    value={formData.organization}
+                    onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="organization">Organization</Label>
-              <div className="relative">
-                <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-<Input
-  id="organization"
-  name="organization"
-  autoComplete="organization"
-  placeholder="Your law firm"
-  className="pl-10"
-  value={formData.organization}
-  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-  required
-/>
-              </div>
-            </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-<Select name="role" value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-  <SelectTrigger>
-    <SelectValue placeholder="Select your role" />
-  </SelectTrigger>
-  <SelectContent>
-    {allRoles
-      .filter(r => r.role && r.role !== 'superadmin') // Remove superadmin from public signup
-      .map(r => (
-        <SelectItem
-          key={r.role || r.role_name}
-          value={r.role || r.role_name}
-        >
-          {r.display_name || r.role_name || r.role}
-          {r.source === 'custom' && ' (Custom)'}
-        </SelectItem>
-      ))}
-  </SelectContent>
-</Select>
+              <Select name="role" value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allRoles
+                    .filter(r => r.role && r.role !== 'superadmin') // Remove superadmin from public signup
+                    .map(r => (
+                      <SelectItem
+                        key={r.role || r.role_name}
+                        value={r.role || r.role_name}
+                      >
+                        {r.display_name || r.role_name || r.role}
+                        {r.source === 'custom' && ' (Custom)'}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-<Input
-  id="password"
-  name="password"
-  type={showPassword ? "text" : "password"}
-  placeholder="Create a password"
-  className="pl-10 pr-10"
-  autoComplete="new-password"
-  value={formData.password}
-  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-  required
-/>
-<Button
-  type="button"
-  variant="ghost"
-  size="sm"
-  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-  onClick={() => setShowPassword(!showPassword)}
-  aria-label={showPassword ? "Hide password" : "Show password"}
-  title={showPassword ? "Hide password" : "Show password"}
->
-  {showPassword ? (
-    <EyeOff className="h-4 w-4 text-muted-foreground" />
-  ) : (
-    <Eye className="h-4 w-4 text-muted-foreground" />
-  )}
-</Button>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a password"
+                    className="pl-10 pr-10"
+                    autoComplete="new-password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    className="pl-10 pr-10"
+                    autoComplete="new-password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    title={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-  id="confirmPassword"
-  name="confirmPassword"
-  type={showConfirmPassword ? "text" : "password"}
-  placeholder="Confirm your password"
-  className="pl-10 pr-10"
-  autoComplete="new-password"
-  value={formData.confirmPassword}
-  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-  required
-/>
-<Button
-  type="button"
-  variant="ghost"
-  size="sm"
-  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-  title={showConfirmPassword ? "Hide password" : "Show password"}
->
-  {showConfirmPassword ? (
-    <EyeOff className="h-4 w-4 text-muted-foreground" />
-  ) : (
-    <Eye className="h-4 w-4 text-muted-foreground" />
-  )}
-</Button>
-              </div>
+
+            <div className="rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">What happens next?</p>
+              <ul className="mt-2 space-y-1">
+                <li>• Verify your email to activate the account.</li>
+                <li>• Complete onboarding to set up your organization.</li>
+                <li>• Invite teammates when you&apos;re ready.</li>
+              </ul>
             </div>
-            
+
             <Button type="submit" className="w-full">
               Create Account
             </Button>
@@ -406,11 +419,11 @@ export default function Register() {
             </div>
           )}
 
-          <div className="mt-6">
+          <div className="mt-8">
             <Separator className="my-4" />
             <div className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline font-medium">
+              <Link to="/auth" className="text-primary hover:underline font-medium">
                 Sign in
               </Link>
             </div>
