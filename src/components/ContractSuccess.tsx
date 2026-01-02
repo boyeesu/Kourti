@@ -9,6 +9,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { exportAsDocx, exportContractAsPdf } from "@/lib/documentExport";
 import { useUpdateContract } from "@/hooks/useContracts";
 import { useToast } from "@/hooks/use-toast";
+import { sanitizeHTML } from "@/lib/sanitize";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -200,7 +201,7 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
                 <CardContent className="p-6">
                   <div
                     className="prose prose-sm sm:prose lg:prose-lg max-w-none"
-                    dangerouslySetInnerHTML={{ __html: contract.terms || "" }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(contract.terms) }}
                     style={{
                       lineHeight: '1.8',
                       fontSize: '0.95rem',
