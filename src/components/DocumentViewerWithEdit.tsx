@@ -6,6 +6,7 @@ import { Loader2, Download, Eye, Edit, Save, X } from 'lucide-react';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
 import { useToast } from '@/hooks/use-toast';
+import { sanitizeHTML } from '@/lib/sanitize';
 import { supabase } from '@/integrations/supabase/client';
 import {
     DropdownMenu,
@@ -146,7 +147,7 @@ export function DocumentViewerWithEdit({ open, onOpenChange, document, onUpdate 
                     <TabsContent value="view" className="flex-1 overflow-auto mt-4">
                         <div
                             className="prose max-w-none p-4"
-                            dangerouslySetInnerHTML={{ __html: document.content || 'No content available' }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(document.content) || 'No content available' }}
                         />
                     </TabsContent>
 

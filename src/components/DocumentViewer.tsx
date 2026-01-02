@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Loader2, Download, ExternalLink, FileText, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { sanitizeHTML } from '@/lib/sanitize';
 
 interface DocumentViewerProps {
   open: boolean;
@@ -139,7 +140,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
         <div className="max-h-[70vh] overflow-auto p-6 bg-background rounded-lg border">
           <div
             className="prose prose-sm sm:prose lg:prose-lg max-w-none"
-            dangerouslySetInnerHTML={{ __html: document.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHTML(document.content) }}
             style={{
               lineHeight: '1.8',
               fontSize: '0.95rem',
