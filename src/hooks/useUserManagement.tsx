@@ -5,6 +5,7 @@ import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { env } from '@/lib/env';
 import { logError, logInfo, logWarn } from '@/lib/logger';
 import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
+import type { Profile } from '@/lib/types/database';
 
 type ProviderName = 'google' | 'microsoft';
 
@@ -24,7 +25,7 @@ export function useInviteUser() {
   return useMutation({
     mutationFn: async (userData: InviteUserData) => {
       // First create the invitation record in the database
-      const params: Record<string, any> = {
+      const params = {
         p_email: userData.email,
         p_first_name: userData.firstName,
         p_last_name: userData.lastName,
@@ -32,10 +33,10 @@ export function useInviteUser() {
         p_department: userData.department || null,
       };
 
-      const { data, error } = await supabase.rpc('invite_user_to_organization', params as any);
+      const { data, error } = await supabase.rpc('invite_user_to_organization', params);
 
       if (error) throw error;
-      
+
       // Check if the response indicates an error
       if (data && typeof data === 'object' && 'error' in data) {
         throw new Error(data.error as string);
@@ -51,7 +52,7 @@ export function useInviteUser() {
         supabase
           .from('profiles')
           .select('first_name,last_name,organization_id')
-          .eq('user_id', currentUserId as any)
+          .eq('user_id', currentUserId)
           .single(),
         supabase.auth.getUser(),
       ]);
@@ -64,14 +65,15 @@ export function useInviteUser() {
         throw authError;
       }
 
-      if (!(profile as any)?.organization_id) {
+      const typedProfile = profile as Profile | null;
+      if (!typedProfile?.organization_id) {
         throw new Error('Current user is not associated with an organization');
       }
 
       const { data: organizationData, error: organizationError } = await supabase
         .from('organizations')
         .select('name')
-        .eq('id', (profile as any).organization_id)
+        .eq('id', typedProfile.organization_id)
         .single();
 
       if (organizationError) {
@@ -80,8 +82,8 @@ export function useInviteUser() {
 
       const organizationName = organizationData?.name || 'Organization';
       const inviterName = buildDisplayName(
-        (profile as any)?.first_name as string | null,
-        (profile as any)?.last_name as string | null,
+        typedProfile.first_name,
+        typedProfile.last_name,
         authUser.user?.email ?? undefined
       );
 
@@ -97,7 +99,7 @@ export function useInviteUser() {
             body: {
               provider,
               email: userData.email,
-              organization_id: (profile as any).organization_id,
+              organization_id: typedProfile.organization_id,
               dry_run: true,
             },
           });
@@ -115,7 +117,7 @@ export function useInviteUser() {
               body: {
                 provider,
                 email: userData.email,
-                organization_id: (profile as any).organization_id,
+                organization_id: typedProfile.organization_id,
                 redirect_to: ssoRedirect,
               },
             });
@@ -176,12 +178,13 @@ export function useInviteUser() {
           const invitationId = (data as { invitation_id?: string | number } | null | undefined)?.invitation_id;
           logInfo('Invitation email sent successfully', { invitationId });
         }
-      } catch (emailError: any) {
+      } catch (emailError) {
+        const errorMessage = emailError instanceof Error ? emailError.message : 'Unknown error';
         logWarn('Failed to send invitation email', { error: emailError });
         // Still show warning but don't fail the process
         toast({
           title: "Invitation created with warning",
-          description: `The invitation was created but email delivery may have failed: ${emailError.message || 'Unknown error'}`,
+          description: `The invitation was created but email delivery may have failed: ${errorMessage}`,
           variant: "default",
         });
       }
@@ -214,12 +217,12 @@ export function useUserRole() {
     queryKey: ['user-role'],
     queryFn: async () => {
       const userId = await getCurrentUserId();
-      
+
       // Get profile data
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id, is_organization_creator')
-        .eq('user_id', userId as any || '')
+        .eq('user_id', userId || '')
         .single();
 
       if (profileError) throw profileError;
@@ -228,17 +231,17 @@ export function useUserRole() {
       const { data: roleAssignments, error: roleError } = await supabase
         .from('user_role_assignments')
         .select('role_name')
-        .eq('user_id', userId as any || '')
+        .eq('user_id', userId || '')
         .eq('organization_id', profile.organization_id);
 
       if (roleError) throw roleError;
 
       // Get primary role (prioritize superadmin > admin > user > custom roles)
       const roles = roleAssignments?.map(r => r.role_name) || [];
-      let primaryRole = roles.includes('superadmin') ? 'superadmin' 
-                      : roles.includes('admin') ? 'admin'
-                      : roles.includes('user') ? 'user'
-                      : roles[0] || 'user';
+      const primaryRole = roles.includes('superadmin') ? 'superadmin'
+        : roles.includes('admin') ? 'admin'
+          : roles.includes('user') ? 'user'
+            : roles[0] || 'user';
 
       return {
         role: primaryRole,

@@ -74,37 +74,58 @@ const missingRequiredVariables: MissingEnvVariable[] = REQUIRED_ENV_VARS
   .filter(({ key }) => !getEnvValue(key))
   .map(({ key, label, message }) => ({ key, label, message }));
 
-if (missingRequiredVariables.length > 0) {
-  const missingKeys = missingRequiredVariables.map(({ key }) => key).join(', ');
-  const logMessage = `Missing required environment variables: ${missingKeys}`;
+// Get environment variables with fallbacks for development
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
-  if (import.meta.env.PROD) {
-    console.error(logMessage);
-  } else {
-    console.warn(logMessage);
+// Development fallbacks (only used if env vars are not set)
+// These should be removed in production - use environment variables instead
+const DEV_FALLBACK_URL = import.meta.env.DEV ? 'https://zjbvnvydgsxqmmrrmvif.supabase.co' : '';
+const DEV_FALLBACK_KEY = import.meta.env.DEV ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqYnZudnlkZ3N4cW1tcnJtdmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODYzMTAsImV4cCI6MjA2OTY2MjMxMH0.-lE-O7iPZM_fxM93ddDapJVzcPdBArdCmN1HrwCHIH4' : '';
+
+// Use environment variables, fallback to dev values only in development
+const finalSupabaseUrl = SUPABASE_URL || (import.meta.env.DEV ? DEV_FALLBACK_URL : '');
+const finalSupabaseKey = SUPABASE_ANON_KEY || (import.meta.env.DEV ? DEV_FALLBACK_KEY : '');
+
+// Validate required environment variables
+if (import.meta.env.PROD) {
+  if (!finalSupabaseUrl || !finalSupabaseKey) {
+    throw new Error(
+      'Missing required environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in production'
+    );
+  }
+} else if (!finalSupabaseUrl || !finalSupabaseKey) {
+  const missingKeys = [];
+  if (!SUPABASE_URL) missingKeys.push('VITE_SUPABASE_URL');
+  if (!SUPABASE_ANON_KEY) missingKeys.push('VITE_SUPABASE_ANON_KEY');
+  
+  if (missingKeys.length > 0) {
+    // Use console.warn here as logger may not be initialized yet
+    if (typeof window !== 'undefined') {
+      console.warn(
+        `Missing environment variables: ${missingKeys.join(', ')}. ` +
+        'Using development fallbacks. Set these variables for production deployment.'
+      );
+    }
   }
 }
-
-// Hardcoded Supabase credentials (VITE_ env vars not supported in Lovable)
-const SUPABASE_URL = 'https://zjbvnvydgsxqmmrrmvif.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqYnZudnlkZ3N4cW1tcnJtdmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODYzMTAsImV4cCI6MjA2OTY2MjMxMH0.-lE-O7iPZM_fxM93ddDapJVzcPdBArdCmN1HrwCHIH4';
 
 /**
  * Environment configuration object
  */
 export const env: EnvConfig = {
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
-  SUPABASE_PUBLISHABLE_KEY: SUPABASE_ANON_KEY,
-  OPENAI_API_KEY: undefined,
+  SUPABASE_URL: finalSupabaseUrl,
+  SUPABASE_ANON_KEY: finalSupabaseKey,
+  SUPABASE_PUBLISHABLE_KEY: finalSupabaseKey,
+  OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY,
   APP_URL: typeof window !== 'undefined' ? window.location.origin : '',
   API_TIMEOUT: 30000,
   NODE_ENV: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',
 };
 
 export const envStatus = {
-  missingRequiredVariables: [], // Always empty since we use hardcoded values
-  hasSupabaseConfiguration: true,
+  missingRequiredVariables: missingRequiredVariables,
+  hasSupabaseConfiguration: Boolean(finalSupabaseUrl && finalSupabaseKey),
 };
 
 /**
@@ -128,10 +149,19 @@ export const isTest = env.NODE_ENV === 'test';
  * In production, we enforce strict validation
  */
 export function validateEnv(): { valid: boolean; errors: string[]; missingVariables: MissingEnvVariable[] } {
-  // Always valid since we use hardcoded Supabase credentials
+  const errors: string[] = [];
+  
+  if (!env.SUPABASE_URL) {
+    errors.push('SUPABASE_URL is required');
+  }
+  
+  if (!env.SUPABASE_ANON_KEY) {
+    errors.push('SUPABASE_ANON_KEY is required');
+  }
+  
   return {
-    valid: true,
-    errors: [],
-    missingVariables: [],
+    valid: errors.length === 0,
+    errors,
+    missingVariables: missingRequiredVariables,
   };
 }

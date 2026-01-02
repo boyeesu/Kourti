@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Document } from '@/types';
+import { logDebug, logError } from '@/lib/logger';
+import type { Profile } from '@/lib/types/database';
 
 export interface CreateDocumentData {
   name: string;
@@ -49,12 +51,13 @@ export function useDocuments() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId as any)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (profileError) throw profileError;
 
-      const organizationId = (profile as { organization_id?: string } | null)?.organization_id;
+      const typedProfile = profile as Profile | null;
+      const organizationId = typedProfile?.organization_id;
 
       if (!organizationId) {
         return [] as Document[];
@@ -80,7 +83,7 @@ export function useDocuments() {
       // For each document, if it has a case_id in metadata, fetch the case info
       const documentsWithCases = await Promise.all(
         (data || []).map(async (doc) => {
-          const metadata = doc.metadata as any;
+          const metadata = doc.metadata as Record<string, unknown> | null;
           const caseId = metadata?.case_id;
           if (caseId && typeof caseId === 'string') {
             try {
@@ -96,14 +99,14 @@ export function useDocuments() {
               }
             } catch (err) {
               // Silently handle errors - case might not exist or be inaccessible
-              console.debug('Error fetching case for document:', doc.id, err);
+              logDebug('Error fetching case for document', { documentId: doc.id, error: err });
             }
           }
           return { ...doc, case: null };
         })
       );
 
-      return documentsWithCases as any as Document[];
+      return documentsWithCases as Document[];
     },
   });
 }
@@ -125,14 +128,14 @@ export function useDocument(id: string) {
             last_name
           )
         `)
-        .eq('id', id as any)
+        .eq('id', id)
         .single();
 
       if (error) throw error;
 
       // If document has a case_id in metadata, fetch the case info
-      let documentWithCase = { ...data } as any;
-      const metadata = data.metadata as any;
+      const documentWithCase = { ...data };
+      const metadata = data.metadata as Record<string, unknown> | null;
       const caseId = metadata?.case_id;
       if (caseId && typeof caseId === 'string') {
         try {
@@ -150,14 +153,14 @@ export function useDocument(id: string) {
           }
         } catch (err) {
           // Silently handle errors - case might not exist or be inaccessible
-          console.debug('Error fetching case for document:', data.id, err);
+          logDebug('Error fetching case for document', { documentId: data.id, error: err });
           documentWithCase.case = null;
         }
       } else {
         documentWithCase.case = null;
       }
 
-      return documentWithCase as any as Document;
+      return documentWithCase as Document;
     },
   });
 }
@@ -194,7 +197,7 @@ export function useDocumentsByClient(clientId: string) {
               last_name
             )
           `)
-          .eq('client_id', clientId as any)
+          .eq('client_id', clientId)
       );
 
       // Documents from client's cases (stored in metadata)
@@ -233,7 +236,7 @@ export function useDocumentsByClient(clientId: string) {
         index === self.findIndex(d => d.id === doc.id)
       );
 
-      return uniqueDocuments as any as Document[];
+      return uniqueDocuments as Document[];
     },
   });
 }
@@ -265,7 +268,7 @@ export function useDocumentsByCase(caseId: string) {
         case: { id: caseId, title: 'Case' } // You could fetch actual case title if needed
       }));
 
-      return documentsWithCase as any as Document[];
+      return documentsWithCase as Document[];
     },
   });
 }
@@ -280,16 +283,21 @@ export function useCreateDocument() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId as any)
+        .eq('user_id', userId)
         .single();
+
+      const typedProfile = profile as Profile | null;
+      if (!typedProfile?.organization_id) {
+        throw new Error('User organization not found');
+      }
 
       const { data, error } = await supabase
         .from('documents')
         .insert({
           ...documentData,
-          organization_id: (profile as any)?.organization_id,
+          organization_id: typedProfile.organization_id,
           created_by: userId,
-        } as any)
+        })
         .select()
         .single();
 
@@ -303,7 +311,8 @@ export function useCreateDocument() {
         description: "Document created successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
+      logError('Failed to create document', { error });
       toast({
         variant: "destructive",
         title: "Error",
@@ -336,10 +345,11 @@ export function useUploadDocument() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId as any)
+        .eq('user_id', userId)
         .single();
 
-      const orgId = (profile as any)?.organization_id;
+      const typedProfile = profile as Profile | null;
+      const orgId = typedProfile?.organization_id;
       if (!orgId) throw new Error('User organization not found');
 
       // Generate unique filename
@@ -396,7 +406,8 @@ export function useUploadDocument() {
         description: "Document uploaded successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
+      logError('Failed to upload document', { error });
       toast({
         variant: "destructive",
         title: "Upload Failed",

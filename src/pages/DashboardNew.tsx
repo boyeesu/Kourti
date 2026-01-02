@@ -106,13 +106,27 @@ const StatCard = ({
   );
 };
 
+// Types for chart tooltip
+interface TooltipPayload {
+  name: string;
+  value: number | string;
+  color?: string;
+  fill?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+}
+
 // Custom tooltip for charts
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-background/95 backdrop-blur-sm border border-border p-3 rounded-lg shadow-lg">
         <p className="text-sm font-medium mb-1">{label}</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index: number) => (
           <div key={`item-${index}`} className="flex items-center gap-2 text-sm">
             <div
               className="h-3 w-3 rounded-full"
@@ -273,7 +287,7 @@ export default function Dashboard() {
   const recentCases = useMemo(() => {
     if (casesData?.cases) {
       return casesData.cases
-        .toSorted((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice().sort((a: Case, b: Case) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
         .slice(0, 5);
     }
     return [];
@@ -601,16 +615,18 @@ export default function Dashboard() {
                             <TooltipContent>View Matter</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                        {(c as any).assigned_to && (
+                        {c.assigned_to && (c as Case & { assigned_user?: { id: string; first_name: string | null; last_name: string | null } }).assigned_user && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Avatar className="h-8 w-8 ml-2">
-                                  <AvatarFallback>{(c as any).assigned_user?.first_name?.charAt(0) || 'U'}</AvatarFallback>
+                                  <AvatarFallback>
+                                    {(c as Case & { assigned_user?: { id: string; first_name: string | null; last_name: string | null } }).assigned_user?.first_name?.charAt(0) || 'U'}
+                                  </AvatarFallback>
                                 </Avatar>
                               </TooltipTrigger>
                               <TooltipContent>
-                                Assigned to {(c as any).assigned_user?.first_name} {(c as any).assigned_user?.last_name}
+                                Assigned to {(c as Case & { assigned_user?: { id: string; first_name: string | null; last_name: string | null } }).assigned_user?.first_name} {(c as Case & { assigned_user?: { id: string; first_name: string | null; last_name: string | null } }).assigned_user?.last_name}
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>

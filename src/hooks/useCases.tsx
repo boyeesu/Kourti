@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { logError } from '@/lib/logger';
 
 
 export interface CreateCaseData {
@@ -79,7 +80,7 @@ export function useCases(page = 1, pageSize = 20) {
         
         return { cases: data as any[], count: count || 0 };
       } catch (error) {
-        console.error('Error fetching cases:', error);
+        logError('Error fetching cases', { error });
         throw error;
       }
     },

@@ -5,6 +5,7 @@ import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { buildQueryKey } from '@/utils/query-helpers';
 import { logError } from '@/lib/logger';
+import type { Database } from '@/integrations/supabase/types';
 
 // Types for the API hooks
 type FetchDataOptions = {
@@ -194,7 +195,7 @@ export function useCreateItem({ table, onSuccess, onError }: MutationOptions) {
         
         return insertedData;
       } catch (error) {
-        console.error(`Error creating ${table}:`, error);
+        logError(`Error creating ${table}`, { error, table, data });
         throw error;
       }
     },
@@ -247,7 +248,7 @@ export function useUpdateItem({ table, onSuccess, onError }: MutationOptions) {
         
         return updatedData;
       } catch (error) {
-        console.error(`Error updating ${table}:`, error);
+        logError(`Error updating ${table}`, { error, table, id, data });
         throw error;
       }
     },
@@ -332,7 +333,7 @@ export function useGetItemById<T = any>({
           return data?.[0] as T;
         }
       } catch (error) {
-        console.error(`Error fetching ${table} item:`, error);
+        logError(`Error fetching ${table} item`, { error, table, id });
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -368,7 +369,7 @@ export function useDeleteItem({ table, onSuccess, onError }: MutationOptions) {
         
         return { success: true, id };
       } catch (error) {
-        console.error(`Error deleting ${table}:`, error);
+        logError(`Error deleting ${table}`, { error, table, id });
         throw error;
       }
     },
