@@ -3,30 +3,14 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 // @ts-ignore: Deno module
-import nodemailer from "npm:nodemailer@6.9.8";
-
-declare const Deno: {
-  env: {
-    get(key: string): string | undefined;
-  };
-};
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// SMTP configuration
-const smtpConfig = {
-  host: Deno.env.get("SMTP_HOST") || "",
-  port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
-  secure: Deno.env.get("SMTP_PORT") === "465",
-  auth: {
-    user: Deno.env.get("SMTP_USER") || "",
-    pass: Deno.env.get("SMTP_PASS") || "",
-  },
-};
-
-const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "noreply@example.com";
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "onboarding@resend.dev";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,34 +86,24 @@ const handler = async (req: Request): Promise<Response> => {
       metadata,
     });
 
-    console.log("Preparing to send email via SMTP:", {
+    console.log("Sending email via Resend:", {
       to: recipientEmail,
       subject: emailSubject,
-      smtpHost: smtpConfig.host,
     });
 
-    // Create transporter
-    const transporter = nodemailer.createTransport(smtpConfig);
-
-    // Verify SMTP connection
-    try {
-      await transporter.verify();
-      console.log("SMTP connection verified successfully");
-    } catch (verifyError: any) {
-      console.error("SMTP verification failed:", verifyError.message);
-      // Continue anyway, some SMTP servers don't support verify
-    }
-
-    // Send email
-    const info = await transporter.sendMail({
+    const { data, error } = await resend.emails.send({
       from: `${organizationName} <${fromEmail}>`,
-      to: recipientEmail,
+      to: [recipientEmail],
       subject: emailSubject,
-      text: message,
       html: htmlContent,
     });
 
-    console.log("Email sent successfully:", info.messageId);
+    if (error) {
+      console.error("Resend error:", error);
+      throw new Error(error.message);
+    }
+
+    console.log("Email sent successfully:", data?.id);
 
     // Also create in-app notification
     if (organizationId) {
@@ -144,7 +118,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("In-app notification created for user:", recipientUserId);
     }
 
-    return new Response(JSON.stringify({ success: true, messageId: info.messageId }), {
+    return new Response(JSON.stringify({ success: true, messageId: data?.id }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
