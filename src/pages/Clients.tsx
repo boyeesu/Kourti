@@ -8,6 +8,7 @@ import {
   Phone,
   MoreHorizontal,
   Upload,
+  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { useClients } from "@/hooks/useClients";
 import type { Client } from "@/types";
+import { TableSkeleton } from "@/components/ui/loading-states";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -35,16 +39,28 @@ export default function Clients() {
 
   if (isLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="px-4 py-6 space-y-6">
+        <Breadcrumbs />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Clients</h1>
+            <p className="text-muted-foreground">Manage your client database and relationships</p>
+          </div>
+        </div>
+        <TableSkeleton rows={6} columns={4} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="px-4 py-6 text-destructive">
-        Error loading clients: {error.message}
+      <div className="px-4 py-6 space-y-6">
+        <Breadcrumbs />
+        <ErrorState
+          title="Failed to load clients"
+          message={error instanceof Error ? error.message : "An unexpected error occurred while loading clients."}
+          error={error}
+        />
       </div>
     );
   }
@@ -292,17 +308,31 @@ export default function Clients() {
       </Card>
 
       {/* Empty state ------------------------------------------------------ */}
-      {filtered.length === 0 && (
-        <div className="text-center py-12">
-          <Building className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No clients found</h3>
-          <p className="text-muted-foreground mb-4">
-            {searchTerm ? "Try adjusting your search criteria" : "Get started by adding your first client"}
-          </p>
-          <Button className="hover-scale" onClick={() => navigate("/clients/create")}>
-            <Plus className="h-4 w-4 mr-2" /> Add First Client
-          </Button>
-        </div>
+      {filtered.length === 0 && clients.length === 0 && (
+        <EmptyState
+          icon={UserCheck}
+          title="No clients yet"
+          description="Get started by adding your first client to manage relationships and track legal matters."
+          action={{
+            label: "Add First Client",
+            onClick: () => navigate("/clients/create"),
+            icon: Plus
+          }}
+        />
+      )}
+      {filtered.length === 0 && clients.length > 0 && (
+        <EmptyState
+          icon={UserCheck}
+          title="No matching clients"
+          description={`No clients match "${searchTerm}". Try adjusting your search or filters.`}
+          action={{
+            label: "Clear Filters",
+            onClick: () => {
+              setSearchTerm("");
+              setStatusFilter("all");
+            }
+          }}
+        />
       )}
     </div>
   );

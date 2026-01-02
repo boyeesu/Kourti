@@ -53,6 +53,7 @@ import { useUserPermission } from '@/hooks/usePermissions';
 import { PermissionGate } from '@/components/PermissionGate';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { KeyboardShortcutsDialog } from '@/hooks/useKeyboardShortcuts';
 
 // Navigation item type
 export type NavItem = {
@@ -530,6 +531,7 @@ function AppLayoutInner({
   return (
     <>
       <CommandPalette />
+      <KeyboardShortcutsDialog />
       <MobileAccessNotice />
       <div className="app-shell flex min-h-screen w-full bg-[hsl(var(--background))]">
         <aside className="hidden shrink-0 px-2 py-3 md:flex md:w-[220px] lg:w-[260px] lg:px-3 lg:py-4">
@@ -810,13 +812,23 @@ function AppLayoutInner({
                     </CommandGroup>
                   )}
 
+                {hasSearchTerm && !isGlobalSearchLoading && hasSearchResults && (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground border-t">
+                    Found {Object.values(searchResults).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0)} result{Object.values(searchResults).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0) !== 1 ? 's' : ''}
+                  </div>
+                )}
                 <CommandEmpty>
                   {!hasSearchTerm
                     ? 'Type at least 2 characters to search across the workspace.'
                     : globalSearchError
                       ? 'Unable to search the workspace. Please try again.'
                       : isGlobalSearchLoading
-                        ? 'Searching workspace...'
+                        ? (
+                          <div className="flex items-center gap-2 py-4">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                            <span>Searching workspace...</span>
+                          </div>
+                        )
                         : hasSearchResults
                           ? 'Keep typing to narrow down your results.'
                           : 'No results found for your search.'}

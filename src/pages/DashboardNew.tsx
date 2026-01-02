@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardSkeleton, PageSkeleton } from "@/components/ui/loading-states";
+import { ErrorState } from "@/components/ui/error-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ResponsiveContainer,
@@ -314,31 +316,19 @@ export default function Dashboard() {
 
   // Handle loading states
   if (dashboardLoading && casesLoading && contractsLoading) {
-    return (
-      <div className="flex items-center justify-center h-[70vh]">
-        <div className="flex flex-col items-center gap-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   // Handle error state
   if (dashboardError) {
     return (
-      <div className="px-4 py-12 flex flex-col items-center justify-center">
-        <div className="p-4 bg-destructive/10 rounded-full mb-4">
-          <AlertTriangle className="h-8 w-8 text-destructive" />
-        </div>
-        <h2 className="text-xl font-semibold mb-2">Failed to load dashboard data</h2>
-        <p className="text-muted-foreground mb-6 text-center max-w-md">
-          There was an error loading your dashboard. Please try again or contact support if the problem persists.
-        </p>
-        <Button onClick={() => refetchDashboard()}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Retry
-        </Button>
+      <div className="px-4 py-12">
+        <ErrorState
+          title="Failed to load dashboard data"
+          message="There was an error loading your dashboard. Please try again or contact support if the problem persists."
+          error={dashboardError}
+          onRetry={() => refetchDashboard()}
+        />
       </div>
     );
   }

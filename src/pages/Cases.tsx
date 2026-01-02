@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, ColumnDef } from "@/components/ui/data-table";
+import { TableSkeleton } from "@/components/ui/loading-states";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Briefcase } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -158,9 +162,15 @@ export default function App() { // Changed to App for React component export
   // Display loading state
   if (isLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center min-h-[calc(100vh-100px)]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        <p className="ml-4 text-lg text-muted-foreground">Loading matters...</p>
+      <div className="px-4 py-6 space-y-6">
+        <Breadcrumbs />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Matters</h1>
+            <p className="text-muted-foreground">Manage and track all your legal matters</p>
+          </div>
+        </div>
+        <TableSkeleton rows={8} columns={6} />
       </div>
     );
   }
@@ -168,13 +178,14 @@ export default function App() { // Changed to App for React component export
   // Display error state
   if (error) {
     return (
-      <div className="px-4 py-6 flex flex-col items-center justify-center min-h-[calc(100vh-100px)]">
-        <p className="text-destructive text-lg mb-4 text-center">
-          {error instanceof Error
-            ? error.message
-            : "An unexpected error occurred while loading matters."}
-        </p>
-        <Button onClick={() => refetch()} className="shadow-md">Retry Loading Matters</Button>
+      <div className="px-4 py-6 space-y-6">
+        <Breadcrumbs />
+        <ErrorState
+          title="Failed to load matters"
+          message={error instanceof Error ? error.message : "An unexpected error occurred while loading matters."}
+          error={error}
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
@@ -480,17 +491,31 @@ export default function App() { // Changed to App for React component export
 
           {/* Conditional rendering for empty states */}
           {filteredCases.length === 0 && cases.length === 0 && (
-            <div className="text-center py-12">
-              <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-                <FileText className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">No matters yet</h3>
-              <p className="text-muted-foreground mb-4">Get started by creating your first matter.</p>
-              <Button onClick={() => navigate("/matters/create")} className="shadow-md">
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Matter
-              </Button>
-            </div>
+            <EmptyState
+              icon={Briefcase}
+              title="No matters yet"
+              description="Get started by creating your first matter to track legal cases and manage client work."
+              action={{
+                label: "Create First Matter",
+                onClick: () => navigate("/matters/create"),
+                icon: Plus
+              }}
+            />
+          )}
+          {filteredCases.length === 0 && cases.length > 0 && (
+            <EmptyState
+              icon={Briefcase}
+              title="No matching matters"
+              description={`No matters match your current filters. Try adjusting your search or filter criteria.`}
+              action={{
+                label: "Clear Filters",
+                onClick: () => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setPriorityFilter("all");
+                }
+              }}
+            />
           )}
 
           {/* Pagination controls */}

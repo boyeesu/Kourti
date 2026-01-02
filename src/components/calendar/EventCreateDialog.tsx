@@ -72,24 +72,49 @@ type EventFormValues = z.infer<typeof eventSchema>;
 
 interface EventCreateDialogProps {
   children?: React.ReactNode;
+  defaultDate?: Date;
+  defaultEventType?: string;
 }
 
-export function EventCreateDialog({ children }: EventCreateDialogProps) {
+export function EventCreateDialog({ children, defaultDate, defaultEventType = "meeting" }: EventCreateDialogProps) {
   const [open, setOpen] = useState(false);
   const [newAttendee, setNewAttendee] = useState("");
   const createEvent = useCreateCalendarEvent();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
 
+  const getDefaultStartDate = () => {
+    if (defaultDate) {
+      return format(defaultDate, "yyyy-MM-dd'T'HH:mm");
+    }
+    const now = new Date();
+    now.setMinutes(0);
+    now.setSeconds(0);
+    return format(now, "yyyy-MM-dd'T'HH:mm");
+  };
+
+  const getDefaultEndDate = () => {
+    if (defaultDate) {
+      const end = new Date(defaultDate);
+      end.setHours(end.getHours() + 1);
+      return format(end, "yyyy-MM-dd'T'HH:mm");
+    }
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    now.setMinutes(0);
+    now.setSeconds(0);
+    return format(now, "yyyy-MM-dd'T'HH:mm");
+  };
+
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       title: "",
       description: "",
-      start_date: "",
-      end_date: "",
+      start_date: getDefaultStartDate(),
+      end_date: getDefaultEndDate(),
       location: "",
-      event_type: "meeting",
+      event_type: defaultEventType as any,
       case_id: "",
       client_id: "",
       attendees: [],

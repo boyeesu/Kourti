@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, ColumnDef } from "@/components/ui/data-table";
+import { TableSkeleton } from "@/components/ui/loading-states";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FileText, Upload } from "lucide-react";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import {
   Select,
   SelectContent,
@@ -118,8 +122,15 @@ export default function Documents() {
   // Early return after all hooks
   if (isLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="px-4 py-6 space-y-6">
+        <Breadcrumbs />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Documents</h1>
+            <p className="text-muted-foreground">Manage and organize your legal documents</p>
+          </div>
+        </div>
+        <TableSkeleton rows={8} columns={5} />
       </div>
     );
   }
@@ -379,14 +390,35 @@ export default function Documents() {
               },
             ] as ColumnDef<Document>[]}
             data={filteredDocuments}
-            emptyMessage="No documents found matching your criteria."
+            emptyMessage=""
             getRowKey={(row) => row.id}
           />
 
-          {filteredDocuments.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No documents found matching your criteria.</p>
-            </div>
+          {filteredDocuments.length === 0 && documents.length === 0 && (
+            <EmptyState
+              icon={FileText}
+              title="No documents yet"
+              description="Upload your first document to get started with AI-powered document management and analysis."
+              action={{
+                label: "Upload Document",
+                onClick: () => navigate("/documents/upload"),
+                icon: Upload
+              }}
+            />
+          )}
+          {filteredDocuments.length === 0 && documents.length > 0 && (
+            <EmptyState
+              icon={FileText}
+              title="No matching documents"
+              description={`No documents match "${searchTerm || globalSearch}". Try adjusting your search or filters.`}
+              action={{
+                label: "Clear Filters",
+                onClick: () => {
+                  setSearchTerm("");
+                  setTypeFilter("all");
+                }
+              }}
+            />
           )}
         </CardContent>
       </Card>
