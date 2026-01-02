@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -450,6 +450,17 @@ export default function Auth() {
                 </p>
               )}
             </div>
+            
+            {!isSignUp && !isInvited && (
+              <div className="flex items-center justify-end">
+                <Link 
+                  to="/forgot-password" 
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
             
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Loading..." : (

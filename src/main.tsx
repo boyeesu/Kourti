@@ -186,7 +186,16 @@ if (!envValidation.valid) {
   );
 } else {
   renderApp().catch((error) => {
-    logError('Failed to load application bundle', { error });
+    // Log full error details for debugging
+    const errorDetails = {
+      message: error?.message || 'Unknown error',
+      stack: error?.stack,
+      name: error?.name,
+      error: error
+    };
+    logError('Failed to load application bundle', errorDetails);
+    console.error('Application bundle load error:', error);
+    
     root.render(
       <React.StrictMode>
         <EnvironmentConfigError missingVariables={envValidation.missingVariables} />

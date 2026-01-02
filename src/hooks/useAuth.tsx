@@ -186,17 +186,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       const redirectUrl = getAuthRedirectUrl('/auth/reset-password', env.APP_URL);
+      
+      logInfo('Initiating password reset', { 
+        email: email.toLowerCase(), 
+        redirectUrl 
+      });
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl,
+      // Use Resend-based edge function instead of Supabase's built-in email service
+      const { data, error } = await supabase.functions.invoke('send-password-reset-email', {
+        body: {
+          email: email.toLowerCase(),
+          redirectUrl,
+        }
+      });
+
+      if (error) {
+        logError('Password reset error', { 
+          error, 
+          email: email.toLowerCase(),
+          redirectUrl 
+        });
+        return {
+          error: new AuthError(error.message || 'Failed to send password reset email'),
+          success: false
+        };
+      }
+
+      if (data?.error) {
+        logError('Password reset function error', { 
+          error: data.error, 
+          email: email.toLowerCase(),
+          redirectUrl 
+        });
+        return {
+          error: new AuthError(data.error || 'Failed to send password reset email'),
+          success: false
+        };
+      }
+
+      logInfo('Password reset email sent', { 
+        email: email.toLowerCase(),
+        redirectUrl,
+        messageId: data?.messageId
       });
 
       return {
-        error,
-        success: !error
+        error: null,
+        success: true
       };
     } catch (error) {
-      logError('Reset password error', { error });
+      logError('Reset password exception', { error });
       return {
         error: new AuthError('An unexpected error occurred during password reset.'),
         success: false

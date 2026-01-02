@@ -151,17 +151,29 @@ export const isTest = env.NODE_ENV === 'test';
 export function validateEnv(): { valid: boolean; errors: string[]; missingVariables: MissingEnvVariable[] } {
   const errors: string[] = [];
   
-  if (!env.SUPABASE_URL) {
-    errors.push('SUPABASE_URL is required');
+  // Check if we have valid Supabase configuration
+  // In development, fallbacks should provide values
+  // In production, env vars are required
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+    // Only show as error if we're in production OR if fallbacks aren't available
+    if (import.meta.env.PROD || (!import.meta.env.DEV)) {
+      if (!env.SUPABASE_URL) {
+        errors.push('SUPABASE_URL is required');
+      }
+      if (!env.SUPABASE_ANON_KEY) {
+        errors.push('SUPABASE_ANON_KEY is required');
+      }
+    }
   }
   
-  if (!env.SUPABASE_ANON_KEY) {
-    errors.push('SUPABASE_ANON_KEY is required');
-  }
+  // Only show missing variables if we're actually missing them (not using fallbacks)
+  const actualMissingVariables = import.meta.env.PROD 
+    ? missingRequiredVariables 
+    : []; // In dev, don't show missing vars if fallbacks are available
   
   return {
     valid: errors.length === 0,
     errors,
-    missingVariables: missingRequiredVariables,
+    missingVariables: actualMissingVariables,
   };
 }

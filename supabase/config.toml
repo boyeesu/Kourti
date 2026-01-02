@@ -9,12 +9,17 @@ max_rows = 1000
 
 [auth]
 enabled = true
-port = 54323
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://localhost:3000"]
+additional_redirect_urls = [
+  "https://localhost:3000",
+  "http://localhost:3000/auth/reset-password",
+  "https://localhost:3000/auth/reset-password",
+  "http://localhost:8080",
+  "https://localhost:8080",
+  "http://localhost:8080/auth/reset-password",
+  "https://localhost:8080/auth/reset-password"
+]
 jwt_expiry = 3600
-refresh_token_rotation_enabled = true
-refresh_token_reuse_interval = 10
 enable_signup = true
 
 [auth.email]
@@ -28,7 +33,6 @@ shadow_port = 54320
 major_version = 15
 
 [functions]
-verify_jwt = true
 
 [functions.sso-authorize]
 verify_jwt = false
@@ -43,4 +47,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.send-notification-email]
+verify_jwt = false
+
+[functions.send-password-reset-email]
 verify_jwt = false
