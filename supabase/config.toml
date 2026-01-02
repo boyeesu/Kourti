@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.extract-document-text]
 verify_jwt = true
+
+[functions.send-invitation-email]
+verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = false
