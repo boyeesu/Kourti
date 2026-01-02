@@ -1,6 +1,8 @@
 declare const Deno: any;
 
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+// @ts-ignore - Deno-compatible import
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const voiceCorsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,12 +82,62 @@ async function requestChatCompletion(apiKey: string, body: Record<string, unknow
   throw new HttpError('Unable to reach OpenAI API for summarization', 502, 'OPENAI_UPSTREAM_ERROR');
 }
 
+async function authenticateRequest(req: Request) {
+  const authHeader = req.headers.get('Authorization');
+  
+  if (!authHeader) {
+    throw new HttpError('Authentication required', 401, 'UNAUTHORIZED');
+  }
+
+  const token = authHeader.replace('Bearer ', '').trim();
+  
+  if (!token) {
+    throw new HttpError('Invalid authentication token', 401, 'UNAUTHORIZED');
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new HttpError('Server configuration error', 503, 'CONFIG_ERROR');
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+  if (authError || !user) {
+    console.error('Authentication failed:', authError?.message);
+    throw new HttpError('Invalid or expired authentication token', 401, 'UNAUTHORIZED');
+  }
+
+  // Verify user has an organization
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (profileError || !profile?.organization_id) {
+    console.error('Profile lookup failed:', profileError?.message);
+    throw new HttpError('User not associated with an organization', 403, 'FORBIDDEN');
+  }
+
+  console.log(`Authenticated user: ${user.id}, org: ${profile.organization_id}`);
+  
+  return { user, organizationId: profile.organization_id, supabase };
+}
+
 export const voiceTranscriptionHandler = async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: voiceCorsHeaders });
   }
 
   try {
+    // Authenticate the request first
+    const { user, organizationId: _orgId } = await authenticateRequest(req);
+    console.log(`Processing voice transcription for user ${user.id}`);
+
     let body: any;
 
     try {
