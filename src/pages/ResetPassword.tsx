@@ -21,67 +21,124 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let mounted = true;
+    let authStateSubscription: { unsubscribe: () => void } | null = null;
+
     const verifyToken = async () => {
       try {
-        // Check if there's already an active session (Supabase automatically creates one from reset link)
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          // Valid session exists, user can reset password
-          setTokenValid(true);
-          setVerifying(false);
-          return;
-        }
-
-        // If no session, check URL hash for token (backup method)
+        // First, check URL hash for token (Supabase redirects with hash fragments)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const type = hashParams.get('type');
+        const refreshToken = hashParams.get('refresh_token');
 
-        if (!accessToken || type !== 'recovery') {
-          setTokenValid(false);
-          toast({
-            variant: "destructive",
-            title: "Invalid reset link",
-            description: "This password reset link is invalid or has expired.",
+        // If we have hash params, set the session first
+        if (accessToken && type === 'recovery' && refreshToken) {
+          console.log('Found recovery token in URL hash, setting session...');
+          const { data: { session: newSession }, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
           });
-          setTimeout(() => navigate('/forgot-password'), 3000);
-          return;
+          
+          if (error) {
+            console.error('Error setting session from hash:', error);
+            if (mounted) {
+              setTokenValid(false);
+              toast({
+                variant: "destructive",
+                title: "Invalid reset link",
+                description: error.message || "This password reset link is invalid or has expired.",
+              });
+              setTimeout(() => navigate('/forgot-password'), 3000);
+            }
+            return;
+          }
+
+          if (newSession?.user) {
+            console.log('Session established from hash token');
+            // Clear the hash from URL
+            window.history.replaceState(null, '', window.location.pathname);
+            if (mounted) {
+              setTokenValid(true);
+              setVerifying(false);
+            }
+            return;
+          }
         }
 
-        // Try to establish session with the token
-        const { data: { session: newSession }, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: hashParams.get('refresh_token') || '',
-        });
+        // Check if there's already an active session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (error || !newSession) {
-          setTokenValid(false);
-          toast({
-            variant: "destructive",
-            title: "Invalid reset link",
-            description: "This password reset link is invalid or has expired.",
-          });
-          setTimeout(() => navigate('/forgot-password'), 3000);
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+        }
+        
+        if (session?.user) {
+          console.log('Valid session found');
+          if (mounted) {
+            setTokenValid(true);
+            setVerifying(false);
+          }
           return;
         }
 
-        setTokenValid(true);
+        // If no session and no hash params, the link is invalid
+        if (!accessToken || type !== 'recovery') {
+          console.warn('No valid recovery token found');
+          if (mounted) {
+            setTokenValid(false);
+            toast({
+              variant: "destructive",
+              title: "Invalid reset link",
+              description: "This password reset link is invalid or has expired.",
+            });
+            setTimeout(() => navigate('/forgot-password'), 3000);
+          }
+          return;
+        }
+
       } catch (error) {
         console.error('Error verifying token:', error);
-        setTokenValid(false);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to verify password reset link.",
-        });
-        setTimeout(() => navigate('/forgot-password'), 3000);
+        if (mounted) {
+          setTokenValid(false);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to verify password reset link.",
+          });
+          setTimeout(() => navigate('/forgot-password'), 3000);
+        }
       } finally {
-        setVerifying(false);
+        if (mounted) {
+          setVerifying(false);
+        }
       }
     };
 
+    // Set up auth state listener to catch automatic session creation
+    authStateSubscription = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, 'hasSession:', !!session);
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session?.user)) {
+        if (mounted) {
+          setTokenValid(true);
+          setVerifying(false);
+          // Clear hash from URL
+          if (window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }
+      }
+    });
+
+    // Initial verification
     verifyToken();
+
+    return () => {
+      mounted = false;
+      if (authStateSubscription) {
+        authStateSubscription.unsubscribe();
+      }
+    };
   }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
