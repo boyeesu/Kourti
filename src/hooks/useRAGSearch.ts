@@ -26,6 +26,18 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
       }
 
       try {
+        // Ensure we have an active session
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        if (!sessionData?.session) {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError || !refreshData?.session) {
+            logWarn('No active session for RAG search, using text fallback');
+            return performTextFallbackSearch(query);
+          }
+        }
+
         // Step 1: Generate embedding for the query
         const { data: embeddingData, error: embeddingError } = await supabase.functions.invoke('generate-embeddings', {
           body: {
@@ -47,6 +59,14 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
 
         // Step 2: Perform vector similarity search
         logInfo('Performing vector search with embedding');
+        
+        // Ensure session is still valid for RPC call
+        const { data: sessionCheck } = await supabase.auth.getSession();
+        if (!sessionCheck?.session) {
+          logWarn('Session expired before RPC call, using text fallback');
+          return performTextFallbackSearch(query);
+        }
+        
         const { data: searchData, error: searchError } = await supabase.rpc(
           'match_document_chunks',
           {
@@ -57,7 +77,11 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
         );
 
         if (searchError) {
-          logError('Vector search error, falling back to text search', { error: searchError });
+          logError('Vector search error, falling back to text search', { 
+            error: searchError,
+            errorCode: searchError.code,
+            errorMessage: searchError.message
+          });
           return performTextFallbackSearch(query);
         }
 

@@ -27,7 +27,18 @@ export function useEnhancedDocumentAnalysis() {
       analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     }) => {
       try {
-        // Call the advanced contract analysis edge function with GPT-4
+        // Ensure we have an active session
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        if (!sessionData?.session) {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError || !refreshData?.session) {
+            throw new Error('Authentication required. Please sign in again.');
+          }
+        }
+
+        // Call the advanced contract analysis edge function
         const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
           body: {
             text: content,
@@ -99,6 +110,17 @@ export function useEnhancedDocumentAnalysis() {
       const controller = new AbortController();
       setAbortController(controller);
       
+      // Ensure we have an active session
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData?.session) {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData?.session) {
+          throw new Error('Authentication required. Please sign in again.');
+        }
+      }
+      
       // Use the advanced contract analysis edge function with streaming
       const { data: responseData, error } = await supabase.functions.invoke('advanced-contract-analysis', {
         body: {
@@ -150,10 +172,19 @@ export function useEnhancedDocumentAnalysis() {
         return { analysis: analysisContent };
       }
 
-      // If we get here, we should have a streaming response
-      // Note: Supabase functions don't support streaming responses directly
-      // So we'll use the non-streaming approach but simulate it better
-      const { data: nonStreamData, error: nonStreamError } = await supabase.functions.invoke('advanced-contract-analysis', {
+        // If we get here, we should have a streaming response
+        // Note: Supabase functions don't support streaming responses directly
+        // So we'll use the non-streaming approach but simulate it better
+        // Ensure session is still valid
+        const { data: sessionCheck } = await supabase.auth.getSession();
+        if (!sessionCheck?.session) {
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (!refreshData?.session) {
+            throw new Error('Authentication required. Please sign in again.');
+          }
+        }
+        
+        const { data: nonStreamData, error: nonStreamError } = await supabase.functions.invoke('advanced-contract-analysis', {
         body: {
           text: content,
           analysisType: analysisType,
