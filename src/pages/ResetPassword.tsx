@@ -116,7 +116,7 @@ export default function ResetPassword() {
     };
 
     // Set up auth state listener to catch automatic session creation
-    authStateSubscription = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, 'hasSession:', !!session);
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session?.user)) {
         if (mounted) {
@@ -129,6 +129,7 @@ export default function ResetPassword() {
         }
       }
     });
+    authStateSubscription = subscription;
 
     // Initial verification
     verifyToken();
