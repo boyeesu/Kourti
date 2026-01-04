@@ -11,8 +11,8 @@ const corsOptions = {
   allowMethods: ['POST', 'OPTIONS'],
 };
 
-const DEFAULT_CHAT_MODEL = 'gpt-4o';
-const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
+const DEFAULT_CHAT_MODEL = 'gpt-5.1';
+const DEFAULT_FALLBACK_MODEL = 'gpt-4o';
 
 function getChatModelCandidates() {
   const configuredModel = Deno.env.get('OPENAI_CHAT_MODEL')?.trim();
@@ -101,6 +101,92 @@ async function requestChatCompletion(body: Record<string, unknown>) {
   throw new HttpError('Unable to reach OpenAI API', 502, 'OPENAI_UPSTREAM_ERROR');
 }
 
+async function handleStreamingResponse(
+  messages: Array<{ role: string; content: string }>,
+  corsOptions: any
+) {
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openAIApiKey) {
+    throw new HttpError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+  }
+
+  const modelCandidates = getChatModelCandidates();
+  let lastError: Error | null = null;
+
+  for (const model of modelCandidates) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_completion_tokens: 4000,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`OpenAI streaming error for model ${model}:`, response.status, errorText);
+        
+        if ([400, 404, 422].includes(response.status)) {
+          lastError = new HttpError(
+            `Model ${model} unavailable: ${errorText}`,
+            424,
+            'OPENAI_MODEL_UNAVAILABLE',
+            { status: response.status },
+          );
+          continue;
+        }
+
+        throw new HttpError(
+          `OpenAI API error: ${response.status} - ${errorText}`,
+          502,
+          'OPENAI_UPSTREAM_ERROR',
+          { status: response.status },
+        );
+      }
+
+      // Return streaming response with proper CORS headers
+      const headers = new Headers({
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+      
+      // Add CORS headers
+      if (corsOptions) {
+        if (corsOptions.allowOrigin) {
+          headers.set('Access-Control-Allow-Origin', corsOptions.allowOrigin);
+        } else {
+          headers.set('Access-Control-Allow-Origin', '*');
+        }
+        headers.set('Access-Control-Allow-Methods', corsOptions.allowMethods?.join(',') || 'POST, OPTIONS');
+        headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      }
+      
+      return new Response(response.body, { headers });
+    } catch (error) {
+      const normalizedError =
+        error instanceof HttpError
+          ? error
+          : new HttpError(String(error), 502, 'OPENAI_UPSTREAM_ERROR');
+      lastError = normalizedError;
+      console.error(`OpenAI streaming request failed for model ${model}:`, normalizedError.message);
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new HttpError('Unable to reach OpenAI API for streaming', 502, 'OPENAI_UPSTREAM_ERROR');
+}
+
 export const advancedContractAnalysisHandler = async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -118,7 +204,7 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
       throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
     }
 
-    const { text, analysisType, goal, documentId } = payload ?? {};
+    const { text, analysisType, goal, documentId, conversationHistory, ragContext, stream } = payload ?? {};
 
     console.log('Request payload:', { text: text?.length || 0, analysisType, goal });
 
@@ -152,10 +238,17 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
 
     console.log('Processing analysis request for user:', userId);
 
-    // Enhanced system prompt for better legal analysis
+    // Enhanced system prompt for better legal analysis with RAG support
     const systemPrompt = `You are an expert legal AI assistant specializing in contract and document analysis. Your role is to provide comprehensive, structured, and actionable legal insights.
 
 CRITICAL: You MUST base your analysis ONLY on the document content provided. Reference specific clauses, sections, and terms from the actual document text.
+
+RAG CONTEXT HANDLING:
+- When relevant document chunks are provided from the knowledge base, prioritize information from those chunks
+- Cite the source document name when referencing information from RAG context
+- If RAG context is provided, use it to answer the question even if it's not in the main document text
+- Combine information from multiple sources when relevant
+- If information conflicts between sources, note the discrepancy
 
 CRITICAL OUTPUT FORMATTING RULES:
 - NEVER use # headings in responses
@@ -338,13 +431,45 @@ ${text}
 Provide a comprehensive analysis covering key terms, risks, and recommendations.`;
     }
 
-    console.log('Making request to OpenAI for advanced contract analysis');
+    // Build messages array with conversation history if provided
+    const messages: Array<{ role: string; content: string }> = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    // Add conversation history if provided (last 10 messages to manage context)
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      const recentHistory = conversationHistory.slice(-10); // Keep last 10 messages
+      messages.push(...recentHistory.map((msg: any) => ({
+        role: msg.role || 'user',
+        content: msg.content || ''
+      })));
+    }
+
+    // Add RAG context if provided
+    if (ragContext && typeof ragContext === 'string' && ragContext.trim()) {
+      messages.push({
+        role: 'user',
+        content: `RELEVANT DOCUMENT CONTEXT FROM KNOWLEDGE BASE:\n\n${ragContext}\n\n---\n\nNow answer the user's question based on this context.`
+      });
+    }
+
+    // Add the current user prompt
+    messages.push({ role: 'user', content: userPrompt });
+
+    console.log('Making request to OpenAI for advanced contract analysis', { 
+      messageCount: messages.length,
+      hasHistory: conversationHistory?.length > 0,
+      hasRAGContext: !!ragContext,
+      stream: stream === true
+    });
+
+    // If streaming is requested, handle streaming response
+    if (stream === true) {
+      return handleStreamingResponse(messages, corsOptions);
+    }
 
     const { data, modelUsed } = await requestChatCompletion({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
+      messages,
       max_completion_tokens: 4000,
     });
 

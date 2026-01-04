@@ -51,8 +51,8 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
           'match_document_chunks',
           {
             query_embedding: embeddingData.embedding,
-            match_threshold: 0.7,
-            match_count: 10
+            match_threshold: 0.6, // Lowered from 0.7 to get more relevant results
+            match_count: 15 // Increased from 10 to get more context
           }
         );
 
@@ -221,6 +221,20 @@ export function useProcessDocument() {
       content: string;
       documentType?: 'document' | 'contract';
     }) => {
+      // Ensure we have an active session - Supabase client should automatically include auth header
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData?.session) {
+        // Try to refresh the session if it's missing
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData?.session) {
+          logError('No active session for document processing', { refreshError });
+          throw new Error(`Authentication required. Please sign in again.`);
+        }
+      }
+
+      // Supabase client automatically includes Authorization header with session token
       const { data, error } = await supabase.functions.invoke('process-document-chunks', {
         body: {
           documentId,
@@ -231,6 +245,7 @@ export function useProcessDocument() {
       });
 
       if (error) {
+        logError('Failed to process document chunks', { error, documentId, contractId });
         throw new Error(`Failed to process document: ${error.message}`);
       }
 

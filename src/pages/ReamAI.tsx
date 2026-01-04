@@ -609,6 +609,22 @@ export default function ReamAI() {
     }
   }
 
+  // Helper function to manage context window (max ~100k chars for GPT-5.1)
+  function manageContextWindow(content: string, maxLength: number = 80000): string {
+    if (content.length <= maxLength) {
+      return content;
+    }
+    
+    // If content is too long, take the beginning and end (most relevant parts)
+    const startLength = Math.floor(maxLength * 0.6); // 60% from start
+    const endLength = Math.floor(maxLength * 0.4); // 40% from end
+    
+    const start = content.substring(0, startLength);
+    const end = content.substring(content.length - endLength);
+    
+    return `${start}\n\n[... Content truncated for context window management. Showing beginning and end of document ...]\n\n${end}`;
+  }
+
   // Handle sending a message
   async function sendMessage(e?: React.FormEvent, presetMessage?: string) {
     e?.preventDefault();
@@ -686,11 +702,22 @@ export default function ReamAI() {
             relevantDocs.contracts.length > 0))
       ) {
         if (selectedDoc && documentContent) {
-          // Use the full content from the manually selected document
-          content = documentContent.fullContent || "";
+          // Use the full content from the manually selected document, managing context window
+          let fullContent = documentContent.fullContent || "";
+          content = manageContextWindow(fullContent);
+
+          // Also include RAG results if available for additional context
+          let additionalRAGContext = "";
+          if (ragResults && ragResults.length > 0) {
+            const topRAGResults = ragResults.slice(0, 5);
+            additionalRAGContext = `\n\nADDITIONAL RELEVANT CONTEXT FROM KNOWLEDGE BASE:\n${topRAGResults.map((result, i) => 
+              `[SOURCE ${i + 1}] "${result.documentName}" (similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content.substring(0, 500)}${result.content.length > 500 ? "..." : ""}`
+            ).join("\n\n")}`;
+          }
 
           // Add metadata for better context
-          contextInfo = `Document: ${
+          contextInfo = `PRIMARY DOCUMENT FOR ANALYSIS:
+Document: ${
             documentContent.type === "contract"
               ? documentContent.title
               : documentContent.name
@@ -709,10 +736,16 @@ Created: ${
               : "Unknown"
           }
 
-Question: ${userMessage}
+USER QUESTION: ${userMessage}
 
-Document Content:
-${content}`;
+DOCUMENT CONTENT:
+${content}${additionalRAGContext}
+
+INSTRUCTIONS:
+- Base your analysis primarily on the PRIMARY DOCUMENT above
+- Use ADDITIONAL RELEVANT CONTEXT to supplement your analysis when relevant
+- Cite sources when referencing information from additional context using [SOURCE X] format
+- Reference specific sections, clauses, or terms from the document when possible`;
 
           // If still no content, provide guidance
           if (!content.trim()) {
@@ -723,8 +756,8 @@ ${content}`;
             }" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
           }
         } else if (selectedFile && extractedContent) {
-          // Use the extracted content
-          content = extractedContent;
+          // Use the extracted content, managing context window
+          content = manageContextWindow(extractedContent);
           contextInfo = `Document: ${selectedFile.name}
 Type: ${selectedFile.type || "Unknown"}
 Size: ${(selectedFile.size / 1024).toFixed(1)} KB
@@ -742,26 +775,28 @@ ${extractedContent}`;
           });
           return;
         } else if (ragResults && ragResults.length > 0) {
-          // Use RAG results for enhanced context
-          const topResults = ragResults.slice(0, 5); // Use top 5 most relevant chunks
+          // Use RAG results for enhanced context with better formatting
+          const topResults = ragResults.slice(0, 8); // Use top 8 most relevant chunks
 
-          let contextContent = `Found ${topResults.length} relevant document chunks from your knowledge base:\n\n`;
+          let contextContent = `I found ${topResults.length} highly relevant document chunks from your knowledge base:\n\n`;
 
           topResults.forEach((result, i) => {
-            contextContent += `${i + 1}. From "${result.documentName}" (${result.documentType}):\n`;
-            contextContent += `   ${result.content.substring(0, 300)}${
-              result.content.length > 300 ? "..." : ""
-            }\n`;
-            contextContent += `   Relevance: ${(result.similarity * 100).toFixed(
-              1
-            )}%\n\n`;
+            contextContent += `[SOURCE ${i + 1}] Document: "${result.documentName}" (Type: ${result.documentType})\n`;
+            contextContent += `Similarity Score: ${(result.similarity * 100).toFixed(1)}%\n`;
+            contextContent += `Content:\n${result.content}\n\n`;
           });
 
-          contextInfo = `Based on your question: "${userMessage}"
+          contextInfo = `USER QUESTION: "${userMessage}"
 
+RELEVANT KNOWLEDGE BASE CONTENT:
 ${contextContent}
 
-Please provide a comprehensive answer based on the relevant document content above.`;
+INSTRUCTIONS:
+- Answer the user's question using ONLY the information from the sources above
+- Cite sources using [SOURCE X] format when referencing specific information
+- If the question cannot be answered from the provided sources, say so clearly
+- Prioritize information from sources with higher similarity scores
+- Combine information from multiple sources when relevant`;
 
           content = contextInfo;
         } else if (
@@ -821,6 +856,24 @@ I'll answer based on the relevant information found above.`;
           content = contextInfo;
         }
 
+        // Build RAG context if we have RAG results
+        let ragContextString = "";
+        if (ragResults && ragResults.length > 0 && !selectedDoc) {
+          const topRAGResults = ragResults.slice(0, 8);
+          ragContextString = topRAGResults.map((result, i) => 
+            `[SOURCE ${i + 1}] "${result.documentName}" (${result.documentType}, similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content}`
+          ).join("\n\n");
+        }
+
+        // Build conversation history (exclude system message and current message)
+        const conversationHistory = messages
+          .filter(msg => msg.role !== "system")
+          .slice(0, -1) // Exclude the current user message
+          .map(msg => ({
+            role: msg.role,
+            content: msg.content
+          }));
+
         // Stream the AI analysis with enhanced context
         await streamAnalysis({
           content: contextInfo || content,
@@ -835,6 +888,8 @@ I'll answer based on the relevant information found above.`;
               userMessage.toLowerCase().includes("summarize")
             ? "summary"
             : "general",
+          conversationHistory: conversationHistory,
+          ragContext: ragContextString || undefined,
           onProgress: (aiContent, done) => {
             setMessages((msgs) =>
               msgs.map((msg, i) =>
@@ -862,14 +917,40 @@ I'll answer based on the relevant information found above.`;
         setIsTyping(true);
 
         try {
+          // Build conversation history for general queries too
+          const conversationHistory = messages
+            .filter(msg => msg.role !== "system")
+            .slice(0, -1)
+            .map(msg => ({
+              role: msg.role,
+              content: msg.content
+            }));
+
+          // Check if we have RAG results even without selected doc
+          let ragContextString = "";
+          if (ragResults && ragResults.length > 0) {
+            const topRAGResults = ragResults.slice(0, 8);
+            ragContextString = topRAGResults.map((result, i) => 
+              `[SOURCE ${i + 1}] "${result.documentName}" (${result.documentType}, similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content}`
+            ).join("\n\n");
+          }
+
           // Use the AI for general legal questions
           await streamAnalysis({
-            content: `You are a helpful legal AI assistant. Answer the following question clearly and professionally:
+            content: ragContextString 
+              ? `Based on your question and relevant documents from your knowledge base, provide a comprehensive answer.
+
+Question: ${userMessage}
+
+${ragContextString ? `RELEVANT KNOWLEDGE BASE CONTENT:\n${ragContextString}\n\nAnswer using the information above, citing sources with [SOURCE X] format.` : 'Provide a comprehensive answer based on general legal knowledge. If the question would benefit from specific document context, mention that the user can select or upload a document for more detailed analysis.'}`
+              : `You are a helpful legal AI assistant. Answer the following question clearly and professionally:
 
 Question: ${userMessage}
 
 Provide a comprehensive answer based on general legal knowledge. If the question would benefit from specific document context, mention that the user can select or upload a document for more detailed analysis.`,
             analysisType: "general",
+            conversationHistory: conversationHistory,
+            ragContext: ragContextString || undefined,
             onProgress: (aiContent, done) => {
               setMessages((msgs) =>
                 msgs.map((msg, i) =>

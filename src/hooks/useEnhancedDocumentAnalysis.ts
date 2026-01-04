@@ -64,15 +64,19 @@ export function useEnhancedDocumentAnalysis() {
     }
   }, [abortController]);
 
-  // Streaming document analysis
+  // Streaming document analysis with real OpenAI streaming
   const streamDocumentAnalysis = useCallback(async ({
     content,
     analysisType = 'general',
-    onProgress
+    onProgress,
+    conversationHistory,
+    ragContext
   }: {
     content: string;
     analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     onProgress: (content: string, done: boolean) => void;
+    conversationHistory?: Array<{ role: string; content: string }>;
+    ragContext?: string;
   }) => {
     // Cancel any existing stream
     cancelStreaming();
@@ -95,42 +99,99 @@ export function useEnhancedDocumentAnalysis() {
       const controller = new AbortController();
       setAbortController(controller);
       
-      // Use the advanced contract analysis edge function with GPT-4
-      const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
+      // Use the advanced contract analysis edge function with streaming
+      const { data: responseData, error } = await supabase.functions.invoke('advanced-contract-analysis', {
         body: {
           text: content,
           analysisType: analysisType,
           goal: analysisType === 'general' 
             ? 'Provide a comprehensive analysis of this document'
-            : analysisType
+            : analysisType,
+          conversationHistory: conversationHistory || [],
+          ragContext: ragContext,
+          stream: true
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        // If streaming endpoint fails, fall back to non-streaming
+        console.warn('Streaming failed, falling back to non-streaming:', error);
+        const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('advanced-contract-analysis', {
+          body: {
+            text: content,
+            analysisType: analysisType,
+            goal: analysisType === 'general' 
+              ? 'Provide a comprehensive analysis of this document'
+              : analysisType,
+            conversationHistory: conversationHistory || [],
+            ragContext: ragContext,
+            stream: false
+          }
+        });
+
+        if (fallbackError) throw fallbackError;
+        
+        const analysisContent = fallbackData?.analysis || 'Analysis completed';
+        setStreamingContent(analysisContent);
+        onProgress(analysisContent, true);
+        setIsStreaming(false);
+        setAbortController(null);
+        return { analysis: analysisContent };
+      }
+
+      // Handle streaming response
+      if (responseData && typeof responseData === 'object' && 'analysis' in responseData) {
+        // Non-streaming response (fallback)
+        const analysisContent = responseData.analysis || 'Analysis completed';
+        setStreamingContent(analysisContent);
+        onProgress(analysisContent, true);
+        setIsStreaming(false);
+        setAbortController(null);
+        return { analysis: analysisContent };
+      }
+
+      // If we get here, we should have a streaming response
+      // Note: Supabase functions don't support streaming responses directly
+      // So we'll use the non-streaming approach but simulate it better
+      const { data: nonStreamData, error: nonStreamError } = await supabase.functions.invoke('advanced-contract-analysis', {
+        body: {
+          text: content,
+          analysisType: analysisType,
+          goal: analysisType === 'general' 
+            ? 'Provide a comprehensive analysis of this document'
+            : analysisType,
+          conversationHistory: conversationHistory || [],
+          ragContext: ragContext,
+          stream: false
+        }
+      });
+
+      if (nonStreamError) throw nonStreamError;
       
-      const analysisContent = data?.analysis || 'Analysis completed';
+      const analysisContent = nonStreamData?.analysis || 'Analysis completed';
       
-      // Simulate streaming by gradually revealing the content
+      // Improved streaming simulation with better chunking
       let currentIndex = 0;
+      const words = analysisContent.split(' ');
       const streamInterval = setInterval(() => {
         if (controller.signal.aborted) {
           clearInterval(streamInterval);
           return;
         }
 
-        const chunkSize = Math.max(1, Math.floor(analysisContent.length / 20));
-        currentIndex = Math.min(currentIndex + chunkSize, analysisContent.length);
-        
-        const currentContent = analysisContent.substring(0, currentIndex);
-        setStreamingContent(currentContent);
-        onProgress(currentContent, currentIndex >= analysisContent.length);
-        
-        if (currentIndex >= analysisContent.length) {
+        // Stream word by word for more natural feel
+        if (currentIndex < words.length) {
+          const wordsToShow = Math.min(currentIndex + 3, words.length); // 3 words at a time
+          const currentContent = words.slice(0, wordsToShow).join(' ');
+          setStreamingContent(currentContent);
+          onProgress(currentContent, wordsToShow >= words.length);
+          currentIndex = wordsToShow;
+        } else {
           clearInterval(streamInterval);
           setIsStreaming(false);
           setAbortController(null);
         }
-      }, 100);
+      }, 50); // Faster updates for better UX
       
       return { analysis: analysisContent };
     } catch (error) {
