@@ -27,7 +27,6 @@ import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { CalendarEvent } from "@/types";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameMonth, startOfMonth, endOfMonth, startOfDay, isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import { useEnhancedToast } from "@/components/ui/enhanced-toast";
 import { env } from "@/lib/env";
 import {
@@ -37,7 +36,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -55,11 +53,10 @@ export default function Calendar() {
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
   const [eventTypeFilter, setEventTypeFilter] = useState<EventTypeFilter>('all');
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: events = [], isLoading, refetch } = useCalendarEvents();
+  const { data: events = [], isLoading } = useCalendarEvents();
   const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasSsoConfig, setHasSsoConfig] = useState(false);
-  const { toast } = useToast();
   const { success, error: showError } = useEnhancedToast();
   const calendarFeedUrl = `${env.APP_URL}/api/calendar/ics`;
   const calendarSubscribeUrl = calendarFeedUrl.replace(/^https?:\/\//, "webcal://");

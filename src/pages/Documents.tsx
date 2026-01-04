@@ -10,7 +10,21 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, ColumnDef } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FileText, Upload } from "lucide-react";
+import {
+  FileText,
+  Upload,
+  Search,
+  Filter,
+  Eye,
+  Download,
+  Share,
+  MoreVertical,
+  FileImage,
+  File,
+  MessageSquare,
+  Calendar,
+  User
+} from "lucide-react";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import {
   Select,
@@ -20,29 +34,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Upload,
-  Search,
-  Filter,
-  Eye,
-  Download,
-  Share,
-  MoreVertical,
-  FileText,
-  FileImage,
-  File,
-  MessageSquare,
-  Calendar,
-  User
-} from "lucide-react";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Document } from "@/types";
-
-import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { InternalShareDialog } from '@/components/InternalShareDialog';
 import { ShareDocumentDialog } from '@/components/ui/ShareDocumentDialog';

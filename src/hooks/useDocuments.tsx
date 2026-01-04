@@ -134,7 +134,7 @@ export function useDocument(id: string) {
       if (error) throw error;
 
       // If document has a case_id in metadata, fetch the case info
-      const documentWithCase = { ...data };
+      const documentWithCase = { ...data } as Document & { case?: { id: string; title: string } | null };
       const metadata = data.metadata as Record<string, unknown> | null;
       const caseId = metadata?.case_id;
       if (caseId && typeof caseId === 'string') {
@@ -280,6 +280,9 @@ export function useCreateDocument() {
   return useMutation({
     mutationFn: async (documentData: CreateDocumentData) => {
       const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
@@ -342,6 +345,9 @@ export function useUploadDocument() {
       terms
     }: UploadDocumentData) => {
       const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')

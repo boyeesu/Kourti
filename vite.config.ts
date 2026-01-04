@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+// @ts-ignore - vite plugin types are handled by vite
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";

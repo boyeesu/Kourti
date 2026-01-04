@@ -5,7 +5,6 @@ import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { buildQueryKey } from '@/utils/query-helpers';
 import { logError } from '@/lib/logger';
-import type { Database } from '@/integrations/supabase/types';
 
 // Types for the API hooks
 type FetchDataOptions = {

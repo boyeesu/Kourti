@@ -42,6 +42,8 @@ export interface Case {
    * does not affect regular CRUD operations.
    */
   count?: number;
+  assigned_to?: string | null;
+  assigned_user?: { id: string; first_name: string | null; last_name: string | null } | null;
 }
 
 export interface Organization {
@@ -133,7 +135,7 @@ export interface CalendarEvent {
 export interface Document {
   id: string;
   /**
-   * Human-readable title of the document (e.g. “NDA – ACME Corp”).  This field
+   * Human-readable title of the document (e.g. "NDA – ACME Corp").  This field
    * is accessed by several UI components and therefore provided in addition to
    * the legacy `name` property.
    */
@@ -170,6 +172,10 @@ export interface Document {
   organization_id: string;
   case_id?: string;
   client_id?: string;
+  /**
+   * Optional case data attached to the document (fetched separately)
+   */
+  case?: { id: string; title: string } | null;
 }
 
 export interface Contract {

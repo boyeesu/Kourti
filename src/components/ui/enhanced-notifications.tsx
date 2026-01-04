@@ -1,19 +1,17 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Bell,
   CheckCircle2,
-  Clock,
   AlertTriangle,
   Calendar,
   FileText,
   Briefcase,
   Info,
   CheckCheck,
-  Settings,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,40 +38,13 @@ interface EnhancedNotificationsProps {
 
 export function EnhancedNotifications({
   notifications,
-  onMarkAsRead,
+  onMarkAsRead: _onMarkAsRead,
   onMarkAllAsRead,
   onDelete,
   onClearAll,
   onNotificationClick,
 }: EnhancedNotificationsProps) {
   const [activeTab, setActiveTab] = useState("all");
-  const [groupBy, setGroupBy] = useState<"none" | "type" | "date">("none");
-
-  // Group notifications
-  const groupedNotifications = useMemo(() => {
-    if (groupBy === "type") {
-      const groups: Record<string, Notification[]> = {};
-      notifications.forEach((notif) => {
-        if (!groups[notif.type]) {
-          groups[notif.type] = [];
-        }
-        groups[notif.type].push(notif);
-      });
-      return groups;
-    }
-    if (groupBy === "date") {
-      const groups: Record<string, Notification[]> = {};
-      notifications.forEach((notif) => {
-        const date = new Date(notif.date).toLocaleDateString();
-        if (!groups[date]) {
-          groups[date] = [];
-        }
-        groups[date].push(notif);
-      });
-      return groups;
-    }
-    return { all: notifications };
-  }, [notifications, groupBy]);
 
   // Filter notifications by tab
   const filteredNotifications = useMemo(() => {

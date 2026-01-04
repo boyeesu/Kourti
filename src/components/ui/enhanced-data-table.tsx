@@ -1,18 +1,16 @@
 import { useState, ReactNode, useMemo, useEffect } from "react";
 import { DataTable, ColumnDef } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
-import { Download, Eye, EyeOff, Columns } from "lucide-react";
+import { Download, Columns } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 interface EnhancedDataTableProps<T> {
   columns: ColumnDef<T>[];

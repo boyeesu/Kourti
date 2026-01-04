@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 import {
   Dialog,

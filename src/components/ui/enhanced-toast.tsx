@@ -1,6 +1,6 @@
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
-import { CheckCircle2, XCircle, AlertCircle, Info, Undo2 } from 'lucide-react';
+import { Undo2 } from 'lucide-react';
 
 interface ToastOptions {
   title: string;

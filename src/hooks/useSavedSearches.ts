@@ -21,14 +21,14 @@ export function useSavedSearches() {
 
     const fetchSearches = async () => {
       try {
-        const { data, error } = await supabase
-          .from("saved_searches")
+        const { data, error } = await (supabase
+          .from("saved_searches" as any)
           .select("*")
           .eq("organization_id", organizationId)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false }));
 
         if (error) throw error;
-        setSavedSearches(data || []);
+        setSavedSearches((data || []) as unknown as SavedSearch[]);
       } catch (error) {
         console.error("Error fetching saved searches:", error);
       } finally {
@@ -48,8 +48,8 @@ export function useSavedSearches() {
     if (!organizationId) return;
 
     try {
-      const { data, error } = await supabase
-        .from("saved_searches")
+      const { data, error } = await (supabase
+        .from("saved_searches" as any)
         .insert({
           organization_id: organizationId,
           name,
@@ -58,11 +58,12 @@ export function useSavedSearches() {
           resource_type: resourceType,
         })
         .select()
-        .single();
+        .single());
 
       if (error) throw error;
-      setSavedSearches((prev) => [data, ...prev]);
-      return data;
+      const savedSearch = data as unknown as SavedSearch;
+      setSavedSearches((prev) => [savedSearch, ...prev]);
+      return savedSearch;
     } catch (error) {
       console.error("Error saving search:", error);
       throw error;
@@ -71,10 +72,10 @@ export function useSavedSearches() {
 
   const deleteSearch = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("saved_searches")
+      const { error } = await (supabase
+        .from("saved_searches" as any)
         .delete()
-        .eq("id", id);
+        .eq("id", id));
 
       if (error) throw error;
       setSavedSearches((prev) => prev.filter((s) => s.id !== id));

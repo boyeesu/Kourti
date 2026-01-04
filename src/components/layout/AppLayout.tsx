@@ -812,11 +812,14 @@ function AppLayoutInner({
                     </CommandGroup>
                   )}
 
-                {hasSearchTerm && !isGlobalSearchLoading && hasSearchResults && (
-                  <div className="px-2 py-1.5 text-xs text-muted-foreground border-t">
-                    Found {Object.values(searchResults).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0)} result{Object.values(searchResults).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0) !== 1 ? 's' : ''}
-                  </div>
-                )}
+                {hasSearchTerm && !isGlobalSearchLoading && hasSearchResults && (() => {
+                  const totalResults = Object.values(searchResults).reduce((sum: number, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
+                  return (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground border-t">
+                      Found {totalResults} result{totalResults !== 1 ? 's' : ''}
+                    </div>
+                  );
+                })()}
                 <CommandEmpty>
                   {!hasSearchTerm
                     ? 'Type at least 2 characters to search across the workspace.'

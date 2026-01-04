@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
 interface UseUnsavedChangesOptions {
@@ -14,7 +14,6 @@ export function useUnsavedChanges({
   enabled = true
 }: UseUnsavedChangesOptions) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
   const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
 

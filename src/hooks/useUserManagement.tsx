@@ -25,12 +25,18 @@ export function useInviteUser() {
   return useMutation({
     mutationFn: async (userData: InviteUserData) => {
       // First create the invitation record in the database
-      const params = {
+      const params: {
+        p_email: string;
+        p_first_name: string;
+        p_last_name: string;
+        p_role: string;
+        p_department?: string;
+      } = {
         p_email: userData.email,
         p_first_name: userData.firstName,
         p_last_name: userData.lastName,
         p_role: userData.role ?? 'user',
-        p_department: userData.department || null,
+        ...(userData.department && { p_department: userData.department }),
       };
 
       const { data, error } = await supabase.rpc('invite_user_to_organization', params);

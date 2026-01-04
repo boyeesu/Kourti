@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Maximize2, Minimize2 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";

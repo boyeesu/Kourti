@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCardSkeleton, PageSkeleton } from "@/components/ui/loading-states";
+import { PageSkeleton } from "@/components/ui/loading-states";
 import { ErrorState } from "@/components/ui/error-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -25,10 +25,8 @@ import {
   Users,
   Briefcase,
   TrendingUp,
-  AlertTriangle,
   Clock,
   DollarSign,
-  RefreshCw,
   ArrowRight,
   ArrowUpRight,
   Calendar,
