@@ -7,7 +7,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, Calendar, CheckCircle2 } from 'lucide-react';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { useToast } from '@/hooks/use-toast';

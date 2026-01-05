@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -722,7 +722,7 @@ export default function ReamAI() {
       let contextInfo: string = "";
 
       // Optimize conversation history
-      const optimizedHistory = optimizeConversationHistory(
+      optimizeConversationHistory(
         messages.map(m => ({ role: m.role, content: m.content }))
       );
 

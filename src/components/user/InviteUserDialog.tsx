@@ -31,7 +31,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { UserPlus2Icon, Upload, FileText, CheckCircle2, XCircle } from 'lucide-react';
+import { UserPlus2Icon, CheckCircle2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAllRoles } from '@/hooks/useAllRoles';
 import { useInviteUser } from '@/hooks/useUserManagement';
@@ -326,7 +326,7 @@ export function InviteUserDialog() {
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                       )}
                       {row.status === 'error' && (
-                        <XCircle className="h-4 w-4 text-red-500" title={row.error} />
+                        <XCircle className="h-4 w-4 text-red-500" />
                       )}
                     </div>
                   ))}

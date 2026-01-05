@@ -19,7 +19,7 @@ interface UseReamAIAssistantOptions {
 export function useReamAIAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { organizationId } = useUserOrganization();
+  const { data: organizationId } = useUserOrganization();
 
   const sendMessage = useCallback(async (
     message: string,

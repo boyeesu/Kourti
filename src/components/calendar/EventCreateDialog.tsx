@@ -239,17 +239,20 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
       // Create reminders if any
       if (remindersToCreate.length > 0 && event?.id) {
         const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id) return;
+        
         const { data: profile } = await supabase
           .from('profiles')
           .select('organization_id')
-          .eq('user_id', user?.id)
+          .eq('user_id', user.id)
           .single();
 
         if (profile?.organization_id) {
           for (const reminder of remindersToCreate) {
+            // @ts-expect-error - Table not in generated types yet
             await supabase.from('event_reminders').insert({
               event_id: event.id,
-              user_id: user?.id,
+              user_id: user.id,
               organization_id: profile.organization_id,
               reminder_type: reminder.minutes > 0 ? 'before' : 'at',
               reminder_minutes: reminder.minutes,

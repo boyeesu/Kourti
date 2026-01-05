@@ -36,14 +36,14 @@ export function useCalendarSync() {
       const userId = await getCurrentUserId();
       if (!userId || !organizationId) return [];
 
-      const { data, error } = await supabase
-        .from('user_calendar_integrations')
+      // @ts-expect-error - Table not in generated types yet
+      const { data, error } = await supabase.from('user_calendar_integrations')
         .select('*')
         .eq('user_id', userId)
         .eq('organization_id', organizationId);
 
       if (error) throw error;
-      return (data as CalendarIntegration[]) || [];
+      return (data as unknown as CalendarIntegration[]) || [];
     },
     enabled: !!organizationId,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -76,8 +76,8 @@ export function useCalendarSync() {
       const integration = integrations.find(i => i.provider === provider);
       if (!integration) throw new Error('Integration not found');
 
-      const { error } = await supabase
-        .from('user_calendar_integrations')
+      // @ts-expect-error - Table not in generated types yet
+      const { error } = await supabase.from('user_calendar_integrations')
         .delete()
         .eq('id', integration.id);
 
@@ -108,8 +108,8 @@ export function useCalendarSync() {
       const integration = integrations.find(i => i.provider === provider);
       if (!integration) throw new Error('Integration not found');
 
-      const { error } = await supabase
-        .from('user_calendar_integrations')
+      // @ts-expect-error - Table not in generated types yet
+      const { error } = await supabase.from('user_calendar_integrations')
         .update({
           ...settings,
           updated_at: new Date().toISOString(),

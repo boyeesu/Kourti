@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Send, X, Minimize2, Maximize2, FileText, Sparkles } from 'lucide-react';
+import { Send, Minimize2, Maximize2, FileText, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEnhancedDocumentAnalysis } from '@/hooks/useEnhancedDocumentAnalysis';
 import { useReamAIAssistant } from '@/hooks/useReamAIAssistant';

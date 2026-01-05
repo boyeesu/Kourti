@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Settings, RefreshCw, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Calendar, Settings, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { CalendarConnectDialog } from './CalendarConnectDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +21,6 @@ export function CalendarSyncSettings() {
   const [selectedProvider, setSelectedProvider] = useState<'google' | 'microsoft' | null>(null);
   const {
     integrations,
-    syncSettings,
     updateSyncSettings,
     disconnectCalendar,
     triggerSync,

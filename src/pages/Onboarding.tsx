@@ -18,7 +18,7 @@ import { AppLogo } from "@/components/ui/AppLogo";
 import { useNotificationTriggers } from "@/hooks/useNotificationTriggers";
 import { trackEvent, AnalyticsEvents, identifyUser } from "@/lib/analytics";
 import { useOnboardingSteps } from "@/hooks/useOnboardingSteps";
-import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { AlertCircle, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const steps = [

@@ -749,8 +749,8 @@ serve(async (req) => {
       return createJsonResponse({
         success: true,
         events_imported: importedEvents.length,
-        events_created,
-        events_updated,
+        events_created: eventsCreated,
+        events_updated: eventsUpdated,
         errors: errors.length,
       }, { cors: corsOptions });
     }
@@ -872,7 +872,7 @@ serve(async (req) => {
           .update({
             status: errors.length > 0 ? 'partial' : 'completed',
             events_synced: events.length,
-            events_created: eventsExported,
+            events_exported: eventsExported,
             errors: errors,
             completed_at: new Date().toISOString(),
           })
@@ -887,14 +887,19 @@ serve(async (req) => {
 
       return createJsonResponse({
         success: true,
-        events_exported,
+        events_exported: eventsExported,
         errors: errors.length,
       }, { cors: corsOptions });
     }
 
     // Connect action (alias for authorize)
     if (action === 'connect') {
-      return handler({ ...req, json: async () => ({ ...body, action: 'authorize' }) } as any);
+      // Redirect to authorize with same parameters
+      return createJsonResponse({ 
+        redirect: true, 
+        action: 'authorize',
+        ...body 
+      }, { cors: corsOptions });
     }
 
     return createJsonResponse({ error: 'Invalid action' }, { status: 400, cors: corsOptions });

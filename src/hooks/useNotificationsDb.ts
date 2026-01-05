@@ -121,8 +121,8 @@ export function useNotificationPreferences(orgId: string) {
       const userId = await getCurrentUserId();
       if (!userId || !orgId) return null;
 
-      const { data, error } = await supabase
-        .from('notification_preferences')
+      // @ts-expect-error - Table not in generated types yet
+      const { data, error } = await supabase.from('notification_preferences')
         .select('*')
         .eq('user_id', userId)
         .eq('organization_id', orgId)
@@ -147,12 +147,13 @@ export function useUpdateNotificationPreferences() {
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase
-        .from('notification_preferences')
+      const { organization_id, ...restPreferences } = preferences;
+      // @ts-expect-error - Table not in generated types yet
+      const { data, error } = await supabase.from('notification_preferences')
         .upsert({
           user_id: userId,
-          organization_id: preferences.organization_id,
-          ...preferences,
+          organization_id: organization_id,
+          ...restPreferences,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'user_id,organization_id'
@@ -187,7 +188,7 @@ export async function pushDbNotification(
 export async function archiveNotification(notificationId: string) {
   const { error } = await supabase
     .from('notifications')
-    .update({ archived_at: new Date().toISOString() })
+    .update({ status: 'archived' })
     .eq('id', notificationId);
 
   if (error) throw error;
@@ -196,7 +197,7 @@ export async function archiveNotification(notificationId: string) {
 export async function unarchiveNotification(notificationId: string) {
   const { error } = await supabase
     .from('notifications')
-    .update({ archived_at: null })
+    .update({ status: 'unread' })
     .eq('id', notificationId);
 
   if (error) throw error;

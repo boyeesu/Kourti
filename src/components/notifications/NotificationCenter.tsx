@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useNotificationsDb, archiveNotification, unarchiveNotification } from '@/hooks/useNotificationsDb';
-import { useNotifications, useUpdateNotification, useDeleteNotification, useMarkAllNotificationsAsRead } from '@/hooks/useNotifications';
+import { useUpdateNotification, useDeleteNotification, useMarkAllNotificationsAsRead } from '@/hooks/useNotifications';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Bell, Check, Trash2, Archive, ArchiveRestore, Search, Filter, X } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { Bell, Check, Trash2, Archive, ArchiveRestore, Search, X } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 

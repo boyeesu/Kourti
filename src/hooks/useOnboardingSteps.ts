@@ -22,15 +22,15 @@ export function useOnboardingSteps() {
       const userId = await getCurrentUserId();
       if (!userId || !organizationId) return [];
 
-      const { data, error } = await supabase
-        .from('user_onboarding_steps')
+      // @ts-expect-error - Table not in generated types yet
+      const { data, error } = await supabase.from('user_onboarding_steps')
         .select('*')
         .eq('user_id', userId)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return (data as OnboardingStep[]) || [];
+      return (data as unknown as OnboardingStep[]) || [];
     },
     enabled: !!organizationId,
   });
@@ -40,8 +40,8 @@ export function useOnboardingSteps() {
       const userId = await getCurrentUserId();
       if (!userId || !organizationId) throw new Error('User or organization not found');
 
-      const { data, error } = await supabase
-        .from('user_onboarding_steps')
+      // @ts-expect-error - Table not in generated types yet
+      const { data, error } = await supabase.from('user_onboarding_steps')
         .upsert({
           user_id: userId,
           organization_id: organizationId,

@@ -86,7 +86,7 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         // Create a service role client to invoke the function
-        const { data, error } = await supabase.functions.invoke(functionName, {
+        const { error } = await supabase.functions.invoke(functionName, {
           body: {
             action,
             timeMin: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Last 7 days
