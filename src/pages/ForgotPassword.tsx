@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
-import logo from "@/assets/kourti-legal-logo.png";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -75,7 +75,7 @@ export default function ForgotPassword() {
         <Card className="w-full max-w-md shadow-card">
           <CardHeader className="text-center space-y-4">
             <div className="flex justify-center">
-              <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
+              <AppLogo size="md" />
             </div>
             <div>
               <CardTitle className="text-2xl font-semibold">Check Your Email</CardTitle>
@@ -136,7 +136,7 @@ export default function ForgotPassword() {
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
+            <AppLogo size="md" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Forgot Password</CardTitle>

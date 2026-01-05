@@ -26,10 +26,13 @@ if (!SSO_STATE_SECRET) {
 
 type CalendarAction =
   | 'authorize'
+  | 'connect'
   | 'list-events'
   | 'create-event'
   | 'update-event'
-  | 'delete-event';
+  | 'delete-event'
+  | 'sync-import'
+  | 'sync-export';
 
 type CalendarEventPayload = {
   title: string;
@@ -624,6 +627,274 @@ serve(async (req) => {
       }
 
       return createJsonResponse({ success: true }, { cors: corsOptions });
+    }
+
+    // Sync-import: Import events from Google Calendar
+    if (action === 'sync-import') {
+      const { timeMin, timeMax } = body;
+      
+      const { data: integration } = await supabase
+        .from('user_calendar_integrations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('provider', 'google')
+        .maybeSingle() as { data: CalendarIntegrationRow | null };
+
+      if (!integration?.access_token) {
+        return createJsonResponse({ error: 'Google Calendar not connected' }, { status: 400, cors: corsOptions });
+      }
+
+      const calendarId = 'primary';
+      const timeMinParam = timeMin || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const timeMaxParam = timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Refresh token if needed
+      let accessToken = integration.access_token;
+      if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
+        // Token refresh logic would go here
+        // For now, use existing token
+      }
+
+      const eventsResponse = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?timeMin=${timeMinParam}&timeMax=${timeMaxParam}&singleEvents=true`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      if (!eventsResponse.ok) {
+        return createJsonResponse({ error: 'Failed to fetch Google Calendar events' }, { status: 502, cors: corsOptions });
+      }
+
+      const eventsData = await eventsResponse.json();
+      const importedEvents = eventsData.items || [];
+
+      // Create sync log
+      const { data: syncLog } = await supabase
+        .from('calendar_sync_logs')
+        .insert({
+          integration_id: integration.id,
+          sync_type: 'import',
+          status: 'running',
+          started_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      let eventsCreated = 0;
+      let eventsUpdated = 0;
+      const errors: any[] = [];
+
+      for (const googleEvent of importedEvents) {
+        try {
+          const existingEvent = await supabase
+            .from('calendar_events')
+            .select('id')
+            .eq('external_event_id', googleEvent.id)
+            .eq('organization_id', integration.organization_id)
+            .single();
+
+          const eventData = {
+            title: googleEvent.summary || 'Untitled Event',
+            description: googleEvent.description,
+            start_date: googleEvent.start.dateTime || googleEvent.start.date,
+            end_date: googleEvent.end.dateTime || googleEvent.end.date,
+            location: googleEvent.location,
+            organization_id: integration.organization_id,
+            created_by: integration.user_id,
+            external_event_id: googleEvent.id,
+            external_source: 'google_calendar',
+            external_calendar_id: calendarId,
+          };
+
+          if (existingEvent.data) {
+            await supabase
+              .from('calendar_events')
+              .update(eventData)
+              .eq('id', existingEvent.data.id);
+            eventsUpdated++;
+          } else {
+            await supabase.from('calendar_events').insert(eventData);
+            eventsCreated++;
+          }
+        } catch (err: any) {
+          errors.push({ event_id: googleEvent.id, error: err.message });
+        }
+      }
+
+      // Update sync log
+      if (syncLog) {
+        await supabase
+          .from('calendar_sync_logs')
+          .update({
+            status: errors.length > 0 ? 'partial' : 'completed',
+            events_synced: importedEvents.length,
+            events_created: eventsCreated,
+            events_updated: eventsUpdated,
+            errors: errors,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', syncLog.id);
+      }
+
+      // Update last_sync_at
+      await supabase
+        .from('user_calendar_integrations')
+        .update({ last_sync_at: new Date().toISOString() })
+        .eq('id', integration.id);
+
+      return createJsonResponse({
+        success: true,
+        events_imported: importedEvents.length,
+        events_created,
+        events_updated,
+        errors: errors.length,
+      }, { cors: corsOptions });
+    }
+
+    // Sync-export: Export events to Google Calendar
+    if (action === 'sync-export') {
+      const { data: integration } = await supabase
+        .from('user_calendar_integrations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('provider', 'google')
+        .maybeSingle() as { data: CalendarIntegrationRow | null };
+
+      if (!integration?.access_token) {
+        return createJsonResponse({ error: 'Google Calendar not connected' }, { status: 400, cors: corsOptions });
+      }
+
+      const { timeMin, timeMax } = body;
+      const timeMinParam = timeMin || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const timeMaxParam = timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Get events that need to be synced
+      const { data: events } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('organization_id', integration.organization_id)
+        .gte('start_date', timeMinParam)
+        .lte('end_date', timeMaxParam)
+        .or(`external_event_id.is.null,external_source.neq.google_calendar`);
+
+      if (!events || events.length === 0) {
+        return createJsonResponse({ success: true, events_exported: 0 }, { cors: corsOptions });
+      }
+
+      // Create sync log
+      const { data: syncLog } = await supabase
+        .from('calendar_sync_logs')
+        .insert({
+          integration_id: integration.id,
+          sync_type: 'export',
+          status: 'running',
+          started_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      // Refresh token if needed
+      let accessToken = integration.access_token;
+      if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
+        // Token refresh logic would go here
+        // For now, use existing token
+      }
+
+      let eventsExported = 0;
+      const errors: any[] = [];
+
+      for (const event of events) {
+        try {
+          const googleEvent = {
+            summary: event.title,
+            description: event.description || '',
+            start: { dateTime: event.start_date, timeZone: 'UTC' },
+            end: { dateTime: event.end_date, timeZone: 'UTC' },
+            location: event.location || '',
+          };
+
+          let response;
+          if (event.external_event_id) {
+            // Update existing event
+            response = await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.external_event_id}`,
+              {
+                method: 'PUT',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(googleEvent),
+              }
+            );
+          } else {
+            // Create new event
+            response = await fetch(
+              'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(googleEvent),
+              }
+            );
+          }
+
+          if (response.ok) {
+            const googleEventData = await response.json();
+            await supabase
+              .from('calendar_events')
+              .update({
+                external_event_id: googleEventData.id,
+                external_source: 'google_calendar',
+                external_calendar_id: 'primary',
+              })
+              .eq('id', event.id);
+            eventsExported++;
+          } else {
+            throw new Error(`HTTP ${response.status}`);
+          }
+        } catch (err: any) {
+          errors.push({ event_id: event.id, error: err.message });
+        }
+      }
+
+      // Update sync log
+      if (syncLog) {
+        await supabase
+          .from('calendar_sync_logs')
+          .update({
+            status: errors.length > 0 ? 'partial' : 'completed',
+            events_synced: events.length,
+            events_created: eventsExported,
+            errors: errors,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', syncLog.id);
+      }
+
+      // Update last_sync_at
+      await supabase
+        .from('user_calendar_integrations')
+        .update({ last_sync_at: new Date().toISOString() })
+        .eq('id', integration.id);
+
+      return createJsonResponse({
+        success: true,
+        events_exported,
+        errors: errors.length,
+      }, { cors: corsOptions });
+    }
+
+    // Connect action (alias for authorize)
+    if (action === 'connect') {
+      return handler({ ...req, json: async () => ({ ...body, action: 'authorize' }) } as any);
     }
 
     return createJsonResponse({ error: 'Invalid action' }, { status: 400, cors: corsOptions });

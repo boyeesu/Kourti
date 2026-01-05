@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/kourti-legal-logo.png";
+import { AppLogo } from "@/components/ui/AppLogo";
 
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
@@ -252,7 +252,7 @@ export default function ResetPassword() {
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
+            <AppLogo size="md" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Reset Your Password</CardTitle>

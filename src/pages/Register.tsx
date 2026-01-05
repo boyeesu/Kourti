@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Lock, Eye, EyeOff, User, Building, Globe2, LogIn } from "lucide-react";
-import logo from "@/assets/kourti-legal-logo.png";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -174,7 +174,7 @@ export default function Register() {
       <Card className="w-full max-w-4xl shadow-card border border-border/50">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
+            <AppLogo size="md" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>

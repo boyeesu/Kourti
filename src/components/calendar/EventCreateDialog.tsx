@@ -30,10 +30,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Repeat, Bell } from "lucide-react";
 import { useCreateCalendarEvent } from "@/hooks/useCalendar";
 import { useCases } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 
 const eventSchema = z
   .object({
@@ -46,6 +49,14 @@ const eventSchema = z
     case_id: z.string().optional(),
     client_id: z.string().optional(),
     attendees: z.array(z.string()).optional(),
+    is_recurring: z.boolean().optional(),
+    recurrence_frequency: z.enum(["daily", "weekly", "monthly", "yearly"]).optional(),
+    recurrence_interval: z.number().min(1).optional(),
+    recurrence_end_date: z.string().optional(),
+    reminders: z.array(z.object({
+      minutes: z.number().min(0),
+      method: z.enum(["in_app", "email", "both"]),
+    })).optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.start_date || !data.end_date) {
@@ -66,6 +77,25 @@ const eventSchema = z
         path: ["end_date"],
       });
     }
+
+    if (data.is_recurring && !data.recurrence_frequency) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Recurrence frequency is required for recurring events",
+        path: ["recurrence_frequency"],
+      });
+    }
+
+    if (data.is_recurring && data.recurrence_end_date) {
+      const recurrenceEnd = new Date(data.recurrence_end_date);
+      if (recurrenceEnd <= start) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Recurrence end date must be after start date",
+          path: ["recurrence_end_date"],
+        });
+      }
+    }
   });
 
 type EventFormValues = z.infer<typeof eventSchema>;
@@ -79,6 +109,8 @@ interface EventCreateDialogProps {
 export function EventCreateDialog({ children, defaultDate, defaultEventType = "meeting" }: EventCreateDialogProps) {
   const [open, setOpen] = useState(false);
   const [newAttendee, setNewAttendee] = useState("");
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [reminders, setReminders] = useState<Array<{ minutes: number; method: "in_app" | "email" | "both" }>>([]);
   const createEvent = useCreateCalendarEvent();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
@@ -118,6 +150,10 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
       case_id: "",
       client_id: "",
       attendees: [],
+      is_recurring: false,
+      recurrence_frequency: "weekly",
+      recurrence_interval: 1,
+      reminders: [],
     },
   });
 
@@ -177,14 +213,55 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
 
   const onSubmit = async (data: EventFormValues) => {
     // Convert 'none' to undefined/null for case_id and client_id
-    const payload = {
+    const payload: any = {
       ...data,
       case_id: data.case_id === 'none' ? undefined : data.case_id,
       client_id: data.client_id === 'none' ? undefined : data.client_id,
     };
+
+    // Build recurrence pattern if recurring
+    if (data.is_recurring && data.recurrence_frequency) {
+      payload.recurrence_pattern = {
+        frequency: data.recurrence_frequency,
+        interval: data.recurrence_interval || 1,
+      };
+      if (data.recurrence_end_date) {
+        payload.recurrence_end_date = data.recurrence_end_date;
+      }
+    }
+
+    // Store reminders separately (will be created after event creation)
+    const remindersToCreate = data.reminders || [];
+
     try {
-      await createEvent.mutateAsync(payload);
+      const event = await createEvent.mutateAsync(payload);
+      
+      // Create reminders if any
+      if (remindersToCreate.length > 0 && event?.id) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('user_id', user?.id)
+          .single();
+
+        if (profile?.organization_id) {
+          for (const reminder of remindersToCreate) {
+            await supabase.from('event_reminders').insert({
+              event_id: event.id,
+              user_id: user?.id,
+              organization_id: profile.organization_id,
+              reminder_type: reminder.minutes > 0 ? 'before' : 'at',
+              reminder_minutes: reminder.minutes,
+              notification_method: reminder.method,
+            });
+          }
+        }
+      }
+
       form.reset();
+      setIsRecurring(false);
+      setReminders([]);
       setOpen(false);
     } catch (error) {
       console.error("Failed to create event:", error);
@@ -376,8 +453,149 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
               />
             </div>
 
+            {/* Recurring Events Section */}
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is_recurring"
+                  checked={isRecurring}
+                  onCheckedChange={(checked) => {
+                    setIsRecurring(checked as boolean);
+                    form.setValue("is_recurring", checked as boolean);
+                  }}
+                />
+                <Label htmlFor="is_recurring" className="flex items-center gap-2 cursor-pointer">
+                  <Repeat className="h-4 w-4" />
+                  Recurring Event
+                </Label>
+              </div>
+              {isRecurring && (
+                <div className="pl-6 space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="recurrence_frequency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Frequency</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="daily">Daily</SelectItem>
+                              <SelectItem value="weekly">Weekly</SelectItem>
+                              <SelectItem value="monthly">Monthly</SelectItem>
+                              <SelectItem value="yearly">Yearly</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="recurrence_interval"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Repeat Every</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="1"
+                              {...field}
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="recurrence_end_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Date (Optional)</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Reminders Section */}
+            <div className="space-y-3 border-t pt-4">
+              <Label className="flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                Reminders
+              </Label>
+              <div className="space-y-2">
+                {[15, 30, 60, 1440].map((minutes) => {
+                  const reminder = reminders.find(r => r.minutes === minutes);
+                  const label = minutes < 60 
+                    ? `${minutes} minutes before`
+                    : minutes === 60
+                    ? '1 hour before'
+                    : '1 day before';
+                  
+                  return (
+                    <div key={minutes} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`reminder-${minutes}`}
+                          checked={!!reminder}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setReminders([...reminders, { minutes, method: 'both' }]);
+                              form.setValue("reminders", [...reminders, { minutes, method: 'both' }]);
+                            } else {
+                              const updated = reminders.filter(r => r.minutes !== minutes);
+                              setReminders(updated);
+                              form.setValue("reminders", updated);
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`reminder-${minutes}`} className="cursor-pointer">
+                          {label}
+                        </Label>
+                      </div>
+                      {reminder && (
+                        <Select
+                          value={reminder.method}
+                          onValueChange={(value: any) => {
+                            const updated = reminders.map(r => 
+                              r.minutes === minutes ? { ...r, method: value } : r
+                            );
+                            setReminders(updated);
+                            form.setValue("reminders", updated);
+                          }}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="in_app">In-App</SelectItem>
+                            <SelectItem value="email">Email</SelectItem>
+                            <SelectItem value="both">Both</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Attendees Section */}
-            <div className="space-y-3">
+            <div className="space-y-3 border-t pt-4">
               <FormLabel>Attendees</FormLabel>
               <div className="flex gap-2">
                 <Input

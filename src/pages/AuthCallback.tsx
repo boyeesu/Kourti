@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/kourti-legal-logo.png";
+import { AppLogo } from "@/components/ui/AppLogo";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -77,7 +77,7 @@ export default function AuthCallback() {
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
+            <AppLogo size="md" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Almost there</CardTitle>

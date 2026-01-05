@@ -39,7 +39,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/kourti-legal-logo.png";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { cn } from "@/lib/utils";
 
 // Navigation item type definition
@@ -281,7 +281,7 @@ const AppSidebar: React.FC = () => {
         <SidebarHeader className="border-b border-[hsl(var(--sidebar-border))] px-4 py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(var(--primary))/0.1]">
-              <img src={logo} alt="Kourti Legal" className="h-5 w-5" />
+              <AppLogo size="sm" />
             </div>
             {!collapsed && (
               <div className="flex flex-col">

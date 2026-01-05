@@ -2,12 +2,17 @@ import { useCreateNotification } from '@/hooks/useNotifications';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { supabase } from '@/integrations/supabase/client';
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics';
+import { useNotificationPreferences } from '@/hooks/useNotificationsDb';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export function useNotificationTriggers() {
   const createNotification = useCreateNotification();
+  const { data: organizationId } = useUserOrganization();
+  const { data: preferences } = useNotificationPreferences(organizationId || '');
 
   /**
    * Send email notification via edge function
+   * Now respects user preferences
    */
   const sendEmailNotification = async (params: {
     type: 'task_assigned' | 'case_update' | 'document_shared' | 'calendar_reminder' | 'invoice_created' | 'general';
@@ -18,6 +23,36 @@ export function useNotificationTriggers() {
     actionText?: string;
   }) => {
     try {
+      // Check preferences if available
+      if (preferences && params.recipientUserId === (await getCurrentUserId())) {
+        if (!preferences.email_enabled) {
+          console.log('Email notifications disabled by user preference');
+          return;
+        }
+
+        // Check email frequency
+        if (preferences.email_frequency === 'never') {
+          console.log('Email notifications set to never');
+          return;
+        }
+
+        // Check type-specific preferences
+        const typeMap: Record<string, keyof typeof preferences> = {
+          task_assigned: 'task_notifications',
+          case_update: 'case_notifications',
+          document_shared: 'document_notifications',
+          calendar_reminder: 'calendar_notifications',
+          invoice_created: 'invoice_notifications',
+          general: 'general_notifications',
+        };
+
+        const preferenceKey = typeMap[params.type];
+        if (preferenceKey && preferences[preferenceKey] === false) {
+          console.log(`Email notifications disabled for type: ${params.type}`);
+          return;
+        }
+      }
+
       const { error } = await supabase.functions.invoke('send-notification-email', {
         body: params,
       });

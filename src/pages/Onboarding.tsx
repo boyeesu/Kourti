@@ -14,9 +14,12 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { buildDisplayName, getAuthRedirectUrl } from "@/utils/auth-helpers";
 import { env } from "@/lib/env";
-import logo from "@/assets/kourti-legal-logo.png";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { useNotificationTriggers } from "@/hooks/useNotificationTriggers";
 import { trackEvent, AnalyticsEvents, identifyUser } from "@/lib/analytics";
+import { useOnboardingSteps } from "@/hooks/useOnboardingSteps";
+import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const steps = [
   {
@@ -110,6 +113,7 @@ const countries = [
 
 export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
     organization: {
@@ -134,6 +138,7 @@ export default function Onboarding() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createOnboardingNotification } = useNotificationTriggers();
+  const { markStepComplete } = useOnboardingSteps();
 
   useEffect(() => {
     if (!user) {
@@ -161,9 +166,65 @@ export default function Onboarding() {
 
   const progress = (currentStep / steps.length) * 100;
 
+  const validateStep = (step: number): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (step === 1) {
+      if (!formData.organization.name.trim()) {
+        errors.orgName = "Organization name is required";
+      }
+      if (!formData.organization.type) {
+        errors.orgType = "Organization type is required";
+      }
+      if (!formData.organization.size) {
+        errors.orgSize = "Organization size is required";
+      }
+      if (!formData.organization.address.trim()) {
+        errors.orgAddress = "Business address is required";
+      }
+      if (!formData.organization.state.trim()) {
+        errors.orgState = "State/Province is required";
+      }
+      if (!formData.organization.country) {
+        errors.orgCountry = "Country is required";
+      }
+      if (!formData.organization.phone.trim()) {
+        errors.orgPhone = "Phone number is required";
+      }
+      if (!formData.organization.email.trim()) {
+        errors.orgEmail = "Organization email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.organization.email)) {
+        errors.orgEmail = "Please enter a valid email address";
+      }
+    }
+    
+    if (step === 2) {
+      // Team step is optional, but validate emails if provided
+      const validEmails = formData.team.inviteEmails.filter(email => email.trim());
+      for (let i = 0; i < validEmails.length; i++) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(validEmails[i])) {
+          errors[`teamEmail${i}`] = "Please enter a valid email address";
+        }
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleNext = () => {
+    if (!validateStep(currentStep)) {
+      toast({
+        variant: "destructive",
+        title: "Please complete all required fields",
+        description: "Some required information is missing or invalid.",
+      });
+      return;
+    }
+    
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1);
+      setValidationErrors({});
     }
   };
 
@@ -358,6 +419,20 @@ export default function Onboarding() {
         }
       }
 
+      // Mark onboarding steps as complete
+      try {
+        await markStepComplete.mutateAsync({
+          stepName: 'organization_setup',
+          metadata: {
+            orgName: formData.organization.name,
+            orgSize: formData.organization.size,
+            practiceAreas: formData.practiceAreas,
+          },
+        });
+      } catch (stepError) {
+        console.warn('Failed to mark onboarding step complete:', stepError);
+      }
+
       // Track onboarding completion and send welcome notification
       trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED, { 
         orgSize: formData.organization.size,
@@ -424,18 +499,37 @@ export default function Onboarding() {
       case 1:
         return (
           <div className="space-y-6">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                This information helps us customize your experience. You can update these details later in Settings.
+              </AlertDescription>
+            </Alert>
+            
             <div className="space-y-2">
               <Label htmlFor="orgName">Organization Name *</Label>
               <Input
                 id="orgName"
                 placeholder="Enter your organization name"
                 value={formData.organization.name}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  organization: { ...formData.organization, name: e.target.value }
-                })}
+                onChange={(e) => {
+                  setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, name: e.target.value }
+                  });
+                  if (validationErrors.orgName) {
+                    setValidationErrors({ ...validationErrors, orgName: '' });
+                  }
+                }}
+                className={validationErrors.orgName ? 'border-destructive' : ''}
                 required
               />
+              {validationErrors.orgName && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.orgName}
+                </p>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -443,30 +537,46 @@ export default function Onboarding() {
                 <Label>Organization Type *</Label>
                 <Select 
                   value={formData.organization.type || "law-firm"}
-                  onValueChange={(value) => setFormData({
-                    ...formData,
-                    organization: { ...formData.organization, type: value }
-                  })}
+                  onValueChange={(value) => {
+                    setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, type: value }
+                    });
+                    if (validationErrors.orgType) {
+                      setValidationErrors({ ...validationErrors, orgType: '' });
+                    }
+                  }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={validationErrors.orgType ? 'border-destructive' : ''}>
                     <SelectValue placeholder="Law Firm" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="law-firm">Law Firm</SelectItem>
                   </SelectContent>
                 </Select>
+                {validationErrors.orgType && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.orgType}
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
                 <Label>Organization Size *</Label>
                 <Select 
                   value={formData.organization.size}
-                  onValueChange={(value) => setFormData({
-                    ...formData,
-                    organization: { ...formData.organization, size: value }
-                  })}
+                  onValueChange={(value) => {
+                    setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, size: value }
+                    });
+                    if (validationErrors.orgSize) {
+                      setValidationErrors({ ...validationErrors, orgSize: '' });
+                    }
+                  }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={validationErrors.orgSize ? 'border-destructive' : ''}>
                     <SelectValue placeholder="Select size" />
                   </SelectTrigger>
                   <SelectContent>
@@ -477,6 +587,12 @@ export default function Onboarding() {
                     <SelectItem value="200+">200+ employees</SelectItem>
                   </SelectContent>
                 </Select>
+                {validationErrors.orgSize && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.orgSize}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -486,12 +602,24 @@ export default function Onboarding() {
                 id="orgAddress"
                 placeholder="Enter your business address"
                 value={formData.organization.address}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  organization: { ...formData.organization, address: e.target.value }
-                })}
+                onChange={(e) => {
+                  setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, address: e.target.value }
+                  });
+                  if (validationErrors.orgAddress) {
+                    setValidationErrors({ ...validationErrors, orgAddress: '' });
+                  }
+                }}
+                className={validationErrors.orgAddress ? 'border-destructive' : ''}
                 required
               />
+              {validationErrors.orgAddress && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.orgAddress}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -501,24 +629,41 @@ export default function Onboarding() {
                   id="orgState"
                   placeholder="Enter state or province"
                   value={formData.organization.state}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    organization: { ...formData.organization, state: e.target.value }
-                  })}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, state: e.target.value }
+                    });
+                    if (validationErrors.orgState) {
+                      setValidationErrors({ ...validationErrors, orgState: '' });
+                    }
+                  }}
+                  className={validationErrors.orgState ? 'border-destructive' : ''}
                   required
                 />
+                {validationErrors.orgState && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.orgState}
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
                 <Label>Country *</Label>
                 <Select 
                   value={formData.organization.country}
-                  onValueChange={(value) => setFormData({
-                    ...formData,
-                    organization: { ...formData.organization, country: value }
-                  })}
+                  onValueChange={(value) => {
+                    setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, country: value }
+                    });
+                    if (validationErrors.orgCountry) {
+                      setValidationErrors({ ...validationErrors, orgCountry: '' });
+                    }
+                  }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={validationErrors.orgCountry ? 'border-destructive' : ''}>
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[200px]">
@@ -529,6 +674,12 @@ export default function Onboarding() {
                     ))}
                   </SelectContent>
                 </Select>
+                {validationErrors.orgCountry && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.orgCountry}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -540,12 +691,24 @@ export default function Onboarding() {
                   type="tel"
                   placeholder="+1 (555) 123-4567"
                   value={formData.organization.phone}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    organization: { ...formData.organization, phone: e.target.value }
-                  })}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, phone: e.target.value }
+                    });
+                    if (validationErrors.orgPhone) {
+                      setValidationErrors({ ...validationErrors, orgPhone: '' });
+                    }
+                  }}
+                  className={validationErrors.orgPhone ? 'border-destructive' : ''}
                   required
                 />
+                {validationErrors.orgPhone && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.orgPhone}
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -555,12 +718,24 @@ export default function Onboarding() {
                   type="email"
                   placeholder="contact@yourfirm.com"
                   value={formData.organization.email}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    organization: { ...formData.organization, email: e.target.value }
-                  })}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      organization: { ...formData.organization, email: e.target.value }
+                    });
+                    if (validationErrors.orgEmail) {
+                      setValidationErrors({ ...validationErrors, orgEmail: '' });
+                    }
+                  }}
+                  className={validationErrors.orgEmail ? 'border-destructive' : ''}
                   required
                 />
+                {validationErrors.orgEmail && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.orgEmail}
+                  </p>
+                )}
               </div>
             </div>
             
@@ -582,21 +757,41 @@ export default function Onboarding() {
       case 2:
         return (
           <div className="space-y-6">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                You can skip this step and invite team members later. Invitations will be sent via email.
+              </AlertDescription>
+            </Alert>
+            
             <div>
-              <Label className="text-base font-medium">Invite Team Members</Label>
+              <Label className="text-base font-medium">Invite Team Members (Optional)</Label>
               <p className="text-sm text-muted-foreground mb-4">
-                Add email addresses to invite your team members
+                Add email addresses to invite your team members. They'll receive an invitation email with setup instructions.
               </p>
               
               <div className="space-y-3">
                 {formData.team.inviteEmails.map((email, index) => (
-                  <Input
-                    key={index}
-                    type="email"
-                    placeholder="colleague@example.com"
-                    value={email}
-                    onChange={(e) => updateEmail(index, e.target.value)}
-                  />
+                  <div key={index} className="space-y-1">
+                    <Input
+                      type="email"
+                      placeholder="colleague@example.com"
+                      value={email}
+                      onChange={(e) => {
+                        updateEmail(index, e.target.value);
+                        if (validationErrors[`teamEmail${index}`]) {
+                          setValidationErrors({ ...validationErrors, [`teamEmail${index}`]: '' });
+                        }
+                      }}
+                      className={validationErrors[`teamEmail${index}`] ? 'border-destructive' : ''}
+                    />
+                    {validationErrors[`teamEmail${index}`] && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {validationErrors[`teamEmail${index}`]}
+                      </p>
+                    )}
+                  </div>
                 ))}
                 <Button 
                   type="button" 
@@ -614,11 +809,26 @@ export default function Onboarding() {
       case 3:
         return (
           <div className="space-y-6">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Select all practice areas that apply to your organization. This helps us customize features and templates for you.
+              </AlertDescription>
+            </Alert>
+            
             <div>
-              <Label className="text-base font-medium">Practice Areas</Label>
+              <Label className="text-base font-medium">Practice Areas (Optional)</Label>
               <p className="text-sm text-muted-foreground mb-4">
-                Select the practice areas relevant to your organization
+                Select the practice areas relevant to your organization. You can add more later.
               </p>
+              
+              {formData.practiceAreas.length > 0 && (
+                <div className="mb-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <p className="text-sm font-medium text-primary mb-1">
+                    {formData.practiceAreas.length} practice area{formData.practiceAreas.length !== 1 ? 's' : ''} selected
+                  </p>
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-3">
                 {practiceAreaOptions.map((area) => (
@@ -628,7 +838,7 @@ export default function Onboarding() {
                       checked={formData.practiceAreas.includes(area)}
                       onCheckedChange={() => togglePracticeArea(area)}
                     />
-                    <Label htmlFor={area} className="text-sm font-normal">
+                    <Label htmlFor={area} className="text-sm font-normal cursor-pointer">
                       {area}
                     </Label>
                   </div>
@@ -672,7 +882,7 @@ export default function Onboarding() {
       <Card className="w-full max-w-5xl shadow-card border border-border/60">
         <CardHeader className="text-center space-y-3">
           <div className="flex justify-center">
-            <img src={logo} alt="Kourti Legal" className="h-12 w-12" />
+            <AppLogo size="md" />
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Welcome to Kourti Legal</CardTitle>
@@ -762,13 +972,13 @@ export default function Onboarding() {
                 </div>
 
                 {currentStep === steps.length ? (
-                  <Button onClick={handleFinish}>
+                  <Button onClick={handleFinish} className="min-w-[120px]">
                     Get Started
                     <CheckCircle className="w-4 h-4 ml-2" />
                   </Button>
                 ) : (
-                  <Button onClick={handleNext}>
-                    Next
+                  <Button onClick={handleNext} className="min-w-[120px]">
+                    Continue
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 )}

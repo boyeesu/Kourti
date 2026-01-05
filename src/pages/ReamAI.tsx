@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,13 @@ import { useAIConversations, useConversationMessages } from "@/hooks/useAIConver
 import { ConversationSidebar } from "@/components/ConversationSidebar";
 import { DocumentSuggestions } from "@/components/DocumentSuggestions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { 
+  getCachedQuery,
+  setCachedQuery,
+  optimizeConversationHistory,
+  mergeDocumentContexts,
+  calculateRelevanceScore,
+} from '@/lib/ai-helpers';
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -610,6 +617,7 @@ export default function ReamAI() {
   }
 
   // Helper function to manage context window (max ~100k chars for GPT-5.1)
+  // Enhanced with smart context management
   function manageContextWindow(content: string, maxLength: number = 80000): string {
     if (content.length <= maxLength) {
       return content;
@@ -689,8 +697,34 @@ export default function ReamAI() {
     ]);
 
     try {
+      // Check cache first for performance
+      const cachedResponse = getCachedQuery(userMessage);
+      if (cachedResponse) {
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1
+              ? { ...msg, content: cachedResponse, isStreaming: false }
+              : msg
+          )
+        );
+        setIsTyping(false);
+        if (currentConversationId && cachedResponse.trim()) {
+          saveMessage.mutate({
+            conversationId: currentConversationId,
+            role: "assistant",
+            content: cachedResponse,
+          });
+        }
+        return;
+      }
+
       let content: string = "";
       let contextInfo: string = "";
+
+      // Optimize conversation history
+      const optimizedHistory = optimizeConversationHistory(
+        messages.map(m => ({ role: m.role, content: m.content }))
+      );
 
       // Check if we have selected document or relevant documents from RAG/vector search
       if (
@@ -901,6 +935,10 @@ I'll answer based on the relevant information found above.`;
 
             if (done) {
               setIsTyping(false);
+              // Cache the response for future queries
+              if (aiContent.trim()) {
+                setCachedQuery(userMessage, aiContent);
+              }
               // Save assistant message to database
               if (currentConversationId && aiContent.trim()) {
                 saveMessage.mutate({
@@ -927,12 +965,21 @@ I'll answer based on the relevant information found above.`;
             }));
 
           // Check if we have RAG results even without selected doc
+          // Optimize RAG context with relevance scoring and merging
           let ragContextString = "";
           if (ragResults && ragResults.length > 0) {
-            const topRAGResults = ragResults.slice(0, 8);
-            ragContextString = topRAGResults.map((result, i) => 
-              `[SOURCE ${i + 1}] "${result.documentName}" (${result.documentType}, similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content}`
-            ).join("\n\n");
+            // Calculate relevance scores and merge contexts
+            const scoredResults = ragResults.map(result => ({
+              content: result.content,
+              score: calculateRelevanceScore(userMessage, result.content, {
+                similarity: result.similarity,
+                recent: true,
+              }),
+              source: result.documentName || 'Unknown',
+            }));
+
+            // Merge contexts with smart token management
+            ragContextString = mergeDocumentContexts(scoredResults, 40000);
           }
 
           // Use the AI for general legal questions
@@ -962,6 +1009,10 @@ Provide a comprehensive answer based on general legal knowledge. If the question
 
               if (done) {
                 setIsTyping(false);
+                // Cache the response for future queries
+                if (aiContent.trim()) {
+                  setCachedQuery(userMessage, aiContent);
+                }
                 // Save assistant message to database
                 if (currentConversationId && aiContent.trim()) {
                   saveMessage.mutate({

@@ -54,6 +54,7 @@ import BulkImport from "./pages/BulkImport";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 import { logInfo, logWarn } from "./lib/logger";
+import { FloatingChatWidget } from "@/components/ream-ai/FloatingChatWidget";
 // ThemeProvider removed - now handled in main.tsx
 
 // Lazy load pages for better performance
@@ -258,6 +259,7 @@ const App = () => (
                               />
                             ))}
                           </Routes>
+                          <FloatingChatWidget />
                         </AppLayout>
                       </CasesProvider>
                     </SearchProvider>

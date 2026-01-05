@@ -23,7 +23,10 @@ import {
 import { useCalendarEvents } from "@/hooks/useCalendar";
 import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
 import { EventViewDialog } from "@/components/calendar/EventViewDialog";
+import { CalendarSyncSettings } from "@/components/calendar/CalendarSyncSettings";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { Settings as SettingsIcon } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CalendarEvent } from "@/types";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameMonth, startOfMonth, endOfMonth, startOfDay, isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +60,7 @@ export default function Calendar() {
   const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasSsoConfig, setHasSsoConfig] = useState(false);
+  const [showSyncSettings, setShowSyncSettings] = useState(false);
   const { success, error: showError } = useEnhancedToast();
   const calendarFeedUrl = `${env.APP_URL}/api/calendar/ics`;
   const calendarSubscribeUrl = calendarFeedUrl.replace(/^https?:\/\//, "webcal://");
@@ -393,16 +397,27 @@ export default function Calendar() {
                     </Button>
                   </div>
                   {hasSsoConfig && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={syncExternalCalendars}
-                      disabled={isSyncing}
-                      className="gap-2"
-                    >
-                      <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-                      Sync
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={syncExternalCalendars}
+                        disabled={isSyncing}
+                        className="gap-2"
+                      >
+                        <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+                        Sync
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSyncSettings(true)}
+                        className="gap-2"
+                      >
+                        <SettingsIcon className="h-4 w-4" />
+                        Sync Settings
+                      </Button>
+                    </>
                   )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -761,6 +776,14 @@ export default function Calendar() {
         open={showEventDialog}
         onOpenChange={setShowEventDialog}
       />
+
+      {showSyncSettings && (
+        <Dialog open={showSyncSettings} onOpenChange={setShowSyncSettings}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <CalendarSyncSettings />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

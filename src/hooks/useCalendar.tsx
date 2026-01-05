@@ -33,6 +33,12 @@ export interface CreateCalendarEventData {
   event_type?: string;
   case_id?: string;
   client_id?: string;
+  is_recurring?: boolean;
+  recurrence_pattern?: {
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    interval: number;
+  };
+  recurrence_end_date?: string;
 }
 
 /**
@@ -160,13 +166,24 @@ export function useCreateCalendarEvent() {
       }
 
       const userId = await getCurrentUserId();
+      const insertData: any = {
+        ...eventData,
+        organization_id: organizationId,
+        created_by: userId,
+      };
+
+      // Handle recurring events
+      if (eventData.is_recurring && eventData.recurrence_pattern) {
+        insertData.is_recurring = true;
+        insertData.recurrence_pattern = eventData.recurrence_pattern;
+        if (eventData.recurrence_end_date) {
+          insertData.recurrence_end_date = eventData.recurrence_end_date;
+        }
+      }
+
       const { data, error } = await supabase
         .from('calendar_events')
-        .insert({
-          ...eventData,
-          organization_id: organizationId,
-          created_by: userId,
-        } as any)
+        .insert(insertData)
         .select()
         .single();
 

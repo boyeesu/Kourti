@@ -35,6 +35,9 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let deliveryLogId: string | null = null;
+  let notificationId: string | null = null;
+
   try {
     const requestData: NotificationEmailRequest = await req.json();
     const { type, recipientUserId, subject, title, message, actionUrl, actionText, metadata } = requestData;
@@ -60,6 +63,38 @@ const handler = async (req: Request): Promise<Response> => {
     const recipientName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Team Member';
     const organizationId = profile.organization_id;
 
+    // Check notification preferences
+    const { data: preferences } = await supabase
+      .from('notification_preferences')
+      .select('*')
+      .eq('user_id', recipientUserId)
+      .eq('organization_id', organizationId)
+      .single();
+
+    // Check if email notifications are enabled for this type
+    const emailEnabled = preferences?.email_enabled !== false;
+    const typeEnabled = checkTypePreference(preferences, type);
+
+    if (!emailEnabled || !typeEnabled) {
+      console.log('Email notifications disabled for user:', recipientUserId);
+      // Still create in-app notification
+      if (organizationId) {
+        const { data: notif } = await supabase.from('notifications').insert({
+          user_id: recipientUserId,
+          organization_id: organizationId,
+          title,
+          description: message,
+          type: mapTypeToNotificationType(type),
+          status: 'unread',
+        }).select().single();
+        notificationId = notif?.id || null;
+      }
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'preferences' }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     // Get organization name
     let organizationName = 'Ream AI Legal';
     if (organizationId) {
@@ -69,6 +104,20 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('id', organizationId)
         .single();
       if (org?.name) organizationName = org.name;
+    }
+
+    // Create in-app notification first
+    if (organizationId) {
+      const { data: notif } = await supabase.from('notifications').insert({
+        user_id: recipientUserId,
+        organization_id: organizationId,
+        title,
+        description: message,
+        type: mapTypeToNotificationType(type),
+        status: 'unread',
+      }).select().single();
+      notificationId = notif?.id || null;
+      console.log("In-app notification created for user:", recipientUserId);
     }
 
     // Email subject based on type
@@ -86,6 +135,27 @@ const handler = async (req: Request): Promise<Response> => {
       metadata,
     });
 
+    // Create delivery log entry
+    const { data: logEntry, error: logError } = await supabase
+      .from('email_delivery_logs')
+      .insert({
+        user_id: recipientUserId,
+        organization_id: organizationId,
+        notification_id: notificationId,
+        recipient_email: recipientEmail,
+        subject: emailSubject,
+        email_type: type,
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (logError) {
+      console.error('Failed to create delivery log:', logError);
+    } else {
+      deliveryLogId = logEntry?.id || null;
+    }
+
     console.log("Sending email via Resend:", {
       to: recipientEmail,
       subject: emailSubject,
@@ -100,30 +170,70 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (error) {
       console.error("Resend error:", error);
+      
+      // Update delivery log with error
+      if (deliveryLogId) {
+        await supabase
+          .from('email_delivery_logs')
+          .update({
+            status: 'failed',
+            error_message: error.message,
+            error_stack: JSON.stringify(error),
+            retry_count: 1,
+            last_retry_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', deliveryLogId);
+      }
+
+      // Retry logic
+      if (deliveryLogId) {
+        const shouldRetry = await shouldRetryEmail(deliveryLogId);
+        if (shouldRetry) {
+          console.log('Scheduling retry for email delivery');
+          // In a production system, you might want to use a queue system here
+        }
+      }
+
       throw new Error(error.message);
     }
 
     console.log("Email sent successfully:", data?.id);
 
-    // Also create in-app notification
-    if (organizationId) {
-      await supabase.from('notifications').insert({
-        user_id: recipientUserId,
-        organization_id: organizationId,
-        title,
-        description: message,
-        type: mapTypeToNotificationType(type),
-        status: 'unread',
-      });
-      console.log("In-app notification created for user:", recipientUserId);
+    // Update delivery log with success
+    if (deliveryLogId) {
+      await supabase
+        .from('email_delivery_logs')
+        .update({
+          status: 'sent',
+          provider_message_id: data?.id,
+          provider_response: data as any,
+          delivered_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', deliveryLogId);
     }
 
-    return new Response(JSON.stringify({ success: true, messageId: data?.id }), {
+    return new Response(JSON.stringify({ success: true, messageId: data?.id, deliveryLogId }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
     console.error("Error in send-notification-email function:", error);
+    
+    // Update delivery log with error if it exists
+    if (deliveryLogId) {
+      await supabase
+        .from('email_delivery_logs')
+        .update({
+          status: 'failed',
+          error_message: error.message,
+          error_stack: error.stack,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', deliveryLogId);
+    }
+
     return new Response(
       JSON.stringify({ error: error.message, stack: error.stack }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -247,6 +357,33 @@ function buildEmailHtml(params: EmailHtmlParams): string {
 </body>
 </html>
   `;
+}
+
+function checkTypePreference(preferences: any, type: string): boolean {
+  if (!preferences) return true; // Default to enabled if no preferences
+  
+  const typeMap: Record<string, keyof typeof preferences> = {
+    task_assigned: 'task_notifications',
+    case_update: 'case_notifications',
+    document_shared: 'document_notifications',
+    calendar_reminder: 'calendar_notifications',
+    invoice_created: 'invoice_notifications',
+    general: 'general_notifications',
+  };
+  
+  const preferenceKey = typeMap[type] || 'general_notifications';
+  return preferences[preferenceKey] !== false;
+}
+
+async function shouldRetryEmail(deliveryLogId: string): Promise<boolean> {
+  const { data: log } = await supabase
+    .from('email_delivery_logs')
+    .select('retry_count, max_retries')
+    .eq('id', deliveryLogId)
+    .single();
+  
+  if (!log) return false;
+  return (log.retry_count || 0) < (log.max_retries || 3);
 }
 
 serve(handler);
