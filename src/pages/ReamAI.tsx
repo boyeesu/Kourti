@@ -370,6 +370,62 @@ export default function ReamAI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationsLoading, conversations.length]);
 
+  // Function to generate conversation summary
+  const generateConversationSummary = async (conversationMessages: Message[]): Promise<string> => {
+    try {
+      // Get user and assistant messages (exclude system messages)
+      const relevantMessages = conversationMessages
+        .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+        .slice(0, 10) // Limit to last 10 messages for summary
+        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n\n');
+
+      if (!relevantMessages || relevantMessages.trim().length < 20) {
+        return "New Chat";
+      }
+
+      // Call OpenAI to generate a short summary
+      const { data, error } = await supabase.functions.invoke('ream-ai-assistant', {
+        body: {
+          message: `Generate a very short, concise title (maximum 6-8 words) that summarizes this conversation. Only return the title, nothing else:\n\n${relevantMessages}`,
+          conversationHistory: [
+            {
+              role: 'system',
+              content: 'You are a helpful assistant that generates concise conversation titles. Generate a short, descriptive title (6-8 words max) that captures the main topic of the conversation. Return only the title, no explanations.'
+            }
+          ]
+        }
+      });
+
+      if (error) {
+        console.error('Error generating summary:', error);
+        // Fallback: use first user message
+        const firstUserMessage = conversationMessages.find(m => m.role === 'user')?.content || '';
+        return firstUserMessage.length > 50 
+          ? firstUserMessage.substring(0, 47) + "..." 
+          : firstUserMessage || "New Chat";
+      }
+
+      const summary = data?.response?.trim() || "";
+      
+      // Clean up the summary - remove quotes, extra spaces, etc.
+      const cleanSummary = summary
+        .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+        .replace(/^Title:\s*/i, '') // Remove "Title:" prefix if present
+        .trim()
+        .substring(0, 60); // Limit to 60 characters
+
+      return cleanSummary || "New Chat";
+    } catch (error) {
+      console.error('Error generating conversation summary:', error);
+      // Fallback: use first user message
+      const firstUserMessage = conversationMessages.find(m => m.role === 'user')?.content || '';
+      return firstUserMessage.length > 50 
+        ? firstUserMessage.substring(0, 47) + "..." 
+        : firstUserMessage || "New Chat";
+    }
+  };
+
   const scrollChatToBottom = (behavior: ScrollBehavior = "smooth") => {
     const container = chatContainerRef.current;
     if (container) {
@@ -742,35 +798,44 @@ export default function ReamAI() {
       setActiveQuery(userMessage);
     }
 
-    // Add user message to chat
-    if (userMessage) {
-      const newUserMessage: Message = { 
-        role: "user", 
-        content: userMessage, 
-        timestamp: new Date() 
-      };
-      setMessages((msgs) => [...msgs, newUserMessage]);
-      
-      // Update conversation title if this is the first user message
-      if (currentConversationId && messages.filter(m => m.role === "user").length === 0) {
-        const shortTitle = userMessage.length > 50 
-          ? userMessage.substring(0, 47) + "..." 
-          : userMessage;
-        updateConversation.mutate({ 
-          id: currentConversationId, 
-          title: shortTitle 
-        });
+      // Add user message to chat
+      if (userMessage) {
+        const newUserMessage: Message = { 
+          role: "user", 
+          content: userMessage, 
+          timestamp: new Date() 
+        };
+        const updatedMessages = [...messages, newUserMessage];
+        setMessages(updatedMessages);
+        
+        // Save user message to database
+        if (currentConversationId) {
+          saveMessage.mutate({
+            conversationId: currentConversationId,
+            role: "user",
+            content: userMessage,
+          });
+        }
+
+        // Generate and update conversation title after a few messages
+        if (currentConversationId) {
+          const userMessageCount = updatedMessages.filter(m => m.role === "user").length;
+          const currentConv = conversations.find(c => c.id === currentConversationId);
+          
+          // Update title if it's still "New Chat" and we have 2+ user messages
+          if (currentConv && (currentConv.title === "New Chat" || userMessageCount >= 2)) {
+            // Generate summary asynchronously
+            generateConversationSummary(updatedMessages).then((summary) => {
+              if (summary && summary !== "New Chat") {
+                updateConversation.mutate({ 
+                  id: currentConversationId, 
+                  title: summary 
+                });
+              }
+            });
+          }
+        }
       }
-      
-      // Save user message to database
-      if (currentConversationId) {
-        saveMessage.mutate({
-          conversationId: currentConversationId,
-          role: "user",
-          content: userMessage,
-        });
-      }
-    }
 
     // Show typing indicator
     setMessages((msgs) => [
@@ -1028,6 +1093,28 @@ I'll answer based on the relevant information found above.`;
                   role: "assistant",
                   content: aiContent,
                 });
+
+                // Update conversation title after assistant responds
+                const currentConv = conversations.find(c => c.id === currentConversationId);
+                if (currentConv && currentConv.title === "New Chat") {
+                  // Generate summary from current messages
+                  setTimeout(() => {
+                    setMessages((currentMsgs) => {
+                      const allMessages = currentMsgs.filter(m => m.role !== "system");
+                      if (allMessages.length >= 2) {
+                        generateConversationSummary(allMessages).then((summary) => {
+                          if (summary && summary !== "New Chat") {
+                            updateConversation.mutate({ 
+                              id: currentConversationId, 
+                              title: summary 
+                            });
+                          }
+                        });
+                      }
+                      return currentMsgs;
+                    });
+                  }, 100);
+                }
               }
             }
           }
@@ -1102,6 +1189,28 @@ Provide a comprehensive answer based on general legal knowledge. If the question
                     role: "assistant",
                     content: aiContent,
                   });
+
+                  // Update conversation title after assistant responds
+                  const currentConv = conversations.find(c => c.id === currentConversationId);
+                  if (currentConv && currentConv.title === "New Chat") {
+                    // Generate summary from current messages
+                    setTimeout(() => {
+                      setMessages((currentMsgs) => {
+                        const allMessages = currentMsgs.filter(m => m.role !== "system");
+                        if (allMessages.length >= 2) {
+                          generateConversationSummary(allMessages).then((summary) => {
+                            if (summary && summary !== "New Chat") {
+                              updateConversation.mutate({ 
+                                id: currentConversationId, 
+                                title: summary 
+                              });
+                            }
+                          });
+                        }
+                        return currentMsgs;
+                      });
+                    }, 100);
+                  }
                 }
               }
             }
