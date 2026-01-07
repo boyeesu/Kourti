@@ -302,6 +302,16 @@ export default function ReamAI() {
         return "New Chat";
       }
 
+      // Get current user for the API call
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !organization?.id) {
+        // Fallback: use first user message as title
+        const firstUserMessage = conversationMessages.find(m => m.role === 'user')?.content || '';
+        return firstUserMessage.length > 50 
+          ? firstUserMessage.substring(0, 47) + "..." 
+          : firstUserMessage || "New Chat";
+      }
+
       // Call OpenAI to generate a short summary
       const { data, error } = await supabase.functions.invoke('ream-ai-assistant', {
         body: {
@@ -311,7 +321,9 @@ export default function ReamAI() {
               role: 'system',
               content: 'You are a helpful assistant that generates concise conversation titles. Generate a short, descriptive title (6-8 words max) that captures the main topic of the conversation. Return only the title, no explanations.'
             }
-          ]
+          ],
+          userId: user.id,
+          organizationId: organization.id
         }
       });
 

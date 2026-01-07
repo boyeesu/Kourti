@@ -164,27 +164,27 @@ export default function Register() {
 
   const renderProviderIcon = (provider: ProviderName) => {
     if (ssoLoading === provider) {
-      return <LogIn className="h-4 w-4 animate-spin" />;
+      return <LogIn className="h-5 w-5 animate-spin" />;
     }
-    return <Globe2 className="h-4 w-4" />;
+    return <Globe2 className="h-5 w-5" />;
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center px-4 py-10">
-      <Card className="w-full max-w-4xl shadow-card border border-border/50">
-        <CardHeader className="text-center space-y-4">
+      <Card className="w-full max-w-5xl shadow-2xl border border-border/50">
+        <CardHeader className="text-center space-y-4 pb-6">
           <div className="flex justify-center">
-            <AppLogo size="md" />
+            <AppLogo size="lg" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>
-            <p className="text-muted-foreground mt-2">
-              Join Kourti Legal to manage your cases
+            <CardTitle className="text-3xl font-bold">Create Your Account</CardTitle>
+            <p className="text-muted-foreground mt-3 text-base">
+              Join Kourti Legal to streamline your legal practice management
             </p>
           </div>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="px-8 pb-8">
           <div className="space-y-4">
             {ssoError && (
               <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
@@ -193,8 +193,8 @@ export default function Register() {
             )}
 
             {(providerState.google.available || providerState.google.checking || providerState.microsoft.available || providerState.microsoft.checking) && (
-              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/40 p-4">
-                <p className="text-sm font-medium text-muted-foreground">
+              <div className="space-y-4 rounded-lg border border-border/60 bg-muted/40 p-5">
+                <p className="text-sm font-medium text-foreground">
                   {enforceSso
                     ? 'Your organization requires SSO to finish onboarding. Continue with the provider configured by your admin.'
                     : 'Prefer single sign-on? Continue with your organization provider.'}
@@ -208,12 +208,12 @@ export default function Register() {
                       key={provider}
                       type="button"
                       variant="outline"
-                      className="w-full justify-start gap-2 bg-background"
+                      className="w-full justify-start gap-3 bg-background h-12 text-base"
                       disabled={disabled}
                       onClick={() => handleProvider(provider)}
                     >
                       {state.checking && ssoLoading !== provider ? (
-                        <LogIn className="h-4 w-4 animate-spin" />
+                        <LogIn className="h-5 w-5 animate-spin" />
                       ) : (
                         renderProviderIcon(provider)
                       )}
@@ -235,18 +235,18 @@ export default function Register() {
           </div>
 
           {!enforceSso && (
-          <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2.5">
+                <Label htmlFor="firstName" className="text-sm font-medium">First Name</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="firstName"
                     name="firstName"
                     autoComplete="given-name"
                     placeholder="John"
-                    className="pl-10"
+                    className="pl-12 h-12 text-base"
                     value={formData.firstName}
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     required
@@ -254,31 +254,35 @@ export default function Register() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  autoComplete="family-name"
-                  placeholder="Doe"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  required
-                />
+              <div className="space-y-2.5">
+                <Label htmlFor="lastName" className="text-sm font-medium">Last Name</Label>
+                <div className="relative">
+                  <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    autoComplete="family-name"
+                    placeholder="Doe"
+                    className="pl-12 h-12 text-base"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="email">Work Email</Label>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2.5">
+                <Label htmlFor="email" className="text-sm font-medium">Work Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="email"
                     name="email"
                     type="email"
                     placeholder="john@example.com"
-                    className="pl-10"
+                    className="pl-12 h-12 text-base"
                     autoComplete="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -287,16 +291,16 @@ export default function Register() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="organization">Organization</Label>
+              <div className="space-y-2.5">
+                <Label htmlFor="organization" className="text-sm font-medium">Organization</Label>
                 <div className="relative">
-                  <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Building className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="organization"
                     name="organization"
                     autoComplete="organization"
                     placeholder="Your law firm"
-                    className="pl-10"
+                    className="pl-12 h-12 text-base"
                     value={formData.organization}
                     onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
                     required
@@ -305,10 +309,10 @@ export default function Register() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
+            <div className="space-y-2.5">
+              <Label htmlFor="role" className="text-sm font-medium">Role</Label>
               <Select name="role" value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger>
+                <SelectTrigger className="h-12 text-base">
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -327,17 +331,17 @@ export default function Register() {
               </Select>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2.5">
+                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Create a password"
-                    className="pl-10 pr-10"
+                    className="pl-12 pr-12 h-12 text-base"
                     autoComplete="new-password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -347,30 +351,30 @@ export default function Register() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     title={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-5 w-5 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <Eye className="h-5 w-5 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="space-y-2.5">
+                <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm your password"
-                    className="pl-10 pr-10"
+                    className="pl-12 pr-12 h-12 text-base"
                     autoComplete="new-password"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
@@ -380,31 +384,40 @@ export default function Register() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                     title={showConfirmPassword ? "Hide password" : "Show password"}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-5 w-5 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <Eye className="h-5 w-5 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">What happens next?</p>
-              <ul className="mt-2 space-y-1">
-                <li>• Verify your email to activate the account.</li>
-                <li>• Complete onboarding to set up your organization.</li>
-                <li>• Invite teammates when you&apos;re ready.</li>
+            <div className="rounded-lg border border-border/60 bg-muted/40 p-5 text-sm text-muted-foreground">
+              <p className="font-semibold text-foreground mb-3">What happens next?</p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>Verify your email to activate the account.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>Complete onboarding to set up your organization.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>Invite teammates when you&apos;re ready.</span>
+                </li>
               </ul>
             </div>
 
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full h-12 text-base font-semibold">
               Create Account
             </Button>
             {ssoError && !enforceSso && (
@@ -419,11 +432,11 @@ export default function Register() {
             </div>
           )}
 
-          <div className="mt-8">
-            <Separator className="my-4" />
-            <div className="text-center text-sm text-muted-foreground">
+          <div className="mt-10">
+            <Separator className="my-6" />
+            <div className="text-center text-base text-muted-foreground">
               Already have an account?{" "}
-              <Link to="/auth" className="text-primary hover:underline font-medium">
+              <Link to="/auth" className="text-primary hover:underline font-semibold">
                 Sign in
               </Link>
             </div>
