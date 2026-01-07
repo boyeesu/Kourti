@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     sourcemap: true,
     minify: 'terser' as const,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000, // Increased from 1000 to reduce warning noise for larger chunks
     rollupOptions: {
       output: {
         // Keep manual chunking minimal to avoid circular dependencies between

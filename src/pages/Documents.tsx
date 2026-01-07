@@ -42,7 +42,6 @@ import {
 import { Document } from "@/types";
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { InternalShareDialog } from '@/components/InternalShareDialog';
-import { ShareDocumentDialog } from '@/components/ui/ShareDocumentDialog';
 import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
 import { useToast } from '@/hooks/use-toast';
 
@@ -353,12 +352,6 @@ export default function Documents() {
                         <Share className="h-4 w-4 mr-2" />
                         Share Internally
                       </DropdownMenuItem>
-                      <ShareDocumentDialog documentId={doc.id}>
-                        <DropdownMenuItem>
-                          <Share className="h-4 w-4 mr-2" />
-                          Share Externally
-                        </DropdownMenuItem>
-                      </ShareDocumentDialog>
                       <DropdownMenuItem onClick={async () => {
                         try {
                           await exportAsPdf(doc.content || '', (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase(), doc.name || 'Document');
