@@ -72,7 +72,7 @@ export function ConversationSidebar({
 
   return (
     <>
-      <aside className="flex h-full w-full flex-shrink-0 flex-col border-r border-border bg-background lg:w-64 lg:min-w-[16rem]">
+      <aside className="flex h-full w-full flex-shrink-0 flex-col border-r border-border bg-background lg:w-64 lg:min-w-[16rem] overflow-hidden">
         <div className="flex flex-col gap-2 p-3">
           <Button
             onClick={onNewConversation}
@@ -94,7 +94,7 @@ export function ConversationSidebar({
           </div>
         </div>
 
-        <ScrollArea className="flex-1 px-2">
+        <ScrollArea className="flex-1 px-2 overscroll-contain">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
               Loading...

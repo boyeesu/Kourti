@@ -1265,7 +1265,7 @@ Provide a comprehensive answer based on general legal knowledge. If the question
   };
 
   return (
-    <div className="flex h-[calc(100vh-100px)] flex-col overflow-hidden lg:flex-row">
+    <div className="flex h-[calc(100vh-10rem)] max-h-[calc(100vh-10rem)] flex-col overflow-hidden lg:flex-row -mx-3 -my-3 sm:-mx-4 lg:-mx-6 lg:-my-4">
       {/* Left: Conversation History */}
       <ModuleErrorBoundary name="Conversation Sidebar">
         <ConversationSidebar
@@ -1281,7 +1281,7 @@ Provide a comprehensive answer based on general legal knowledge. If the question
 
       {/* Main content area */}
       <ModuleErrorBoundary name="Chat Interface">
-        <main className="flex h-full flex-1 flex-col overflow-hidden bg-background">
+        <main className="flex h-full flex-1 flex-col overflow-hidden bg-background min-w-0">
           {/* Clean header */}
           <ReamAIHeader
             activeDocumentLabel={activeDocumentLabel}
@@ -1304,7 +1304,7 @@ Provide a comprehensive answer based on general legal knowledge. If the question
             )}
 
             {/* Messages area - ChatGPT-like */}
-            <div ref={chatContainerRef} className="flex-1 overflow-y-auto">
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-contain">
               {messages.length <= 1 ? (
                 // Empty state - ChatGPT style
                 <div className="flex h-full items-center justify-center">
