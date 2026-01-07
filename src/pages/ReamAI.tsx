@@ -1264,8 +1264,16 @@ Provide a comprehensive answer based on general legal knowledge. If the question
     updateConversation.mutate({ id, title });
   };
 
+  // Prevent body scroll when on Ream AI page
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   return (
-    <div className="flex h-[calc(100vh-10rem)] max-h-[calc(100vh-10rem)] flex-col overflow-hidden lg:flex-row -mx-3 -my-3 sm:-mx-4 lg:-mx-6 lg:-my-4">
+    <div className="flex h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)] flex-col overflow-hidden lg:flex-row -mx-3 -my-3 sm:-mx-4 lg:-mx-6 lg:-my-4">
       {/* Left: Conversation History */}
       <ModuleErrorBoundary name="Conversation Sidebar">
         <ConversationSidebar
