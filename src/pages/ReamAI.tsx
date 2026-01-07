@@ -547,7 +547,7 @@ export default function ReamAI() {
     }
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     accept: {
       "application/pdf": [".pdf"],

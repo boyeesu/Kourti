@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/hooks/useOrganization';
-import { useRAGSearch, useProcessDocument } from '@/hooks/useRAGSearch';
+import { useProcessDocument } from '@/hooks/useRAGSearch';
 
 interface Message {
   role: 'user' | 'assistant';
