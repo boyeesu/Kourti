@@ -356,11 +356,10 @@ async function gatherSystemContext(
   // Execute all data queries in parallel
   const dataResults = await Promise.allSettled(Object.values(dataQueries));
 
-  // Process results by type
-  const resultIndex = Object.keys(dataQueries);
+  // Process results by type - track index based on which queries were executed
   let currentIndex = 0;
 
-  if (dataQueries.clients) {
+  if ('clients' in dataQueries) {
     const result = dataResults[currentIndex++];
     if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
       const clients = result.value.data;
@@ -368,7 +367,7 @@ async function gatherSystemContext(
     }
   }
 
-  if (dataQueries.cases) {
+  if ('cases' in dataQueries) {
     const result = dataResults[currentIndex++];
     if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
       const cases = result.value.data;
@@ -376,7 +375,7 @@ async function gatherSystemContext(
     }
   }
 
-  if (dataQueries.documents) {
+  if ('documents' in dataQueries) {
     const result = dataResults[currentIndex++];
     if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
       const documents = result.value.data;
@@ -384,7 +383,7 @@ async function gatherSystemContext(
     }
   }
 
-  if (dataQueries.contracts) {
+  if ('contracts' in dataQueries) {
     const result = dataResults[currentIndex++];
     if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
       const contracts = result.value.data;
@@ -392,7 +391,7 @@ async function gatherSystemContext(
     }
   }
 
-  if (dataQueries.invoices) {
+  if ('invoices' in dataQueries) {
     const result = dataResults[currentIndex++];
     if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
       const invoices = result.value.data;
@@ -400,7 +399,7 @@ async function gatherSystemContext(
     }
   }
 
-  if (dataQueries.tasks) {
+  if ('tasks' in dataQueries) {
     const result = dataResults[currentIndex++];
     if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
       const tasks = result.value.data;
@@ -408,7 +407,7 @@ async function gatherSystemContext(
     }
   }
 
-  if (dataQueries.events) {
+  if ('events' in dataQueries) {
     const result = dataResults[currentIndex++];
     if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
       const events = result.value.data;
