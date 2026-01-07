@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useDropzone } from "react-dropzone";
 import { useVectorSearch } from "@/hooks/useVectorSearch";
@@ -14,7 +12,7 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import {
   Send,
@@ -23,12 +21,10 @@ import {
   Sparkles,
   ShieldAlert,
   ListChecks,
-  ChevronRight,
   FileText,
   Upload,
   Bot,
-  User,
-  MoreVertical
+  User
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -94,7 +90,6 @@ const QUICK_ACTIONS: QuickAction[] = [
 interface ReamAIHeaderProps {
   activeDocumentLabel: string | null;
   hasDocumentContext: boolean;
-  documentContent: any;
   isBusy: boolean;
   onQuickAction: (action: QuickAction) => void;
   conversationTitle?: string;
@@ -103,7 +98,6 @@ interface ReamAIHeaderProps {
 function ReamAIHeader({
   activeDocumentLabel,
   hasDocumentContext,
-  documentContent,
   isBusy,
   onQuickAction,
   conversationTitle
@@ -1292,7 +1286,6 @@ Provide a comprehensive answer based on general legal knowledge. If the question
           <ReamAIHeader
             activeDocumentLabel={activeDocumentLabel}
             hasDocumentContext={hasDocumentContext}
-            documentContent={documentContent}
             isBusy={isStreaming || isTyping}
             onQuickAction={handleQuickAction}
             conversationTitle={conversations.find(c => c.id === currentConversationId)?.title}
