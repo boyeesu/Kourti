@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useDropzone } from "react-dropzone";
 import { useVectorSearch } from "@/hooks/useVectorSearch";
 import { useRAGSearch, useProcessDocument } from "@/hooks/useRAGSearch";
@@ -24,7 +25,10 @@ import {
   ListChecks,
   ChevronRight,
   FileText,
-  Upload
+  Upload,
+  Bot,
+  User,
+  MoreVertical
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -93,6 +97,7 @@ interface ReamAIHeaderProps {
   documentContent: any;
   isBusy: boolean;
   onQuickAction: (action: QuickAction) => void;
+  conversationTitle?: string;
 }
 
 function ReamAIHeader({
@@ -100,151 +105,70 @@ function ReamAIHeader({
   hasDocumentContext,
   documentContent,
   isBusy,
-  onQuickAction
+  onQuickAction,
+  conversationTitle
 }: ReamAIHeaderProps) {
-  const [selectedAction, setSelectedAction] = useState<string | null>(null);
-
-  const breadcrumbs = ["Workspace", "Ream AI"];
-  if (activeDocumentLabel) {
-    breadcrumbs.push(activeDocumentLabel);
-  }
-
-  const metadataChips: React.ReactNode[] = [];
-  if (documentContent?.contract_type) {
-    metadataChips.push(
-      <Badge key="contract_type" variant="secondary" className="text-[10px]">
-        {documentContent.contract_type}
-      </Badge>
-    );
-  }
-  if (documentContent?.type === "contract" && documentContent.status) {
-    metadataChips.push(
-      <Badge key="status" variant="secondary" className="text-[10px]">
-        Status: {documentContent.status}
-      </Badge>
-    );
-  }
-  if (documentContent?.value) {
-    metadataChips.push(
-      <span key="value" className="text-xs text-muted-foreground">
-        Value: {documentContent.currency || "USD"} {documentContent.value}
-      </span>
-    );
-  }
-  if (documentContent?.type === "document" && documentContent.effective_date) {
-    metadataChips.push(
-      <span key="effective" className="text-xs text-muted-foreground">
-        Effective: {formatDate(documentContent.effective_date)}
-      </span>
-    );
-  }
-  if (documentContent?.type === "document" && documentContent.termination_date) {
-    metadataChips.push(
-      <span key="termination" className="text-xs text-muted-foreground">
-        Termination: {formatDate(documentContent.termination_date)}
-      </span>
-    );
-  }
-  if (documentContent?.type === "contract" && documentContent.start_date) {
-    metadataChips.push(
-      <span key="start" className="text-xs text-muted-foreground">
-        Start: {formatDate(documentContent.start_date)}
-      </span>
-    );
-  }
-  if (documentContent?.type === "contract" && documentContent.end_date) {
-    metadataChips.push(
-      <span key="end" className="text-xs text-muted-foreground">
-        Ends: {formatDate(documentContent.end_date)}
-      </span>
-    );
-  }
-
-  const handleSelect = (action: QuickAction) => {
-    if (isBusy) return;
-    if (action.requiresDocument && !hasDocumentContext) return;
-
-    setSelectedAction(action.label);
-    onQuickAction(action);
-    setTimeout(() => setSelectedAction(null), 250);
-  };
-
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2">
-        <nav
-          aria-label="Breadcrumb"
-          className="flex items-center gap-1 text-xs text-muted-foreground"
-        >
-          {breadcrumbs.map((crumb, index) => (
-            <React.Fragment key={`${crumb}-${index}`}>
-              {index > 0 && <ChevronRight className="h-3.5 w-3.5" />}
-              <span
-                className={cn(
-                  "truncate",
-                  index === breadcrumbs.length - 1
-                    ? "text-foreground font-medium"
-                    : ""
-                )}
-              >
-                {crumb}
-              </span>
-            </React.Fragment>
-          ))}
-        </nav>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-lg font-semibold text-foreground">Ream AI</h1>
-          <Badge
-            variant="outline"
-            className="text-[11px] font-normal uppercase tracking-wide"
-          >
-            Beta
-          </Badge>
+    <div className="flex items-center justify-between border-b bg-background px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h1 className="text-base font-semibold">
+            {conversationTitle || "Ream AI"}
+          </h1>
         </div>
-        {metadataChips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {metadataChips}
-          </div>
+        {activeDocumentLabel && (
+          <Badge variant="secondary" className="text-xs">
+            <FileText className="h-3 w-3 mr-1" />
+            {activeDocumentLabel}
+          </Badge>
         )}
       </div>
-
-      <div className="flex flex-wrap gap-2">
-        <div
-          className="inline-flex flex-wrap overflow-hidden rounded-md border border-border bg-background text-xs"
-          role="group"
-          aria-label="Quick analysis shortcuts"
-        >
-          {QUICK_ACTIONS.map((action, idx) => {
-            const disabled =
-              isBusy || (action.requiresDocument && !hasDocumentContext);
-            const isActive = selectedAction === action.label;
-            return (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => handleSelect(action)}
-                disabled={disabled}
-                className={cn(
-                  "flex items-center gap-1 px-3 py-2 transition-colors",
-                  idx !== 0 && "border-l border-border/60",
-                  disabled && "cursor-not-allowed opacity-50",
-                  isActive
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/70"
-                )}
-                title={
-                  disabled && action.requiresDocument
-                    ? "Select a document to enable"
-                    : undefined
-                }
-              >
-                <action.icon className="h-3.5 w-3.5" />
-                <span>{action.label}</span>
-              </button>
-            );
-          })}
+      
+      {hasDocumentContext && (
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowQuickActions(!showQuickActions)}
+            className="h-8"
+          >
+            <Sparkles className="h-4 w-4 mr-1" />
+            Quick Actions
+          </Button>
+          {showQuickActions && (
+            <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border bg-popover p-2 shadow-lg z-50">
+              {QUICK_ACTIONS.map((action) => {
+                const disabled = isBusy || (action.requiresDocument && !hasDocumentContext);
+                return (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => {
+                      if (!disabled) {
+                        onQuickAction(action);
+                        setShowQuickActions(false);
+                      }
+                    }}
+                    disabled={disabled}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left",
+                      disabled
+                        ? "cursor-not-allowed opacity-50 text-muted-foreground"
+                        : "hover:bg-accent text-foreground"
+                    )}
+                  >
+                    <action.icon className="h-4 w-4" />
+                    <span>{action.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1363,199 +1287,262 @@ Provide a comprehensive answer based on general legal knowledge. If the question
 
       {/* Main content area */}
       <ModuleErrorBoundary name="Chat Interface">
-        <main className="flex h-full flex-1 flex-col overflow-hidden">
-          <Card className="flex h-full w-full flex-1 flex-col rounded-none border-x-0 border-t-0">
-            <CardHeader className="border-b px-4 py-3 sm:px-6">
-              <ReamAIHeader
-                activeDocumentLabel={activeDocumentLabel}
-                hasDocumentContext={hasDocumentContext}
-                documentContent={documentContent}
-                isBusy={isStreaming || isTyping}
-                onQuickAction={handleQuickAction}
-              />
-            </CardHeader>
+        <main className="flex h-full flex-1 flex-col overflow-hidden bg-background">
+          {/* Clean header */}
+          <ReamAIHeader
+            activeDocumentLabel={activeDocumentLabel}
+            hasDocumentContext={hasDocumentContext}
+            documentContent={documentContent}
+            isBusy={isStreaming || isTyping}
+            onQuickAction={handleQuickAction}
+            conversationTitle={conversations.find(c => c.id === currentConversationId)?.title}
+          />
 
-                {/* Main chat/message area with its own scrolling */}
-                <div className="flex min-h-0 flex-1 flex-col">
-                  {ragResults && ragResults.length > 0 && (
-                    <div className="border-b bg-muted/30 px-4 py-3 sm:px-6">
-                      <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <Sparkles className="h-3 w-3" /> Context matches
-                      </p>
-                      <div className="mt-2 space-y-2">
-                        {ragResults.slice(0, 3).map((result, index) => (
-                          <div
-                            key={`${result.chunkId}-${index}`}
-                            className="text-xs text-muted-foreground"
-                          >
-                            <p className="font-medium text-foreground">
-                              {result.documentName} ({result.documentType})
-                            </p>
-                            <p className="line-clamp-2">{result.content}</p>
-                          </div>
-                        ))}
+          {/* Main chat/message area */}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* RAG context indicator - subtle */}
+            {ragResults && ragResults.length > 0 && (
+              <div className="border-b bg-muted/20 px-6 py-2">
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Sparkles className="h-3 w-3" />
+                  <span>Found {ragResults.length} relevant document{ragResults.length > 1 ? 's' : ''}</span>
+                </p>
+              </div>
+            )}
+
+            {/* Messages area - ChatGPT-like */}
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto">
+              {messages.length <= 1 ? (
+                // Empty state - ChatGPT style
+                <div className="flex h-full items-center justify-center">
+                  <div className="max-w-2xl w-full px-4 py-8">
+                    <div className="flex flex-col items-center justify-center text-center space-y-6">
+                      <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
+                        <Sparkles className="h-8 w-8 text-primary" />
                       </div>
-                    </div>
-                  )}
-
-                  <div ref={chatContainerRef} className="flex-1 overflow-y-auto">
-                    <div className="flex flex-col gap-3 px-4 py-4 pb-24 sm:px-6">
-                      {messages.map((msg, i) => (
-                        <div
-                          key={i}
-                          className={`flex ${
-                            msg.role === "user" ? "justify-end" : "justify-start"
-                          } ${msg.role === "system" ? "justify-center" : ""}`}
-                        >
-                          {msg.role === "system" ? (
-                            <Card className="w-full max-w-3xl bg-muted/40">
-                              <CardContent className="px-4 py-3 text-sm">
-                                <p className="text-sm">{msg.content}</p>
-                              </CardContent>
-                            </Card>
-                          ) : (
-                            <div
-                              className={`max-w-[80%] rounded-lg px-4 py-3 text-sm shadow-sm whitespace-pre-wrap ${
-                                msg.role === "user"
-                                  ? "ml-auto bg-muted text-foreground"
-                                  : "mr-auto border border-border/60 bg-background text-foreground"
-                              }`}
-                            >
-                              {msg.content || (msg.isStreaming && <span className="animate-pulse">▋</span>)}
-                              {msg.timestamp && (
-                                <div
-                                  className={cn(
-                                    "mt-2 text-[10px] text-muted-foreground",
-                                    msg.role === "user" ? "text-right" : "text-left"
-                                  )}
+                      <div>
+                        <h2 className="text-2xl font-semibold mb-2">How can I help you today?</h2>
+                        <p className="text-muted-foreground">
+                          Ask me anything about your legal practice, documents, or cases.
+                        </p>
+                      </div>
+                      {hasDocumentContext && (
+                        <div className="w-full max-w-md">
+                          <p className="text-sm font-medium mb-3">Quick Actions:</p>
+                          <div className="grid grid-cols-1 gap-2">
+                            {QUICK_ACTIONS.map((action) => {
+                              const disabled = isStreaming || isTyping || (action.requiresDocument && !hasDocumentContext);
+                              return (
+                                <Button
+                                  key={action.label}
+                                  variant="outline"
+                                  className="justify-start h-auto py-3 px-4"
+                                  onClick={() => !disabled && handleQuickAction(action)}
+                                  disabled={disabled}
                                 >
-                                  {msg.timestamp.toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit"
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                                  <action.icon className="h-4 w-4 mr-2" />
+                                  <div className="text-left">
+                                    <div className="font-medium">{action.label}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                      {action.prompt.substring(0, 60)}...
+                                    </div>
+                                  </div>
+                                </Button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      ))}
+                      )}
+                      <div className="w-full max-w-md">
+                        <p className="text-sm font-medium mb-3">Try asking:</p>
+                        <div className="grid grid-cols-1 gap-2">
+                          {EXAMPLE_PROMPTS.map((prompt, i) => (
+                            <Button
+                              key={i}
+                              variant="ghost"
+                              className="justify-start h-auto py-2 px-3 text-sm text-left hover:bg-accent"
+                              onClick={() => useExamplePrompt(prompt)}
+                            >
+                              {prompt}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Example prompts */}
-                  {messages.length <= 2 && (
-                    <div className="border-t bg-background/95 px-4 py-3 sm:px-6">
-                      <p className="mb-2 text-sm text-muted-foreground">Try asking:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {EXAMPLE_PROMPTS.map((prompt, i) => (
-                          <Button
-                            key={i}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => useExamplePrompt(prompt)}
-                          >
-                            {prompt}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Input form */}
-                  <form
-                    className="sticky bottom-0 left-0 right-0 z-10 border-t bg-background"
-                    onSubmit={(event) => sendMessage(event)}
-                    style={{ boxShadow: "0 -2px 8px -4px rgba(0,0,0,0.04)" }}
-                  >
-                    {/* Document selector and upload - more prominent */}
-                    <div className="border-b bg-muted/30">
-                      <div className="px-4 pt-3 pb-2 flex gap-2">
-                        <Popover open={isDocSelectorOpen} onOpenChange={setIsDocSelectorOpen}>
-                          <PopoverTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="h-9 text-sm"
-                            >
-                              <FileText className="mr-2 h-4 w-4" />
-                              {selectedDoc || selectedFile 
-                                ? "Change Document" 
-                                : "Select Document"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent 
-                            className="w-[600px] p-0" 
-                            align="start"
-                            side="top"
-                          >
-                            <DocumentSuggestions
-                              documents={documents}
-                              contracts={contracts}
-                              onSelectDocument={handleSelectDoc}
-                              isLoading={docsLoading || contractsLoading}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <div {...getRootProps()} className="flex-1">
-                          <input {...getInputProps()} />
-                          <Button 
-                            type="button"
-                            variant="secondary" 
-                            size="sm" 
-                            className="h-9 w-full text-sm font-medium"
-                            disabled={isExtracting || isStreaming || isTyping}
-                          >
-                            {isExtracting ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Uploading...
-                              </>
+                </div>
+              ) : (
+                // Messages list - ChatGPT style
+                <div className="flex flex-col">
+                  {messages
+                    .filter(msg => msg.role !== "system")
+                    .map((msg, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "group w-full border-b border-border/40",
+                          msg.role === "user" ? "bg-muted/30" : "bg-background"
+                        )}
+                      >
+                        <div className="mx-auto flex max-w-3xl gap-4 px-4 py-6">
+                          {/* Avatar */}
+                          <div className="flex-shrink-0">
+                            {msg.role === "user" ? (
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                <User className="h-4 w-4" />
+                              </div>
                             ) : (
-                              <>
-                                <Upload className="mr-2 h-4 w-4" />
-                                Upload Document
-                              </>
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <Bot className="h-4 w-4" />
+                              </div>
                             )}
-                          </Button>
+                          </div>
+                          
+                          {/* Message content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                {msg.content || (msg.isStreaming && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <span className="animate-pulse">▋</span>
+                                    <span className="text-muted-foreground text-xs">Thinking...</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            {msg.timestamp && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                {msg.timestamp.toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground text-center pb-2 px-4">
-                        Drag and drop a file here, or click to browse (PDF, DOC, DOCX, TXT)
-                      </p>
-                    </div>
-
-                    <div className="flex gap-2 px-4 py-3 sm:px-6">
-                      <Input
-                        className="flex-1"
-                        placeholder={
-                          selectedDoc || selectedFile
-                            ? "Ask about this document or request analysis..."
-                            : "Ask me anything about legal matters, or select a document for context..."
-                        }
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        disabled={isStreaming || isTyping}
-                      />
-                      {isStreaming ? (
-                        <Button type="button" variant="destructive" onClick={cancelStreaming}>
-                          <StopCircle className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button type="submit" disabled={isTyping}>
-                          {isTyping ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Send className="h-4 w-4" />
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </form>
+                    ))}
                 </div>
-              </Card>
-            </main>
-          </ModuleErrorBoundary>
-        </div>
+              )}
+            </div>
+
+            {/* Input area - ChatGPT style */}
+            <div className="sticky bottom-0 left-0 right-0 z-10 border-t bg-background">
+              {/* Document selector and upload - compact */}
+              {(selectedDoc || selectedFile || !selectedDoc) && (
+                <div className="border-b bg-muted/20 px-4 py-2">
+                  <div className="mx-auto flex max-w-3xl items-center gap-2">
+                    <Popover open={isDocSelectorOpen} onOpenChange={setIsDocSelectorOpen}>
+                      <PopoverTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 text-xs"
+                        >
+                          <FileText className="mr-1.5 h-3.5 w-3.5" />
+                          {selectedDoc || selectedFile ? "Change" : "Select Document"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent 
+                        className="w-[600px] p-0" 
+                        align="start"
+                        side="top"
+                      >
+                        <DocumentSuggestions
+                          documents={documents}
+                          contracts={contracts}
+                          onSelectDocument={handleSelectDoc}
+                          isLoading={docsLoading || contractsLoading}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <div {...getRootProps()} className="flex-1">
+                      <input {...getInputProps()} />
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 text-xs"
+                        disabled={isExtracting || isStreaming || isTyping}
+                      >
+                        {isExtracting ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-1.5 h-3.5 w-3.5" />
+                            Upload
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {selectedDoc && (
+                      <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                        {selectedDoc.title || selectedDoc.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Main input */}
+              <form
+                onSubmit={(event) => sendMessage(event)}
+                className="mx-auto max-w-3xl px-4 py-4"
+              >
+                <div className="relative flex items-end gap-2 rounded-2xl border border-border bg-background shadow-sm transition-shadow focus-within:shadow-md">
+                  <div className="flex-1 p-3">
+                    <Textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Message Ream AI..."
+                      disabled={isStreaming || isTyping}
+                      rows={1}
+                      className="min-h-[24px] max-h-[200px] resize-none border-0 bg-transparent text-sm focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none disabled:opacity-50"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = "auto";
+                        target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 p-2">
+                    {isStreaming ? (
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={cancelStreaming}
+                      >
+                        <StopCircle className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button 
+                        type="submit" 
+                        disabled={isTyping || !input.trim()}
+                        size="icon"
+                        className="h-8 w-8 rounded-lg"
+                      >
+                        {isTyping ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  Ream AI can make mistakes. Check important information.
+                </p>
+              </form>
+            </div>
+          </div>
+        </main>
+      </ModuleErrorBoundary>
+    </div>
   );
 }

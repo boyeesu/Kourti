@@ -72,11 +72,11 @@ export function ConversationSidebar({
 
   return (
     <>
-      <aside className="flex h-full w-full flex-shrink-0 flex-col gap-3 border-r border-border bg-muted/20 p-4 lg:w-64 lg:min-w-[16rem]">
-        <div className="flex flex-col gap-2">
+      <aside className="flex h-full w-full flex-shrink-0 flex-col border-r border-border bg-background lg:w-64 lg:min-w-[16rem]">
+        <div className="flex flex-col gap-2 p-3">
           <Button
             onClick={onNewConversation}
-            className="w-full justify-start gap-2"
+            className="w-full justify-start gap-2 h-9 bg-primary hover:bg-primary/90"
             size="sm"
           >
             <Plus className="h-4 w-4" />
@@ -89,20 +89,20 @@ export function ConversationSidebar({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search chats..."
-              className="h-8 pl-9 text-xs"
+              className="h-9 pl-9 text-sm bg-muted/50 border-0"
             />
           </div>
         </div>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 px-2">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
               Loading...
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="flex flex-col items-center justify-center py-8 text-center px-4">
               <MessageSquare className="h-8 w-8 text-muted-foreground/50 mb-2" />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {search ? "No matching conversations" : "No conversations yet"}
               </p>
               <p className="text-xs text-muted-foreground/70 mt-1">
@@ -115,7 +115,7 @@ export function ConversationSidebar({
                 <div
                   key={conv.id}
                   className={cn(
-                    "group relative rounded-md transition-colors",
+                    "group relative rounded-lg transition-colors",
                     currentConversationId === conv.id
                       ? "bg-accent"
                       : "hover:bg-accent/50"
@@ -130,45 +130,55 @@ export function ConversationSidebar({
                           if (e.key === "Enter") handleSaveEdit();
                           if (e.key === "Escape") handleCancelEdit();
                         }}
-                        className="h-7 text-xs"
+                        className="h-8 text-sm"
                         autoFocus
                       />
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={handleSaveEdit}
-                        className="h-7 w-7 p-0"
+                        className="h-8 w-8 p-0"
                       >
-                        <Check className="h-3.5 w-3.5" />
+                        <Check className="h-4 w-4" />
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={handleCancelEdit}
-                        className="h-7 w-7 p-0"
+                        className="h-8 w-8 p-0"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : (
                     <>
                       <button
                         onClick={() => onSelectConversation(conv.id)}
-                        className="w-full text-left p-2 pr-16"
+                        className="w-full text-left p-3 pr-16 rounded-lg"
                       >
-                        <div className="flex items-start gap-2">
-                          <MessageSquare className="h-4 w-4 flex-shrink-0 mt-0.5 text-muted-foreground" />
+                        <div className="flex items-start gap-3">
+                          <MessageSquare className={cn(
+                            "h-4 w-4 flex-shrink-0 mt-0.5",
+                            currentConversationId === conv.id 
+                              ? "text-primary" 
+                              : "text-muted-foreground"
+                          )} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">
+                            <p className={cn(
+                              "text-sm truncate",
+                              currentConversationId === conv.id 
+                                ? "font-semibold" 
+                                : "font-medium"
+                            )}>
                               {conv.title}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               {formatDate(conv.updated_at)}
                             </p>
                           </div>
                         </div>
                       </button>
-                      <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute right-2 top-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           size="sm"
                           variant="ghost"
