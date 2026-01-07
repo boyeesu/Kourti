@@ -290,72 +290,19 @@ export default function ReamAI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationsLoading, conversations.length]);
 
-  // Function to generate conversation summary
-  const generateConversationSummary = async (conversationMessages: Message[]): Promise<string> => {
-    try {
-      // Get user and assistant messages (exclude system messages)
-      const relevantMessages = conversationMessages
-        .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-        .slice(0, 10) // Limit to last 10 messages for summary
-        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-        .join('\n\n');
+  // Track which conversations have had their title updated
+  const [titleUpdatedConversations, setTitleUpdatedConversations] = useState<Set<string>>(new Set());
 
-      if (!relevantMessages || relevantMessages.trim().length < 20) {
-        return "New Chat";
-      }
-
-      // Get current user for the API call
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !organization?.id) {
-        // Fallback: use first user message as title
-        const firstUserMessage = conversationMessages.find(m => m.role === 'user')?.content || '';
-        return firstUserMessage.length > 50 
-          ? firstUserMessage.substring(0, 47) + "..." 
-          : firstUserMessage || "New Chat";
-      }
-
-      // Call OpenAI to generate a short summary
-      const { data, error } = await supabase.functions.invoke('ream-ai-assistant', {
-        body: {
-          message: `Generate a very short, concise title (maximum 6-8 words) that summarizes this conversation. Only return the title, nothing else:\n\n${relevantMessages}`,
-          conversationHistory: [
-            {
-              role: 'system',
-              content: 'You are a helpful assistant that generates concise conversation titles. Generate a short, descriptive title (6-8 words max) that captures the main topic of the conversation. Return only the title, no explanations.'
-            }
-          ],
-          userId: user.id,
-          organizationId: organization.id
-        }
-      });
-
-      if (error) {
-        console.error('Error generating summary:', error);
-        // Fallback: use first user message
-        const firstUserMessage = conversationMessages.find(m => m.role === 'user')?.content || '';
-        return firstUserMessage.length > 50 
-          ? firstUserMessage.substring(0, 47) + "..." 
-          : firstUserMessage || "New Chat";
-      }
-
-      const summary = data?.response?.trim() || "";
-      
-      // Clean up the summary - remove quotes, extra spaces, etc.
-      const cleanSummary = summary
-        .replace(/^["']|["']$/g, '') // Remove surrounding quotes
-        .replace(/^Title:\s*/i, '') // Remove "Title:" prefix if present
-        .trim()
-        .substring(0, 60); // Limit to 60 characters
-
-      return cleanSummary || "New Chat";
-    } catch (error) {
-      console.error('Error generating conversation summary:', error);
-      // Fallback: use first user message
-      const firstUserMessage = conversationMessages.find(m => m.role === 'user')?.content || '';
-      return firstUserMessage.length > 50 
-        ? firstUserMessage.substring(0, 47) + "..." 
-        : firstUserMessage || "New Chat";
+  // Function to generate conversation title from first user message
+  const generateConversationTitle = (userMessage: string): string => {
+    const cleanMessage = userMessage.trim();
+    if (!cleanMessage) return "New Chat";
+    
+    // Truncate if too long
+    if (cleanMessage.length > 50) {
+      return cleanMessage.substring(0, 47) + "...";
     }
+    return cleanMessage;
   };
 
   const scrollChatToBottom = (behavior: ScrollBehavior = "smooth") => {
@@ -749,22 +696,15 @@ export default function ReamAI() {
           });
         }
 
-        // Generate and update conversation title after a few messages
-        if (currentConversationId) {
-          const userMessageCount = updatedMessages.filter(m => m.role === "user").length;
-          const currentConv = conversations.find(c => c.id === currentConversationId);
-          
-          // Update title if it's still "New Chat" and we have 2+ user messages
-          if (currentConv && (currentConv.title === "New Chat" || userMessageCount >= 2)) {
-            // Generate summary asynchronously
-            generateConversationSummary(updatedMessages).then((summary) => {
-              if (summary && summary !== "New Chat") {
-                updateConversation.mutate({ 
-                  id: currentConversationId, 
-                  title: summary 
-                });
-              }
+        // Update conversation title on first user message (if not already updated)
+        if (currentConversationId && !titleUpdatedConversations.has(currentConversationId)) {
+          const title = generateConversationTitle(userMessage);
+          if (title !== "New Chat") {
+            updateConversation.mutate({ 
+              id: currentConversationId, 
+              title: title 
             });
+            setTitleUpdatedConversations(prev => new Set(prev).add(currentConversationId));
           }
         }
       }
@@ -1026,27 +966,6 @@ I'll answer based on the relevant information found above.`;
                   content: aiContent,
                 });
 
-                // Update conversation title after assistant responds
-                const currentConv = conversations.find(c => c.id === currentConversationId);
-                if (currentConv && currentConv.title === "New Chat") {
-                  // Generate summary from current messages
-                  setTimeout(() => {
-                    setMessages((currentMsgs) => {
-                      const allMessages = currentMsgs.filter(m => m.role !== "system");
-                      if (allMessages.length >= 2) {
-                        generateConversationSummary(allMessages).then((summary) => {
-                          if (summary && summary !== "New Chat") {
-                            updateConversation.mutate({ 
-                              id: currentConversationId, 
-                              title: summary 
-                            });
-                          }
-                        });
-                      }
-                      return currentMsgs;
-                    });
-                  }, 100);
-                }
               }
             }
           }
@@ -1092,28 +1011,6 @@ I'll answer based on the relevant information found above.`;
               role: "assistant",
               content: response,
             });
-
-            // Update conversation title after assistant responds
-            const currentConv = conversations.find(c => c.id === currentConversationId);
-            if (currentConv && currentConv.title === "New Chat") {
-              // Generate summary from current messages
-              setTimeout(() => {
-                setMessages((currentMsgs) => {
-                  const allMessages = currentMsgs.filter(m => m.role !== "system");
-                  if (allMessages.length >= 2) {
-                    generateConversationSummary(allMessages).then((summary) => {
-                      if (summary && summary !== "New Chat") {
-                        updateConversation.mutate({ 
-                          id: currentConversationId, 
-                          title: summary 
-                        });
-                      }
-                    });
-                  }
-                  return currentMsgs;
-                });
-              }, 100);
-            }
           }
         } catch (error) {
           console.error("Error with general query:", error);
