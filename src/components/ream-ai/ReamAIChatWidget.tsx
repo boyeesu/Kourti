@@ -45,7 +45,7 @@ export function ReamAIChatWidget({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hello! I\'m Ream AI, your intelligent legal assistant. I can help you:\n\n• Query your cases, clients, documents, and contracts\n• Review and analyze documents\n• Answer questions about your practice\n• Provide insights from your data\n\nWhat would you like to know?',
+      content: 'Hello! I\'m Ream AI, your intelligent legal assistant. I can help you with:\n\n• General legal questions and explanations\n• Information about your cases, clients, and practice data\n• Document review and analysis (upload a file first)\n\nAsk me anything!',
       timestamp: new Date(),
     },
   ]);
@@ -235,10 +235,13 @@ export function ReamAIChatWidget({
         });
       } else {
         // Use system-wide assistant for general queries, database queries, and system interactions
-        const conversationHistory = messages.map(msg => ({
-          role: msg.role,
-          content: msg.content,
-        }));
+        // Filter out empty messages (typing indicators) from conversation history
+        const conversationHistory = messages
+          .filter(msg => msg.content.trim().length > 0)
+          .map(msg => ({
+            role: msg.role,
+            content: msg.content,
+          }));
 
         const docContext = uploadedDocument?.content || documentContext?.content;
         const response = await sendAssistantMessage(userMessage, conversationHistory, {

@@ -9,6 +9,7 @@ import { useContracts } from "@/hooks/useContracts";
 import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
 import { useDocumentContent } from "@/hooks/useDocumentContext";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useReamAIAssistant } from "@/hooks/useReamAIAssistant";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,8 +37,6 @@ import {
   getCachedQuery,
   setCachedQuery,
   optimizeConversationHistory,
-  mergeDocumentContexts,
-  calculateRelevanceScore,
 } from '@/lib/ai-helpers';
 
 interface Message {
@@ -232,6 +231,9 @@ export default function ReamAI() {
   // Get document analysis functionality
   const { streamAnalysis, cancelStreaming, isStreaming } =
     useEnhancedDocumentAnalysis();
+  
+  // Get the same assistant used by the widget for general queries
+  const { sendMessage: sendAssistantMessage } = useReamAIAssistant();
 
   // Document processing for RAG
   const processDocument = useProcessDocument();
@@ -1051,106 +1053,78 @@ I'll answer based on the relevant information found above.`;
         });
       } else {
         // Handle general legal queries without specific document context
+        // Use the SAME assistant as the widget for consistency
         setIsTyping(true);
 
         try {
-          // Build conversation history for general queries too
+          // Build conversation history for general queries (filter out empty messages)
           const conversationHistory = messages
-            .filter(msg => msg.role !== "system")
+            .filter(msg => msg.role !== "system" && msg.content.trim().length > 0)
             .slice(0, -1)
             .map(msg => ({
               role: msg.role,
               content: msg.content
             }));
 
-          // Check if we have RAG results even without selected doc
-          // Optimize RAG context with relevance scoring and merging
-          let ragContextString = "";
-          if (ragResults && ragResults.length > 0) {
-            // Calculate relevance scores and merge contexts
-            const scoredResults = ragResults.map(result => ({
-              content: result.content,
-              score: calculateRelevanceScore(userMessage, result.content, {
-                similarity: result.similarity,
-                recent: true,
-              }),
-              source: result.documentName || 'Unknown',
-            }));
+          // Use the same ream-ai-assistant as the widget for general queries
+          const response = await sendAssistantMessage(userMessage, conversationHistory);
 
-            // Merge contexts with smart token management
-            ragContextString = mergeDocumentContexts(scoredResults, 40000);
+          // Update the message with the response
+          setMessages((msgs) =>
+            msgs.map((msg, i) =>
+              i === msgs.length - 1
+                ? { ...msg, content: response, isStreaming: false }
+                : msg
+            )
+          );
+
+          setIsTyping(false);
+          
+          // Cache the response for future queries
+          if (response.trim()) {
+            setCachedQuery(userMessage, response);
           }
+          
+          // Save assistant message to database
+          if (currentConversationId && response.trim()) {
+            saveMessage.mutate({
+              conversationId: currentConversationId,
+              role: "assistant",
+              content: response,
+            });
 
-          // Use the AI for general legal questions
-          await streamAnalysis({
-            content: ragContextString 
-              ? `Based on your question and relevant documents from your knowledge base, provide a comprehensive answer.
-
-Question: ${userMessage}
-
-${ragContextString ? `RELEVANT KNOWLEDGE BASE CONTENT:\n${ragContextString}\n\nAnswer using the information above, citing sources with [SOURCE X] format.` : 'Provide a comprehensive answer based on general legal knowledge. If the question would benefit from specific document context, mention that the user can select or upload a document for more detailed analysis.'}`
-              : `You are a helpful legal AI assistant. Answer the following question clearly and professionally:
-
-Question: ${userMessage}
-
-Provide a comprehensive answer based on general legal knowledge. If the question would benefit from specific document context, mention that the user can select or upload a document for more detailed analysis.`,
-            analysisType: "general",
-            conversationHistory: conversationHistory,
-            ragContext: ragContextString || undefined,
-            onProgress: (aiContent, done) => {
-              setMessages((msgs) =>
-                msgs.map((msg, i) =>
-                  i === msgs.length - 1
-                    ? { ...msg, content: aiContent, isStreaming: !done }
-                    : msg
-                )
-              );
-
-              if (done) {
-                setIsTyping(false);
-                // Cache the response for future queries
-                if (aiContent.trim()) {
-                  setCachedQuery(userMessage, aiContent);
-                }
-                // Save assistant message to database
-                if (currentConversationId && aiContent.trim()) {
-                  saveMessage.mutate({
-                    conversationId: currentConversationId,
-                    role: "assistant",
-                    content: aiContent,
-                  });
-
-                  // Update conversation title after assistant responds
-                  const currentConv = conversations.find(c => c.id === currentConversationId);
-                  if (currentConv && currentConv.title === "New Chat") {
-                    // Generate summary from current messages
-                    setTimeout(() => {
-                      setMessages((currentMsgs) => {
-                        const allMessages = currentMsgs.filter(m => m.role !== "system");
-                        if (allMessages.length >= 2) {
-                          generateConversationSummary(allMessages).then((summary) => {
-                            if (summary && summary !== "New Chat") {
-                              updateConversation.mutate({ 
-                                id: currentConversationId, 
-                                title: summary 
-                              });
-                            }
-                          });
-                        }
-                        return currentMsgs;
-                      });
-                    }, 100);
+            // Update conversation title after assistant responds
+            const currentConv = conversations.find(c => c.id === currentConversationId);
+            if (currentConv && currentConv.title === "New Chat") {
+              // Generate summary from current messages
+              setTimeout(() => {
+                setMessages((currentMsgs) => {
+                  const allMessages = currentMsgs.filter(m => m.role !== "system");
+                  if (allMessages.length >= 2) {
+                    generateConversationSummary(allMessages).then((summary) => {
+                      if (summary && summary !== "New Chat") {
+                        updateConversation.mutate({ 
+                          id: currentConversationId, 
+                          title: summary 
+                        });
+                      }
+                    });
                   }
-                }
-              }
+                  return currentMsgs;
+                });
+              }, 100);
             }
-          });
+          }
         } catch (error) {
           console.error("Error with general query:", error);
-          simulateTypingResponse(
-            "I'm here to help with legal questions and document analysis. I can answer general legal questions or provide detailed analysis when you select a document. How can I assist you today?",
-            50
+          setMessages((msgs) =>
+            msgs.map((msg, i) =>
+              i === msgs.length - 1
+                ? { ...msg, content: "I'm here to help with legal questions and document analysis. I can answer general legal questions or provide detailed analysis when you select a document. How can I assist you today?", isStreaming: false }
+                : msg
+            )
           );
+          setIsTyping(false);
         }
       }
     } catch (error) {

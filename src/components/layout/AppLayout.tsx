@@ -201,9 +201,15 @@ function MobileAccessNotice() {
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[hsl(var(--background))/0.92] px-6 text-center backdrop-blur">
-      <div className="max-w-sm space-y-4 rounded-2xl border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-6 shadow-xl">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(var(--primary))/0.15] text-[hsl(var(--primary))]">
+    <div 
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-background/95 px-6 text-center backdrop-blur-sm"
+      onClick={() => setDismissed(true)}
+    >
+      <div 
+        className="max-w-sm space-y-4 rounded-2xl border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
           <MonitorSmartphone className="h-6 w-6" aria-hidden="true" />
         </div>
         <div className="space-y-2">
@@ -212,7 +218,15 @@ function MobileAccessNotice() {
             For the best experience, please use Kourti Legal Hub on a tablet or desktop computer.
           </p>
         </div>
-        <Button variant="outline" className="w-full" onClick={() => setDismissed(true)}>
+        <Button 
+          variant="outline" 
+          className="w-full pointer-events-auto" 
+          onClick={() => setDismissed(true)}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            setDismissed(true);
+          }}
+        >
           Continue on mobile
         </Button>
       </div>
