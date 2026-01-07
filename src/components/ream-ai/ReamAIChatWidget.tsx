@@ -280,16 +280,49 @@ export function ReamAIChatWidget({
 
   if (isMinimized && variant === 'floating') {
     return (
-      <Button
+      <button
         onClick={onMaximize}
         className={cn(
-          'fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50',
+          'fixed bottom-4 right-4 h-20 w-20 rounded-full shadow-2xl z-50',
+          'hover:scale-110 active:scale-95 transition-all duration-300',
+          'cursor-pointer border-0 bg-transparent p-0',
+          'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full',
+          'animate-bounce-slow hover:animate-none',
           className
         )}
-        size="icon"
+        aria-label="Open Ream AI Chat"
       >
-        <Sparkles className="h-5 w-5" />
-      </Button>
+        <div className="relative w-full h-full">
+          <img
+            src="/kourti-mascot.png"
+            alt="Kourti Mascot - Click to chat with Ream AI"
+            className="w-full h-full object-contain drop-shadow-lg"
+            onError={(e) => {
+              // Fallback to Sparkles icon if mascot image not found
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const parent = target.parentElement;
+              if (parent && !parent.querySelector('.mascot-fallback')) {
+                const fallback = document.createElement('div');
+                fallback.className = 'mascot-fallback w-full h-full flex items-center justify-center bg-primary rounded-full';
+                const sparklesIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                sparklesIcon.setAttribute('class', 'h-8 w-8 text-primary-foreground');
+                sparklesIcon.setAttribute('fill', 'none');
+                sparklesIcon.setAttribute('stroke', 'currentColor');
+                sparklesIcon.setAttribute('viewBox', '0 0 24 24');
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('stroke-linecap', 'round');
+                path.setAttribute('stroke-linejoin', 'round');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('d', 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z');
+                sparklesIcon.appendChild(path);
+                fallback.appendChild(sparklesIcon);
+                parent.appendChild(fallback);
+              }
+            }}
+          />
+        </div>
+      </button>
     );
   }
 

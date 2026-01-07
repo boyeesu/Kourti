@@ -51,6 +51,19 @@
       transform: translateY(0);
     }
   }
+
+  .animate-bounce-slow {
+    animation: bounceSlow 2s ease-in-out infinite;
+  }
+
+  @keyframes bounceSlow {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
   
   .animate-slide-up {
     animation: slideUp 0.2s ease-out;

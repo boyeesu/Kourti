@@ -29,7 +29,7 @@ export function FloatingChatWidget({ documentContext }: FloatingChatWidgetProps)
       {isMinimized && unreadCount > 0 && (
         <Badge
           variant="destructive"
-          className="fixed bottom-20 right-4 h-6 w-6 rounded-full p-0 flex items-center justify-center z-50"
+          className="fixed bottom-24 right-4 h-6 w-6 rounded-full p-0 flex items-center justify-center z-[60] text-xs font-bold animate-pulse"
         >
           {unreadCount > 9 ? '9+' : unreadCount}
         </Badge>
