@@ -7,12 +7,15 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint src --max-warnings 0",
     "test": "node --test tests",
     "preview": "vite preview",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
-    "supabase:status": "npx supabase status"
+    "supabase:status": "npx supabase status",
+    "supabase:link": "npx supabase link --project-ref zjbvnvydgsxqmmrrmvif",
+    "supabase:deploy": "powershell -ExecutionPolicy Bypass -File ./deploy-supabase.ps1",
+    "supabase:deploy:all": "powershell -ExecutionPolicy Bypass -File ./deploy-supabase.ps1 -DeployAll"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

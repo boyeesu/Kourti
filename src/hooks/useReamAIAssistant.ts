@@ -59,10 +59,21 @@ export function useReamAIAssistant() {
       });
 
       if (error) {
-        throw error;
+        console.error('Supabase function error:', error);
+        throw new Error(error.message || 'Failed to invoke AI assistant');
       }
 
-      if (!data?.response) {
+      if (!data) {
+        throw new Error('No data returned from AI assistant');
+      }
+
+      if (data.error) {
+        console.error('AI assistant error:', data.error);
+        throw new Error(data.error || 'AI assistant returned an error');
+      }
+
+      if (!data.response) {
+        console.error('No response in data:', data);
         throw new Error('No response from AI assistant');
       }
 

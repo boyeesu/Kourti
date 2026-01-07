@@ -132,3 +132,6 @@ After setting up your `.env` file:
 - Make sure there are no spaces around the `=` sign: `VITE_SUPABASE_URL=https://...` (not `VITE_SUPABASE_URL = https://...`)
 - Restart your dev server
 
+
+
+

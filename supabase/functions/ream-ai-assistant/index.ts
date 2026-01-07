@@ -2,14 +2,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createJsonResponse, createEmptyResponse } from "../_shared/responseHeaders.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const openAIApiKey = Deno.env.get("OPENAI_API_KEY")!;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const corsOptions = {
+  allowMethods: ['POST', 'OPTIONS'],
 };
 
 interface ReamAIRequest {
@@ -23,76 +23,112 @@ interface ReamAIRequest {
   };
 }
 
-const handler = async (req: Request): Promise<Response> => {
-  console.log("ream-ai-assistant function invoked");
+serve(async (req: Request): Promise<Response> => {
+  console.log("ream-ai-assistant function invoked", {
+    method: req.method,
+    url: req.url
+  });
 
+  // Handle CORS preflight requests first
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    console.log("Handling OPTIONS preflight request");
+    return createEmptyResponse({ 
+      status: 204,
+      cors: corsOptions
+    });
   }
 
   try {
-    const requestData: ReamAIRequest = await req.json();
+    let requestData: ReamAIRequest;
+    try {
+      requestData = await req.json();
+    } catch (jsonError: any) {
+      console.error("JSON parse error:", jsonError);
+      return createJsonResponse(
+        { error: "Invalid JSON in request body" },
+        { status: 400, cors: corsOptions }
+      );
+    }
+
     const { message, conversationHistory = [], userId, organizationId, context } = requestData;
 
     if (!message || !userId || !organizationId) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      console.error("Missing required fields:", { message: !!message, userId: !!userId, organizationId: !!organizationId });
+      return createJsonResponse(
+        { error: "Missing required fields: message, userId, or organizationId" },
+        { status: 400, cors: corsOptions }
       );
     }
+
+    console.log("Processing request for user:", userId, "org:", organizationId);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Gather system context - query relevant tables
-    const systemContext = await gatherSystemContext(supabase, organizationId, message);
+    // Wrap in try-catch to prevent context gathering from breaking the request
+    let systemContext = "No system context available.";
+    try {
+      console.log("Gathering system context...");
+      systemContext = await gatherSystemContext(supabase, organizationId, message);
+      console.log("System context gathered, length:", systemContext.length);
+    } catch (contextError: any) {
+      console.error("Error gathering system context:", contextError);
+      console.error("Context error stack:", contextError?.stack);
+      // Continue with minimal context rather than failing
+      systemContext = "System context unavailable. Proceeding with general knowledge.";
+    }
 
-    // Build enhanced system prompt with system knowledge
-    const systemPrompt = `You are Ream AI, an intelligent legal assistant integrated into a comprehensive legal practice management system. You can help users with:
+    // Build enhanced system prompt emphasizing RAG capabilities
+    const systemPrompt = `You are Ream AI, a Retrieval-Augmented Generation (RAG) agent integrated into a comprehensive legal practice management system. You are a RAG agent that retrieves and synthesizes information from across the entire system, not just contracts.
 
-1. DATABASE QUERIES: You can query and analyze data from:
-   - Cases/Matters (title, status, client, dates, activities)
-   - Clients (name, contact info, associated cases)
-   - Documents (name, type, upload date, associated cases/clients)
-   - Contracts (title, type, status, dates, parties)
-   - Calendar Events (title, type, dates, location)
-   - Invoices (number, amount, status, client)
-   - Tasks (title, status, assignee, due dates)
-   - Users and Team Members
+YOUR RAG CAPABILITIES:
+As a RAG agent, you have access to:
+1. VECTOR SEARCH: Semantic search across all documents, contracts, and content using embeddings
+2. DATABASE QUERIES: Direct access to structured data from all system tables
+3. CONTEXT RETRIEVAL: Intelligent retrieval of relevant information based on user queries
+4. MULTI-SOURCE SYNTHESIS: Combine information from multiple sources to provide comprehensive answers
 
-2. DOCUMENT REVIEWS: You can analyze and review:
-   - Contracts and legal documents
-   - Case files and documents
-   - Any uploaded content
-   - Provide risk assessments, key term extraction, summaries, and comparisons
+YOUR DATA SOURCES (via RAG retrieval):
+- Cases/Matters: Title, status, client relationships, dates, activities, notes
+- Clients: Contact information, associated cases, communication history
+- Documents: All uploaded documents with full-text search via vector embeddings
+- Contracts: All contracts with semantic search and analysis capabilities
+- Calendar Events: Meetings, deadlines, appointments
+- Invoices: Billing information, payment status, financial data
+- Tasks: Project management, assignments, due dates
+- Team Members: User information, roles, permissions
+- Document Chunks: Vector-embedded content for semantic search across all documents
 
-3. SYSTEM INTERACTIONS: You can help users:
-   - Find information across the system
-   - Analyze data and provide insights
-   - Review documents and contracts
-   - Answer questions about cases, clients, and matters
-   - Provide recommendations based on data
-   - Help with general legal questions
+RAG RETRIEVAL PROCESS:
+1. When a user asks a question, you receive relevant context retrieved via:
+   - Vector similarity search from document_chunks table (semantic search)
+   - Direct database queries for structured data
+   - Context-aware retrieval based on query intent
+2. Use the retrieved context to provide accurate, cited answers
+3. If context is insufficient, ask clarifying questions to refine retrieval
+4. Synthesize information from multiple sources when relevant
 
-CURRENT SYSTEM CONTEXT:
+CURRENT RETRIEVED SYSTEM CONTEXT:
 ${systemContext}
 
-IMPORTANT RULES:
-- When querying data, use the system context provided above
-- If you need more specific data, ask the user clarifying questions
-- For document reviews, analyze the content provided in the context thoroughly
-- Always cite specific data points when referencing system information (e.g., "Case: [Case Name]", "Client: [Client Name]")
+IMPORTANT RAG AGENT RULES:
+- You are a RAG agent - prioritize information from the retrieved context above
+- Always cite your sources when referencing retrieved information (e.g., "According to [Document Name]", "Based on Case: [Case Name]")
+- If the retrieved context doesn't contain the answer, acknowledge this and ask for clarification
+- Combine information from multiple retrieved sources when relevant
+- For document-related queries, use the vector search results provided in context
+- For structured data queries, use the database context provided
 - Be conversational, helpful, and professional
-- If you don't have enough information, ask for clarification
-- Provide actionable insights and recommendations
-- When reviewing documents, identify key terms, risks, obligations, and recommendations
-- For database queries, summarize findings clearly and reference specific records
+- Provide actionable insights and recommendations based on retrieved data
+- If you need more specific information, ask clarifying questions to improve retrieval
 
 RESPONSE FORMAT:
 - Use clear, conversational language
 - Structure responses with clear sections when appropriate
-- Reference specific data from the system when available
+- Always cite sources from retrieved context (document names, case names, etc.)
 - Provide actionable recommendations when relevant
-- For reviews, organize findings into: Summary, Key Terms, Risks/Issues, Recommendations`;
+- For document analysis, organize findings into: Summary, Key Terms, Risks/Issues, Recommendations
+- For data queries, summarize findings clearly and reference specific records`;
 
     // Build user message with context
     let userMessage = message;
@@ -101,6 +137,7 @@ RESPONSE FORMAT:
     }
 
     // Call OpenAI
+    console.log("Calling OpenAI API...");
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -122,31 +159,45 @@ RESPONSE FORMAT:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenAI API error:", errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error("OpenAI API error:", response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
     const aiResponse = data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
+    
+    console.log("OpenAI response received, length:", aiResponse.length);
 
-    return new Response(
-      JSON.stringify({
+    return createJsonResponse(
+      {
         response: aiResponse,
         success: true,
-      }),
+      },
       {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        cors: corsOptions
       }
     );
   } catch (error: any) {
     console.error("Error in ream-ai-assistant:", error);
-    return new Response(
-      JSON.stringify({ error: error.message || "Failed to process request" }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    console.error("Error stack:", error.stack);
+    console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    
+    // Return a more detailed error response
+    const errorMessage = error?.message || error?.toString() || "Failed to process request";
+    return createJsonResponse(
+      { 
+        error: errorMessage,
+        success: false,
+        details: process.env.NODE_ENV === "development" ? error.stack : undefined
+      },
+      { 
+        status: 500,
+        cors: corsOptions
+      }
     );
   }
-};
+});
 
 async function gatherSystemContext(
   supabase: any,
@@ -154,166 +205,292 @@ async function gatherSystemContext(
   userMessage: string
 ): Promise<string> {
   const contextParts: string[] = [];
-
-  // Detect what the user might be asking about
   const messageLower = userMessage.toLowerCase();
 
-  // Query cases if relevant - always include some cases for context
-  try {
-    const { data: cases } = await supabase
+  // Detect query intent
+  const isCountQuery = /\b(how many|count|total|number of)\b/i.test(userMessage);
+  const isClientQuery = /\b(client|clients|contact|contacts|customer|customers)\b/i.test(userMessage);
+  const isCaseQuery = /\b(case|cases|matter|matters)\b/i.test(userMessage);
+  const isDocumentQuery = /\b(document|documents|file|files|paperwork)\b/i.test(userMessage);
+  const isContractQuery = /\b(contract|contracts|agreement|agreements)\b/i.test(userMessage);
+  const isInvoiceQuery = /\b(invoice|invoices|billing|payment|payments|bill)\b/i.test(userMessage);
+  const isTaskQuery = /\b(task|tasks|todo|todos|pending|assignment)\b/i.test(userMessage);
+  const isEventQuery = /\b(event|events|meeting|meetings|calendar|deadline|appointment)\b/i.test(userMessage);
+
+  // Determine if this is a general query (not specific to any module)
+  const queryAll = !isClientQuery && !isCaseQuery && !isDocumentQuery && !isContractQuery && !isInvoiceQuery && !isTaskQuery && !isEventQuery;
+
+  // Fetch counts/statistics only for relevant modules based on query intent
+  // This avoids unnecessary real-time queries - only query what's needed
+  const countQueries: Record<string, Promise<any>> = {};
+  
+  // Always get client count (most common query) or if it's a general/count query
+  if (isClientQuery || isCountQuery || queryAll) {
+    countQueries.clients = supabase.from("clients").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+  }
+  
+  // Get other counts only if relevant to the query
+  if (isCaseQuery || isCountQuery || queryAll) {
+    countQueries.cases = supabase.from("cases").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+  }
+  if (isDocumentQuery || isCountQuery || queryAll) {
+    countQueries.documents = supabase.from("documents").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+  }
+  if (isContractQuery || isCountQuery || queryAll) {
+    countQueries.contracts = supabase.from("contracts").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+  }
+  if (isInvoiceQuery || isCountQuery || queryAll) {
+    countQueries.invoices = supabase.from("invoices").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+  }
+  if (isTaskQuery || isCountQuery || queryAll) {
+    countQueries.tasks = supabase.from("tasks").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+  }
+  if (isEventQuery || isCountQuery || queryAll) {
+    countQueries.events = supabase.from("calendar_events").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+  }
+
+  // Execute count queries in parallel
+  const countResults = await Promise.allSettled(Object.values(countQueries));
+
+  // Extract counts from results with error handling
+  const countKeys = Object.keys(countQueries);
+  const stats: Record<string, number> = {};
+  countKeys.forEach((key, index) => {
+    try {
+      const result = countResults[index];
+      if (result.status === "fulfilled" && result.value && result.value.count !== null && result.value.count !== undefined) {
+        stats[key] = result.value.count;
+      } else {
+        stats[key] = 0;
+      }
+    } catch (e) {
+      console.error(`Error extracting count for ${key}:`, e);
+      stats[key] = 0;
+    }
+  });
+
+  // Include statistics for queried modules - this answers "how many clients" type questions
+  const statsList = Object.entries(stats)
+    .map(([key, count]) => `- Total ${key.charAt(0).toUpperCase() + key.slice(1)}: ${count}`)
+    .join("\n");
+  if (statsList) {
+    contextParts.push(`ORGANIZATION STATISTICS (Total Counts):\n${statsList}`);
+  }
+
+  // Query detailed data - always query relevant modules, or all if general query
+  // (queryAll already defined above, reusing it)
+
+  const dataQueries: Record<string, Promise<any>> = {};
+
+  // Always query clients if client-related or general query
+  if (isClientQuery || queryAll || isCountQuery) {
+    dataQueries.clients = supabase
+      .from("clients")
+      .select("id, name, email, phone, created_at")
+      .eq("organization_id", organizationId)
+      .limit(isClientQuery ? 50 : 20)
+      .order("created_at", { ascending: false });
+  }
+
+  // Query cases if case-related or general query
+  if (isCaseQuery || queryAll) {
+    dataQueries.cases = supabase
       .from("cases")
       .select("id, title, status, client_id, created_at")
       .eq("organization_id", organizationId)
-      .limit(messageLower.includes("case") || messageLower.includes("matter") ? 20 : 5)
+      .limit(isCaseQuery ? 30 : 15)
       .order("created_at", { ascending: false });
-
-    if (cases && cases.length > 0) {
-      contextParts.push(`RECENT CASES (${cases.length}):\n${cases.map((c: any) => `- ${c.title} (Status: ${c.status})`).join("\n")}`);
-    }
-  } catch (e) {
-    console.error("Error fetching cases:", e);
   }
 
-  // Query clients if relevant
-  if (messageLower.includes("client") || messageLower.includes("contact") || messageLower.includes("who")) {
-    try {
-      const { data: clients } = await supabase
-        .from("clients")
-        .select("id, name, email, phone")
-        .eq("organization_id", organizationId)
-        .limit(messageLower.includes("client") || messageLower.includes("contact") ? 20 : 5)
-        .order("created_at", { ascending: false });
-
-      if (clients && clients.length > 0) {
-        contextParts.push(`RECENT CLIENTS (${clients.length}):\n${clients.map((c: any) => `- ${c.name}${c.email ? ` (${c.email})` : ""}${c.phone ? ` - ${c.phone}` : ""}`).join("\n")}`);
-      }
-    } catch (e) {
-      console.error("Error fetching clients:", e);
-    }
-  }
-
-  // Query documents if relevant
-  if (messageLower.includes("document") || messageLower.includes("file")) {
-    try {
-      const { data: documents } = await supabase
-        .from("documents")
-        .select("id, name, type, created_at, case_id, client_id")
-        .eq("organization_id", organizationId)
-        .limit(10)
-        .order("created_at", { ascending: false });
-
-      if (documents && documents.length > 0) {
-        contextParts.push(`RECENT DOCUMENTS (${documents.length}):\n${documents.map((d: any) => `- ${d.name} (${d.type || "Unknown"})`).join("\n")}`);
-      }
-    } catch (e) {
-      console.error("Error fetching documents:", e);
-    }
-  }
-
-  // Query contracts if relevant
-  if (messageLower.includes("contract") || messageLower.includes("agreement")) {
-    try {
-      const { data: contracts } = await supabase
-        .from("contracts")
-        .select("id, title, contract_type, status, start_date, end_date")
-        .eq("organization_id", organizationId)
-        .limit(10)
-        .order("created_at", { ascending: false });
-
-      if (contracts && contracts.length > 0) {
-        contextParts.push(`RECENT CONTRACTS (${contracts.length}):\n${contracts.map((c: any) => `- ${c.title} (${c.contract_type || "Unknown"}, ${c.status || "Active"})`).join("\n")}`);
-      }
-    } catch (e) {
-      console.error("Error fetching contracts:", e);
-    }
-  }
-
-  // Query calendar events if relevant
-  if (messageLower.includes("calendar") || messageLower.includes("event") || messageLower.includes("meeting") || messageLower.includes("deadline")) {
-    try {
-      const { data: events } = await supabase
-        .from("calendar_events")
-        .select("id, title, event_type, start_date, end_date, location")
-        .eq("organization_id", organizationId)
-        .gte("start_date", new Date().toISOString())
-        .limit(10)
-        .order("start_date", { ascending: true });
-
-      if (events && events.length > 0) {
-        contextParts.push(`UPCOMING EVENTS (${events.length}):\n${events.map((e: any) => `- ${e.title} (${e.event_type}) on ${new Date(e.start_date).toLocaleDateString()}`).join("\n")}`);
-      }
-    } catch (e) {
-      console.error("Error fetching events:", e);
-    }
-  }
-
-  // Query invoices if relevant
-  if (messageLower.includes("invoice") || messageLower.includes("billing") || messageLower.includes("payment")) {
-    try {
-      const { data: invoices } = await supabase
-        .from("invoices")
-        .select("id, invoice_number, total_amount, status, client_id, due_date")
-        .eq("organization_id", organizationId)
-        .limit(10)
-        .order("created_at", { ascending: false });
-
-      if (invoices && invoices.length > 0) {
-        contextParts.push(`RECENT INVOICES (${invoices.length}):\n${invoices.map((i: any) => `- ${i.invoice_number}: $${i.total_amount} (${i.status})`).join("\n")}`);
-      }
-    } catch (e) {
-      console.error("Error fetching invoices:", e);
-    }
-  }
-
-  // Query tasks if relevant
-  if (messageLower.includes("task") || messageLower.includes("todo") || messageLower.includes("pending")) {
-    try {
-      const { data: tasks } = await supabase
-        .from("tasks")
-        .select("id, title, status, due_date, assigned_to")
-        .eq("organization_id", organizationId)
-        .limit(10)
-        .order("due_date", { ascending: true });
-
-      if (tasks && tasks.length > 0) {
-        contextParts.push(`RECENT TASKS (${tasks.length}):\n${tasks.map((t: any) => `- ${t.title} (${t.status})${t.due_date ? ` - Due: ${new Date(t.due_date).toLocaleDateString()}` : ""}`).join("\n")}`);
-      }
-    } catch (e) {
-      console.error("Error fetching tasks:", e);
-    }
-  }
-
-  // Get organization stats - always include
-  try {
-    const { count: caseCount } = await supabase
-      .from("cases")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organizationId);
-
-    const { count: clientCount } = await supabase
-      .from("clients")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organizationId);
-
-    const { count: documentCount } = await supabase
+  // Query documents if document-related or general query
+  if (isDocumentQuery || queryAll) {
+    dataQueries.documents = supabase
       .from("documents")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organizationId);
+      .select("id, name, type, created_at, case_id, client_id")
+      .eq("organization_id", organizationId)
+      .limit(15)
+      .order("created_at", { ascending: false });
+  }
 
-    const { count: contractCount } = await supabase
+  // Query contracts if contract-related or general query
+  if (isContractQuery || queryAll) {
+    dataQueries.contracts = supabase
       .from("contracts")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organizationId);
+      .select("id, title, contract_type, status, start_date, end_date, created_at")
+      .eq("organization_id", organizationId)
+      .limit(15)
+      .order("created_at", { ascending: false });
+  }
 
-    contextParts.push(`ORGANIZATION STATISTICS:\n- Total Cases: ${caseCount || 0}\n- Total Clients: ${clientCount || 0}\n- Total Documents: ${documentCount || 0}\n- Total Contracts: ${contractCount || 0}`);
-  } catch (e) {
-    console.error("Error fetching stats:", e);
+  // Query invoices if invoice-related or general query
+  if (isInvoiceQuery || queryAll) {
+    dataQueries.invoices = supabase
+      .from("invoices")
+      .select("id, invoice_number, total_amount, status, client_id, due_date, created_at")
+      .eq("organization_id", organizationId)
+      .limit(15)
+      .order("created_at", { ascending: false });
+  }
+
+  // Query tasks if task-related or general query
+  if (isTaskQuery || queryAll) {
+    dataQueries.tasks = supabase
+      .from("tasks")
+      .select("id, title, status, due_date, assigned_to, created_at")
+      .eq("organization_id", organizationId)
+      .limit(15)
+      .order("due_date", { ascending: true });
+  }
+
+  // Query calendar events if event-related or general query
+  if (isEventQuery || queryAll) {
+    dataQueries.events = supabase
+      .from("calendar_events")
+      .select("id, title, event_type, start_date, end_date, location")
+      .eq("organization_id", organizationId)
+      .gte("start_date", new Date().toISOString())
+      .limit(15)
+      .order("start_date", { ascending: true });
+  }
+
+  // Execute all data queries in parallel
+  const dataResults = await Promise.allSettled(Object.values(dataQueries));
+
+  // Process results by type
+  const resultIndex = Object.keys(dataQueries);
+  let currentIndex = 0;
+
+  if (dataQueries.clients) {
+    const result = dataResults[currentIndex++];
+    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+      const clients = result.value.data;
+      contextParts.push(`CLIENTS (${clients.length} of ${stats.clients || 0} total):\n${clients.map((c: any) => `- ${c.name}${c.email ? ` (${c.email})` : ""}${c.phone ? ` - ${c.phone}` : ""}`).join("\n")}`);
+    }
+  }
+
+  if (dataQueries.cases) {
+    const result = dataResults[currentIndex++];
+    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+      const cases = result.value.data;
+      contextParts.push(`CASES (${cases.length} of ${stats.cases || 0} total):\n${cases.map((c: any) => `- ${c.title} (Status: ${c.status})`).join("\n")}`);
+    }
+  }
+
+  if (dataQueries.documents) {
+    const result = dataResults[currentIndex++];
+    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+      const documents = result.value.data;
+      contextParts.push(`DOCUMENTS (${documents.length} of ${stats.documents || 0} total):\n${documents.map((d: any) => `- ${d.name} (${d.type || "Unknown"})`).join("\n")}`);
+    }
+  }
+
+  if (dataQueries.contracts) {
+    const result = dataResults[currentIndex++];
+    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+      const contracts = result.value.data;
+      contextParts.push(`CONTRACTS (${contracts.length} of ${stats.contracts || 0} total):\n${contracts.map((c: any) => `- ${c.title} (${c.contract_type || "Unknown"}, ${c.status || "Active"})`).join("\n")}`);
+    }
+  }
+
+  if (dataQueries.invoices) {
+    const result = dataResults[currentIndex++];
+    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+      const invoices = result.value.data;
+      contextParts.push(`INVOICES (${invoices.length} of ${stats.invoices || 0} total):\n${invoices.map((i: any) => `- ${i.invoice_number}: $${i.total_amount || 0} (${i.status})`).join("\n")}`);
+    }
+  }
+
+  if (dataQueries.tasks) {
+    const result = dataResults[currentIndex++];
+    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+      const tasks = result.value.data;
+      contextParts.push(`TASKS (${tasks.length} of ${stats.tasks || 0} total):\n${tasks.map((t: any) => `- ${t.title} (${t.status})${t.due_date ? ` - Due: ${new Date(t.due_date).toLocaleDateString()}` : ""}`).join("\n")}`);
+    }
+  }
+
+  if (dataQueries.events) {
+    const result = dataResults[currentIndex++];
+    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+      const events = result.value.data;
+      contextParts.push(`UPCOMING CALENDAR EVENTS (${events.length} of ${stats.events || 0} total):\n${events.map((e: any) => `- ${e.title} (${e.event_type}) on ${new Date(e.start_date).toLocaleDateString()}`).join("\n")}`);
+    }
+  }
+
+  // Perform vector search for document/contract content queries using pre-computed embeddings
+  // Only generate query embedding when needed for semantic search
+  if (isDocumentQuery || isContractQuery || (messageLower.length > 15 && !isCountQuery)) {
+    try {
+      // Generate embedding for the user's query using OpenAI embedding model
+      // This is the only real-time embedding generation - document embeddings are pre-computed
+      const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openAIApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "text-embedding-3-small", // Using OpenAI embedding model from your key
+          input: userMessage.substring(0, 8000),
+          encoding_format: "float"
+        }),
+      });
+
+      if (embeddingResponse.ok) {
+        const embeddingData = await embeddingResponse.json();
+        const queryEmbedding = embeddingData.data[0].embedding;
+
+        // Perform vector search against pre-computed embeddings in document_chunks table
+        // This uses the match_document_chunks RPC which searches pre-existing embeddings
+        const { data: vectorResults, error: vectorError } = await supabase.rpc(
+          "match_document_chunks",
+          {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.6,
+            match_count: 10
+          }
+        );
+
+        if (!vectorError && vectorResults && vectorResults.length > 0) {
+          // Get document/contract names for the results (lightweight query)
+          const docIds = Array.from(new Set(vectorResults.map((r: any) => r.document_id).filter(Boolean)));
+          const contractIds = Array.from(new Set(vectorResults.map((r: any) => r.contract_id).filter(Boolean)));
+
+          const [docNames, contractNames] = await Promise.all([
+            docIds.length > 0 ? supabase.from("documents").select("id, name").in("id", docIds) : Promise.resolve({ data: [] }),
+            contractIds.length > 0 ? supabase.from("contracts").select("id, title").in("id", contractIds) : Promise.resolve({ data: [] })
+          ]);
+
+          const docNameMap = new Map((docNames.data || []).map((d: any) => [d.id, d.name]));
+          const contractNameMap = new Map((contractNames.data || []).map((c: any) => [c.id, c.title]));
+
+          const vectorContext = vectorResults.map((r: any, i: number) => {
+            const docName = r.document_id ? docNameMap.get(r.document_id) : contractNameMap.get(r.contract_id);
+            return `[VECTOR SEARCH RESULT ${i + 1}] "${docName || "Unknown"}" (similarity: ${(r.similarity * 100).toFixed(1)}%):\n${r.content.substring(0, 500)}`;
+          }).join("\n\n");
+
+          contextParts.push(`VECTOR SEARCH RESULTS (Semantic search using pre-computed embeddings):\n${vectorContext}`);
+        }
+      }
+    } catch (e) {
+      console.error("Error performing vector search:", e);
+      // Continue without vector search results - don't fail the entire request
+    }
   }
 
   return contextParts.length > 0
     ? contextParts.join("\n\n")
-    : "No specific system data available. You can help users with general questions, document reviews, and system navigation.";
+    : `ORGANIZATION STATISTICS:\n${Object.entries(stats).map(([key, count]) => `- Total ${key.charAt(0).toUpperCase() + key.slice(1)}: ${count}`).join("\n")}`;
 }
 
-serve(handler);
+
+
+
+
+
+
+
+
+
+
+
 
