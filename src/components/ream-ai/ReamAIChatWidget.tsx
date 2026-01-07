@@ -368,32 +368,42 @@ export function ReamAIChatWidget({
             ))}
           </div>
         </ScrollArea>
-        <form onSubmit={handleSend} className="p-4 border-t">
-          <div className="flex gap-2 mb-2">
-            <div {...getRootProps()} className="flex-1">
-              <input {...getInputProps()} />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-                disabled={isUploading || isTyping || assistantLoading}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-3 w-3 mr-2" />
-                    Upload Document
-                  </>
-                )}
-              </Button>
-            </div>
+        <form onSubmit={handleSend} className="border-t bg-background">
+          {/* Upload section - more prominent */}
+          <div {...getRootProps()} className={cn(
+            "px-4 pt-3 pb-2 border-b",
+            isUploading && "bg-muted/50"
+          )}>
+            <input {...getInputProps()} />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className={cn(
+                "w-full h-9 text-sm font-medium",
+                isUploading && "opacity-75 cursor-not-allowed"
+              )}
+              disabled={isUploading || isTyping || assistantLoading}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading document...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Document (PDF, DOC, DOCX, TXT)
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center mt-1.5">
+              Drag and drop a file here, or click to browse
+            </p>
           </div>
-          <div className="flex gap-2">
+          
+          {/* Input section */}
+          <div className="flex gap-2 p-4">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -403,7 +413,11 @@ export function ReamAIChatWidget({
               disabled={isTyping || assistantLoading || isUploading}
               className="flex-1"
             />
-            <Button type="submit" disabled={isTyping || assistantLoading || !input.trim() || isUploading}>
+            <Button 
+              type="submit" 
+              disabled={isTyping || assistantLoading || !input.trim() || isUploading}
+              size="icon"
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>

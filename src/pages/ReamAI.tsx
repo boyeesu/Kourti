@@ -1359,47 +1359,61 @@ Provide a comprehensive answer based on general legal knowledge. If the question
                     onSubmit={(event) => sendMessage(event)}
                     style={{ boxShadow: "0 -2px 8px -4px rgba(0,0,0,0.04)" }}
                   >
-                    {/* Document selector and upload - compact buttons above input */}
-                    <div className="border-b px-4 py-2 flex gap-2">
-                      <Popover open={isDocSelectorOpen} onOpenChange={setIsDocSelectorOpen}>
-                        <PopoverTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-8 text-xs"
+                    {/* Document selector and upload - more prominent */}
+                    <div className="border-b bg-muted/30">
+                      <div className="px-4 pt-3 pb-2 flex gap-2">
+                        <Popover open={isDocSelectorOpen} onOpenChange={setIsDocSelectorOpen}>
+                          <PopoverTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-9 text-sm"
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              {selectedDoc || selectedFile 
+                                ? "Change Document" 
+                                : "Select Document"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className="w-[600px] p-0" 
+                            align="start"
+                            side="top"
                           >
-                            <FileText className="mr-2 h-3.5 w-3.5" />
-                            {selectedDoc || selectedFile 
-                              ? "Change Document" 
-                              : "Select Document"}
+                            <DocumentSuggestions
+                              documents={documents}
+                              contracts={contracts}
+                              onSelectDocument={handleSelectDoc}
+                              isLoading={docsLoading || contractsLoading}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <div {...getRootProps()} className="flex-1">
+                          <input {...getInputProps()} />
+                          <Button 
+                            type="button"
+                            variant="secondary" 
+                            size="sm" 
+                            className="h-9 w-full text-sm font-medium"
+                            disabled={isExtracting || isStreaming || isTyping}
+                          >
+                            {isExtracting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="mr-2 h-4 w-4" />
+                                Upload Document
+                              </>
+                            )}
                           </Button>
-                        </PopoverTrigger>
-                        <PopoverContent 
-                          className="w-[600px] p-0" 
-                          align="start"
-                          side="top"
-                        >
-                          <DocumentSuggestions
-                            documents={documents}
-                            contracts={contracts}
-                            onSelectDocument={handleSelectDoc}
-                            isLoading={docsLoading || contractsLoading}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <div {...getRootProps()}>
-                        <input {...getInputProps()} />
-                        <Button 
-                          type="button"
-                          variant="outline" 
-                          size="sm" 
-                          className="h-8 text-xs"
-                          disabled={isExtracting || isStreaming || isTyping}
-                        >
-                          <Upload className="mr-2 h-3.5 w-3.5" />
-                          {isExtracting ? "Uploading..." : "Upload Document"}
-                        </Button>
+                        </div>
                       </div>
+                      <p className="text-xs text-muted-foreground text-center pb-2 px-4">
+                        Drag and drop a file here, or click to browse (PDF, DOC, DOCX, TXT)
+                      </p>
                     </div>
 
                     <div className="flex gap-2 px-4 py-3 sm:px-6">
