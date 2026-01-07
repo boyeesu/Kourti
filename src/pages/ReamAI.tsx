@@ -1148,30 +1148,6 @@ I'll answer based on the relevant information found above.`;
     }
   }
 
-  // Simulate typing for demo purposes (would be replaced by actual streaming in production)
-  function simulateTypingResponse(text: string, speed: number = 30) {
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i <= text.length) {
-        setMessages((msgs) =>
-          msgs.map((msg, idx) =>
-            idx === msgs.length - 1
-              ? {
-                  ...msg,
-                  content: text.substring(0, i),
-                  isStreaming: i < text.length
-                }
-              : msg
-          )
-        );
-        i++;
-      } else {
-        clearInterval(interval);
-        setIsTyping(false);
-      }
-    }, speed);
-  }
-
   // Function to handle adding an example prompt
   function useExamplePrompt(prompt: string) {
     setInput(prompt);
