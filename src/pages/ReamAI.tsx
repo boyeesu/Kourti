@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { useVectorSearch } from "@/hooks/useVectorSearch";
 import { useRAGSearch, useProcessDocument } from "@/hooks/useRAGSearch";
-import { useDocuments } from "@/hooks/useDocuments";
+import { useDocuments, useUploadDocument } from "@/hooks/useDocuments";
 import { useContracts } from "@/hooks/useContracts";
 import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
 import { useDocumentContent } from "@/hooks/useDocumentContext";
@@ -23,7 +23,8 @@ import {
   ShieldAlert,
   ListChecks,
   ChevronRight,
-  FileText
+  FileText,
+  Upload
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -308,6 +309,7 @@ export default function ReamAI() {
   const { data: documents = [], isLoading: docsLoading } = useDocuments();
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
   const contracts = contractsData?.contracts || [];
+  const uploadDocument = useUploadDocument();
 
   // Get document analysis functionality
   const { streamAnalysis, cancelStreaming, isStreaming } =
@@ -380,14 +382,14 @@ export default function ReamAI() {
     scrollChatToBottom();
   }, [messages]);
 
-  // Handle file uploads with extraction
+  // Handle file uploads - save to database and process
   const onDrop = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length) {
       const file = acceptedFiles[0];
+      setIsExtracting(true);
       setSelectedFile(file);
       setSelectedDoc(null);
       setExtractedContent(null);
-      setIsExtracting(true);
 
       setMessages((msgs) => [
         ...msgs,
@@ -398,66 +400,149 @@ export default function ReamAI() {
         },
         {
           role: "assistant",
-          content: `Extracting content from "${file.name}"... Please wait while I process the document.`,
+          content: `Uploading "${file.name}" to your document library...`,
           timestamp: new Date(),
           isStreaming: true
         }
       ]);
 
-      // Extract content based on file type
       try {
-        let content = '';
-        
-        if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-          content = await file.text();
-        } else if (file.type === 'application/pdf') {
-          // For PDFs, inform user that extraction is limited
-          content = `PDF file uploaded: ${file.name}. For best results with PDF analysis, please select a document from the knowledge base that has already been processed, or describe the content you'd like to analyze.`;
-        } else if (
-          file.type === 'application/msword' ||
-          file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        ) {
-          // Basic text extraction for Word docs
-          try {
-            content = await file.text();
-          } catch {
-            content = `Document uploaded: ${file.name}. Unable to extract text automatically. Please describe the content or use a text-based format.`;
+        // Upload document to database
+        const uploadedDoc = await uploadDocument.mutateAsync({
+          name: file.name,
+          file: file,
+          metadata: {
+            uploaded_via: 'ream_ai',
+            upload_date: new Date().toISOString()
           }
-        } else {
-          content = `File uploaded: ${file.name}. Please describe what you'd like to know about this document.`;
+        });
+
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1
+              ? {
+                  ...msg,
+                  content: `✅ Document "${file.name}" uploaded successfully! Extracting text content...`,
+                  isStreaming: true
+                }
+              : msg
+          )
+        );
+
+        // Extract text content from the uploaded document
+        let extractedText = '';
+        if (uploadedDoc.file_path) {
+          try {
+            const { data: extractResult, error: extractError } = await supabase.functions.invoke(
+              'extract-document-text',
+              {
+                body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path }
+              }
+            );
+
+            if (!extractError && extractResult?.content) {
+              extractedText = extractResult.content;
+            }
+          } catch (extractErr) {
+            console.error('Text extraction error:', extractErr);
+          }
         }
 
-        setExtractedContent(content);
-        setIsExtracting(false);
+        // Try client-side extraction as fallback
+        if (!extractedText) {
+          if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+            extractedText = await file.text();
+          }
+        }
 
-        // Update the last message
-        setMessages((msgs) =>
-          msgs.map((msg, i) =>
-            i === msgs.length - 1
-              ? {
-                  ...msg,
-                  content: content.includes('uploaded:') || content.includes('PDF file')
-                    ? content
-                    : `✅ Successfully extracted content from "${file.name}". You can now ask questions about the document.`,
-                  isStreaming: false
-                }
-              : msg
-          )
-        );
-      } catch (error) {
-        console.error('Extraction error:', error);
+        setExtractedContent(extractedText);
+        
+        // Set the uploaded document as selected
+        setSelectedDoc({ ...uploadedDoc, type: 'document' });
+        setSelectedFile(null); // Clear temporary file reference
+
+        // Process document for RAG if we have organization and content
+        if (organization?.id && extractedText && extractedText.length > 50) {
+          setMessages((msgs) =>
+            msgs.map((msg, i) =>
+              i === msgs.length - 1
+                ? {
+                    ...msg,
+                    content: `🔄 Processing "${file.name}" for AI analysis (chunking and embedding)...`,
+                    isStreaming: true
+                  }
+                : msg
+            )
+          );
+
+          try {
+            await processDocument.mutateAsync({
+              documentId: uploadedDoc.id,
+              content: extractedText,
+              documentType: "document"
+            });
+
+            setMessages((msgs) =>
+              msgs.map((msg, i) =>
+                i === msgs.length - 1
+                  ? {
+                      ...msg,
+                      content: `✅ Successfully processed "${file.name}"! The document has been saved to your library and is ready for analysis. You can now ask questions about it.`,
+                      isStreaming: false
+                    }
+                  : msg
+              )
+            );
+          } catch (processError) {
+            console.error("RAG processing error:", processError);
+            setMessages((msgs) =>
+              msgs.map((msg, i) =>
+                i === msgs.length - 1
+                  ? {
+                      ...msg,
+                      content: `✅ Document "${file.name}" uploaded and saved! You can now ask questions about it.`,
+                      isStreaming: false
+                    }
+                  : msg
+              )
+            );
+          }
+        } else {
+          setMessages((msgs) =>
+            msgs.map((msg, i) =>
+              i === msgs.length - 1
+                ? {
+                    ...msg,
+                    content: extractedText
+                      ? `✅ Document "${file.name}" uploaded and saved! You can now ask questions about it.`
+                      : `✅ Document "${file.name}" uploaded and saved! Note: Text extraction was limited. You can still ask questions, and I'll help based on available information.`,
+                    isStreaming: false
+                  }
+                : msg
+            )
+          );
+        }
+
+        setIsExtracting(false);
+      } catch (error: any) {
+        console.error('Upload error:', error);
         setIsExtracting(false);
         setMessages((msgs) =>
           msgs.map((msg, i) =>
             i === msgs.length - 1
               ? {
                   ...msg,
-                  content: `⚠️ Could not extract content from "${file.name}". Please try a text-based document or describe what you need help with.`,
+                  content: `⚠️ Failed to upload "${file.name}": ${error.message || 'Unknown error'}. Please try again.`,
                   isStreaming: false
                 }
               : msg
           )
         );
+        toast({
+          variant: "destructive",
+          title: "Upload Failed",
+          description: error.message || "Failed to upload document.",
+        });
       }
     }
   };
@@ -471,14 +556,11 @@ export default function ReamAI() {
         [".docx"],
       "text/plain": [".txt"]
     },
-    noClick: true,
-    noDrag: true,
+    noClick: false,
+    noDrag: false,
   });
 
-  // Avoid warning for unused variables - they're needed for dropzone setup
-  void getRootProps;
-  void getInputProps;
-  void isDragActive;
+  // Dropzone is now used for file uploads
 
   // Handle document/contract selection with content extraction
   async function handleSelectDoc(doc: any, isContract: boolean) {
@@ -1277,8 +1359,8 @@ Provide a comprehensive answer based on general legal knowledge. If the question
                     onSubmit={(event) => sendMessage(event)}
                     style={{ boxShadow: "0 -2px 8px -4px rgba(0,0,0,0.04)" }}
                   >
-                    {/* Document selector - compact button above input */}
-                    <div className="border-b px-4 py-2">
+                    {/* Document selector and upload - compact buttons above input */}
+                    <div className="border-b px-4 py-2 flex gap-2">
                       <Popover open={isDocSelectorOpen} onOpenChange={setIsDocSelectorOpen}>
                         <PopoverTrigger asChild>
                           <Button 
@@ -1305,6 +1387,19 @@ Provide a comprehensive answer based on general legal knowledge. If the question
                           />
                         </PopoverContent>
                       </Popover>
+                      <div {...getRootProps()}>
+                        <input {...getInputProps()} />
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          size="sm" 
+                          className="h-8 text-xs"
+                          disabled={isExtracting || isStreaming || isTyping}
+                        >
+                          <Upload className="mr-2 h-3.5 w-3.5" />
+                          {isExtracting ? "Uploading..." : "Upload Document"}
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="flex gap-2 px-4 py-3 sm:px-6">
