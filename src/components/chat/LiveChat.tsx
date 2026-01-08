@@ -29,14 +29,14 @@ export function LiveChat({ isOpen, onClose }: LiveChatProps) {
     };
   }, [isOpen]);
 
-  const handleSelectConversation = (conversationId: string, name: string) => {
+  const handleSelectConversation = (conversationId: string, recipientName?: string) => {
     setSelectedConversationId(conversationId);
-    setRecipientName(name);
+    setRecipientName(recipientName || '');
   };
 
-  const handleNewConversation = (conversationId: string, name: string) => {
+  const handleNewConversation = (conversationId: string, recipientName?: string) => {
     setSelectedConversationId(conversationId);
-    setRecipientName(name);
+    setRecipientName(recipientName || '');
     setShowNewChatDialog(false);
   };
 

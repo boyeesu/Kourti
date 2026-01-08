@@ -2,8 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { useEffect, useState } from 'react';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { useEffect } from 'react';
 
 export interface Message {
   id: string;
@@ -55,7 +54,7 @@ export function useConversations() {
       // Get conversations where user is a participant - use a simpler query
       // First get conversation IDs where user is a participant
       const { data: participantData, error: participantError } = await supabase
-        .from('conversation_participants')
+        .from('conversation_participants' as any)
         .select('conversation_id, last_read_at')
         .eq('user_id', user.id);
 
@@ -72,12 +71,13 @@ export function useConversations() {
 
       if (!participantData || participantData.length === 0) return [];
 
-      const conversationIds = participantData.map(p => p.conversation_id);
-      const lastReadMap = new Map(participantData.map(p => [p.conversation_id, p.last_read_at]));
+      const participantDataTyped = participantData as unknown as Array<{ conversation_id: string; last_read_at: string | null }>;
+      const conversationIds = participantDataTyped.map(p => p.conversation_id);
+      const lastReadMap = new Map(participantDataTyped.map(p => [p.conversation_id, p.last_read_at]));
 
       // Get conversations with all participants
       const { data: conversations, error: conversationsError } = await supabase
-        .from('conversations')
+        .from('conversations' as any)
         .select(`
           *,
           conversation_participants(
@@ -105,7 +105,7 @@ export function useConversations() {
       const conversationsWithMessages = await Promise.all(
         (conversations || []).map(async (conv: any) => {
           const { data: lastMessage } = await supabase
-            .from('messages')
+            .from('messages' as any)
             .select(`
               *,
               profiles:sender_id(
@@ -123,7 +123,7 @@ export function useConversations() {
           const lastReadAt = lastReadMap.get(conv.id) || '1970-01-01';
           
           const { count: unreadCount } = await supabase
-            .from('messages')
+            .from('messages' as any)
             .select('*', { count: 'exact', head: true })
             .eq('conversation_id', conv.id)
             .gt('created_at', lastReadAt)
@@ -132,14 +132,14 @@ export function useConversations() {
           return {
             ...conv,
             last_message: lastMessage ? {
-              ...lastMessage,
-              sender: lastMessage.profiles
+              ...(lastMessage as any),
+              sender: (lastMessage as any).profiles
             } : null,
             unread_count: unreadCount || 0,
-            participants: conv.conversation_participants?.map((p: any) => ({
+            participants: (conv.conversation_participants || []).map((p: any) => ({
               user_id: p.user_id,
-              ...p.profiles
-            })) || []
+              ...(p.profiles || {})
+            }))
           };
         })
       );
@@ -157,7 +157,6 @@ export function useConversations() {
 export function useMessages(conversationId: string | null) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
   const query = useQuery({
     queryKey: ['messages', conversationId],
@@ -165,7 +164,7 @@ export function useMessages(conversationId: string | null) {
       if (!conversationId) return [];
 
       const { data, error } = await supabase
-        .from('messages')
+        .from('messages' as any)
         .select(`
           *,
           profiles:sender_id(
@@ -198,7 +197,7 @@ export function useMessages(conversationId: string | null) {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages',
+          table: 'messages' as any,
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
@@ -206,13 +205,13 @@ export function useMessages(conversationId: string | null) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, email')
-            .eq('user_id', payload.new.sender_id)
+            .eq('user_id', (payload.new as any).sender_id)
             .single();
 
           const newMessage: Message = {
-            ...payload.new as any,
+            ...(payload.new as any),
             sender: profile ? {
-              id: payload.new.sender_id,
+              id: (payload.new as any).sender_id,
               ...profile
             } : undefined
           };
@@ -228,8 +227,6 @@ export function useMessages(conversationId: string | null) {
         }
       )
       .subscribe();
-
-    setChannel(newChannel);
 
     return () => {
       supabase.removeChannel(newChannel);
@@ -259,13 +256,13 @@ export function useSendMessage() {
       console.log('Sending message:', { conversationId, content, senderId: user.id });
 
       const { data, error } = await supabase
-        .from('messages')
+        .from('messages' as any)
         .insert({
           conversation_id: conversationId,
           sender_id: user.id,
           content: content.trim(),
           message_type: 'text',
-        })
+        } as any)
         .select()
         .single();
 
@@ -278,7 +275,7 @@ export function useSendMessage() {
 
       // Update conversation updated_at (trigger should handle this, but doing it manually as backup)
       const { error: updateError } = await supabase
-        .from('conversations')
+        .from('conversations' as any)
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
 
@@ -308,7 +305,7 @@ export function useGetOrCreateDirectConversation() {
     mutationFn: async (otherUserId: string) => {
       if (!user) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase.rpc('get_or_create_direct_conversation', {
+      const { data, error } = await supabase.rpc('get_or_create_direct_conversation' as any, {
         p_other_user_id: otherUserId
       });
 
@@ -334,8 +331,8 @@ export function useMarkAsRead() {
       if (!user) return;
 
       const { error } = await supabase
-        .from('conversation_participants')
-        .update({ last_read_at: new Date().toISOString() })
+        .from('conversation_participants' as any)
+        .update({ last_read_at: new Date().toISOString() } as any)
         .eq('conversation_id', conversationId)
         .eq('user_id', user.id);
 

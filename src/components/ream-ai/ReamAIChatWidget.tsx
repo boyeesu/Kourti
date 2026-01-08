@@ -213,7 +213,22 @@ export function ReamAIChatWidget({
         // Use document analysis for document-specific queries
         const docTitle = uploadedDocument?.name || documentContext?.title || 'Uploaded Document';
         const docContent = activeDocContext;
-        const analysisPrompt = `Based on the following document context, answer the user's question:\n\nDocument: ${docTitle}\n\n${docContent}\n\nQuestion: ${userMessage}`;
+        const analysisPrompt = `You are currently reviewing a document. ALL questions should be answered using information from this document.
+
+Document: ${docTitle}
+
+DOCUMENT CONTENT:
+${docContent}
+
+USER QUESTION: ${userMessage}
+
+CRITICAL INSTRUCTIONS:
+- This question is about the document above. Extract information directly from the document content
+- ALL questions when document context is present should be answered using information from that document
+- For example: "Who are the parties?" → Find and list the parties mentioned in the document
+- "What is the termination clause?" → Find and explain the termination clause from the document
+- Reference specific sections, clauses, or terms from the document when possible
+- If information isn't in the document, say so clearly rather than guessing`;
 
         await streamAnalysis({
           content: analysisPrompt,

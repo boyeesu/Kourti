@@ -78,14 +78,6 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
     }
   };
 
-  const getSenderName = (msg: Message) => {
-    if (msg.sender_id === user?.id) return 'You';
-    if (msg.sender?.first_name || msg.sender?.last_name) {
-      return `${msg.sender.first_name || ''} ${msg.sender.last_name || ''}`.trim();
-    }
-    return msg.sender?.email || 'Unknown';
-  };
-
   const getSenderInitials = (msg: Message) => {
     if (msg.sender?.first_name && msg.sender?.last_name) {
       return `${msg.sender.first_name[0]}${msg.sender.last_name[0]}`.toUpperCase();

@@ -92,16 +92,12 @@ const toolsNavigation: NavigationGroup = {
       title: "Ream AI",
       url: "/ream-ai",
       icon: Bot,
-      badge: "New",
-      badgeVariant: "default",
       permission: { resource: "documents", action: "read" }
     },
     {
       title: "Voice Recorder",
       url: "/voice-recorder",
       icon: Mic,
-      badge: "New",
-      badgeVariant: "default",
       permission: { resource: "documents", action: "create" }
     },
     {

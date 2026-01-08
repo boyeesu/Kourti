@@ -105,6 +105,14 @@ You must intelligently analyze each user query to determine its intent and respo
    - Intelligently blend general legal knowledge with specific system data
    - Use context where relevant, but don't force irrelevant data into answers
 
+CRITICAL: DOCUMENT CONTEXT USAGE
+When document content is provided in the user's message, you MUST treat ALL subsequent questions as being about that document:
+- If a user asks "who are the parties in this document" while reviewing a document, extract and list the parties from the document content
+- If a user asks "what is the termination clause" while reviewing a document, find and explain the termination clause from the document
+- ALL questions when document context is present should be answered using information from that document
+- Reference specific sections, clauses, or terms from the document when answering
+- If information isn't in the document, say so clearly rather than guessing
+
 YOUR RAG CAPABILITIES:
 - VECTOR SEARCH: Semantic search across documents, contracts, and content
 - DATABASE QUERIES: Direct access to structured data from all system tables
@@ -125,6 +133,20 @@ YOUR DATA SOURCES:
 CURRENT RETRIEVED SYSTEM CONTEXT:
 ${systemContext}
 
+CRITICAL OUTPUT FORMATTING RULES:
+- NEVER use # headings or ### markdown headers in responses
+- NEVER use em dashes (—) or en dashes (–) - use regular hyphens (-) or commas instead
+- NEVER use bullet points with - or * characters
+- NEVER use ** bold formatting or * italic formatting
+- NEVER use special unicode characters or symbols
+- NEVER use markdown formatting of any kind
+- Write in a natural, conversational, human-like style
+- Use plain text with clear paragraphs separated by double line breaks
+- Use numbered lists (1., 2., 3.) when listing items, but write them naturally
+- Use regular quotes (") not smart quotes ("")
+- Use regular apostrophes (') not smart apostrophes ('')
+- Structure your response like a human would write it - natural flow, not robotic formatting
+
 INTELLIGENT RESPONSE GUIDELINES:
 1. ANALYZE QUERY INTENT FIRST:
    - Is this a general legal question? → Answer with legal knowledge
@@ -137,25 +159,39 @@ INTELLIGENT RESPONSE GUIDELINES:
    - If the query asks about system data (e.g., "How many clients?"), use the retrieved context
    - If context is provided but irrelevant to the question, acknowledge it but answer the actual question
    - Only perform document/contract analysis when explicitly requested or when document context is clearly relevant
+   - When document context is provided, ALL questions should be answered using that document
 
 3. RESPONSE QUALITY:
-   - Be conversational, helpful, and professional
+   - Be conversational, helpful, and professional - write like a human colleague would
    - Provide accurate, well-researched answers
    - Cite sources when using retrieved data
    - Don't make assumptions about what the user wants - answer what they actually asked
+   - Write naturally without markdown formatting or special characters
 
 4. EXAMPLES OF CORRECT BEHAVIOR:
    - "What is property law in Nigeria?" → Provide comprehensive explanation of Nigerian property law (general knowledge)
    - "How many clients do I have?" → Use system context to provide exact count
    - "Review this contract" → Perform detailed contract analysis using document context
    - "What are my pending invoices?" → Query system data and list them
+   - "Who are the parties in this document?" (with document context) → Extract and list parties from the document content
 
-Remember: You are a smart assistant that understands context. Not every question is a contract review. Answer what the user actually asks, using the appropriate knowledge source.`;
+Remember: You are a smart assistant that understands context. Not every question is a contract review. Answer what the user actually asks, using the appropriate knowledge source. Write naturally and conversationally, like a human would.`;
 
     // Build user message with context
     let userMessage = message;
     if (context?.documentContent) {
-      userMessage = `Document Context:\n${context.documentContent}\n\nUser Question: ${message}`;
+      userMessage = `You are currently reviewing a document. ALL questions should be answered using information from this document.
+
+DOCUMENT CONTENT:
+${context.documentContent}
+
+USER QUESTION: ${message}
+
+IMPORTANT: This question is about the document above. Extract information directly from the document content. For example:
+- "Who are the parties?" → Find and list the parties mentioned in the document
+- "What is the termination clause?" → Find and explain the termination clause from the document
+- "What are the key terms?" → Extract and explain key terms from the document
+- Any question about "this document" or referring to the document should be answered using the document content provided above.`;
     }
 
     // Call OpenAI
@@ -186,13 +222,37 @@ Remember: You are a smart assistant that understands context. Not every question
     }
 
     const data = await response.json();
-    const aiResponse = data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
+    let aiResponse = data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
     
     console.log("OpenAI response received, length:", aiResponse.length);
 
+    // Clean the response to remove markdown formatting, em dashes, and special characters
+    const cleanResponse = aiResponse
+      .replace(/^#{1,6}\s+/gm, "") // Remove markdown headers (#, ##, ###, etc.)
+      .replace(/^\s*[-*+]\s+/gm, "") // Remove bullet points
+      .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold formatting
+      .replace(/\*(.*?)\*/g, "$1") // Remove italic formatting
+      .replace(/__(.*?)__/g, "$1") // Remove underline formatting
+      .replace(/`([^`]+)`/g, "$1") // Remove inline code
+      .replace(/```[\s\S]*?```/g, "") // Remove code blocks
+      .replace(/^\s*>\s+/gm, "") // Remove blockquotes
+      .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Remove markdown links, keep text
+      .replace(/—/g, " ") // Replace em dashes with spaces
+      .replace(/–/g, "-") // Replace en dashes with hyphens
+      .replace(/…/g, "...") // Replace ellipsis
+      .replace(/[""]/g, '"') // Replace smart quotes with regular quotes
+      .replace(/['']/g, "'") // Replace smart apostrophes with regular apostrophes
+      .replace(/•/g, "") // Remove bullet symbols
+      .replace(/→/g, "to") // Replace arrows
+      .replace(/←/g, "from")
+      .replace(/↔/g, "to and from")
+      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, " ") // Replace various unicode spaces
+      .replace(/\n{3,}/g, "\n\n") // Replace multiple newlines with double newlines
+      .trim();
+
     return createJsonResponse(
       {
-        response: aiResponse,
+        response: cleanResponse,
         success: true,
       },
       {

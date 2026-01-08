@@ -769,7 +769,9 @@ export default function ReamAI() {
           }
 
           // Add metadata for better context
-          contextInfo = `PRIMARY DOCUMENT FOR ANALYSIS:
+          contextInfo = `You are currently reviewing a document. ALL questions should be answered using information from this document.
+
+PRIMARY DOCUMENT FOR ANALYSIS:
 Document: ${
             documentContent.type === "contract"
               ? documentContent.title
@@ -794,11 +796,17 @@ USER QUESTION: ${userMessage}
 DOCUMENT CONTENT:
 ${content}${additionalRAGContext}
 
-INSTRUCTIONS:
+CRITICAL INSTRUCTIONS:
+- This question is about the document above. Extract information directly from the document content
+- ALL questions when document context is present should be answered using information from that document
+- For example: "Who are the parties?" → Find and list the parties mentioned in the document
+- "What is the termination clause?" → Find and explain the termination clause from the document
+- "What are the key terms?" → Extract and explain key terms from the document
 - Base your analysis primarily on the PRIMARY DOCUMENT above
 - Use ADDITIONAL RELEVANT CONTEXT to supplement your analysis when relevant
 - Cite sources when referencing information from additional context using [SOURCE X] format
-- Reference specific sections, clauses, or terms from the document when possible`;
+- Reference specific sections, clauses, or terms from the document when possible
+- If information isn't in the document, say so clearly rather than guessing`;
 
           // If still no content, provide guidance
           if (!content.trim()) {
@@ -811,14 +819,24 @@ INSTRUCTIONS:
         } else if (selectedFile && extractedContent) {
           // Use the extracted content, managing context window
           content = manageContextWindow(extractedContent);
-          contextInfo = `Document: ${selectedFile.name}
+          contextInfo = `You are currently reviewing a document. ALL questions should be answered using information from this document.
+
+Document: ${selectedFile.name}
 Type: ${selectedFile.type || "Unknown"}
 Size: ${(selectedFile.size / 1024).toFixed(1)} KB
 
-User Question: ${userMessage}
+USER QUESTION: ${userMessage}
 
-Document Content:
-${extractedContent}`;
+DOCUMENT CONTENT:
+${extractedContent}
+
+CRITICAL INSTRUCTIONS:
+- This question is about the document above. Extract information directly from the document content
+- ALL questions when document context is present should be answered using information from that document
+- For example: "Who are the parties?" → Find and list the parties mentioned in the document
+- "What is the termination clause?" → Find and explain the termination clause from the document
+- Reference specific sections, clauses, or terms from the document when possible
+- If information isn't in the document, say so clearly rather than guessing`;
         } else if (selectedFile && !extractedContent) {
           // File selected but no content extracted yet
           toast({
@@ -847,6 +865,7 @@ ${contextContent}
 INSTRUCTIONS:
 - Answer the user's question using ONLY the information from the sources above
 - Cite sources using [SOURCE X] format when referencing specific information
+- Write naturally and conversationally without markdown formatting
 - If the question cannot be answered from the provided sources, say so clearly
 - Prioritize information from sources with higher similarity scores
 - Combine information from multiple sources when relevant`;

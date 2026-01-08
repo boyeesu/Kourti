@@ -236,7 +236,7 @@ function MobileAccessNotice() {
   );
 }
 
-function MobileNavigation() {
+function MobileNavigation({ setIsChatOpen }: { setIsChatOpen: (open: boolean) => void }) {
   const [open, setOpen] = useState(false);
   const [showInvoiceSoon, setShowInvoiceSoon] = useState(false);
   const navigate = useNavigate();
@@ -266,8 +266,8 @@ function MobileNavigation() {
     label: "Tools",
     items: [
       { title: "Live Chat", url: "#live-chat", icon: MessageCircle, end: false, badge: "New", badgeVariant: "default" as const },
-      { title: "Ream AI", url: "/ream-ai", icon: Bot, end: false, badge: "New", badgeVariant: "default" as const },
-      { title: "Voice Recorder", url: "/voice-recorder", icon: Mic, end: false, badge: "New", badgeVariant: "default" as const },
+      { title: "Ream AI", url: "/ream-ai", icon: Bot, end: false },
+      { title: "Voice Recorder", url: "/voice-recorder", icon: Mic, end: false },
       { title: "Transcriptions", url: "/transcriptions", icon: FileText, end: false },
       { title: "Invoicing", url: "/invoices", icon: Receipt, end: false, badge: "Soon", badgeVariant: "outline" as const }
     ]
@@ -541,6 +541,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         handleSignOut={handleSignOut}
         isChatOpen={isChatOpen}
         setIsChatOpen={setIsChatOpen}
+        setIsChatOpenForMobile={setIsChatOpen}
       />
     </SidebarProvider>
   );
@@ -565,7 +566,8 @@ function AppLayoutInner({
   userInitials,
   handleSignOut,
   isChatOpen,
-  setIsChatOpen
+  setIsChatOpen,
+  setIsChatOpenForMobile
 }: any) {
   const hasSearchResults =
     hasSearchTerm &&
@@ -595,7 +597,7 @@ function AppLayoutInner({
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <MobileNavigation />
+                  <MobileNavigation setIsChatOpen={setIsChatOpenForMobile} />
                   <div className="flex flex-col">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Workspace</span>
                     <div className="flex items-baseline gap-2">
