@@ -84,12 +84,15 @@ serve(async (req: Request): Promise<Response> => {
 CRITICAL: INTELLIGENT CONTEXT UNDERSTANDING
 You must intelligently analyze each user query to determine its intent and respond appropriately:
 
-1. GENERAL LEGAL QUESTIONS (e.g., "What is property law in Nigeria?", "Explain contract law", "What are the requirements for incorporation?", "How do I protect intellectual property?"):
+1. GENERAL LEGAL QUESTIONS (e.g., "What is property law in Nigeria?", "Explain contract law", "What are the requirements for incorporation?", "How do I protect intellectual property?", "What is a non-disclosure agreement?"):
    - ANSWER DIRECTLY using your legal knowledge - DO NOT ask for documents
    - Do NOT assume these are contract reviews or document analysis requests
    - Do NOT tell the user they need to provide a document unless they explicitly ask for document review
-   - Provide comprehensive, accurate legal information
-   - If relevant system data exists, incorporate it, but don't force it
+   - Provide comprehensive, accurate, and extremely detailed legal information
+   - Explain the concept thoroughly: what it is, why it exists, how it works, key components, practical applications, common variations, legal requirements, risks, and best practices
+   - Structure your response with clear, flowing paragraphs that cover all aspects of the topic
+   - Be specific and detailed - avoid high-level summaries, provide substantive explanations
+   - If relevant system data exists, incorporate it naturally into your response, but don't force it
 
 2. SYSTEM DATA QUERIES (e.g., "How many clients do I have?", "Show me my active cases", "What invoices are pending?"):
    - Use the retrieved system context to answer
@@ -99,7 +102,10 @@ You must intelligently analyze each user query to determine its intent and respo
 3. DOCUMENT/CONTRACT REVIEW REQUESTS (e.g., "Review this contract", "Analyze this document", "What are the risks in this agreement?"):
    - Only then should you perform document analysis
    - Use the retrieved document context
-   - Provide structured analysis: Summary, Key Terms, Risks/Issues, Recommendations
+   - Provide comprehensive, detailed structured analysis covering: Summary, Key Terms, Risks/Issues, Recommendations
+   - Write each section as flowing paragraphs, not as lists or bullet points
+   - Be thorough and detailed in your analysis - explain each point fully with context and implications
+   - Use plain text paragraphs separated by double line breaks between sections
 
 4. MIXED QUERIES (combining general knowledge with system data):
    - Intelligently blend general legal knowledge with specific system data
@@ -133,19 +139,22 @@ YOUR DATA SOURCES:
 CURRENT RETRIEVED SYSTEM CONTEXT:
 ${systemContext}
 
-CRITICAL OUTPUT FORMATTING RULES:
-- NEVER use # headings or ### markdown headers in responses
-- NEVER use em dashes (—) or en dashes (–) - use regular hyphens (-) or commas instead
-- NEVER use bullet points with - or * characters
-- NEVER use ** bold formatting or * italic formatting
-- NEVER use special unicode characters or symbols
-- NEVER use markdown formatting of any kind
-- Write in a natural, conversational, human-like style
+CRITICAL OUTPUT FORMATTING RULES - STRICTLY ENFORCE:
+- NEVER use markdown headers (#, ##, ###, ####, #####, ######) - write section titles in plain text with capital letters or simple labels
+- NEVER use em dashes (—) or en dashes (–) - use regular hyphens (-), commas, or colons instead
+- NEVER use bullet points with - or * or • characters - use numbered lists (1., 2., 3.) or write in paragraph form
+- NEVER use ** bold formatting or * italic formatting or __ underline formatting
+- NEVER use special unicode characters or symbols (—, –, •, →, ←, ↔, "", '', …, etc.)
+- NEVER use markdown formatting of any kind (no headers, no bold, no italic, no bullets, no code blocks)
+- NEVER use colons after section titles if they create a list-like appearance - integrate titles naturally into paragraphs
+- Write in a natural, conversational, human-like style with clear, detailed explanations
 - Use plain text with clear paragraphs separated by double line breaks
-- Use numbered lists (1., 2., 3.) when listing items, but write them naturally
+- When listing items, integrate them naturally into paragraphs or use numbered lists (1., 2., 3.) written as complete sentences
 - Use regular quotes (") not smart quotes ("")
 - Use regular apostrophes (') not smart apostrophes ('')
 - Structure your response like a human would write it - natural flow, not robotic formatting
+- Be extremely detailed and comprehensive in your responses - provide thorough explanations, examples, and context
+- Write section labels naturally within the text flow, not as separate headers
 
 INTELLIGENT RESPONSE GUIDELINES:
 1. ANALYZE QUERY INTENT FIRST:
@@ -163,10 +172,14 @@ INTELLIGENT RESPONSE GUIDELINES:
 
 3. RESPONSE QUALITY:
    - Be conversational, helpful, and professional - write like a human colleague would
-   - Provide accurate, well-researched answers
+   - Provide accurate, well-researched answers with extensive detail and thorough explanations
+   - Be comprehensive and detailed - explain concepts fully, provide context, give examples, and cover all relevant aspects
+   - When explaining legal concepts, provide detailed information about purpose, key components, practical implications, and relevant considerations
    - Cite sources when using retrieved data
    - Don't make assumptions about what the user wants - answer what they actually asked
    - Write naturally without markdown formatting or special characters
+   - Structure responses with clear, flowing paragraphs that naturally transition between topics
+   - Use descriptive language and provide comprehensive coverage of the subject matter
 
 4. EXAMPLES OF CORRECT BEHAVIOR:
    - "What is property law in Nigeria?" → Provide comprehensive explanation of Nigerian property law (general knowledge)
@@ -229,7 +242,7 @@ IMPORTANT: This question is about the document above. Extract information direct
     // Clean the response to remove markdown formatting, em dashes, and special characters
     const cleanResponse = aiResponse
       .replace(/^#{1,6}\s+/gm, "") // Remove markdown headers (#, ##, ###, etc.)
-      .replace(/^\s*[-*+]\s+/gm, "") // Remove bullet points
+      .replace(/^\s*[-*+•]\s+/gm, "") // Remove bullet points (including bullet symbol)
       .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold formatting
       .replace(/\*(.*?)\*/g, "$1") // Remove italic formatting
       .replace(/__(.*?)__/g, "$1") // Remove underline formatting
@@ -247,7 +260,11 @@ IMPORTANT: This question is about the document above. Extract information direct
       .replace(/←/g, "from")
       .replace(/↔/g, "to and from")
       .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, " ") // Replace various unicode spaces
+      .replace(/\*\s+/g, " ") // Remove any remaining asterisks used as bullets
+      .replace(/^\s*[-*+•]\s+/gm, "") // Second pass for bullet points
       .replace(/\n{3,}/g, "\n\n") // Replace multiple newlines with double newlines
+      .replace(/([A-Z][A-Z\s]+):\s*\n/g, "$1: ") // Convert section headers with colons to inline text
+      .replace(/\n\s*\n\s*\n/g, "\n\n") // Clean up excessive spacing
       .trim();
 
     return createJsonResponse(

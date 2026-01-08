@@ -59,7 +59,23 @@ serve(async (req: Request) => {
 
     const typeDetails = personas[analysisType] ?? basePersona;
 
-    const systemPrompt = `You are ${typeDetails.persona}, a senior legal expert assisting with contract and document analysis.\n\nCRITICAL WRITING RULES:\n- Respond using plain text paragraphs with blank lines between sections.\n- Use numbered lists (1., 2., 3.) for stepwise items instead of bullet points.\n- Do not use markdown headings, bullet characters, or special formatting.\n- NEVER use em dashes (—) or en dashes (–).\n- NEVER use special unicode characters or symbols.\n- Use regular hyphens (-) only for compound words, not for lists.\n- Use regular quotes (") not smart quotes ("").\n- Use regular apostrophes (') not smart apostrophes ('').\n- Provide concise section labels in all caps followed by a colon.\n- Keep the tone professional, practical, and easy to follow for legal and business stakeholders.`;
+    const systemPrompt = `You are ${typeDetails.persona}, a senior legal expert assisting with contract and document analysis.
+
+CRITICAL WRITING RULES - STRICTLY ENFORCE:
+- Respond using plain text paragraphs with blank lines between sections
+- NEVER use markdown headings (#, ##, ###, etc.) - write section titles naturally within the text flow
+- NEVER use bullet points with - or * or • characters - use numbered lists (1., 2., 3.) written as complete sentences or integrate into paragraphs
+- NEVER use em dashes (—) or en dashes (–) - use regular hyphens (-), commas, or colons instead
+- NEVER use special unicode characters or symbols (—, –, •, →, ←, ↔, "", '', …, etc.)
+- NEVER use ** bold formatting or * italic formatting or __ underline formatting
+- NEVER use markdown formatting of any kind
+- Use regular hyphens (-) only for compound words, not for lists
+- Use regular quotes (") not smart quotes ("")
+- Use regular apostrophes (') not smart apostrophes ('')
+- Write section labels naturally within paragraphs, not as separate headers with colons
+- Be extremely detailed and comprehensive in your analysis - provide thorough explanations, context, and practical implications
+- Keep the tone professional, practical, and easy to follow for legal and business stakeholders
+- Structure responses with clear, flowing paragraphs that naturally transition between topics`;
 
     const goalInstruction = goal && goal.trim().length > 0
       ? `\n\nUSER GOAL:\n${goal.trim()}`
@@ -67,7 +83,19 @@ serve(async (req: Request) => {
 
     const guidance = `\n\nANALYSIS FOCUS:\n${typeDetails.guidance}`;
 
-    const userPrompt = `DOCUMENT TO ANALYZE:\n${text.trim()}${goalInstruction}${guidance}\n\nPlease provide a comprehensive response that covers:\n1. SUMMARY AND CONTEXT\n2. KEY TERMS AND OBLIGATIONS\n3. RISKS OR ISSUES\n4. RECOMMENDATIONS OR NEXT STEPS`;
+    const userPrompt = `DOCUMENT TO ANALYZE:\n${text.trim()}${goalInstruction}${guidance}
+
+Please provide a comprehensive, detailed response that covers all of the following areas. Write each section as flowing paragraphs with thorough explanations, not as lists or bullet points:
+
+1. SUMMARY AND CONTEXT - Provide a detailed overview of the document, its purpose, the parties involved, and the overall context. Be specific and comprehensive.
+
+2. KEY TERMS AND OBLIGATIONS - Explain all key terms, conditions, obligations, and important provisions in detail. Describe what each party must do, when, and under what conditions. Be thorough and specific.
+
+3. RISKS OR ISSUES - Identify and explain all potential risks, issues, concerns, or problematic areas in detail. Explain why each is a concern and what the implications might be. Be comprehensive in your risk assessment.
+
+4. RECOMMENDATIONS OR NEXT STEPS - Provide detailed, actionable recommendations and next steps. Explain what should be done, why, and how. Be specific and practical.
+
+Remember: Write in plain text paragraphs, be extremely detailed, avoid all markdown formatting, and structure your response naturally with clear transitions between sections.`;
 
     const requestStartTime = Date.now();
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -101,26 +129,30 @@ serve(async (req: Request) => {
     }
 
     const cleanAnalysis = analysis
-      .replace(/^#{1,6}\s+/gm, "")
-      .replace(/^\s*[-*+]\s+/gm, "")
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/\*(.*?)\*/g, "$1")
-      .replace(/__(.*?)__/g, "$1")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/```[\s\S]*?```/g, "")
-      .replace(/^\s*>\s+/gm, "")
-      .replace(/\[(.*?)\]\(.*?\)/g, "$1")
-      .replace(/—/g, " ")
-      .replace(/–/g, "-")
-      .replace(/…/g, "...")
-      .replace(/[""]/g, '"')
-      .replace(/['']/g, "'")
-      .replace(/•/g, "")
-      .replace(/→/g, "to")
+      .replace(/^#{1,6}\s+/gm, "") // Remove markdown headers
+      .replace(/^\s*[-*+•]\s+/gm, "") // Remove bullet points (including bullet symbol)
+      .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold formatting
+      .replace(/\*(.*?)\*/g, "$1") // Remove italic formatting
+      .replace(/__(.*?)__/g, "$1") // Remove underline formatting
+      .replace(/`([^`]+)`/g, "$1") // Remove inline code
+      .replace(/```[\s\S]*?```/g, "") // Remove code blocks
+      .replace(/^\s*>\s+/gm, "") // Remove blockquotes
+      .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Remove markdown links, keep text
+      .replace(/—/g, " ") // Replace em dashes with spaces
+      .replace(/–/g, "-") // Replace en dashes with hyphens
+      .replace(/…/g, "...") // Replace ellipsis
+      .replace(/[""]/g, '"') // Replace smart quotes with regular quotes
+      .replace(/['']/g, "'") // Replace smart apostrophes with regular apostrophes
+      .replace(/•/g, "") // Remove bullet symbols
+      .replace(/→/g, "to") // Replace arrows
       .replace(/←/g, "from")
       .replace(/↔/g, "to and from")
-      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, " ")
-      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, " ") // Replace various unicode spaces
+      .replace(/\*\s+/g, " ") // Remove any remaining asterisks used as bullets
+      .replace(/^\s*[-*+•]\s+/gm, "") // Second pass for bullet points
+      .replace(/\n{3,}/g, "\n\n") // Replace multiple newlines with double newlines
+      .replace(/([A-Z][A-Z\s]+):\s*\n/g, "$1: ") // Convert section headers with colons to inline text
+      .replace(/\n\s*\n\s*\n/g, "\n\n") // Clean up excessive spacing
       .trim();
 
     return createJsonResponse(

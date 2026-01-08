@@ -250,20 +250,21 @@ RAG CONTEXT HANDLING:
 - Combine information from multiple sources when relevant
 - If information conflicts between sources, note the discrepancy
 
-CRITICAL OUTPUT FORMATTING RULES:
-- NEVER use # headings in responses
-- NEVER use - bullet points in responses  
-- NEVER use ** bold formatting in responses
-- NEVER use * italic formatting in responses
-- NEVER use em dashes (—) or en dashes (–)
-- NEVER use special unicode characters or symbols
+CRITICAL OUTPUT FORMATTING RULES - STRICTLY ENFORCE:
+- NEVER use markdown headers (#, ##, ###, ####, #####, ######) - write section titles naturally within the text flow
+- NEVER use bullet points with - or * or • characters - use numbered lists (1., 2., 3.) written as complete sentences or integrate into paragraphs
+- NEVER use em dashes (—) or en dashes (–) - use regular hyphens (-), commas, or colons instead
+- NEVER use special unicode characters or symbols (—, –, •, →, ←, ↔, "", '', …, etc.)
+- NEVER use ** bold formatting or * italic formatting or __ underline formatting
 - NEVER use markdown formatting of any kind
 - Use plain text with clear sections separated by double line breaks
-- Use numbered lists (1., 2., 3.) when listing items
+- When listing items, integrate them naturally into paragraphs or use numbered lists (1., 2., 3.) written as complete sentences
 - Use regular hyphens (-) only for compound words, not for lists
 - Use regular quotes (") not smart quotes ("")
 - Use regular apostrophes (') not smart apostrophes ('')
-- Use structured paragraphs for readability
+- Write section labels naturally within paragraphs, not as separate headers with colons
+- Be extremely detailed and comprehensive in your analysis - provide thorough explanations, context, and practical implications
+- Use structured paragraphs for readability with natural flow
 - Write in a conversational, professional tone
 
 Your analysis should be:
@@ -271,8 +272,9 @@ Your analysis should be:
 2. Reference specific sections and language from the document
 3. Legally accurate and practical
 4. Easy to understand for both legal professionals and non-lawyers
-5. Well-structured with clear sections
+5. Well-structured with clear sections written as flowing paragraphs
 6. Action-oriented with specific recommendations when appropriate
+7. Extremely detailed and comprehensive - provide thorough explanations, context, and practical implications
 
 When analyzing documents, always:
 - Quote or paraphrase relevant document language
@@ -280,8 +282,10 @@ When analyzing documents, always:
 - Base conclusions on actual document text, not assumptions
 - Identify what IS and IS NOT present in the document
 - Provide context-specific insights based on the actual content
+- Be thorough and detailed in your explanations - cover all aspects comprehensively
+- Write in flowing paragraphs, not as lists or bullet points
 
-Respond directly to the user's question using ONLY the document content provided. Use simple, clean text formatting without any special characters or markdown.`;
+Respond directly to the user's question using ONLY the document content provided. Use simple, clean text formatting without any special characters or markdown. Write each section as detailed, flowing paragraphs that naturally transition between topics.`;
 
     let userPrompt = '';
     
@@ -484,26 +488,30 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
 
     // Enhanced cleanup of analysis by removing ALL markdown formatting and special symbols
     analysis = analysis
-      .replace(/^#{1,6}\s+/gm, '') // Remove # headings
-      .replace(/^\s*[-*+]\s+/gm, '') // Remove -, *, + bullet points at line start
+      .replace(/^#{1,6}\s+/gm, '') // Remove markdown headers
+      .replace(/^\s*[-*+•]\s+/gm, '') // Remove bullet points (including bullet symbol)
       .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
-      .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting  
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
       .replace(/__(.*?)__/g, '$1') // Remove underline formatting
-      .replace(/`([^`]+)`/g, '$1') // Remove inline code formatting
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
       .replace(/```[\s\S]*?```/g, '') // Remove code blocks
       .replace(/^\s*>\s+/gm, '') // Remove blockquotes
-      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links but keep text
-      .replace(/—/g, ' ') // Remove em dashes
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove markdown links, keep text
+      .replace(/—/g, ' ') // Replace em dashes with spaces
       .replace(/–/g, '-') // Replace en dashes with hyphens
-      .replace(/…/g, '...') // Replace ellipsis character
+      .replace(/…/g, '...') // Replace ellipsis
       .replace(/[""]/g, '"') // Replace smart quotes with regular quotes
       .replace(/['']/g, "'") // Replace smart apostrophes with regular apostrophes
-      .replace(/•/g, '') // Remove bullet points
+      .replace(/•/g, '') // Remove bullet symbols
       .replace(/→/g, 'to') // Replace arrows
-      .replace(/←/g, 'from') // Replace arrows
-      .replace(/↔/g, 'to and from') // Replace arrows
-      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, ' ') // Replace various unicode spaces with regular space
-      .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks
+      .replace(/←/g, 'from')
+      .replace(/↔/g, 'to and from')
+      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, ' ') // Replace various unicode spaces
+      .replace(/\*\s+/g, ' ') // Remove any remaining asterisks used as bullets
+      .replace(/^\s*[-*+•]\s+/gm, '') // Second pass for bullet points
+      .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newlines
+      .replace(/([A-Z][A-Z\s]+):\s*\n/g, '$1: ') // Convert section headers with colons to inline text
+      .replace(/\n\s*\n\s*\n/g, '\n\n') // Clean up excessive spacing
       .trim();
 
     // Log successful completion
