@@ -82,12 +82,7 @@ export function useConversations() {
           *,
           conversation_participants(
             user_id,
-            last_read_at,
-            profiles:user_id(
-              first_name,
-              last_name,
-              email
-            )
+            last_read_at
           )
         `)
         .in('id', conversationIds)
@@ -101,23 +96,58 @@ export function useConversations() {
       
       if (!conversations || conversations.length === 0) return [];
 
-      // Get last message for each conversation
-      const conversationsWithMessages = await Promise.all(
-        (conversations || []).map(async (conv: any) => {
+      // Get all unique user IDs from participants
+      const allUserIds = new Set<string>();
+      conversations.forEach((conv: any) => {
+        (conv.conversation_participants || []).forEach((p: any) => {
+          if (p.user_id) allUserIds.add(p.user_id);
+        });
+      });
+
+      // Get last messages first to collect sender IDs
+      const lastMessagesData = await Promise.all(
+        conversations.map(async (conv: any) => {
           const { data: lastMessage } = await supabase
             .from('messages' as any)
-            .select(`
-              *,
-              profiles:sender_id(
-                first_name,
-                last_name,
-                email
-              )
-            `)
+            .select('*')
             .eq('conversation_id', conv.id)
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
+          return { conversationId: conv.id, lastMessage };
+        })
+      );
+
+      // Collect sender IDs from last messages
+      lastMessagesData.forEach(({ lastMessage }) => {
+        if (lastMessage?.sender_id) {
+          allUserIds.add(lastMessage.sender_id);
+        }
+      });
+
+      // Fetch profiles for all users (participants + senders) in one query
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles' as any)
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', Array.from(allUserIds));
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        // Don't throw, just continue without profiles
+      }
+
+      // Create a map of user_id -> profile for quick lookup
+      const profilesMap = new Map(
+        (profiles || []).map((p: any) => [p.user_id, p])
+      );
+
+      // Get last message for each conversation
+      const conversationsWithMessages = await Promise.all(
+        (conversations || []).map(async (conv: any) => {
+          const lastMessageData = lastMessagesData.find(
+            (lm) => lm.conversationId === conv.id
+          );
+          const lastMessage = lastMessageData?.lastMessage;
 
           // Get unread count - use the last_read_at from the map
           const lastReadAt = lastReadMap.get(conv.id) || '1970-01-01';
@@ -133,12 +163,13 @@ export function useConversations() {
             ...conv,
             last_message: lastMessage ? {
               ...(lastMessage as any),
-              sender: (lastMessage as any).profiles
+              sender: profilesMap.get(lastMessage.sender_id) || null
             } : null,
             unread_count: unreadCount || 0,
             participants: (conv.conversation_participants || []).map((p: any) => ({
               user_id: p.user_id,
-              ...(p.profiles || {})
+              last_read_at: p.last_read_at,
+              ...(profilesMap.get(p.user_id) || {})
             }))
           };
         })
@@ -165,22 +196,36 @@ export function useMessages(conversationId: string | null) {
 
       const { data, error } = await supabase
         .from('messages' as any)
-        .select(`
-          *,
-          profiles:sender_id(
-            first_name,
-            last_name,
-            email
-          )
-        `)
+        .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
 
+      if (!data || data.length === 0) return [];
+
+      // Get all unique sender IDs
+      const senderIds = [...new Set(data.map((msg: any) => msg.sender_id).filter(Boolean))];
+
+      // Fetch profiles for all senders in one query
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles' as any)
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', senderIds);
+
+      if (profilesError) {
+        console.error('Error fetching sender profiles:', profilesError);
+        // Don't throw, just continue without profiles
+      }
+
+      // Create a map of user_id -> profile for quick lookup
+      const profilesMap = new Map(
+        (profiles || []).map((p: any) => [p.user_id, p])
+      );
+
       return (data || []).map((msg: any) => ({
         ...msg,
-        sender: msg.profiles
+        sender: profilesMap.get(msg.sender_id) || null
       })) as Message[];
     },
     enabled: !!conversationId,

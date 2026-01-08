@@ -132,7 +132,10 @@ export default function UserManagement() {
   };
 
   const handleResendInvitation = (user: any) => {
-    resendInvitation.mutate(user);
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email;
+    if (window.confirm(`Resend invitation email to ${fullName} (${user.email})?`)) {
+      resendInvitation.mutate(user);
+    }
   };
 
   const handleChangeRole = (userId: string, newRole: string) => {
@@ -354,8 +357,29 @@ export default function UserManagement() {
                   id: "status",
                   header: "Status",
                   accessorKey: "verification_status",
-                  minWidth: "120px",
-                  cell: (user) => getVerificationBadge(user.verification_status),
+                  minWidth: "200px",
+                  cell: (user) => {
+                    const isPendingInvitation = user.user_type === 'invitation';
+                    const isPending = user.verification_status === 'pending' || user.verification_status === 'expired';
+                    
+                    return (
+                      <div className="flex items-center gap-2">
+                        {getVerificationBadge(user.verification_status)}
+                        {isPendingInvitation && isPending && canInviteUsers && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleResendInvitation(user)}
+                            disabled={resendInvitation.isPending}
+                            className="h-7 text-xs"
+                          >
+                            <Mail className="mr-1 h-3 w-3" />
+                            {resendInvitation.isPending ? 'Sending...' : 'Resend'}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  },
                 },
                 {
                   id: "type",

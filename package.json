@@ -67,7 +67,7 @@
     "html-to-docx": "^1.8.0",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
-    "jspdf": "^3.0.4",
+    "jspdf": "^4.0.0",
     "lovable-tagger": "^1.1.9",
     "lucide-react": "^0.323.0",
     "papaparse": "^5.5.3",

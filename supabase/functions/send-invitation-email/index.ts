@@ -12,6 +12,12 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+interface SsoLink {
+  provider: 'google' | 'microsoft';
+  url: string;
+  mode: 'supabase_managed' | 'federated';
+}
+
 interface InvitationEmailRequest {
   email: string;
   firstName: string;
@@ -21,6 +27,8 @@ interface InvitationEmailRequest {
   organizationName: string;
   inviterName: string;
   invitationUrl: string;
+  ssoEnforced?: boolean;
+  ssoLinks?: SsoLink[];
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -40,9 +48,12 @@ const handler = async (req: Request): Promise<Response> => {
       organizationName,
       inviterName,
       invitationUrl,
+      ssoEnforced = false,
+      ssoLinks = [],
     }: InvitationEmailRequest = await req.json();
 
     console.log('Processing invitation email for:', email);
+    console.log('SSO enforced:', ssoEnforced, 'SSO links:', ssoLinks.length);
 
     // Generate the signup URL that directs to register page with email pre-filled
     const origin = new URL(invitationUrl).origin;
@@ -58,6 +69,8 @@ const handler = async (req: Request): Promise<Response> => {
       organizationName,
       inviterName,
       signupUrl,
+      ssoEnforced,
+      ssoLinks,
     });
 
     const emailSubject = `You're invited to join ${organizationName}`;
@@ -104,14 +117,92 @@ interface InvitationEmailHtmlParams {
   organizationName: string;
   inviterName: string;
   signupUrl: string;
+  ssoEnforced: boolean;
+  ssoLinks: SsoLink[];
 }
 
 function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
-  const { firstName, lastName, role, department, organizationName, inviterName, signupUrl } = params;
+  const { firstName, lastName, role, department, organizationName, inviterName, signupUrl, ssoEnforced, ssoLinks } = params;
   
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'there';
   const roleDisplay = role.charAt(0).toUpperCase() + role.slice(1);
   const departmentLine = department ? `<p style="color: #666666; font-size: 14px; margin: 8px 0 0;">Department: ${department}</p>` : '';
+  
+  // Build SSO buttons HTML
+  let ssoButtonsHtml = '';
+  if (ssoLinks.length > 0) {
+    const ssoButtons = ssoLinks.map(link => {
+      const providerName = link.provider === 'google' ? 'Google' : 'Microsoft';
+      const providerColor = link.provider === 'google' ? '#4285F4' : '#00A4EF';
+      const providerIcon = link.provider === 'google' 
+        ? 'https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg'
+        : 'https://docs.microsoft.com/en-us/azure/active-directory/develop/media/howto-add-branding-in-azure-ad-apps/ms-symbol.svg';
+      
+      return `
+        <tr>
+          <td style="padding: 8px 0;">
+            <a href="${link.url}" style="display: inline-block; width: 100%; padding: 12px 24px; background-color: ${providerColor}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              Sign in with ${providerName}
+            </a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    
+    ssoButtonsHtml = `
+      <table cellpadding="0" cellspacing="0" style="margin: 20px 0; width: 100%;">
+        ${ssoButtons}
+      </table>
+    `;
+  }
+  
+  // Build main CTA section
+  let mainCtaHtml = '';
+  if (ssoEnforced && ssoLinks.length > 0) {
+    // SSO is enforced - only show SSO buttons
+    mainCtaHtml = `
+      <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
+        ${ssoLinks.length === 1 
+          ? 'Please sign in using your organization account:'
+          : 'Please sign in using one of your organization accounts:'}
+      </p>
+      ${ssoButtonsHtml}
+    `;
+  } else if (ssoLinks.length > 0) {
+    // SSO available but not enforced - show both options
+    mainCtaHtml = `
+      <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
+        You can sign in using your organization account or create a new account:
+      </p>
+      ${ssoButtonsHtml}
+      <div style="text-align: center; margin: 20px 0; color: #999999; font-size: 14px;">or</div>
+      <table cellpadding="0" cellspacing="0" style="margin: 20px 0;">
+        <tr>
+          <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
+            <a href="${signupUrl}" style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
+              Create Account with Email
+            </a>
+          </td>
+        </tr>
+      </table>
+    `;
+  } else {
+    // No SSO - show regular signup button
+    mainCtaHtml = `
+      <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
+        Click the button below to create your account and set your password:
+      </p>
+      <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+        <tr>
+          <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
+            <a href="${signupUrl}" style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
+              Accept Invitation
+            </a>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
   
   return `
 <!DOCTYPE html>
@@ -145,22 +236,13 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
                 <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <strong>${roleDisplay}</strong>.
               </p>
               ${departmentLine}
-              <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
-                Click the button below to create your account and set your password:
-              </p>
-              <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-                <tr>
-                  <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
-                    <a href="${signupUrl}" style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-                      Accept Invitation
-                    </a>
-                  </td>
-                </tr>
-              </table>
+              ${mainCtaHtml}
+              ${!ssoEnforced ? `
               <p style="color: #888888; font-size: 13px; margin: 25px 0 0;">
                 If the button doesn't work, copy and paste this link into your browser:<br>
                 <a href="${signupUrl}" style="color: #1a365d; word-break: break-all;">${signupUrl}</a>
               </p>
+              ` : ''}
             </td>
           </tr>
           <tr>

@@ -45,8 +45,12 @@ export function LiveChat({ isOpen, onClose }: LiveChatProps) {
       {/* Full-screen modal that preserves sidebar */}
       <div className="fixed inset-0 z-[100] flex" style={{ isolation: 'isolate' }}>
         {/* Backdrop - only covers main content area, not sidebar */}
+        {/* On mobile: covers full screen, on desktop: starts after sidebar */}
         <div
-          className="fixed inset-0 bg-background/95 backdrop-blur-sm md:left-[220px] lg:left-[260px] transition-opacity z-[100]"
+          className={cn(
+            "fixed top-0 right-0 bottom-0 bg-background/95 backdrop-blur-sm transition-opacity z-[100]",
+            "left-0 md:left-[220px] lg:left-[260px]"
+          )}
           onClick={onClose}
         />
         
