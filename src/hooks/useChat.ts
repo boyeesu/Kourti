@@ -1,0 +1,352 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { useEffect, useState } from 'react';
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  message_type: 'text' | 'file' | 'system';
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  sender?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  };
+}
+
+export interface Conversation {
+  id: string;
+  organization_id: string;
+  type: 'direct' | 'group';
+  name: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  participants?: Array<{
+    user_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  }>;
+  last_message?: Message;
+  unread_count?: number;
+}
+
+/**
+ * Hook to fetch user's conversations
+ */
+export function useConversations() {
+  const { user } = useAuth();
+  const { data: organizationId } = useUserOrganization();
+
+  return useQuery({
+    queryKey: ['conversations', organizationId, user?.id],
+    queryFn: async () => {
+      if (!user || !organizationId) return [];
+
+      // Get conversations where user is a participant - use a simpler query
+      // First get conversation IDs where user is a participant
+      const { data: participantData, error: participantError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id, last_read_at')
+        .eq('user_id', user.id);
+
+      if (participantError) {
+        console.error('Error fetching participant data:', participantError);
+        // If it's an RLS error, return empty array instead of throwing
+        // This prevents the entire app from breaking
+        if (participantError.code === 'PGRST301' || participantError.message?.includes('RLS') || participantError.message?.includes('policy')) {
+          console.warn('RLS policy error detected. Please run FIX_CHAT_RLS_NOW.sql in Supabase SQL Editor.');
+          return [];
+        }
+        throw participantError;
+      }
+
+      if (!participantData || participantData.length === 0) return [];
+
+      const conversationIds = participantData.map(p => p.conversation_id);
+      const lastReadMap = new Map(participantData.map(p => [p.conversation_id, p.last_read_at]));
+
+      // Get conversations with all participants
+      const { data: conversations, error: conversationsError } = await supabase
+        .from('conversations')
+        .select(`
+          *,
+          conversation_participants(
+            user_id,
+            last_read_at,
+            profiles:user_id(
+              first_name,
+              last_name,
+              email
+            )
+          )
+        `)
+        .in('id', conversationIds)
+        .eq('organization_id', organizationId)
+        .order('updated_at', { ascending: false });
+
+      if (conversationsError) {
+        console.error('Error fetching conversations:', conversationsError);
+        throw conversationsError;
+      }
+      
+      if (!conversations || conversations.length === 0) return [];
+
+      // Get last message for each conversation
+      const conversationsWithMessages = await Promise.all(
+        (conversations || []).map(async (conv: any) => {
+          const { data: lastMessage } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              profiles:sender_id(
+                first_name,
+                last_name,
+                email
+              )
+            `)
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          // Get unread count - use the last_read_at from the map
+          const lastReadAt = lastReadMap.get(conv.id) || '1970-01-01';
+          
+          const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
+            .gt('created_at', lastReadAt)
+            .neq('sender_id', user.id);
+
+          return {
+            ...conv,
+            last_message: lastMessage ? {
+              ...lastMessage,
+              sender: lastMessage.profiles
+            } : null,
+            unread_count: unreadCount || 0,
+            participants: conv.conversation_participants?.map((p: any) => ({
+              user_id: p.user_id,
+              ...p.profiles
+            })) || []
+          };
+        })
+      );
+
+      return conversationsWithMessages as Conversation[];
+    },
+    enabled: !!user && !!organizationId,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+/**
+ * Hook to fetch messages for a conversation with realtime updates
+ */
+export function useMessages(conversationId: string | null) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+
+  const query = useQuery({
+    queryKey: ['messages', conversationId],
+    queryFn: async () => {
+      if (!conversationId) return [];
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          profiles:sender_id(
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      return (data || []).map((msg: any) => ({
+        ...msg,
+        sender: msg.profiles
+      })) as Message[];
+    },
+    enabled: !!conversationId,
+  });
+
+  // Set up realtime subscription
+  useEffect(() => {
+    if (!conversationId || !user) return;
+
+    const newChannel = supabase
+      .channel(`messages:${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        async (payload) => {
+          // Fetch sender profile
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, email')
+            .eq('user_id', payload.new.sender_id)
+            .single();
+
+          const newMessage: Message = {
+            ...payload.new as any,
+            sender: profile ? {
+              id: payload.new.sender_id,
+              ...profile
+            } : undefined
+          };
+          
+          queryClient.setQueryData(['messages', conversationId], (old: Message[] = []) => {
+            // Avoid duplicates
+            if (old.some(m => m.id === newMessage.id)) return old;
+            return [...old, newMessage];
+          });
+
+          // Update conversations list
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        }
+      )
+      .subscribe();
+
+    setChannel(newChannel);
+
+    return () => {
+      supabase.removeChannel(newChannel);
+    };
+  }, [conversationId, user, queryClient]);
+
+  return query;
+}
+
+/**
+ * Hook to send a message
+ */
+export function useSendMessage() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ conversationId, content }: { conversationId: string; content: string }) => {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      if (!content || !content.trim()) {
+        throw new Error('Message content cannot be empty');
+      }
+
+      console.log('Sending message:', { conversationId, content, senderId: user.id });
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_id: user.id,
+          content: content.trim(),
+          message_type: 'text',
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error inserting message:', error);
+        throw new Error(error.message || 'Failed to send message');
+      }
+
+      console.log('Message sent successfully:', data);
+
+      // Update conversation updated_at (trigger should handle this, but doing it manually as backup)
+      const { error: updateError } = await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+
+      if (updateError) {
+        console.warn('Failed to update conversation timestamp:', updateError);
+        // Don't throw - message was sent successfully
+      }
+
+      // Invalidate queries to refresh UI
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      // Don't invalidate messages query - real-time will handle it
+      // queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+
+      return data;
+    },
+  });
+}
+
+/**
+ * Hook to create or get direct conversation
+ */
+export function useGetOrCreateDirectConversation() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (otherUserId: string) => {
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase.rpc('get_or_create_direct_conversation', {
+        p_other_user_id: otherUserId
+      });
+
+      if (error) throw error;
+
+      // Invalidate conversations
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+
+      return data as string;
+    },
+  });
+}
+
+/**
+ * Hook to mark messages as read
+ */
+export function useMarkAsRead() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (conversationId: string) => {
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('conversation_participants')
+        .update({ last_read_at: new Date().toISOString() })
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error marking conversation as read:', error);
+        // Don't throw - this is a non-critical operation
+        // The error is likely due to RLS policy issues
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+}

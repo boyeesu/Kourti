@@ -15,7 +15,8 @@ import {
   Gauge,
   Mic,
   LucideIcon,
-  HelpCircle
+  HelpCircle,
+  MessageCircle
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -41,6 +42,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { cn } from "@/lib/utils";
+import { LiveChat } from "@/components/chat/LiveChat";
 
 // Navigation item type definition
 interface NavigationItem {
@@ -79,6 +81,13 @@ const documentsNavigation: NavigationGroup = {
 const toolsNavigation: NavigationGroup = {
   label: "Workspace",
   items: [
+    {
+      title: "Live Chat",
+      url: "#live-chat",
+      icon: MessageCircle,
+      badge: "New",
+      badgeVariant: "default"
+    },
     {
       title: "Ream AI",
       url: "/ream-ai",
@@ -132,6 +141,7 @@ const AppSidebar: React.FC = () => {
   const { toast } = useToast();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || "U";
   const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
 
   const { data: userRoleData } = useUserRole();
   const role = userRoleData && "role" in userRoleData ? userRoleData.role : null;
@@ -217,6 +227,46 @@ const AppSidebar: React.FC = () => {
       );
 
       const iconClass = cn("h-5 w-5", active ? "text-[hsl(var(--primary))]" : "text-muted-foreground");
+
+      // Handle Live Chat specially
+      if (item.url === "#live-chat") {
+        const active = false; // Chat is not a route
+        const linkClass = cn(
+          "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+          collapsed && "justify-center px-0 gap-0",
+          active
+            ? "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]"
+            : "text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground"
+        );
+        const iconClass = cn("h-5 w-5", active ? "text-[hsl(var(--primary))]" : "text-muted-foreground");
+        
+        return (
+          <SidebarMenuItem key={item.url}>
+            <SidebarMenuButton
+              asChild
+              isActive={active}
+              className={cn("h-11 px-0", collapsed && "justify-center")}
+            >
+              <button
+                onClick={() => setIsChatOpen(true)}
+                className={linkClass}
+              >
+                <item.icon className={iconClass} />
+                {!collapsed && (
+                  <>
+                    <span className="truncate">{item.title}</span>
+                    {item.badge && (
+                      <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </>
+                )}
+              </button>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      }
 
       const content = (
         <SidebarMenuItem key={item.url}>
@@ -358,6 +408,7 @@ const AppSidebar: React.FC = () => {
           </div>
         </SidebarContent>
       </Sidebar>
+      <LiveChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </TooltipProvider>
   );
 };

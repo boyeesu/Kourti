@@ -42,7 +42,8 @@ import {
   Gauge,
   Mic,
   ChevronRight,
-  MonitorSmartphone
+  MonitorSmartphone,
+  MessageCircle
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -54,6 +55,7 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { KeyboardShortcutsDialog } from '@/hooks/useKeyboardShortcuts';
+import { LiveChat } from '@/components/chat/LiveChat';
 
 // Navigation item type
 export type NavItem = {
@@ -263,6 +265,7 @@ function MobileNavigation() {
   const toolsNavigation = {
     label: "Tools",
     items: [
+      { title: "Live Chat", url: "#live-chat", icon: MessageCircle, end: false, badge: "New", badgeVariant: "default" as const },
       { title: "Ream AI", url: "/ream-ai", icon: Bot, end: false, badge: "New", badgeVariant: "default" as const },
       { title: "Voice Recorder", url: "/voice-recorder", icon: Mic, end: false, badge: "New", badgeVariant: "default" as const },
       { title: "Transcriptions", url: "/transcriptions", icon: FileText, end: false },
@@ -349,6 +352,34 @@ function MobileNavigation() {
                     {group.items.map(item => {
                       if (!item) return null;
                       const isInvoice = item.url === "/invoices";
+                      const isLiveChat = item.url === "#live-chat";
+                      
+                      // Handle Live Chat specially
+                      if (isLiveChat) {
+                        return (
+                          <Button
+                            key={item.url}
+                            variant="ghost"
+                            className={cn(
+                              "w-full justify-start gap-3 rounded-lg border border-transparent px-3 py-2 text-sm font-medium",
+                              "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))/0.18]"
+                            )}
+                            onClick={() => {
+                              setOpen(false);
+                              setIsChatOpen(true);
+                            }}
+                          >
+                            <item.icon className="h-5 w-5" />
+                            <span>{item.title}</span>
+                            {item.badge && (
+                              <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Button>
+                        );
+                      }
+                      
                       return (
                         <Button
                           key={item.url}
@@ -415,6 +446,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
   const { data: organizationId } = useUserOrganization();
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Command palette
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
@@ -507,6 +539,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
         user={user}
         userInitials={userInitials}
         handleSignOut={handleSignOut}
+        isChatOpen={isChatOpen}
+        setIsChatOpen={setIsChatOpen}
       />
     </SidebarProvider>
   );
@@ -529,7 +563,9 @@ function AppLayoutInner({
   navigate,
   user,
   userInitials,
-  handleSignOut
+  handleSignOut,
+  isChatOpen,
+  setIsChatOpen
 }: any) {
   const hasSearchResults =
     hasSearchTerm &&
@@ -861,6 +897,7 @@ function AppLayoutInner({
           </main>
         </div>
       </div>
+      <LiveChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </>
   );
 }
