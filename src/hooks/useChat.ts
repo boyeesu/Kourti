@@ -120,8 +120,9 @@ export function useConversations() {
 
       // Collect sender IDs from last messages
       lastMessagesData.forEach(({ lastMessage }) => {
-        if (lastMessage?.sender_id) {
-          allUserIds.add(lastMessage.sender_id);
+        const message = lastMessage as any;
+        if (message?.sender_id) {
+          allUserIds.add(message.sender_id);
         }
       });
 
@@ -159,11 +160,12 @@ export function useConversations() {
             .gt('created_at', lastReadAt)
             .neq('sender_id', user.id);
 
+          const message = lastMessage as any;
           return {
             ...conv,
-            last_message: lastMessage ? {
-              ...(lastMessage as any),
-              sender: profilesMap.get(lastMessage.sender_id) || null
+            last_message: message ? {
+              ...message,
+              sender: profilesMap.get(message.sender_id) || null
             } : null,
             unread_count: unreadCount || 0,
             participants: (conv.conversation_participants || []).map((p: any) => ({

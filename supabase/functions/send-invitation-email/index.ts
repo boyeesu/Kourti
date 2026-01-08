@@ -134,9 +134,6 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
     const ssoButtons = ssoLinks.map(link => {
       const providerName = link.provider === 'google' ? 'Google' : 'Microsoft';
       const providerColor = link.provider === 'google' ? '#4285F4' : '#00A4EF';
-      const providerIcon = link.provider === 'google' 
-        ? 'https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg'
-        : 'https://docs.microsoft.com/en-us/azure/active-directory/develop/media/howto-add-branding-in-azure-ad-apps/ms-symbol.svg';
       
       return `
         <tr>
