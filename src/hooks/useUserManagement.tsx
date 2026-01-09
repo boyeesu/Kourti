@@ -44,7 +44,7 @@ export function useInviteUser() {
         throw new Error('Current user is not associated with an organization');
       }
 
-      const { data: organizationData, error: organizationError } = await supabase
+      const { error: organizationError } = await supabase
         .from('organizations')
         .select('name')
         .eq('id', typedProfile.organization_id)
