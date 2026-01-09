@@ -264,6 +264,29 @@ const handler = async (req: Request): Promise<Response> => {
     // Password will be sent via secure email channel only
     // Send invitation email server-side (password never leaves server)
     try {
+      // Fetch organization name for the email
+      const { data: orgData } = await supabaseAdmin
+        .from('organizations')
+        .select('name')
+        .eq('id', organizationId)
+        .single();
+
+      // Fetch inviter's name
+      const { data: inviterData } = await supabaseAdmin
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', callerUser.id)
+        .single();
+
+      const organizationName = orgData?.name || 'Your Organization';
+      const inviterName = inviterData 
+        ? `${inviterData.first_name || ''} ${inviterData.last_name || ''}`.trim() || 'Admin'
+        : 'Admin';
+      
+      // Use APP_URL or fallback to kourti.com
+      const appUrl = Deno.env.get('APP_URL') || 'https://app.kourti.com';
+      const invitationUrl = `${appUrl}/auth?email=${encodeURIComponent(email)}&invited=true`;
+
       const { error: emailError } = await supabaseAdmin.functions.invoke('send-invitation-email', {
         body: {
           email,
@@ -271,7 +294,9 @@ const handler = async (req: Request): Promise<Response> => {
           lastName,
           role,
           department,
-          organizationId,
+          organizationName,
+          inviterName,
+          invitationUrl,
           tempPassword, // Pass securely server-to-server
         }
       });
