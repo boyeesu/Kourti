@@ -84,7 +84,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Create admin client for user creation
+    // Create admin client for user creation and auth verification
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -92,18 +92,16 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    // Create user client to verify the caller
-    const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    // Extract token from Authorization header (format: "Bearer <token>")
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      throw new Error('Invalid authorization header format');
+    }
 
-    // Verify caller is authenticated and is admin/superadmin
-    const { data: { user: callerUser }, error: callerError } = await supabaseUser.auth.getUser();
+    // Verify caller is authenticated using service role client
+    const { data: { user: callerUser }, error: callerError } = await supabaseAdmin.auth.getUser(token);
     if (callerError || !callerUser) {
+      console.error('Authentication failed:', callerError?.message);
       throw new Error('Unauthorized: Invalid or expired token');
     }
 
