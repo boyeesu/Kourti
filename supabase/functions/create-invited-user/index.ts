@@ -77,7 +77,6 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     // Verify authorization - must be an authenticated admin/superadmin
     const authHeader = req.headers.get('Authorization');
-    console.log('Authorization header present:', !!authHeader);
     
     if (!authHeader) {
       throw new Error('Missing authorization header');
@@ -85,9 +84,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
-    // Create admin client for user creation
+    // Create admin client for user creation and auth verification
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -95,25 +93,19 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    // Create user client to verify the caller with the auth header
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { 
-        headers: { 
-          Authorization: authHeader 
-        } 
-      },
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    // Extract token from Authorization header (format: "Bearer <token>")
+    const token = authHeader.replace('Bearer ', '').trim();
+    
+    if (!token) {
+      throw new Error('Invalid authorization header format');
+    }
 
-    // Verify caller is authenticated
-    const { data: { user: callerUser }, error: callerError } = await supabaseUser.auth.getUser();
+    // Verify caller is authenticated using service role client
+    const { data: { user: callerUser }, error: callerError } = await supabaseAdmin.auth.getUser(token);
     if (callerError || !callerUser) {
       console.error('Authentication failed:', {
         error: callerError?.message,
-        code: callerError?.status,
+        status: callerError?.status,
         hasUser: !!callerUser
       });
       throw new Error('Unauthorized: Invalid or expired token');
