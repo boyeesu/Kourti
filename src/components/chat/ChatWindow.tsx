@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Send, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Send, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -93,6 +93,15 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 -ml-1"
+            title="Back to conversations"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <MessageCircle className="h-5 w-5 text-primary" />
           <div>
             <h3 className="font-semibold text-foreground">
@@ -103,14 +112,6 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
             </p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="h-8 w-8"
-        >
-          <X className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Messages */}

@@ -17,17 +17,7 @@ export function LiveChat({ isOpen, onClose }: LiveChatProps) {
   const [recipientName, setRecipientName] = useState<string>('');
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
 
-  // Prevent body scroll when chat is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+  // No longer blocking body scroll - allows sidebar to remain interactive
 
   const handleSelectConversation = (conversationId: string, recipientName?: string) => {
     setSelectedConversationId(conversationId);
@@ -42,13 +32,13 @@ export function LiveChat({ isOpen, onClose }: LiveChatProps) {
 
   const modalContent = (
     <>
-      {/* Full-screen modal that preserves sidebar */}
-      <div className="fixed inset-0 z-[100] flex" style={{ isolation: 'isolate' }}>
+      {/* Full-screen modal that preserves sidebar - pointer-events-none on container */}
+      <div className="fixed inset-0 z-[50] flex pointer-events-none" style={{ isolation: 'isolate' }}>
         {/* Backdrop - only covers main content area, not sidebar */}
         {/* On mobile: covers full screen, on desktop: starts after sidebar */}
         <div
           className={cn(
-            "fixed top-0 right-0 bottom-0 bg-background/95 backdrop-blur-sm transition-opacity z-[100]",
+            "fixed top-0 right-0 bottom-0 bg-background/95 backdrop-blur-sm transition-opacity z-[50] pointer-events-auto",
             "left-0 md:left-[220px] lg:left-[260px]"
           )}
           onClick={onClose}
@@ -56,7 +46,7 @@ export function LiveChat({ isOpen, onClose }: LiveChatProps) {
         
         {/* Chat Container - Full screen starting after sidebar */}
         <div className={cn(
-          "relative flex w-full h-full bg-background border-l border-border overflow-hidden z-[101]",
+          "relative flex w-full h-full bg-background border-l border-border overflow-hidden z-[51] pointer-events-auto",
           "md:ml-[220px] lg:ml-[260px]",
           "animate-in slide-in-from-right-full duration-300"
         )}>

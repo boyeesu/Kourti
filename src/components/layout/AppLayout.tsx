@@ -56,6 +56,7 @@ import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { KeyboardShortcutsDialog } from '@/hooks/useKeyboardShortcuts';
 import { LiveChat } from '@/components/chat/LiveChat';
+import { useTotalUnreadCount } from '@/hooks/useChat';
 
 // Navigation item type
 export type NavItem = {
@@ -244,6 +245,7 @@ function MobileNavigation({ setIsChatOpen }: { setIsChatOpen: (open: boolean) =>
   const { data: userRoleData } = useUserRole();
   const role = userRoleData && 'role' in userRoleData ? userRoleData.role : null;
   const isAdmin = role === "superadmin" || role === "admin";
+  const totalUnreadCount = useTotalUnreadCount();
 
   // Sidebar navigation groups and filtering (from AppSidebar)
   const primaryNavigation = {
@@ -362,7 +364,7 @@ function MobileNavigation({ setIsChatOpen }: { setIsChatOpen: (open: boolean) =>
                             variant="ghost"
                             className={cn(
                               "w-full justify-start gap-3 rounded-lg border border-transparent px-3 py-2 text-sm font-medium",
-                              "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))/0.18]"
+                              "text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground"
                             )}
                             onClick={() => {
                               setOpen(false);
@@ -371,7 +373,11 @@ function MobileNavigation({ setIsChatOpen }: { setIsChatOpen: (open: boolean) =>
                           >
                             <item.icon className="h-5 w-5" />
                             <span>{item.title}</span>
-                            {item.badge && (
+                            {totalUnreadCount > 0 ? (
+                              <Badge variant="destructive" className="ml-auto text-[10px] min-w-5 justify-center">
+                                {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                              </Badge>
+                            ) : (
                               <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
                                 {item.badge}
                               </Badge>

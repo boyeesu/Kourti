@@ -43,6 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { cn } from "@/lib/utils";
 import { LiveChat } from "@/components/chat/LiveChat";
+import { useTotalUnreadCount } from "@/hooks/useChat";
 
 // Navigation item type definition
 interface NavigationItem {
@@ -138,6 +139,7 @@ const AppSidebar: React.FC = () => {
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || "U";
   const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
   const [isChatOpen, setIsChatOpen] = React.useState(false);
+  const totalUnreadCount = useTotalUnreadCount();
 
   const { data: userRoleData } = useUserRole();
   const role = userRoleData && "role" in userRoleData ? userRoleData.role : null;
@@ -226,7 +228,7 @@ const AppSidebar: React.FC = () => {
 
       // Handle Live Chat specially
       if (item.url === "#live-chat") {
-        const active = false; // Chat is not a route
+        const active = isChatOpen; // Highlight when chat is open
         const linkClass = cn(
           "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
           collapsed && "justify-center px-0 gap-0",
@@ -245,13 +247,24 @@ const AppSidebar: React.FC = () => {
             >
               <button
                 onClick={() => setIsChatOpen(true)}
-                className={linkClass}
+                className={cn(linkClass, "relative")}
               >
-                <item.icon className={iconClass} />
+                <div className="relative">
+                  <item.icon className={iconClass} />
+                  {collapsed && totalUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+                      {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+                    </span>
+                  )}
+                </div>
                 {!collapsed && (
                   <>
                     <span className="truncate">{item.title}</span>
-                    {item.badge && (
+                    {totalUnreadCount > 0 ? (
+                      <Badge variant="destructive" className="ml-auto text-[10px] min-w-5 justify-center">
+                        {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                      </Badge>
+                    ) : (
                       <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
                         {item.badge}
                       </Badge>

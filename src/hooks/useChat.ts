@@ -284,7 +284,7 @@ export function useMessages(conversationId: string | null) {
 }
 
 /**
- * Hook to send a message
+ * Hook to send a message with optimistic updates
  */
 export function useSendMessage() {
   const queryClient = useQueryClient();
@@ -299,8 +299,6 @@ export function useSendMessage() {
       if (!content || !content.trim()) {
         throw new Error('Message content cannot be empty');
       }
-
-      console.log('Sending message:', { conversationId, content, senderId: user.id });
 
       const { data, error } = await supabase
         .from('messages' as any)
@@ -318,25 +316,67 @@ export function useSendMessage() {
         throw new Error(error.message || 'Failed to send message');
       }
 
-      console.log('Message sent successfully:', data);
-
-      // Update conversation updated_at (trigger should handle this, but doing it manually as backup)
-      const { error: updateError } = await supabase
+      // Update conversation updated_at
+      await supabase
         .from('conversations' as any)
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
 
-      if (updateError) {
-        console.warn('Failed to update conversation timestamp:', updateError);
-        // Don't throw - message was sent successfully
-      }
-
-      // Invalidate queries to refresh UI
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      // Don't invalidate messages query - real-time will handle it
-      // queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-
       return data;
+    },
+    // Optimistic update - show message immediately
+    onMutate: async ({ conversationId, content }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
+
+      // Snapshot previous value
+      const previousMessages = queryClient.getQueryData<Message[]>(['messages', conversationId]);
+
+      // Create optimistic message
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}`,
+        conversation_id: conversationId,
+        sender_id: user!.id,
+        content: content.trim(),
+        message_type: 'text',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        sender: {
+          id: user!.id,
+          first_name: user?.user_metadata?.first_name || null,
+          last_name: user?.user_metadata?.last_name || null,
+          email: user?.email || null,
+        },
+      };
+
+      // Optimistically add message
+      queryClient.setQueryData<Message[]>(['messages', conversationId], (old = []) => {
+        return [...old, optimisticMessage];
+      });
+
+      return { previousMessages, optimisticMessage };
+    },
+    onError: (err, { conversationId }, context) => {
+      // Rollback on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['messages', conversationId], context.previousMessages);
+      }
+    },
+    onSettled: (data, error, { conversationId }) => {
+      // Always invalidate conversations to update last message
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      
+      // If we have the real data, replace the optimistic message
+      if (data && !error) {
+        queryClient.setQueryData<Message[]>(['messages', conversationId], (old = []) => {
+          // Remove temp messages and add real one if not already there
+          const filtered = old.filter(m => !m.id.startsWith('temp-'));
+          if (!filtered.some(m => m.id === (data as any).id)) {
+            return [...filtered, data as any];
+          }
+          return filtered;
+        });
+      }
     },
   });
 }
@@ -393,4 +433,15 @@ export function useMarkAsRead() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
   });
+}
+
+/**
+ * Hook to get total unread message count across all conversations
+ */
+export function useTotalUnreadCount() {
+  const { data: conversations = [] } = useConversations();
+  
+  const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+  
+  return totalUnread;
 }
