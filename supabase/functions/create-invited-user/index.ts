@@ -129,7 +129,8 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Unauthorized: Could not verify user roles');
     }
 
-    const roleNames: string[] = callerRoles?.map((r) => r.role_name) || [];
+    type RoleAssignment = { role_name: string };
+    const roleNames: string[] = (callerRoles as RoleAssignment[] | null)?.map((r: RoleAssignment) => r.role_name) || [];
     if (!roleNames.includes('superadmin') && !roleNames.includes('admin')) {
       throw new Error('Unauthorized: Only admins can invite users');
     }
