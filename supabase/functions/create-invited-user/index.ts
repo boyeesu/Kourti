@@ -8,11 +8,21 @@ const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
   "http://localhost:3000",
   "http://localhost:5173",
+  "http://localhost:8080",
   "https://app.kourti.com",
   "https://kouti-legal-hub-41.lovable.app",
 ]
   .flatMap((value) => (value ? value.split(",") : []))
-  .filter(Boolean);
+  .filter(Boolean)
+  .map((origin) => {
+    // Ensure all origins have a protocol
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      // If it's a domain without protocol, assume https
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   // Can't use "*" with allowCredentials: true, so we must have a specific origin
