@@ -2,9 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
-import { env } from '@/lib/env';
-import { logError, logInfo, logWarn } from '@/lib/logger';
-import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
+import { logError, logInfo } from '@/lib/logger';
 import type { Profile } from '@/lib/types/database';
 
 export interface InviteUserData {
@@ -29,7 +27,7 @@ export function useInviteUser() {
       }
 
       // Get current user's profile and org info
-      const [{ data: profile, error: profileError }, { data: authUser, error: authError }] = await Promise.all([
+      const [{ data: profile, error: profileError }, { error: authError }] = await Promise.all([
         supabase
           .from('profiles')
           .select('first_name,last_name,organization_id')
@@ -53,13 +51,6 @@ export function useInviteUser() {
         .single();
 
       if (organizationError) throw organizationError;
-
-      const organizationName = organizationData?.name || 'Organization';
-      const inviterName = buildDisplayName(
-        typedProfile.first_name,
-        typedProfile.last_name,
-        authUser.user?.email ?? undefined
-      );
 
       // NEW FLOW: Create the user with temp password via edge function
       logInfo('Creating invited user with temp password', { email: userData.email });
