@@ -356,7 +356,7 @@ export function useSendMessage() {
 
       return { previousMessages, optimisticMessage };
     },
-    onError: (err, { conversationId }, context) => {
+    onError: (_err, { conversationId }, context) => {
       // Rollback on error
       if (context?.previousMessages) {
         queryClient.setQueryData(['messages', conversationId], context.previousMessages);
