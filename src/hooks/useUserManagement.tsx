@@ -24,36 +24,13 @@ export function useInviteUser() {
 
   return useMutation({
     mutationFn: async (userData: InviteUserData) => {
-      // First create the invitation record in the database
-      const params: {
-        p_email: string;
-        p_first_name: string;
-        p_last_name: string;
-        p_role: string;
-        p_department?: string;
-      } = {
-        p_email: userData.email,
-        p_first_name: userData.firstName,
-        p_last_name: userData.lastName,
-        p_role: userData.role ?? 'user',
-        ...(userData.department && { p_department: userData.department }),
-      };
-
-      const { data, error } = await supabase.rpc('invite_user_to_organization', params);
-
-      if (error) throw error;
-
-      // Check if the response indicates an error
-      if (data && typeof data === 'object' && 'error' in data) {
-        throw new Error(data.error as string);
-      }
-
       const currentUserId = await getCurrentUserId();
 
       if (!currentUserId) {
         throw new Error('Unable to determine current user');
       }
 
+      // Get current user's profile and org info
       const [{ data: profile, error: profileError }, { data: authUser, error: authError }] = await Promise.all([
         supabase
           .from('profiles')
@@ -63,13 +40,8 @@ export function useInviteUser() {
         supabase.auth.getUser(),
       ]);
 
-      if (profileError) {
-        throw profileError;
-      }
-
-      if (authError) {
-        throw authError;
-      }
+      if (profileError) throw profileError;
+      if (authError) throw authError;
 
       const typedProfile = profile as Profile | null;
       if (!typedProfile?.organization_id) {
@@ -82,9 +54,7 @@ export function useInviteUser() {
         .eq('id', typedProfile.organization_id)
         .single();
 
-      if (organizationError) {
-        throw organizationError;
-      }
+      if (organizationError) throw organizationError;
 
       const organizationName = organizationData?.name || 'Organization';
       const inviterName = buildDisplayName(
@@ -93,62 +63,36 @@ export function useInviteUser() {
         authUser.user?.email ?? undefined
       );
 
-      const invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
+      // NEW FLOW: Create the user with temp password via edge function
+      logInfo('Creating invited user with temp password', { email: userData.email });
 
-      const ssoLinks: Array<{ provider: ProviderName; url: string; mode: 'supabase_managed' | 'federated' }> = [];
-      let ssoEnforced = false;
-      const ssoRedirect = getAuthRedirectUrl('/auth/callback', env.APP_URL);
-
-      for (const provider of ['google', 'microsoft'] as ProviderName[]) {
-        try {
-          const { data: dryRun } = await supabase.functions.invoke('sso-authorize', {
-            body: {
-              provider,
-              email: userData.email,
-              organization_id: typedProfile.organization_id,
-              dry_run: true,
-            },
-          });
-
-          if (!dryRun?.available) {
-            continue;
-          }
-
-          if (dryRun.enforce_sso) {
-            ssoEnforced = true;
-          }
-
-          if (dryRun.mode === 'federated') {
-            const { data: authData } = await supabase.functions.invoke('sso-authorize', {
-              body: {
-                provider,
-                email: userData.email,
-                organization_id: typedProfile.organization_id,
-                redirect_to: ssoRedirect,
-              },
-            });
-            if (authData?.authorization_url) {
-              ssoLinks.push({ provider, url: authData.authorization_url, mode: 'federated' });
-            }
-          } else if (dryRun.mode === 'supabase_managed') {
-            try {
-              const authorizeUrl = new URL('/auth/v1/authorize', env.SUPABASE_URL);
-              authorizeUrl.searchParams.set('provider', provider);
-              authorizeUrl.searchParams.set('redirect_to', ssoRedirect);
-              if (userData.email) {
-                authorizeUrl.searchParams.set('login_hint', userData.email);
-              }
-              ssoLinks.push({ provider, url: authorizeUrl.toString(), mode: 'supabase_managed' });
-            } catch (urlError) {
-              logWarn('Failed to build Supabase-managed SSO link', { provider, urlError });
-            }
-          }
-        } catch (ssoError) {
-          logWarn('Unable to resolve SSO configuration for invitation email', { provider, error: ssoError });
+      const { data: createResult, error: createError } = await supabase.functions.invoke('create-invited-user', {
+        body: {
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          role: userData.role ?? 'user',
+          department: userData.department,
+          organizationId: typedProfile.organization_id,
+          invitedBy: currentUserId,
         }
+      });
+
+      if (createError) {
+        logError('Failed to create invited user', { error: createError });
+        throw new Error(createError.message || 'Failed to create user account');
       }
 
-      // Send invitation email using the proper email function
+      if (!createResult?.success) {
+        throw new Error(createResult?.error || 'Failed to create user account');
+      }
+
+      const tempPassword = createResult.tempPassword;
+      logInfo('Invited user created successfully', { userId: createResult.userId });
+
+      // Send invitation email with temp password
+      const invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
+
       try {
         const { data: emailData, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
           body: {
@@ -160,50 +104,46 @@ export function useInviteUser() {
             organizationName,
             inviterName,
             invitationUrl,
-            ssoEnforced,
-            ssoLinks,
+            tempPassword, // Include temp password in email
           }
         });
 
         if (emailError) {
           logWarn('Failed to send invitation email', { error: emailError });
-          // Don't fail the invitation if email fails, but show a warning
           toast({
-            title: "Invitation created with warning",
-            description: `The invitation was created but email delivery failed: ${emailError.message}`,
+            title: "User created with warning",
+            description: `The user was created but the email failed to send. Temporary password: ${tempPassword}`,
             variant: "default",
           });
         } else if (emailData?.error) {
           logWarn('Invitation email function returned error', { error: emailData.error });
           toast({
-            title: "Invitation created with warning",
-            description: `The invitation was created but there was an email issue: ${emailData.error}`,
+            title: "User created with warning", 
+            description: `User created but email issue: ${emailData.error}. Temp password: ${tempPassword}`,
             variant: "default",
           });
         } else {
-          const invitationId = (data as { invitation_id?: string | number } | null | undefined)?.invitation_id;
-          logInfo('Invitation email sent successfully', { invitationId });
+          logInfo('Invitation email sent successfully with temp password');
         }
       } catch (emailError) {
         const errorMessage = emailError instanceof Error ? emailError.message : 'Unknown error';
         logWarn('Failed to send invitation email', { error: emailError });
-        // Still show warning but don't fail the process
         toast({
-          title: "Invitation created with warning",
-          description: `The invitation was created but email delivery may have failed: ${errorMessage}`,
+          title: "User created with warning",
+          description: `User created but email may have failed. Temp password: ${tempPassword}`,
           variant: "default",
         });
       }
 
-      return data;
+      return { success: true, userId: createResult.userId };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['organization-members'] });
       queryClient.invalidateQueries({ queryKey: ['organization-users'] });
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
       toast({
-        title: "User invited successfully",
-        description: "The user invitation has been created and they will receive an email to join.",
+        title: "User added successfully",
+        description: "The user has been created and will receive an email with login credentials.",
       });
       return data;
     },

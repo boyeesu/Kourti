@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PermissionGate } from "@/components/PermissionGate";
 import { Action, Resource } from "@/hooks/usePermissions";
 import OrganizationSetup from "@/components/OrganizationSetup";
+import ForcePasswordChange from "@/components/ForcePasswordChange";
 import { CasesProvider } from "@/context/CasesContext";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SearchProvider } from "@/hooks/use-search";
@@ -195,6 +196,60 @@ function OrganizationCheck({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Password change check component - shown after org check
+function PasswordChangeCheck({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const [mustChangePassword, setMustChangePassword] = React.useState<boolean | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function checkPasswordStatus() {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await import('@/integrations/supabase/client').then(m => 
+          m.supabase
+            .from('profiles')
+            .select('must_change_password')
+            .eq('user_id', user.id)
+            .single()
+        );
+
+        if (error) {
+          logWarn('Failed to check password status', { error });
+          setMustChangePassword(false); // Don't block on error
+        } else {
+          setMustChangePassword(data?.must_change_password ?? false);
+        }
+      } catch (err) {
+        logWarn('Password check failed', { err });
+        setMustChangePassword(false);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    checkPasswordStatus();
+  }, [user?.id]);
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
+  if (mustChangePassword) {
+    return (
+      <ForcePasswordChange 
+        onPasswordChanged={() => setMustChangePassword(false)} 
+      />
+    );
+  }
+
+  return <>{children}</>;
+}
+
 // Loading Fallback Component
 function LoadingFallback() {
   return (
@@ -247,22 +302,24 @@ const App = () => (
               element={(
                 <ProtectedRoute>
                   <OrganizationCheck>
-                    <SearchProvider>
-                      <CasesProvider>
-                        <AppLayout>
-                          <Routes>
-                            {protectedRoutes.map((route) => (
-                              <Route
-                                key={route.path}
-                                path={route.path}
-                                element={createRouteElement(route)}
-                              />
-                            ))}
-                          </Routes>
-                          <FloatingChatWidget />
-                        </AppLayout>
-                      </CasesProvider>
-                    </SearchProvider>
+                    <PasswordChangeCheck>
+                      <SearchProvider>
+                        <CasesProvider>
+                          <AppLayout>
+                            <Routes>
+                              {protectedRoutes.map((route) => (
+                                <Route
+                                  key={route.path}
+                                  path={route.path}
+                                  element={createRouteElement(route)}
+                                />
+                              ))}
+                            </Routes>
+                            <FloatingChatWidget />
+                          </AppLayout>
+                        </CasesProvider>
+                      </SearchProvider>
+                    </PasswordChangeCheck>
                   </OrganizationCheck>
                 </ProtectedRoute>
               )}
