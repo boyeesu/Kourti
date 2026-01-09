@@ -159,9 +159,33 @@ export default function DocumentUpload() {
   };
 
   const { getRootProps, getInputProps } = useDropzone({
-    onDrop: (acceptedFiles: File[]) => {
+    onDrop: async (acceptedFiles: File[]) => {
       if (acceptedFiles && acceptedFiles.length > 0) {
-        setFile(acceptedFiles[0]);
+        const file = acceptedFiles[0];
+        
+        // Validate file before accepting
+        try {
+          const { validateFile } = await import('@/lib/fileValidation');
+          const validation = validateFile(file);
+          if (!validation.valid) {
+            toast({
+              variant: "destructive",
+              title: "Invalid File",
+              description: validation.error || 'File validation failed',
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('File validation error:', error);
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: 'Failed to validate file',
+          });
+          return;
+        }
+        
+        setFile(file);
         setIsDragging(false);
       }
     },

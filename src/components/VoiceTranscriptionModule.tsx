@@ -376,29 +376,40 @@ const VoiceTranscriptionModule: React.FC = () => {
       // Upload audio file to storage if available
       let audioFileUrl = null;
       if (audioBlob) {
-        const fileName = `audio_${Date.now()}.webm`;
-        const filePath = `${user.id}/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(filePath, audioBlob, {
-            contentType: 'audio/webm',
-            upsert: false
-          });
-
-        if (uploadError) {
-          console.error('Error uploading audio:', uploadError);
+        // Validate audio file size (max 50MB for audio)
+        const MAX_AUDIO_SIZE = 50 * 1024 * 1024; // 50MB
+        if (audioBlob.size > MAX_AUDIO_SIZE) {
           toast({
-            title: "Audio Upload Warning",
-            description: "Audio file could not be saved, but transcription will be saved.",
+            title: "File Too Large",
+            description: `Audio file exceeds maximum size of ${(MAX_AUDIO_SIZE / (1024 * 1024)).toFixed(0)}MB`,
             variant: "destructive",
           });
+          // Continue without audio file
         } else {
-          // Get signed URL for private bucket (1 hour expiry)
-          const { data: urlData } = await supabase.storage
+          const fileName = `audio_${Date.now()}.webm`;
+          const filePath = `${user.id}/${fileName}`;
+          
+          const { error: uploadError } = await supabase.storage
             .from('documents')
-            .createSignedUrl(filePath, 3600);
-          audioFileUrl = urlData?.signedUrl || null;
+            .upload(filePath, audioBlob, {
+              contentType: 'audio/webm',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('Error uploading audio:', uploadError);
+            toast({
+              title: "Audio Upload Warning",
+              description: "Audio file could not be saved, but transcription will be saved.",
+              variant: "destructive",
+            });
+          } else {
+            // Get signed URL for private bucket (1 hour expiry)
+            const { data: urlData } = await supabase.storage
+              .from('documents')
+              .createSignedUrl(filePath, 3600);
+            audioFileUrl = urlData?.signedUrl || null;
+          }
         }
       }
 

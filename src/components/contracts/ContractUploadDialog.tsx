@@ -127,6 +127,13 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
     setIsUploading(true);
 
     try {
+      // Validate file before upload
+      const { validateFile, MAX_CONTRACT_FILE_SIZE } = await import('@/lib/fileValidation');
+      const validation = validateFile(uploadedFile, { maxSize: MAX_CONTRACT_FILE_SIZE });
+      if (!validation.valid) {
+        throw new Error(validation.error || 'File validation failed');
+      }
+
       // Upload file to Supabase storage
       const fileName = `${organizationId}/${Date.now()}_${uploadedFile.name}`;
       

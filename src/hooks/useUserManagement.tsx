@@ -85,52 +85,10 @@ export function useInviteUser() {
         throw new Error(createResult?.error || 'Failed to create user account');
       }
 
-      const tempPassword = createResult.tempPassword;
       logInfo('Invited user created successfully', { userId: createResult.userId });
 
-      // Send invitation email with temp password
-      const invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
-
-      try {
-        const { data: emailData, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
-          body: {
-            email: userData.email,
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            role: userData.role ?? 'user',
-            department: userData.department,
-            organizationName,
-            inviterName,
-            invitationUrl,
-            tempPassword, // Include temp password in email
-          }
-        });
-
-        if (emailError) {
-          logWarn('Failed to send invitation email', { error: emailError });
-          toast({
-            title: "User created with warning",
-            description: `The user was created but the email failed to send. Temporary password: ${tempPassword}`,
-            variant: "default",
-          });
-        } else if (emailData?.error) {
-          logWarn('Invitation email function returned error', { error: emailData.error });
-          toast({
-            title: "User created with warning", 
-            description: `User created but email issue: ${emailData.error}. Temp password: ${tempPassword}`,
-            variant: "default",
-          });
-        } else {
-          logInfo('Invitation email sent successfully with temp password');
-        }
-      } catch (emailError) {
-        logWarn('Failed to send invitation email', { error: emailError });
-        toast({
-          title: "User created with warning",
-          description: `User created but email may have failed. Temp password: ${tempPassword}`,
-          variant: "default",
-        });
-      }
+      // Note: Password is sent via email server-side by the create-invited-user function
+      // We no longer receive or handle passwords in the frontend for security
 
       return { success: true, userId: createResult.userId };
     },

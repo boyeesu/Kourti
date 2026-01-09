@@ -74,40 +74,30 @@ const missingRequiredVariables: MissingEnvVariable[] = REQUIRED_ENV_VARS
   .filter(({ key }) => !getEnvValue(key))
   .map(({ key, label, message }) => ({ key, label, message }));
 
-// Get environment variables with fallbacks for development
+// Get environment variables - REQUIRED in all environments
+// Secrets are managed via Supabase and Vercel environment variables
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
-// Development fallbacks (only used if env vars are not set)
-// These should be removed in production - use environment variables instead
-const DEV_FALLBACK_URL = import.meta.env.DEV ? 'https://zjbvnvydgsxqmmrrmvif.supabase.co' : '';
-const DEV_FALLBACK_KEY = import.meta.env.DEV ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqYnZudnlkZ3N4cW1tcnJtdmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODYzMTAsImV4cCI6MjA2OTY2MjMxMH0.-lE-O7iPZM_fxM93ddDapJVzcPdBArdCmN1HrwCHIH4' : '';
+// No hardcoded fallbacks - environment variables must be set
+const finalSupabaseUrl = SUPABASE_URL;
+const finalSupabaseKey = SUPABASE_ANON_KEY;
 
-// Use environment variables, fallback to dev values only in development
-const finalSupabaseUrl = SUPABASE_URL || (import.meta.env.DEV ? DEV_FALLBACK_URL : '');
-const finalSupabaseKey = SUPABASE_ANON_KEY || (import.meta.env.DEV ? DEV_FALLBACK_KEY : '');
-
-// Validate required environment variables
-if (import.meta.env.PROD) {
-  if (!finalSupabaseUrl || !finalSupabaseKey) {
-    throw new Error(
-      'Missing required environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in production'
-    );
-  }
-} else if (!finalSupabaseUrl || !finalSupabaseKey) {
+// Validate required environment variables - strict validation in all environments
+if (!finalSupabaseUrl || !finalSupabaseKey) {
   const missingKeys = [];
   if (!SUPABASE_URL) missingKeys.push('VITE_SUPABASE_URL');
   if (!SUPABASE_ANON_KEY) missingKeys.push('VITE_SUPABASE_ANON_KEY');
   
-  if (missingKeys.length > 0) {
-    // Use console.warn here as logger may not be initialized yet
-    if (typeof window !== 'undefined') {
-      console.warn(
-        `Missing environment variables: ${missingKeys.join(', ')}. ` +
-        'Using development fallbacks. Set these variables for production deployment.'
-      );
-    }
+  const errorMessage = `Missing required environment variables: ${missingKeys.join(', ')}. ` +
+    'Please set these variables in your environment (Supabase/Vercel).';
+  
+  if (typeof window !== 'undefined') {
+    console.error(errorMessage);
   }
+  
+  // Throw error to prevent app from running with missing credentials
+  throw new Error(errorMessage);
 }
 
 /**
@@ -166,10 +156,8 @@ export function validateEnv(): { valid: boolean; errors: string[]; missingVariab
     }
   }
   
-  // Only show missing variables if we're actually missing them (not using fallbacks)
-  const actualMissingVariables = import.meta.env.PROD 
-    ? missingRequiredVariables 
-    : []; // In dev, don't show missing vars if fallbacks are available
+  // Show missing variables if they're not set (no fallbacks)
+  const actualMissingVariables = missingRequiredVariables;
   
   return {
     valid: errors.length === 0,

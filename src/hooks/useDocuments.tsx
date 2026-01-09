@@ -358,6 +358,13 @@ export function useUploadDocument() {
       const orgId = typedProfile?.organization_id;
       if (!orgId) throw new Error('User organization not found');
 
+      // Validate file before upload
+      const { validateFile } = await import('@/lib/fileValidation');
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        throw new Error(validation.error || 'File validation failed');
+      }
+
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${orgId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;

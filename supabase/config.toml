@@ -51,3 +51,6 @@ verify_jwt = false
 
 [functions.send-password-reset-email]
 verify_jwt = false
+
+[functions.create-invited-user]
+verify_jwt = false

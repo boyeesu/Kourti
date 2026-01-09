@@ -2,12 +2,30 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean);
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "*");
+
+  return {
+    origin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 interface CreateInvitedUserRequest {
   email: string;
@@ -18,19 +36,40 @@ interface CreateInvitedUserRequest {
   organizationId: string;
 }
 
-// Generate a secure temporary password
-function generateTempPassword(length = 12): string {
+// Generate a secure temporary password without bias
+// Uses rejection sampling to ensure uniform distribution
+function generateTempPassword(length = 16): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
-  const array = new Uint8Array(length);
-  crypto.getRandomValues(array);
-  return Array.from(array, (byte) => chars[byte % chars.length]).join('');
+  const charsLength = chars.length;
+  // Calculate the maximum value that ensures uniform distribution
+  // We reject values >= maxValid to avoid modulo bias
+  const maxValid = 256 - (256 % charsLength);
+  
+  let password = '';
+  
+  for (let i = 0; i < length; i++) {
+    let randomByte: number;
+    // Rejection sampling: keep generating until we get a valid byte
+    do {
+      const temp = new Uint8Array(1);
+      crypto.getRandomValues(temp);
+      randomByte = temp[0];
+    } while (randomByte >= maxValid);
+    
+    password += chars[randomByte % charsLength];
+  }
+  
+  return password;
 }
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("create-invited-user function invoked");
 
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
@@ -166,29 +205,53 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('organization_id', organizationId)
       .eq('status', 'pending');
 
-    return new Response(
-      JSON.stringify({
+    // SECURITY: Do NOT return password in API response
+    // Password will be sent via secure email channel only
+    // Send invitation email server-side (password never leaves server)
+    try {
+      const { error: emailError } = await supabaseAdmin.functions.invoke('send-invitation-email', {
+        body: {
+          email,
+          firstName,
+          lastName,
+          role,
+          department,
+          organizationId,
+          tempPassword, // Pass securely server-to-server
+        }
+      });
+      
+      if (emailError) {
+        console.error('Failed to send invitation email:', emailError);
+        // Don't fail the user creation if email fails, but log it
+      }
+    } catch (emailErr) {
+      console.error('Error invoking email function:', emailErr);
+      // Continue - user is created, email can be sent later
+    }
+
+    return createJsonResponse(
+      {
         success: true,
         userId: newUser.user.id,
-        tempPassword, // Return temp password for email
-        message: 'User created successfully',
-      }),
+        message: 'User created successfully. Credentials will be sent via email.',
+      },
       { 
-        status: 200, 
-        headers: { "Content-Type": "application/json", ...corsHeaders } 
+        status: 200,
+        cors: corsOptions,
       }
     );
 
   } catch (error: any) {
     console.error('Error in create-invited-user function:', error);
-    return new Response(
-      JSON.stringify({ 
+    return createJsonResponse(
+      { 
         success: false,
         error: error.message 
-      }),
+      },
       { 
-        status: error.message.includes('Unauthorized') ? 403 : 500, 
-        headers: { "Content-Type": "application/json", ...corsHeaders } 
+        status: error.message.includes('Unauthorized') ? 403 : 500,
+        cors: corsOptions,
       }
     );
   }

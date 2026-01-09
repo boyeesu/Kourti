@@ -71,6 +71,29 @@ export function ReamAIChatWidget({
   const onDrop = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length && !isUploading) {
       const file = acceptedFiles[0];
+      
+      // Validate file before upload
+      try {
+        const { validateFile } = await import('@/lib/fileValidation');
+        const validation = validateFile(file);
+        if (!validation.valid) {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `❌ ${validation.error || 'File validation failed'}`,
+            timestamp: new Date(),
+          }]);
+          return;
+        }
+      } catch (error) {
+        console.error('File validation error:', error);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: '❌ Failed to validate file',
+          timestamp: new Date(),
+        }]);
+        return;
+      }
+      
       setIsUploading(true);
 
       // Add upload message
