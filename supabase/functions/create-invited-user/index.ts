@@ -198,10 +198,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Auth user created:', newUser.user.id);
 
-    // Create profile linked to organization
+    // Create or update profile linked to organization
+    // Using upsert because the handle_new_user trigger may have already created a profile
     const { error: profileInsertError } = await supabaseAdmin
       .from('profiles')
-      .insert({
+      .upsert({
         user_id: newUser.user.id,
         email,
         first_name: firstName,
@@ -210,9 +211,8 @@ const handler = async (req: Request): Promise<Response> => {
         department: department || null,
         is_organization_creator: false,
         must_change_password: true, // Force password change on first login
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      }, { onConflict: 'user_id' });
 
     if (profileInsertError) {
       console.error('Failed to create profile:', profileInsertError);
