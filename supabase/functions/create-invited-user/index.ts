@@ -16,7 +16,6 @@ interface CreateInvitedUserRequest {
   role: string;
   department?: string;
   organizationId: string;
-  invitedBy: string;
 }
 
 // Generate a secure temporary password
@@ -89,7 +88,6 @@ const handler = async (req: Request): Promise<Response> => {
       role,
       department,
       organizationId,
-      invitedBy,
     }: CreateInvitedUserRequest = await req.json();
 
     // Validate organization matches caller's org
@@ -101,7 +99,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Check if user already exists
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email === email);
+    const existingUser = existingUsers?.users?.find((u: { email?: string }) => u.email === email);
     
     if (existingUser) {
       throw new Error('A user with this email already exists');

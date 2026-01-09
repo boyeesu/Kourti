@@ -1672,6 +1672,7 @@ export type Database = {
           is_organization_creator: boolean | null
           last_login_at: string | null
           last_name: string | null
+          must_change_password: boolean | null
           organization_id: string
           password_reset_required: boolean | null
           phone: string | null
@@ -1696,6 +1697,7 @@ export type Database = {
           is_organization_creator?: boolean | null
           last_login_at?: string | null
           last_name?: string | null
+          must_change_password?: boolean | null
           organization_id: string
           password_reset_required?: boolean | null
           phone?: string | null
@@ -1720,6 +1722,7 @@ export type Database = {
           is_organization_creator?: boolean | null
           last_login_at?: string | null
           last_name?: string | null
+          must_change_password?: boolean | null
           organization_id?: string
           password_reset_required?: boolean | null
           phone?: string | null
@@ -2303,6 +2306,7 @@ export type Database = {
         }
         Returns: string
       }
+      mark_password_changed: { Args: never; Returns: Json }
       match_best_practices: {
         Args: { query: string }
         Returns: {

@@ -7,8 +7,6 @@ import { logError, logInfo, logWarn } from '@/lib/logger';
 import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
 import type { Profile } from '@/lib/types/database';
 
-type ProviderName = 'google' | 'microsoft';
-
 export interface InviteUserData {
   email: string;
   firstName: string;
@@ -126,7 +124,6 @@ export function useInviteUser() {
           logInfo('Invitation email sent successfully with temp password');
         }
       } catch (emailError) {
-        const errorMessage = emailError instanceof Error ? emailError.message : 'Unknown error';
         logWarn('Failed to send invitation email', { error: emailError });
         toast({
           title: "User created with warning",

@@ -221,8 +221,10 @@ function PasswordChangeCheck({ children }: { children: React.ReactNode }) {
         if (error) {
           logWarn('Failed to check password status', { error });
           setMustChangePassword(false); // Don't block on error
+        } else if (data) {
+          setMustChangePassword(data.must_change_password ?? false);
         } else {
-          setMustChangePassword(data?.must_change_password ?? false);
+          setMustChangePassword(false);
         }
       } catch (err) {
         logWarn('Password check failed', { err });
