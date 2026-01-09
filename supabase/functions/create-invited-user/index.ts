@@ -15,12 +15,14 @@ const ALLOWED_ORIGINS = [
   .filter(Boolean);
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  // Can't use "*" with allowCredentials: true, so we must have a specific origin
   const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
     ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "*");
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com"); // Fallback to a specific origin, never "*"
 
   return {
     origin,
+    requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
     allowMethods: ["POST", "OPTIONS"],
