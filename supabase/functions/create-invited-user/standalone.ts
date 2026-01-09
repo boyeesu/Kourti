@@ -2,7 +2,192 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+
+// ============================================================================
+// CORS Headers Helper (inline version)
+// ============================================================================
+declare const Deno: any;
+
+const DEFAULT_ALLOWED_HEADERS = [
+  'authorization',
+  'x-client-info',
+  'apikey',
+  'content-type',
+];
+
+const DEFAULT_PERMISSIONS_POLICY = [
+  'accelerometer=()',
+  'ambient-light-sensor=()',
+  'autoplay=()',
+  'camera=()',
+  'encrypted-media=()',
+  'fullscreen=(self)',
+  'geolocation=()',
+  'gyroscope=()',
+  'magnetometer=()',
+  'microphone=()',
+  'midi=()',
+  'payment=()',
+  'picture-in-picture=(self)',
+  'sync-xhr=(self)',
+  'usb=()',
+].join(', ');
+
+const DEFAULT_HSTS = 'max-age=31536000; includeSubDomains';
+
+function isTrue(value: string | null | undefined): boolean {
+  return value !== undefined && value !== null && value.toLowerCase() === 'true';
+}
+
+function shouldIncludeHsts(): boolean {
+  if (isTrue(Deno.env.get('DISABLE_HSTS')) || isTrue(Deno.env.get('DISABLE_STRICT_TRANSPORT_SECURITY'))) {
+    return false;
+  }
+
+  const environment = (Deno.env.get('ENVIRONMENT') ?? Deno.env.get('NODE_ENV') ?? '').toLowerCase();
+  if (environment === 'development' || environment === 'local') {
+    return false;
+  }
+
+  const deploymentMode = (Deno.env.get('SUPABASE_FUNCTIONS_ENV') ?? '').toLowerCase();
+  if (deploymentMode === 'local') {
+    return false;
+  }
+
+  return true;
+}
+
+interface CorsSecurityHeadersOptions {
+  origin?: string;
+  requestOrigin?: string | null;
+  allowedOrigins?: string[];
+  allowMethods?: string[];
+  allowHeaders?: string[];
+  allowCredentials?: boolean;
+  exposeHeaders?: string[];
+  varyOrigin?: boolean;
+  cacheControl?: string | false;
+  includeHsts?: boolean;
+  permissionsPolicy?: string;
+  referrerPolicy?: string;
+}
+
+function resolveOrigin(options: CorsSecurityHeadersOptions): string {
+  const { origin, requestOrigin, allowedOrigins } = options;
+
+  if (origin) {
+    return origin;
+  }
+
+  if (allowedOrigins && allowedOrigins.length > 0) {
+    if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+      return requestOrigin;
+    }
+
+    return allowedOrigins[0] ?? '*';
+  }
+
+  if (requestOrigin) {
+    return requestOrigin;
+  }
+
+  return '*';
+}
+
+function createCorsSecurityHeaders(options: CorsSecurityHeadersOptions = {}): Record<string, string> {
+  const {
+    allowMethods = ['POST', 'OPTIONS'],
+    allowHeaders = DEFAULT_ALLOWED_HEADERS,
+    allowCredentials = false,
+    exposeHeaders,
+    varyOrigin,
+    cacheControl = 'no-store, no-cache, must-revalidate',
+    includeHsts,
+    permissionsPolicy = DEFAULT_PERMISSIONS_POLICY,
+    referrerPolicy = 'strict-origin-when-cross-origin',
+  } = options;
+
+  const resolvedOrigin = resolveOrigin(options);
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Origin': resolvedOrigin,
+    'Access-Control-Allow-Methods': allowMethods.join(', '),
+    'Access-Control-Allow-Headers': allowHeaders.join(', '),
+    'Access-Control-Max-Age': '86400',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': referrerPolicy,
+    'Permissions-Policy': permissionsPolicy,
+  };
+
+  if (allowCredentials) {
+    headers['Access-Control-Allow-Credentials'] = 'true';
+  }
+
+  if (exposeHeaders && exposeHeaders.length > 0) {
+    headers['Access-Control-Expose-Headers'] = exposeHeaders.join(', ');
+  }
+
+  const shouldVary = varyOrigin ?? (resolvedOrigin !== '*' && resolvedOrigin !== options.origin);
+  if (shouldVary) {
+    headers['Vary'] = 'Origin';
+  }
+
+  if (cacheControl) {
+    headers['Cache-Control'] = cacheControl;
+  }
+
+  const applyHsts = includeHsts ?? shouldIncludeHsts();
+  if (applyHsts) {
+    headers['Strict-Transport-Security'] = DEFAULT_HSTS;
+  }
+
+  return headers;
+}
+
+interface JsonResponseInit extends Omit<ResponseInit, 'headers'> {
+  headers?: HeadersInit;
+  cors?: CorsSecurityHeadersOptions;
+}
+
+function createJsonResponse(body: unknown, init: JsonResponseInit = {}): Response {
+  const corsHeaders = createCorsSecurityHeaders(init.cors);
+  const responseHeaders = new Headers({
+    ...corsHeaders,
+    'Content-Type': 'application/json',
+  });
+
+  if (init.headers) {
+    const extraHeaders = new Headers(init.headers);
+    extraHeaders.forEach((value, key) => {
+      responseHeaders.set(key, value);
+    });
+  }
+
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: responseHeaders,
+  });
+}
+
+function createEmptyResponse(init: JsonResponseInit = {}): Response {
+  const corsHeaders = createCorsSecurityHeaders(init.cors);
+  const responseHeaders = new Headers(corsHeaders);
+
+  if (init.headers) {
+    const extraHeaders = new Headers(init.headers);
+    extraHeaders.forEach((value, key) => {
+      responseHeaders.set(key, value);
+    });
+  }
+
+  return new Response(null, {
+    ...init,
+    headers: responseHeaders,
+  });
+}
+
+// ============================================================================
+// Main Function Code
+// ============================================================================
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
@@ -107,10 +292,10 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Unauthorized: Invalid or expired token');
     }
 
-    // Get caller's profile and organization
+    // Check caller's role
     const { data: callerProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('organization_id')
+      .select('role, organization_id')
       .eq('user_id', callerUser.id)
       .single();
 
@@ -118,19 +303,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Unauthorized: Could not verify user profile');
     }
 
-    // Check caller's roles from user_role_assignments
-    const { data: callerRoles, error: rolesError } = await supabaseAdmin
-      .from('user_role_assignments')
-      .select('role_name')
-      .eq('user_id', callerUser.id)
-      .eq('organization_id', callerProfile.organization_id);
-
-    if (rolesError) {
-      throw new Error('Unauthorized: Could not verify user roles');
-    }
-
-    const roleNames: string[] = callerRoles?.map((r) => r.role_name) || [];
-    if (!roleNames.includes('superadmin') && !roleNames.includes('admin')) {
+    if (!['superadmin', 'admin'].includes(callerProfile.role)) {
       throw new Error('Unauthorized: Only admins can invite users');
     }
 
@@ -190,6 +363,7 @@ const handler = async (req: Request): Promise<Response> => {
         first_name: firstName,
         last_name: lastName,
         organization_id: organizationId,
+        role: role,
         department: department || null,
         is_organization_creator: false,
         must_change_password: true, // Force password change on first login
@@ -205,31 +379,6 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log('Profile created for invited user');
-
-    // Assign role via user_role_assignments
-    const { error: roleAssignError } = await supabaseAdmin
-      .from('user_role_assignments')
-      .insert({
-        user_id: newUser.user.id,
-        role_name: role,
-        organization_id: organizationId,
-        assigned_by: callerUser.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-
-    if (roleAssignError) {
-      console.error('Failed to assign role:', roleAssignError);
-      // Rollback: delete the profile and auth user
-      await supabaseAdmin
-        .from('profiles')
-        .delete()
-        .eq('user_id', newUser.user.id);
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-      throw new Error(`Failed to assign role: ${roleAssignError.message}`);
-    }
-
-    console.log('Role assigned to invited user');
 
     // Update invitation record if it exists
     await supabaseAdmin
