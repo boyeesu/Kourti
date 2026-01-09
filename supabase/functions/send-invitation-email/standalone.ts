@@ -1,3 +1,6 @@
+// STANDALONE CODE FOR SUPABASE EDGE FUNCTION DASHBOARD
+// Copy this entire file content to your send-invitation-email function in Supabase
+
 // @ts-ignore: Deno module
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore: Deno module
