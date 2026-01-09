@@ -77,14 +77,17 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     // Verify authorization - must be an authenticated admin/superadmin
     const authHeader = req.headers.get('Authorization');
+    console.log('Authorization header present:', !!authHeader);
+    
     if (!authHeader) {
       throw new Error('Missing authorization header');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
-    // Create admin client for user creation and auth verification
+    // Create admin client for user creation
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -92,18 +95,31 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    // Extract token from Authorization header (format: "Bearer <token>")
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
-      throw new Error('Invalid authorization header format');
-    }
+    // Create user client to verify the caller with the auth header
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { 
+        headers: { 
+          Authorization: authHeader 
+        } 
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
 
-    // Verify caller is authenticated using service role client
-    const { data: { user: callerUser }, error: callerError } = await supabaseAdmin.auth.getUser(token);
+    // Verify caller is authenticated
+    const { data: { user: callerUser }, error: callerError } = await supabaseUser.auth.getUser();
     if (callerError || !callerUser) {
-      console.error('Authentication failed:', callerError?.message);
+      console.error('Authentication failed:', {
+        error: callerError?.message,
+        code: callerError?.status,
+        hasUser: !!callerUser
+      });
       throw new Error('Unauthorized: Invalid or expired token');
     }
+    
+    console.log('User authenticated:', callerUser.id);
 
     // Get caller's profile and organization
     const { data: callerProfile, error: profileError } = await supabaseAdmin
