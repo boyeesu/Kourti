@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Case } from "@/types";
 import {
   ArrowLeft,
   Edit,
@@ -345,7 +346,7 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {cases.map((c) => (
+                {cases.map((c: Case) => (
                   <TableRow key={c.id} className="hover:bg-muted/50">
                     <TableCell>
                       <Button variant="link" onClick={() => navigate(`/matters/${c.id}`)}>

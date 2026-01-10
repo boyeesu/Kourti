@@ -87,7 +87,19 @@ export function useInsights(windowDays: number = 7): InsightsData {
         .limit(5);
 
       if (error) throw error;
-      return (data || []) as Contract[];
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        status: item.status,
+        value: item.value,
+        currency: item.currency,
+        end_date: item.end_date,
+        client: item.client || null,
+        created_at: item.created_at,
+        organization_id: item.organization_id,
+        created_by: item.created_by,
+        updated_at: item.updated_at,
+      })) as Contract[];
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,

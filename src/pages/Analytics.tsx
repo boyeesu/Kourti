@@ -120,10 +120,10 @@ export default function Analytics() {
   const taskMetrics = useMemo(() => calculateTaskMetrics(tasks), [tasks]);
 
   // Month-over-month changes
-  const casesChange = useMemo(() => calculateMonthOverMonthMetrics(cases), [cases]);
-  const clientsChange = useMemo(() => calculateMonthOverMonthMetrics(clients), [clients]);
-  const contractsChange = useMemo(() => calculateMonthOverMonthMetrics(contracts), [contracts]);
-  const documentsChange = useMemo(() => calculateMonthOverMonthMetrics(documents), [documents]);
+  const casesChange = useMemo(() => calculateMonthOverMonthMetrics(cases as Array<{ created_at?: string | null }>), [cases]);
+  const clientsChange = useMemo(() => calculateMonthOverMonthMetrics(clients as Array<{ created_at?: string | null }>), [clients]);
+  const contractsChange = useMemo(() => calculateMonthOverMonthMetrics(contracts as Array<{ created_at?: string | null }>), [contracts]);
+  const documentsChange = useMemo(() => calculateMonthOverMonthMetrics((Array.isArray(documents) ? documents : []) as Array<{ created_at?: string | null }>), [documents]);
 
   // Totals
   const totalCases = cases.length;

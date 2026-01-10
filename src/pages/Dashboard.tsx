@@ -55,9 +55,6 @@ export default function Dashboard() {
   const { data: casesData, isLoading: casesLoading } = useAllCases();
   const { data: activitiesData, isLoading: activitiesLoading } = useAllActivities();
 
-  const role = userRoleData?.role;
-  const isAdmin = role === "superadmin" || role === "admin";
-
   // Process case status data for pie chart - ONLY use real data
   const casesByStatus = useMemo(() => {
     return calculateCaseStatusData(casesData || []);

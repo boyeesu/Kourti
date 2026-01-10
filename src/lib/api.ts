@@ -1,6 +1,7 @@
-import { useQuery, UseQueryOptions } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, UseQueryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
+import { useToast } from "@/hooks/use-toast";
 
 export interface FetchDataOptions {
   table: string;
@@ -35,7 +36,7 @@ export function useFetchData<T = unknown>(
 
       let query = supabase
         .from(options.table)
-        .select(options.select || "*", { count: "exact" })
+        .select(options.select || "*", { count: "exact" } as any)
         .eq("organization_id", organizationId);
 
       // Apply additional filters
@@ -94,7 +95,7 @@ export function useFetchCount(
 
       let query = supabase
         .from(table)
-        .select("*", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true } as any)
         .eq("organization_id", organizationId);
 
       if (filters) {
@@ -111,5 +112,76 @@ export function useFetchCount(
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch a single item by ID from a table
+ */
+export function useGetItemById<T = unknown>(options: {
+  table: string;
+  id: string;
+  select?: string;
+}) {
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+
+  return useQuery<T, Error>({
+    queryKey: [options.table, options.id, organizationId],
+    queryFn: async () => {
+      if (!organizationId || !options.id) {
+        throw new Error("Organization ID or item ID is missing");
+      }
+
+      const { data, error } = await supabase
+        .from(options.table)
+        .select(options.select || "*")
+        .eq("id", options.id)
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (error) throw error;
+      return data as T;
+    },
+    enabled: !!organizationId && !!options.id && !orgLoading && !orgError,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+/**
+ * Update an item in a table
+ */
+export function useUpdateItem<T = unknown>(options: {
+  table: string;
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (updateData: { id: string; [key: string]: unknown }) => {
+      const { id, ...data } = updateData;
+      const { data: result, error } = await supabase
+        .from(options.table)
+        .update(data as any)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result as T;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [options.table] });
+      options.onSuccess?.();
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update item.",
+      });
+      options.onError?.(error);
+    },
   });
 }

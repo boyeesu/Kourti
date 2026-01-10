@@ -302,3 +302,40 @@ export function useExpiringContracts(daysAhead: number = 30) {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+/**
+ * Fetch contracts by client ID
+ */
+export function useContractsByClient(clientId: string) {
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+
+  return useQuery<Contract[], Error>({
+    queryKey: ["contracts-by-client", clientId, organizationId],
+    queryFn: async () => {
+      if (!organizationId || !clientId) return [];
+
+      const { data, error } = await supabase
+        .from("contracts")
+        .select(
+          `
+          *,
+          client:client_id(id, name, email, company)
+        `
+        )
+        .eq("organization_id", organizationId)
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const contracts = (data || []).map((contract: any) => ({
+        ...contract,
+        client: contract.client || null,
+      })) as Contract[];
+
+      return contracts;
+    },
+    enabled: !!organizationId && !!clientId && !orgLoading && !orgError,
+    staleTime: 2 * 60 * 1000,
+  });
+}

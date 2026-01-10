@@ -163,7 +163,7 @@ export function useCreateCase() {
           organization_id: organizationId,
           created_by: user.id,
           user_id: user.id,
-        })
+        } as any)
         .select()
         .single();
 
@@ -199,7 +199,7 @@ export function useUpdateCase() {
     mutationFn: async ({ id, ...updateData }: UpdateCaseData) => {
       const { data, error } = await supabase
         .from("cases")
-        .update(updateData)
+        .update(updateData as any)
         .eq("id", id)
         .select()
         .single();
@@ -278,6 +278,52 @@ export function useAllCases() {
       return (data || []) as Case[];
     },
     enabled: !!organizationId && !orgLoading && !orgError,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch cases by client ID
+ */
+export function useCasesByClient(clientId: string) {
+  const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
+
+  return useQuery<CasesResult, Error>({
+    queryKey: ["cases-by-client", clientId, organizationId],
+    queryFn: async () => {
+      if (!organizationId || !clientId) {
+        return { cases: [], count: 0 };
+      }
+
+      const { data, error, count } = await supabase
+        .from("cases")
+        .select(
+          `
+          *,
+          client:client_id(id, name, email, company),
+          assigned_user:assigned_to(user_id, first_name, last_name),
+          case_type:case_type_id(id, name, description),
+          case_issue:case_issue_id(id, name, description)
+        `,
+          { count: "exact" } as any
+        )
+        .eq("organization_id", organizationId)
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const cases = (data || []).map((caseItem: any) => ({
+        ...caseItem,
+        client: caseItem.client || null,
+        assigned_user: caseItem.assigned_user || null,
+        case_type: caseItem.case_type || null,
+        case_issue: caseItem.case_issue || null,
+      })) as Case[];
+
+      return { cases, count: count || 0 };
+    },
+    enabled: !!organizationId && !!clientId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
   });
 }

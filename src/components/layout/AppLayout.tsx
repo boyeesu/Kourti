@@ -486,12 +486,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
       .replace(/\b\w/g, (char: string) => char.toUpperCase());
   });
 
-  const toneClassMap: Record<ModuleTone, string> = {
-    success: 'bg-[hsl(var(--success))]',
-    info: 'bg-[hsl(var(--primary))]',
-    warning: 'bg-[hsl(var(--warning))]'
-  };
-
   const headerTimestamp = useMemo(
     () => new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date()),
     []
@@ -511,7 +505,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         globalSearchError={globalSearchError}
         moduleMeta={moduleMeta}
         breadcrumbLabels={breadcrumbLabels}
-        toneClassMap={toneClassMap}
         headerTimestamp={headerTimestamp}
         navigate={navigate}
         user={user}
@@ -545,7 +538,6 @@ interface AppLayoutInnerProps {
   globalSearchError: Error | null;
   moduleMeta: ModuleMeta | null;
   breadcrumbLabels: string[];
-  toneClassMap: Record<ModuleTone, string>;
   headerTimestamp: string;
   navigate: (path: string) => void;
   user: { email?: string; user_metadata?: { avatar_url?: string; name?: string } } | null;
@@ -565,7 +557,6 @@ function AppLayoutInner({
   globalSearchError,
   moduleMeta,
   breadcrumbLabels,
-  toneClassMap,
   headerTimestamp,
   navigate,
   user,
