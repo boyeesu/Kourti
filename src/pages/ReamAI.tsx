@@ -393,7 +393,13 @@ export default function ReamAI() {
         setExtractedContent(extractedText);
         
         // Set the uploaded document as selected
-        setSelectedDoc({ ...uploadedDoc, type: 'document' as const });
+        setSelectedDoc({ 
+          id: uploadedDoc.id, 
+          name: uploadedDoc.name ?? undefined,
+          file_path: uploadedDoc.file_path ?? undefined,
+          content: uploadedDoc.content ?? undefined,
+          type: 'document' as const 
+        });
         setSelectedFile(null); // Clear temporary file reference
 
         // Process document for RAG if we have organization and content

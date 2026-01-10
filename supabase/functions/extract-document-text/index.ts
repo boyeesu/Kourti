@@ -89,11 +89,11 @@ serve(async (req: Request) => {
     // Update the document record with the extracted content
     if (extractedText && extractedText.length > 50 && !extractedText.startsWith('[')) {
       const { error: updateError } = await supabase
-        .from('documents')
+        .from('documents' as any)
         .update({ 
           content: extractedText,
           updated_at: new Date().toISOString()
-        })
+        } as any)
         .eq('id', documentId);
 
       if (updateError) {

@@ -84,7 +84,7 @@ const NotificationsDropdown: React.FC = () => {
                       </div>
                     )}
                     <div className="text-xs text-muted-foreground/70 mt-2">
-                      {new Date(n.created_at).toLocaleString()}
+                      {n.created_at ? new Date(n.created_at).toLocaleString() : 'Unknown date'}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">

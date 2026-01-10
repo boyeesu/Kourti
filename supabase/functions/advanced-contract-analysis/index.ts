@@ -521,7 +521,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
     if (documentId && userId && supabase) {
       try {
         await supabase
-          .from('document_analyses')
+          .from('document_analyses' as any)
           .insert({
             document_id: documentId,
             analysis_type: analysisType || 'general',
@@ -529,7 +529,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
             status: 'completed',
             created_by: userId,
             organization_id: null // Will be set by RLS if needed
-          });
+          } as any);
         console.log('Analysis stored in database');
       } catch (dbError) {
         console.error('Failed to store analysis:', dbError);

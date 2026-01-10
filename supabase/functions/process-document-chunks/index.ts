@@ -203,10 +203,10 @@ export const processDocumentChunksHandler = async (req: Request) => {
 
     if (documentId) {
       const { data: document, error: documentError } = await supabase
-        .from('documents')
+        .from('documents' as any)
         .select('organization_id')
         .eq('id', documentId)
-        .single();
+        .single() as { data: { organization_id: string } | null; error: any };
 
       if (documentError) {
         console.error('Error verifying document ownership:', documentError);
@@ -230,10 +230,10 @@ export const processDocumentChunksHandler = async (req: Request) => {
 
     if (contractId) {
       const { data: contract, error: contractError } = await supabase
-        .from('contracts')
+        .from('contracts' as any)
         .select('organization_id')
         .eq('id', contractId)
-        .single();
+        .single() as { data: { organization_id: string } | null; error: any };
 
       if (contractError) {
         console.error('Error verifying contract ownership:', contractError);
@@ -267,7 +267,7 @@ export const processDocumentChunksHandler = async (req: Request) => {
     }
 
     const clearResult = await supabase
-      .from('document_chunks')
+      .from('document_chunks' as any)
       .delete()
       .match(matchCriteria);
 
@@ -382,8 +382,8 @@ export const processDocumentChunksHandler = async (req: Request) => {
         // Batch insert into database
         const insertStartTime = Date.now();
         const insertResult = await supabase
-          .from('document_chunks')
-          .insert(chunksToInsert);
+          .from('document_chunks' as any)
+          .insert(chunksToInsert as any);
 
         if (insertResult.error) {
           console.error('Database batch insert error:', insertResult.error);

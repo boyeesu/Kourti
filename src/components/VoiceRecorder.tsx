@@ -91,14 +91,29 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
     
     try {
       // Check if Web Speech API is available
+      // Web Speech API types
+      interface SpeechRecognitionAPI {
+        continuous: boolean;
+        interimResults: boolean;
+        lang: string;
+        onresult: (event: { results: { [index: number]: { [index: number]: { transcript: string } } } }) => void;
+        onerror: (event: { error: string }) => void;
+        start: () => void;
+      }
+      
+      const windowWithSpeech = window as Window & { 
+        SpeechRecognition?: new () => SpeechRecognitionAPI; 
+        webkitSpeechRecognition?: new () => SpeechRecognitionAPI;
+      };
+      
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         // Use Web Speech API for real-time transcription (Chrome/Edge)
-        const SpeechRecognitionAPI = (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition; webkitSpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
-        if (!SpeechRecognitionAPI) {
+        const SpeechRecognitionClass = windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
+        if (!SpeechRecognitionClass) {
           fallbackTranscription();
           return;
         }
-        const recognition = new SpeechRecognitionAPI();
+        const recognition = new SpeechRecognitionClass();
         
         recognition.continuous = false;
         recognition.interimResults = false;

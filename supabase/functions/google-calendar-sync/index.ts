@@ -205,12 +205,12 @@ serve(async (req) => {
 
       const state = await verifyState(stateParam);
       const { data: config, error: configError } = await supabase
-        .from('organization_sso_configs_view')
+        .from('organization_sso_configs_view' as any)
         .select('client_id, client_secret, redirect_uri, domain_hint')
         .eq('provider', 'google')
         .eq('organization_id', state.organization_id)
         .eq('is_enabled', true)
-        .maybeSingle();
+        .maybeSingle() as { data: { client_id: string; client_secret: string | null; redirect_uri: string | null; domain_hint: string | null } | null; error: any };
 
       if (configError || !config?.client_id) {
         return createJsonResponse({ error: 'Google OAuth is not configured for this organization.' }, { status: 400, cors: corsOptions });
@@ -255,11 +255,11 @@ serve(async (req) => {
       const externalUserId = userInfo.sub ?? null;
 
       const { data: existingIntegration } = await supabase
-        .from('user_calendar_integrations')
+        .from('user_calendar_integrations' as any)
         .select('refresh_token')
         .eq('user_id', state.user_id)
         .eq('provider', 'google')
-        .maybeSingle();
+        .maybeSingle() as { data: { refresh_token: string | null } | null; error: any };
 
       const expiresAt = tokenJson.expires_in
         ? new Date(Date.now() + tokenJson.expires_in * 1000).toISOString()
@@ -268,7 +268,7 @@ serve(async (req) => {
       const refreshToken = tokenJson.refresh_token ?? existingIntegration?.refresh_token ?? null;
 
       const { error: upsertError } = await supabase
-        .from('user_calendar_integrations')
+        .from('user_calendar_integrations' as any)
         .upsert({
           user_id: state.user_id,
           organization_id: state.organization_id,
@@ -280,7 +280,7 @@ serve(async (req) => {
           expires_at: expiresAt,
           external_user_id: externalUserId,
           external_email: externalEmail,
-        }, { onConflict: 'user_id,provider' });
+        } as any, { onConflict: 'user_id,provider' });
 
       if (upsertError) {
         console.error('Failed to store Google calendar tokens:', upsertError);
@@ -308,10 +308,10 @@ serve(async (req) => {
     }
 
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
+      .from('profiles' as any)
       .select('organization_id')
       .eq('user_id', user.id)
-      .maybeSingle();
+      .maybeSingle() as { data: { organization_id: string } | null; error: any };
 
     if (profileError || !profile?.organization_id) {
       return createJsonResponse({ error: 'Organization not found' }, { status: 400, cors: corsOptions });
@@ -321,12 +321,12 @@ serve(async (req) => {
     const action = body.action as CalendarAction | undefined;
 
     const { data: config } = await supabase
-      .from('organization_sso_configs_view')
+      .from('organization_sso_configs_view' as any)
       .select('client_id, client_secret, redirect_uri, domain_hint')
       .eq('provider', 'google')
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true)
-      .maybeSingle();
+      .maybeSingle() as { data: { client_id: string; client_secret: string | null; redirect_uri: string | null; domain_hint: string | null } | null; error: any };
 
     if (!config?.client_id) {
       return createJsonResponse({ error: 'Google Calendar OAuth is not configured.' }, { status: 400, cors: corsOptions });
@@ -412,13 +412,13 @@ serve(async (req) => {
           : integration.expires_at;
 
         await supabase
-          .from('user_calendar_integrations')
+          .from('user_calendar_integrations' as any)
           .update({
             access_token: accessToken,
             expires_at: refreshExpiresAt,
             scope: refreshJson.scope ?? integration.scope,
             token_type: refreshJson.token_type ?? integration.token_type,
-          })
+          } as any)
           .eq('id', integration.id);
       }
     }
@@ -497,7 +497,7 @@ serve(async (req) => {
       const createdEvent = await createResponse.json();
       if (calendarEventId && createdEvent?.id) {
         await supabase
-          .from('calendar_events')
+          .from('calendar_events' as any)
           .update({
             external_event_id: createdEvent.id,
             external_source: 'google_calendar',
@@ -521,11 +521,11 @@ serve(async (req) => {
       let eventId = externalEventId;
       if (!eventId && calendarEventId) {
         const { data: calendarRow } = await supabase
-          .from('calendar_events')
+          .from('calendar_events' as any)
           .select('external_event_id')
           .eq('id', calendarEventId)
           .eq('organization_id', profile.organization_id)
-          .maybeSingle();
+          .maybeSingle() as { data: { external_event_id: string | null } | null; error: any };
         eventId = calendarRow?.external_event_id ?? null;
       }
 
@@ -562,12 +562,12 @@ serve(async (req) => {
       const updatedEvent = await updateResponse.json();
       if (calendarEventId && updatedEvent?.id) {
         await supabase
-          .from('calendar_events')
+          .from('calendar_events' as any)
           .update({
             external_event_id: updatedEvent.id,
             external_source: 'google_calendar',
             external_calendar_id: calendarId || 'primary',
-          })
+          } as any)
           .eq('id', calendarEventId)
           .eq('organization_id', profile.organization_id);
       }
@@ -585,11 +585,11 @@ serve(async (req) => {
       let eventId = externalEventId;
       if (!eventId && calendarEventId) {
         const { data: calendarRow } = await supabase
-          .from('calendar_events')
+          .from('calendar_events' as any)
           .select('external_event_id')
           .eq('id', calendarEventId)
           .eq('organization_id', profile.organization_id)
-          .maybeSingle();
+          .maybeSingle() as { data: { external_event_id: string | null } | null; error: any };
         eventId = calendarRow?.external_event_id ?? null;
       }
 
@@ -616,12 +616,12 @@ serve(async (req) => {
 
       if (calendarEventId) {
         await supabase
-          .from('calendar_events')
+          .from('calendar_events' as any)
           .update({
             external_event_id: null,
             external_source: null,
             external_calendar_id: null,
-          })
+          } as any)
           .eq('id', calendarEventId)
           .eq('organization_id', profile.organization_id);
       }
@@ -674,15 +674,15 @@ serve(async (req) => {
 
       // Create sync log
       const { data: syncLog } = await supabase
-        .from('calendar_sync_logs')
+        .from('calendar_sync_logs' as any)
         .insert({
           integration_id: integration.id,
           sync_type: 'import',
           status: 'running',
           started_at: new Date().toISOString(),
-        })
+        } as any)
         .select()
-        .single();
+        .single() as { data: { id: string } | null; error: any };
 
       let eventsCreated = 0;
       let eventsUpdated = 0;
@@ -691,11 +691,11 @@ serve(async (req) => {
       for (const googleEvent of importedEvents) {
         try {
           const existingEvent = await supabase
-            .from('calendar_events')
+            .from('calendar_events' as any)
             .select('id')
             .eq('external_event_id', googleEvent.id)
             .eq('organization_id', integration.organization_id)
-            .single();
+            .single() as { data: { id: string } | null; error: any };
 
           const eventData = {
             title: googleEvent.summary || 'Untitled Event',
@@ -712,12 +712,12 @@ serve(async (req) => {
 
           if (existingEvent.data) {
             await supabase
-              .from('calendar_events')
-              .update(eventData)
+              .from('calendar_events' as any)
+              .update(eventData as any)
               .eq('id', existingEvent.data.id);
             eventsUpdated++;
           } else {
-            await supabase.from('calendar_events').insert(eventData);
+            await supabase.from('calendar_events' as any).insert(eventData as any);
             eventsCreated++;
           }
         } catch (err: any) {
@@ -728,7 +728,7 @@ serve(async (req) => {
       // Update sync log
       if (syncLog) {
         await supabase
-          .from('calendar_sync_logs')
+          .from('calendar_sync_logs' as any)
           .update({
             status: errors.length > 0 ? 'partial' : 'completed',
             events_synced: importedEvents.length,
@@ -736,14 +736,14 @@ serve(async (req) => {
             events_updated: eventsUpdated,
             errors: errors,
             completed_at: new Date().toISOString(),
-          })
+          } as any)
           .eq('id', syncLog.id);
       }
 
       // Update last_sync_at
       await supabase
-        .from('user_calendar_integrations')
-        .update({ last_sync_at: new Date().toISOString() })
+        .from('user_calendar_integrations' as any)
+        .update({ last_sync_at: new Date().toISOString() } as any)
         .eq('id', integration.id);
 
       return createJsonResponse({
@@ -774,12 +774,12 @@ serve(async (req) => {
 
       // Get events that need to be synced
       const { data: events } = await supabase
-        .from('calendar_events')
+        .from('calendar_events' as any)
         .select('*')
         .eq('organization_id', integration.organization_id)
         .gte('start_date', timeMinParam)
         .lte('end_date', timeMaxParam)
-        .or(`external_event_id.is.null,external_source.neq.google_calendar`);
+        .or(`external_event_id.is.null,external_source.neq.google_calendar`) as { data: any[] | null; error: any };
 
       if (!events || events.length === 0) {
         return createJsonResponse({ success: true, events_exported: 0 }, { cors: corsOptions });
@@ -787,15 +787,15 @@ serve(async (req) => {
 
       // Create sync log
       const { data: syncLog } = await supabase
-        .from('calendar_sync_logs')
+        .from('calendar_sync_logs' as any)
         .insert({
           integration_id: integration.id,
           sync_type: 'export',
           status: 'running',
           started_at: new Date().toISOString(),
-        })
+        } as any)
         .select()
-        .single();
+        .single() as { data: { id: string } | null; error: any };
 
       // Refresh token if needed
       let accessToken = integration.access_token;
@@ -849,12 +849,12 @@ serve(async (req) => {
           if (response.ok) {
             const googleEventData = await response.json();
             await supabase
-              .from('calendar_events')
+              .from('calendar_events' as any)
               .update({
                 external_event_id: googleEventData.id,
                 external_source: 'google_calendar',
                 external_calendar_id: 'primary',
-              })
+              } as any)
               .eq('id', event.id);
             eventsExported++;
           } else {
@@ -868,21 +868,21 @@ serve(async (req) => {
       // Update sync log
       if (syncLog) {
         await supabase
-          .from('calendar_sync_logs')
+          .from('calendar_sync_logs' as any)
           .update({
             status: errors.length > 0 ? 'partial' : 'completed',
             events_synced: events.length,
             events_exported: eventsExported,
             errors: errors,
             completed_at: new Date().toISOString(),
-          })
+          } as any)
           .eq('id', syncLog.id);
       }
 
       // Update last_sync_at
       await supabase
-        .from('user_calendar_integrations')
-        .update({ last_sync_at: new Date().toISOString() })
+        .from('user_calendar_integrations' as any)
+        .update({ last_sync_at: new Date().toISOString() } as any)
         .eq('id', integration.id);
 
       return createJsonResponse({

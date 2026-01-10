@@ -268,12 +268,12 @@ serve(async (req) => {
 
       const state = await verifyState(stateParam);
       const { data: config, error: configError } = await supabase
-        .from('organization_sso_configs_view')
+        .from('organization_sso_configs_view' as any)
         .select('client_id, client_secret, redirect_uri, tenant_id')
         .eq('provider', 'microsoft')
         .eq('organization_id', state.organization_id)
         .eq('is_enabled', true)
-        .maybeSingle();
+        .maybeSingle() as { data: { client_id: string; client_secret: string | null; redirect_uri: string | null; tenant_id: string | null } | null; error: any };
 
       if (configError || !config?.client_id) {
         return createJsonResponse({ error: 'Microsoft OAuth is not configured for this organization.' }, { status: 400, cors: corsOptions });
@@ -322,11 +322,11 @@ serve(async (req) => {
       const externalUserId = profileJson.id ?? null;
 
       const { data: existingIntegration } = await supabase
-        .from('user_calendar_integrations')
+        .from('user_calendar_integrations' as any)
         .select('refresh_token')
         .eq('user_id', state.user_id)
         .eq('provider', 'microsoft')
-        .maybeSingle();
+        .maybeSingle() as { data: { refresh_token: string | null } | null; error: any };
 
       const expiresAt = tokenJson.expires_in
         ? new Date(Date.now() + tokenJson.expires_in * 1000).toISOString()
@@ -335,7 +335,7 @@ serve(async (req) => {
       const refreshToken = tokenJson.refresh_token ?? existingIntegration?.refresh_token ?? null;
 
       const { error: upsertError } = await supabase
-        .from('user_calendar_integrations')
+        .from('user_calendar_integrations' as any)
         .upsert({
           user_id: state.user_id,
           organization_id: state.organization_id,

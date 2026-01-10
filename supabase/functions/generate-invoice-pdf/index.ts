@@ -44,7 +44,7 @@ serve(async (req: Request) => {
 
     // Fetch invoice with related data
     const { data: invoice, error: invoiceError } = await supabase
-      .from('invoices')
+      .from('invoices' as any)
       .select(`
         *,
         client:client_id(id, name, email, address, phone),
@@ -52,7 +52,7 @@ serve(async (req: Request) => {
         invoice_items(*)
       `)
       .eq('id', invoiceId)
-      .single();
+      .single() as { data: any; error: any };
 
     if (invoiceError || !invoice) {
       console.error('Failed to fetch invoice:', invoiceError);
@@ -61,16 +61,16 @@ serve(async (req: Request) => {
 
     // Fetch organization details
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('profiles' as any)
       .select('organization_id')
       .eq('user_id', user.id)
-      .single();
+      .single() as { data: { organization_id: string } | null; error: any };
 
     const { data: organization } = await supabase
-      .from('organizations')
+      .from('organizations' as any)
       .select('*')
       .eq('id', profile?.organization_id)
-      .single();
+      .single() as { data: any; error: any };
 
     console.log('Generating PDF for invoice:', invoice.invoice_number);
 

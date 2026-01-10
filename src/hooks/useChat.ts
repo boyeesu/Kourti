@@ -280,15 +280,14 @@ export function useMessages(conversationId: string | null) {
               .from('profiles' as any)
               .select('first_name, last_name, email')
               .eq('user_id', newMessagePayload.sender_id)
-              .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no profile exists
+              .maybeSingle() as unknown as { data: { first_name: string | null; last_name: string | null; email: string | null } | null; error: any }; // Use maybeSingle instead of single to avoid errors when no profile exists
 
             if (!profileError && profile) {
-              const typedProfile = profile as { first_name: string | null; last_name: string | null; email: string | null };
               senderProfile = {
                 id: newMessagePayload.sender_id,
-                first_name: typedProfile.first_name,
-                last_name: typedProfile.last_name,
-                email: typedProfile.email
+                first_name: profile.first_name,
+                last_name: profile.last_name,
+                email: profile.email
               };
             }
           } catch (err) {

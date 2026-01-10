@@ -241,10 +241,10 @@ async function ensureSupabaseUser(email: string, provider: Provider, organizatio
 
   // Existing user path
   const { data: profileMatch, error: profileError } = await supabase
-    .from("profiles")
+    .from("profiles" as any)
     .select("user_id")
     .eq("email", lowerEmail)
-    .maybeSingle();
+    .maybeSingle() as { data: { user_id: string } | null; error: any };
 
   if (profileError && profileError.code !== "PGRST116") {
     console.error("Error fetching profile for existing user", profileError);
@@ -284,8 +284,8 @@ async function upsertProfile(userId: string, email: string, organizationId: stri
   } as Record<string, unknown>;
 
   const { error } = await supabase
-    .from("profiles")
-    .upsert(payload, { onConflict: "user_id" });
+    .from("profiles" as any)
+    .upsert(payload as any, { onConflict: "user_id" });
 
   if (error) {
     console.error("Failed to upsert profile for SSO user", error);
@@ -446,10 +446,10 @@ serve(async (req) => {
 
     // Check if user already exists and verify org access
     const { data: existingProfile } = await supabase
-      .from("profiles")
+      .from("profiles" as any)
       .select("user_id, organization_id, status")
       .eq("email", email.toLowerCase())
-      .maybeSingle();
+      .maybeSingle() as { data: { user_id: string; organization_id: string | null; status: string } | null; error: any };
 
     if (existingProfile && existingProfile.organization_id && existingProfile.organization_id !== config.organization_id) {
       console.error("User belongs to different organization", { 

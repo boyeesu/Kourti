@@ -139,10 +139,10 @@ async function fetchExistingConfig(
   id: string
 ): Promise<SsoConfigRow> {
   const { data, error } = await supabase
-    .from("organization_sso_configs_view")
+    .from("organization_sso_configs_view" as any)
     .select("*")
     .eq("id", id)
-    .single();
+    .single() as { data: SsoConfigRow | null; error: any };
 
   if (error || !data) {
     throw new Error("SSO configuration not found");
@@ -177,10 +177,10 @@ serve(async (req: Request) => {
 
     // Get user's organization_id
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("profiles" as any)
       .select("organization_id")
       .eq("user_id", user.id)
-      .single();
+      .single() as { data: { organization_id: string } | null; error: any };
 
     if (profileError || !profile) {
       return createJsonResponse({ error: "User profile not found" }, { status: 404, cors: corsOptions });
@@ -188,10 +188,10 @@ serve(async (req: Request) => {
 
     // Check if user has superadmin role in user_role_assignments
     const { data: roleAssignments, error: roleError } = await supabase
-      .from("user_role_assignments")
+      .from("user_role_assignments" as any)
       .select("role_name")
       .eq("user_id", user.id)
-      .eq("organization_id", profile.organization_id);
+      .eq("organization_id", profile.organization_id) as { data: { role_name: string }[] | null; error: any };
 
     if (roleError) {
       console.error("Failed to check user permissions", roleError);
@@ -216,7 +216,7 @@ serve(async (req: Request) => {
         validateRedirectUri(payload.redirectUri);
 
         const { data, error } = await supabase
-          .from("organization_sso_configs")
+          .from("organization_sso_configs" as any)
           .insert({
             organization_id: profile.organization_id,
             provider: payload.provider,
@@ -228,7 +228,7 @@ serve(async (req: Request) => {
             is_enabled: payload.isEnabled ?? false,
             created_by: user.id,
             updated_by: user.id,
-          })
+          } as any)
           .select()
           .single();
 
@@ -268,8 +268,8 @@ serve(async (req: Request) => {
         if (payload.isEnabled !== undefined) updateData.is_enabled = payload.isEnabled;
 
         const { data, error } = await supabase
-          .from("organization_sso_configs")
-          .update(updateData)
+          .from("organization_sso_configs" as any)
+          .update(updateData as any)
           .eq("id", payload.id)
           .eq("organization_id", profile.organization_id)
           .select()
@@ -296,12 +296,12 @@ serve(async (req: Request) => {
         }
 
         const { data, error } = await supabase
-          .from("organization_sso_configs")
+          .from("organization_sso_configs" as any)
           .update({
             client_secret: payload.clientSecret,
             updated_by: user.id,
             updated_at: new Date().toISOString(),
-          })
+          } as any)
           .eq("id", payload.id)
           .eq("organization_id", profile.organization_id)
           .select()
@@ -322,7 +322,7 @@ serve(async (req: Request) => {
         }
 
         const { error } = await supabase
-          .from("organization_sso_configs")
+          .from("organization_sso_configs" as any)
           .delete()
           .eq("id", payload.id)
           .eq("organization_id", profile.organization_id);

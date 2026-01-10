@@ -43,7 +43,7 @@ const inviteSchema = z.object({
 type InviteFormData = z.infer<typeof inviteSchema>;
 
 interface InviteUserDialogProps {
-  onInvite: (data: { email: string; role_id: string; first_name?: string; last_name?: string; department?: string }) => Promise<unknown>;
+  onInvite: (data: { email: string; firstName: string; lastName: string; roleId?: string; department?: string }) => Promise<unknown>;
 }
 
 export function InviteUserDialog({ onInvite }: InviteUserDialogProps) {
@@ -83,9 +83,9 @@ export function InviteUserDialog({ onInvite }: InviteUserDialogProps) {
     try {
       await onInvite({
         email: data.email,
-        role_id: data.role,
-        first_name: data.firstName,
-        last_name: data.lastName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        roleId: data.role,
         department: data.department,
       });
       form.reset();

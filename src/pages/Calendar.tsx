@@ -134,7 +134,8 @@ export default function Calendar() {
         });
 
         if (googleData?.events) {
-          setExternalEvents(prev => [...prev.filter(e => e.source !== 'google_calendar'), ...googleData.events]);
+          const events = googleData.events;
+          setExternalEvents(prev => [...prev.filter(e => e.source !== 'google_calendar'), ...events]);
           syncedCount++;
         }
       } catch {

@@ -144,10 +144,10 @@ async function authenticateRequest(req: Request) {
 
   // Verify user has an organization
   const { data: profile, error: profileError } = await supabase
-    .from('profiles')
+    .from('profiles' as any)
     .select('organization_id')
     .eq('user_id', user.id)
-    .single();
+    .single() as { data: { organization_id: string } | null; error: any };
 
   if (profileError || !profile?.organization_id) {
     console.error('Profile lookup failed:', profileError?.message);

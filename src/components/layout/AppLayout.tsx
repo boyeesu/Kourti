@@ -530,6 +530,7 @@ type GlobalSearchResults = {
   transcriptions: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
 };
 
+type ModuleTone = 'success' | 'info' | 'warning';
 type ModuleMeta = { label: string; status: string; tone: ModuleTone };
 
 interface AppLayoutInnerProps {

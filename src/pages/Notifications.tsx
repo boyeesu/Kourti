@@ -162,7 +162,7 @@ export default function Notifications() {
             className={`flex p-4 rounded-lg border ${notification.read ? 'bg-card' : 'bg-primary/5 border-primary/20'}`}
           >
             <div className="mr-4 mt-1">
-              {getIcon(notification.type)}
+              {getIcon(notification.type ?? 'system')}
             </div>
             <div className="flex-1">
               <div className="flex items-start justify-between">
@@ -194,7 +194,7 @@ export default function Notifications() {
                   variant="outline" 
                   className="ml-2 text-xs py-0 px-1.5 h-5"
                 >
-                  {notification.type.charAt(0).toUpperCase() + notification.type.slice(1)}
+                  {(notification.type ?? 'system').charAt(0).toUpperCase() + (notification.type ?? 'system').slice(1)}
                 </Badge>
               </div>
             </div>

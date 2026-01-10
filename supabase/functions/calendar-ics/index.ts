@@ -250,10 +250,10 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("profiles" as any)
       .select("user_id, organization_id")
       .eq("calendar_ics_token", token)
-      .maybeSingle();
+      .maybeSingle() as { data: { user_id: string; organization_id: string } | null; error: any };
 
     if (profileError) {
       console.error("calendar-ics profile lookup error:", profileError);
@@ -304,7 +304,7 @@ serve(async (req) => {
     }
 
     let eventsQuery = supabase
-      .from("calendar_events")
+      .from("calendar_events" as any)
       .select(
         "id,title,description,start_date,end_date,location,attendees,event_type,created_at,updated_at",
       )

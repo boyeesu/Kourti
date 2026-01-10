@@ -37,4 +37,6 @@
       "@/utils/*": ["./src/utils/*"]
     }
   },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "supabase/functions"]
 }
