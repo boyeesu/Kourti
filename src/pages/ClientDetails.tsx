@@ -62,7 +62,6 @@ export default function ClientDetails() {
   const { data: casesData } = useCasesByClient(clientId!);
   const cases = casesData?.cases || [];
   const { data: contracts = [] } = useContractsByClient(clientId!);
-  const contractsArray = Array.isArray(contracts) ? contracts : contracts.contracts || [];
   const { data: calEvents = [] } = useCalendarEventsByClient(clientId!);
   const { data: documents = [] } = useDocumentsByClient(clientId!);
 
@@ -230,7 +229,7 @@ export default function ClientDetails() {
                 <p className="text-sm text-muted-foreground">Matters</p>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">{contractsArray.length}</p>
+                <p className="text-2xl font-bold text-green-600">{contracts.length}</p>
                 <p className="text-sm text-muted-foreground">Contracts</p>
               </div>
             </div>
@@ -418,11 +417,11 @@ export default function ClientDetails() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Contracts ({contractsArray.length})
+            Contracts ({contracts.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {contractsArray.length === 0 ? (
+          {contracts.length === 0 ? (
             <div className="text-center py-8">
               <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
               <p className="text-muted-foreground mb-4">No contracts for this client</p>
@@ -432,7 +431,7 @@ export default function ClientDetails() {
             </div>
           ) : (
             <div className="space-y-3">
-              {contractsArray.map((ct: any) => (
+              {contracts.map((ct: any) => (
                 <div key={ct.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
                   <div>
                     <Button variant="link" onClick={() => navigate(`/contracts/${ct.id}`)}>

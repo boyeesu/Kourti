@@ -9,6 +9,44 @@ import { useInvoiceItems } from "@/hooks/useInvoiceItems";
 import { useGetItemById, useUpdateItem } from "@/lib/api";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { formatDate, formatCurrency, getStatusColor } from "@/lib/utils";
+
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  title: string;
+  client_id?: string | null;
+  case_id?: string | null;
+  status?: string | null;
+  issue_date: string;
+  due_date: string;
+  subtotal?: number | null;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
+  total_amount?: number | null;
+  currency?: string | null;
+  notes?: string | null;
+  terms_conditions?: string | null;
+  created_at: string;
+  client?: {
+    id: string;
+    name: string;
+    email?: string;
+    company?: string;
+    address?: string;
+    phone?: string;
+  } | null;
+  case?: {
+    id: string;
+    title: string;
+    case_number?: string | null;
+  } | null;
+  created_by_user?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email?: string;
+  } | null;
+}
 import { 
   Download, 
   Edit, 
@@ -48,7 +86,7 @@ export default function InvoiceDetails() {
     isLoading, 
     error, 
     refetch 
-  } = useGetItemById({
+  } = useGetItemById<Invoice>({
     table: 'invoices',
     id: id || '',
     select: `
@@ -511,12 +549,12 @@ export default function InvoiceDetails() {
         onOpenChange={setIsEditDialogOpen}
         initialData={{
           title: invoice.title,
-          client_id: invoice.client_id,
-          case_id: invoice.case_id,
+          client_id: invoice.client_id || undefined,
+          case_id: invoice.case_id || undefined,
           issue_date: new Date(invoice.issue_date),
           due_date: new Date(invoice.due_date),
-          status: invoice.status,
-          notes: invoice.notes,
+          status: invoice.status || undefined,
+          notes: invoice.notes || undefined,
           vat: invoice.tax_amount || 0,
           currency: invoice.currency || 'USD',
           items: invoiceItems && invoiceItems.length > 0 ? invoiceItems.map((item: any) => ({

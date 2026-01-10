@@ -34,9 +34,8 @@ export function useFetchData<T = unknown>(
         return { data: null, count: 0 };
       }
 
-      let query = supabase
-        .from(options.table)
-        .select(options.select || "*", { count: "exact" } as any)
+      let query = (supabase.from(options.table as any) as any)
+        .select(options.select || "*", { count: "exact" })
         .eq("organization_id", organizationId);
 
       // Apply additional filters
@@ -93,9 +92,8 @@ export function useFetchCount(
     queryFn: async () => {
       if (!organizationId) return 0;
 
-      let query = supabase
-        .from(table)
-        .select("*", { count: "exact", head: true } as any)
+      let query = (supabase.from(table as any) as any)
+        .select("*", { count: "exact", head: true })
         .eq("organization_id", organizationId);
 
       if (filters) {
@@ -132,8 +130,7 @@ export function useGetItemById<T = unknown>(options: {
         throw new Error("Organization ID or item ID is missing");
       }
 
-      const { data, error } = await supabase
-        .from(options.table)
+      const { data, error } = await (supabase.from(options.table as any) as any)
         .select(options.select || "*")
         .eq("id", options.id)
         .eq("organization_id", organizationId)
@@ -161,8 +158,7 @@ export function useUpdateItem<T = unknown>(options: {
   return useMutation({
     mutationFn: async (updateData: { id: string; [key: string]: unknown }) => {
       const { id, ...data } = updateData;
-      const { data: result, error } = await supabase
-        .from(options.table)
+      const { data: result, error } = await (supabase.from(options.table as any) as any)
         .update(data as any)
         .eq("id", id)
         .select()

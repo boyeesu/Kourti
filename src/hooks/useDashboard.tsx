@@ -40,6 +40,13 @@ export function useDashboard() {
 
       // No mock data - always fetch from database
 
+      // Calculate date range for upcoming events (start of today to end of 7 days from now)
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(startOfToday);
+      endOfWeek.setDate(endOfWeek.getDate() + 7);
+      endOfWeek.setHours(23, 59, 59, 999);
+
       // Fetch all stats in parallel for better performance
       const [
           casesResult,
@@ -89,8 +96,8 @@ export function useDashboard() {
             .from('calendar_events')
             .select('*', { count: 'exact', head: true })
             .eq('organization_id', organizationId)
-            .gte('start_date', new Date().toISOString())
-            .lte('start_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()),
+            .gte('start_date', startOfToday.toISOString())
+            .lte('start_date', endOfWeek.toISOString()),
 
           // Recent cases (last 5)
           supabase
@@ -108,12 +115,13 @@ export function useDashboard() {
             .order('created_at', { ascending: false })
             .limit(5),
 
-          // Upcoming calendar events (next 5)
+          // Upcoming calendar events (next 7 days, limit 5)
           supabase
             .from('calendar_events')
             .select('id, title, start_date, end_date, event_type, case_id, case:case_id(title)')
             .eq('organization_id', organizationId)
-            .gte('start_date', new Date().toISOString())
+            .gte('start_date', startOfToday.toISOString())
+            .lte('start_date', endOfWeek.toISOString())
             .order('start_date', { ascending: true })
             .limit(5)
         ]);
@@ -125,7 +133,9 @@ export function useDashboard() {
 
       // Check for errors
       if (casesResult.error || activeCasesResult.error || clientsResult.error || 
-          documentsResult.error || upcomingEventsResult.error) {
+          documentsResult.error || upcomingEventsResult.error || 
+          upcomingCalendarEventsResult.error || recentCasesResult.error || 
+          recentClientsResult.error || invoicesResult.error) {
         throw new Error('Failed to load dashboard data. Please try again.');
       }
 

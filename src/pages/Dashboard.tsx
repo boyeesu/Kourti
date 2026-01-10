@@ -32,13 +32,14 @@ import {
   RefreshCw,
   ArrowRight,
   Scale,
+  Calendar,
 } from "lucide-react";
 import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";
-import { useUserRole } from "@/hooks/useUserManagement";
 import { useAllCases } from "@/hooks/useCases";
 import { useAllActivities } from "@/features/activities/api/useAllActivities";
 import { Case, Contract } from "@/types";
+import type { CalendarEvent } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
@@ -51,7 +52,6 @@ export default function Dashboard() {
   // Get data for different dashboard sections
   const { upcomingCases, upcomingContracts } = useInsights(windowDays);
   const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard } = useDashboard();
-  const { data: userRoleData } = useUserRole();
   const { data: casesData, isLoading: casesLoading } = useAllCases();
   const { data: activitiesData, isLoading: activitiesLoading } = useAllActivities();
 
@@ -340,7 +340,64 @@ export default function Dashboard() {
       </div>
 
       {/* Upcoming Events */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <ModuleErrorBoundary name="Upcoming Calendar Events">
+          <Card className="shadow-card border-0">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Upcoming Events
+                </CardTitle>
+                <p className="text-muted-foreground text-sm">Next 7 days</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1"
+                onClick={() => navigate('/calendar')}
+              >
+                View All
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {dashboardData?.upcomingCalendarEvents && dashboardData.upcomingCalendarEvents.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Event</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dashboardData.upcomingCalendarEvents.map((event: Partial<CalendarEvent>) => (
+                      <TableRow 
+                        key={event.id} 
+                        className="cursor-pointer hover:bg-muted/50" 
+                        onClick={() => navigate('/calendar')}
+                      >
+                        <TableCell className="font-medium max-w-[200px] truncate" title={event.title}>{event.title}</TableCell>
+                        <TableCell>{formatDate(event.start_date)}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                            {event.event_type || 'Event'}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-6 bg-muted/10 rounded-md">
+                  <p className="text-muted-foreground text-sm">No upcoming events in the next 7 days.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </ModuleErrorBoundary>
+
         <ModuleErrorBoundary name="Upcoming Hearings">
           <Card className="shadow-card border-0">
             <CardHeader className="flex flex-row items-center justify-between pb-2">

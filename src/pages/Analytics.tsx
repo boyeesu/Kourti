@@ -74,12 +74,12 @@ export default function Analytics() {
   const { data: clientsData, isLoading: clientsLoading, refetch: refetchClients } = useClients(1, 1000);
   const clients = clientsData?.items || [];
 
-  const { data: documentsData, isLoading: documentsLoading, refetch: refetchDocuments } = useFetchData({
+  const { data: documentsData, isLoading: documentsLoading, refetch: refetchDocuments } = useFetchData<Array<{ id: string; created_at?: string | null; name?: string; mime_type?: string }>>({
     table: "documents",
     queryKey: ["analytics-documents"],
     select: "id, created_at, name, mime_type",
   });
-  const documents = documentsData?.data || [];
+  const documents = (Array.isArray(documentsData?.data) ? documentsData.data : []) as Array<{ created_at?: string | null }>;
 
   const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks } = useFetchData({
     table: "tasks",
@@ -824,8 +824,9 @@ export default function Analytics() {
                   <div>
                     <p className="text-3xl font-bold">
                       {Array.isArray(documents)
-                        ? documents.filter((d: { created_at?: string }) => {
-                            const created = new Date(d.created_at || "");
+                        ? documents.filter((d: { created_at?: string | null }) => {
+                            if (!d.created_at) return false;
+                            const created = new Date(d.created_at);
                             const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
                             return created >= sevenDaysAgo;
                           }).length
