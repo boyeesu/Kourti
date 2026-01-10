@@ -4,7 +4,7 @@ import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
 import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
 import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
+// @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const ALLOWED_ORIGINS = [

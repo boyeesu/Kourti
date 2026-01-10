@@ -3,6 +3,7 @@
  * Ensures users can only access resources within their organization
  */
 
+// @ts-ignore: Deno module
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
 export interface OrganizationValidationResult {

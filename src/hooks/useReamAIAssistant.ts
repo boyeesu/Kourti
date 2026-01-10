@@ -46,7 +46,7 @@ export function useReamAIAssistant() {
       }
 
       // Call the Ream AI Assistant edge function with CSRF protection
-      const { data, error } = await invokeFunctionWithCsrf('ream-ai-assistant', {
+      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; response?: string }>('ream-ai-assistant', {
         body: {
           message: message.trim(),
           conversationHistory: conversationHistory.map(msg => ({

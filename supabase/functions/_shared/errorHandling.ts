@@ -163,7 +163,8 @@ export function createErrorResponse(
   const requestId = logError(error, context);
   const errorCode = getErrorCode(error);
   const statusCode = getStatusCode(errorCode);
-  const sanitizedMessage = sanitizeErrorMessage(error);
+  // sanitizedMessage intentionally not used - we use generic user messages instead
+  void sanitizeErrorMessage(error);
 
   // Generic user-friendly messages
   const userMessages: Record<ErrorCode, string> = {

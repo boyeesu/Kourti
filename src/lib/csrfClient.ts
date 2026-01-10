@@ -4,7 +4,6 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { logError, logInfo } from '@/hooks/logger';
 
 /**
  * Get CSRF token from storage
@@ -30,14 +29,14 @@ async function fetchCsrfToken(): Promise<string | null> {
     });
 
     if (error || !data?.csrfToken) {
-      logError('Failed to fetch CSRF token', { error });
+      console.error('Failed to fetch CSRF token', error);
       return null;
     }
 
     sessionStorage.setItem('csrf_token', data.csrfToken);
     return data.csrfToken;
   } catch (error) {
-    logError('Error fetching CSRF token', { error });
+    console.error('Error fetching CSRF token', error);
     return null;
   }
 }
@@ -71,19 +70,19 @@ export async function invokeFunctionWithCsrf<T = unknown>(
 
     // Invoke function
     const { data, error } = await supabase.functions.invoke(functionName, {
-      body: options?.body,
+      body: options?.body as Record<string, unknown>,
       headers,
     });
 
     // If CSRF error, try refreshing token once
     if (error && (error.message?.includes('CSRF') || error.message?.includes('csrf'))) {
-      logInfo('CSRF error detected, refreshing token');
+      console.info('CSRF error detected, refreshing token');
       const newToken = await fetchCsrfToken();
       if (newToken) {
         headers['X-CSRF-Token'] = newToken;
         // Retry once
         const retryResult = await supabase.functions.invoke(functionName, {
-          body: options?.body,
+          body: options?.body as Record<string, unknown>,
           headers,
         });
         return retryResult;
@@ -92,7 +91,7 @@ export async function invokeFunctionWithCsrf<T = unknown>(
 
     return { data, error };
   } catch (error) {
-    logError('Function invocation error', { functionName, error });
+    console.error('Function invocation error', { functionName, error });
     return {
       data: null,
       error: error instanceof Error ? error : new Error(String(error)),

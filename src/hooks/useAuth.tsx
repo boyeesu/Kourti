@@ -251,7 +251,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Use Resend-based edge function instead of Supabase's built-in email service
       // Note: Password reset doesn't require CSRF (unauthenticated endpoint)
       // But we'll include it if available for additional security
-      const { data, error } = await invokeFunctionWithCsrf('send-password-reset-email', {
+      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; messageId?: string }>('send-password-reset-email', {
         body: {
           email: email.toLowerCase(),
           redirectUrl,

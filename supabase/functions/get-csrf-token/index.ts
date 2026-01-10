@@ -3,7 +3,9 @@
  * Called after successful login to obtain CSRF token
  */
 
+// @ts-ignore: Deno module
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 import { createCsrfTokenForUser, getCsrfTokenForUser } from "../_shared/csrfProtection.ts";

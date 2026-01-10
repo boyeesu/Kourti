@@ -56,7 +56,7 @@ export function useInviteUser() {
       // NEW FLOW: Create the user with temp password via edge function
       logInfo('Creating invited user with temp password', { email: userData.email });
 
-      const { data: createResult, error: createError } = await invokeFunctionWithCsrf('create-invited-user', {
+      const { data: createResult, error: createError } = await invokeFunctionWithCsrf<{ success?: boolean; error?: string; userId?: string }>('create-invited-user', {
         body: {
           email: userData.email,
           firstName: userData.firstName,
