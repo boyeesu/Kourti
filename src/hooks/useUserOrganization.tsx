@@ -9,14 +9,9 @@ export function useUserOrganization() {
   return useQuery({
     queryKey: ['user-organization', user?.id],
     queryFn: async () => {
-      console.log('🔍 Fetching user organization...');
-      
       if (!user?.id) {
-        console.error('❌ User not authenticated');
         throw new Error('User not authenticated. Please sign in.');
       }
-
-      console.log('👤 User ID:', user.id);
 
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -25,16 +20,13 @@ export function useUserOrganization() {
         .single();
 
       if (error) {
-        console.error('❌ Error fetching profile:', error);
         if (error.code === 'PGRST116') {
           // No profile found - user needs to complete setup
-          console.log('🏢 No profile found');
           throw new Error('No organization profile found. Please complete your profile setup.');
         }
         throw error;
       }
       
-      console.log('🏢 Organization ID:', (profile as any).organization_id);
       return (profile as any).organization_id;
     },
     enabled: !!user?.id,

@@ -12,8 +12,6 @@ export function useCaseTypes() {
   return useQuery<CaseType[], AppError>({
     queryKey: ['caseTypes'],
     queryFn: async () => {
-      console.log('Fetching global and organization case types');
-      
       // Use tryCatch to handle errors consistently
       const [data, error] = await tryCatch(async () => {
         // Fetch global case types and organization-specific ones
@@ -25,16 +23,13 @@ export function useCaseTypes() {
           .order('name');
         
         if (error) {
-          console.error('Supabase error:', error);
           throw error;
         }
         
-        console.log('Raw case types from database:', data);
         return data;
       });
       
       if (error) {
-        console.error('Error fetching case types:', error);
         throw error;
       }
       
@@ -51,7 +46,6 @@ export function useCaseTypes() {
         is_global: type.is_global
       }));
       
-      console.log('Case types retrieved:', caseTypes);
       return caseTypes;
     },
     staleTime: 5 * 60 * 1000,

@@ -85,12 +85,12 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
       if (file.type === 'text/plain') {
         const text = await file.text();
         // Could analyze text here to auto-fill contract details
-        console.log('Extracted text for analysis:', text.substring(0, 200));
+        // For PDF and DOC files, you would need additional libraries
+        void text; // Text extraction for analysis (currently unused)
       }
-      // For PDF and DOC files, you would need additional libraries
       // For now, we'll just store the file for upload
-    } catch (error) {
-      console.error('Error extracting text:', error);
+    } catch {
+      // Text extraction failed silently - file will still be uploaded
     }
   };
 

@@ -68,14 +68,6 @@ export default function CaseCreate() {
   const { data: caseFields = [] } = useCaseFields(caseTypeId);
   const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
   
-  // Log current state for debugging
-  useEffect(() => {
-    console.log('Case types loaded:', caseTypes);
-    console.log('Selected case type ID:', caseTypeId);
-    console.log('Case issues loaded:', caseIssues);
-    console.log('Selected case issue ID:', caseIssueId);
-  }, [caseTypes, caseTypeId, caseIssues, caseIssueId]);
-  
   // Remember last used matter type
   const lastMatterType = typeof window !== 'undefined' 
     ? localStorage.getItem('last_matter_type') 
@@ -130,15 +122,13 @@ export default function CaseCreate() {
         custom_fields: dynamicValues,
       } as CreateCaseData;
 
-      console.log('Submitting matter data:', caseData);
       const newCase = await createCase.mutateAsync(caseData);
       
       // Create notification for matter creation
       await createCaseNotification(newCase, 'created');
       
       navigate(`/matters/${newCase.id}`);
-    } catch (error) {
-      console.error('Matter creation error:', error);
+    } catch {
       /* error handled by mutation */
     }
   };
@@ -237,8 +227,7 @@ export default function CaseCreate() {
                       <FormControl>
                         <CaseTypeSelector
                           value={caseTypeId}
-                          onValueChange={(value, selectedCaseType) => {
-                            console.log('Case type selected:', selectedCaseType?.name);
+                          onValueChange={(value, _selectedCaseType) => {
                             setCaseTypeId(value);
                             field.onChange(value);
                             
@@ -275,7 +264,6 @@ export default function CaseCreate() {
                           <Select 
                             value={caseIssueId} 
                             onValueChange={(value) => {
-                              console.log('Case issue selected:', value);
                               setCaseIssueId(value);
                               field.onChange(value);
                             }}

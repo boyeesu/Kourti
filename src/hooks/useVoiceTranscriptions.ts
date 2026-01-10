@@ -22,8 +22,6 @@ export function useVoiceTranscriptions() {
   return useQuery({
     queryKey: ['voice-transcriptions'],
     queryFn: async () => {
-      console.log('🎙️ Fetching voice transcriptions...');
-      
       // Check if user is authenticated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -46,11 +44,9 @@ export function useVoiceTranscriptions() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Error fetching transcriptions:', error);
         throw error;
       }
       
-      console.log('✅ Fetched transcriptions:', data?.length || 0, 'items');
       return data as VoiceTranscription[];
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -71,8 +67,6 @@ export function useVoiceTranscription(id: string) {
   return useQuery({
     queryKey: ['voice-transcription', id],
     queryFn: async () => {
-      console.log('🎙️ Fetching single transcription:', id);
-      
       // Check if user is authenticated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -96,16 +90,13 @@ export function useVoiceTranscription(id: string) {
         .maybeSingle();
 
       if (error) {
-        console.error('❌ Error fetching transcription:', error);
         throw error;
       }
       
       if (!data) {
-        console.warn('⚠️ No transcription found with ID:', id);
         return null;
       }
       
-      console.log('✅ Fetched transcription:', data?.title);
       return data as VoiceTranscription;
     },
     enabled: !!id,

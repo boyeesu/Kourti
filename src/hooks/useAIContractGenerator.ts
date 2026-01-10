@@ -33,14 +33,11 @@ export function useAIContractGenerator() {
 
   return useMutation({
     mutationFn: async (data: ContractGenerationData) => {
-      console.log('Generating contract with AI:', data);
-
       const { data: result, error } = await supabase.functions.invoke('ai-contract-generator', {
         body: data,
       });
 
       if (error) {
-        console.error('AI contract generation error:', error);
         throw error;
       }
 

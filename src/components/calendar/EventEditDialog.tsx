@@ -137,8 +137,6 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
 
   const onSubmit = async (data: EventFormValues) => {
     try {
-      console.log('Updating calendar event...', data);
-      
       // Clean up the data - convert 'none' back to undefined/null
       const cleanedData = {
         ...data,
@@ -150,10 +148,9 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
         id: event.id,
         ...cleanedData,
       });
-      console.log('Calendar event updated successfully');
       onOpenChange(false, true); // Pass true to indicate successful update
     } catch (error) {
-      console.error("Failed to update event:", error);
+      // Error is handled by the mutation's onError callback
     }
   };
 

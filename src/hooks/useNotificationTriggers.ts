@@ -26,13 +26,11 @@ export function useNotificationTriggers() {
       // Check preferences if available
       if (preferences && params.recipientUserId === (await getCurrentUserId())) {
         if (!preferences.email_enabled) {
-          console.log('Email notifications disabled by user preference');
           return;
         }
 
         // Check email frequency
         if (preferences.email_frequency === 'never') {
-          console.log('Email notifications set to never');
           return;
         }
 
@@ -48,7 +46,6 @@ export function useNotificationTriggers() {
 
         const preferenceKey = typeMap[params.type];
         if (preferenceKey && preferences[preferenceKey] === false) {
-          console.log(`Email notifications disabled for type: ${params.type}`);
           return;
         }
       }

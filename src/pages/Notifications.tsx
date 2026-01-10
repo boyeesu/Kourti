@@ -20,14 +20,12 @@ import { Badge } from "@/components/ui/badge";
 export default function Notifications() {
   const { data: notifications = [] } = useNotificationsHook();
   
-  const markAsRead = (id: string) => {
-    // Implement mark as read functionality
-    console.log('Mark as read:', id);
+  const markAsRead = (_id: string) => {
+    // TODO: Implement mark as read functionality
   };
   
   const clearAll = () => {
-    // Implement clear all functionality
-    console.log('Clear all notifications');
+    // TODO: Implement clear all functionality
   };
   const [activeTab, setActiveTab] = useState("all");
   

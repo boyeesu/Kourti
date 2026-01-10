@@ -30,11 +30,8 @@ export function ProtectedRoute({
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  console.log('🛡️ ProtectedRoute check - User:', user ? 'Authenticated' : 'Not authenticated', 'Loading:', loading);
-
   // Show loading state while checking authentication
   if (loading) {
-    console.log('🛡️ ProtectedRoute: Showing loading state');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-2">
@@ -47,12 +44,10 @@ export function ProtectedRoute({
 
   // If not authenticated, redirect to login with return path
   if (!user) {
-    console.log('🛡️ ProtectedRoute: Redirecting to auth, no user found');
     const state: { from: Location } = { from: location };
     return <Navigate to={redirectTo} state={state} replace />;
   }
 
-  console.log('🛡️ ProtectedRoute: User authenticated, rendering children');
   // User is authenticated, render children
   return <>{children}</>;
 }

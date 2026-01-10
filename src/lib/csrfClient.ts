@@ -29,14 +29,12 @@ async function fetchCsrfToken(): Promise<string | null> {
     });
 
     if (error || !data?.csrfToken) {
-      console.error('Failed to fetch CSRF token', error);
       return null;
     }
 
     sessionStorage.setItem('csrf_token', data.csrfToken);
     return data.csrfToken;
-  } catch (error) {
-    console.error('Error fetching CSRF token', error);
+  } catch {
     return null;
   }
 }
@@ -76,7 +74,6 @@ export async function invokeFunctionWithCsrf<T = unknown>(
 
     // If CSRF error, try refreshing token once
     if (error && (error.message?.includes('CSRF') || error.message?.includes('csrf'))) {
-      console.info('CSRF error detected, refreshing token');
       const newToken = await fetchCsrfToken();
       if (newToken) {
         headers['X-CSRF-Token'] = newToken;
@@ -91,7 +88,6 @@ export async function invokeFunctionWithCsrf<T = unknown>(
 
     return { data, error };
   } catch (error) {
-    console.error('Function invocation error', { functionName, error });
     return {
       data: null,
       error: error instanceof Error ? error : new Error(String(error)),

@@ -35,7 +35,6 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<{ items: Cli
 
       const from = (page - 1) * pageSize;
       const to = page * pageSize - 1;
-      console.log(`🔍 Fetching clients page ${page} size ${pageSize} for org:`, organizationId);
 
       const { data, error, count } = await supabase
         .from('clients')
@@ -47,7 +46,6 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<{ items: Cli
         .range(from, to);
 
       if (error) {
-        console.error('❌ Error fetching clients:', error);
         throw error;
       }
 
@@ -57,7 +55,6 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<{ items: Cli
         contracts: client.contracts ?? [],
       })) as Client[];
 
-      console.log('✅ Clients page loaded:', items.length, 'of total', count ?? 0);
       return { items, total: count ?? 0 };
     },
     enabled: Boolean(organizationId) && !orgLoading && !orgError,

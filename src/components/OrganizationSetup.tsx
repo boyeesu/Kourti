@@ -10,17 +10,14 @@ export default function OrganizationSetup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🏢 Creating organization:', orgName);
     try {
       await createOrg.mutateAsync(orgName);
-      console.log('🏢 Organization created successfully');
       // After creation, user will need to sign in again
       setTimeout(() => {
-        console.log('🏢 Redirecting to login...');
         window.location.href = "/auth";
       }, 2000);
     } catch (error) {
-      console.error('🏢 Failed to create organization:', error);
+      // Error is handled by the mutation's onError callback
     }
   };
 

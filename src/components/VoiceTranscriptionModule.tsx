@@ -177,7 +177,6 @@ const VoiceTranscriptionModule: React.FC = () => {
             throw new Error('Failed to process audio file');
           }
 
-          console.log('🎙️ Starting auto-transcription...');
           const { data, error } = await supabase.functions.invoke('voice-transcription', {
             body: {
               audio: base64Audio,
@@ -186,12 +185,10 @@ const VoiceTranscriptionModule: React.FC = () => {
           });
 
           if (error) {
-            console.error('❌ Supabase function error:', error);
             throw error;
           }
           
           if (data?.error) {
-            console.error('❌ Transcription service error:', data.error);
             throw new Error(data.error);
           }
 
@@ -200,14 +197,12 @@ const VoiceTranscriptionModule: React.FC = () => {
           }
 
           setTranscript(data.transcript);
-          console.log('✅ Auto-transcription completed');
           
           toast({
             title: "Transcription Complete",
             description: "Audio has been transcribed successfully",
           });
         } catch (innerError: any) {
-          console.error('❌ Auto-transcription processing error:', innerError);
           toast({
             title: "Transcription Failed",
             description: innerError.message || "Failed to transcribe audio automatically",

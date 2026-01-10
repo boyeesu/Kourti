@@ -560,10 +560,9 @@ export default function ReamAI() {
           contentToProcess = extractResult.content;
           // Update doc object for context
           doc.content = extractResult.content;
-          console.log('Extracted content length:', extractResult.contentLength);
         }
-      } catch (error) {
-        console.error('Error extracting document content:', error);
+      } catch {
+        // Content extraction failed silently - will use basic analysis
       }
     }
 

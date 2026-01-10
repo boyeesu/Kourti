@@ -34,14 +34,12 @@ export default function ResetPassword() {
 
         // If we have hash params, set the session first
         if (accessToken && type === 'recovery' && refreshToken) {
-          console.log('Found recovery token in URL hash, setting session...');
           const { data: { session: newSession }, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           
           if (error) {
-            console.error('Error setting session from hash:', error);
             if (mounted) {
               setTokenValid(false);
               toast({
@@ -55,7 +53,6 @@ export default function ResetPassword() {
           }
 
           if (newSession?.user) {
-            console.log('Session established from hash token');
             // Clear the hash from URL
             window.history.replaceState(null, '', window.location.pathname);
             if (mounted) {
@@ -67,14 +64,9 @@ export default function ResetPassword() {
         }
 
         // Check if there's already an active session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Error getting session:', sessionError);
-        }
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          console.log('Valid session found');
           if (mounted) {
             setTokenValid(true);
             setVerifying(false);
@@ -84,7 +76,6 @@ export default function ResetPassword() {
 
         // If no session and no hash params, the link is invalid
         if (!accessToken || type !== 'recovery') {
-          console.warn('No valid recovery token found');
           if (mounted) {
             setTokenValid(false);
             toast({
@@ -97,8 +88,7 @@ export default function ResetPassword() {
           return;
         }
 
-      } catch (error) {
-        console.error('Error verifying token:', error);
+      } catch {
         if (mounted) {
           setTokenValid(false);
           toast({
@@ -117,7 +107,6 @@ export default function ResetPassword() {
 
     // Set up auth state listener to catch automatic session creation
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state change:', event, 'hasSession:', !!session);
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session?.user)) {
         if (mounted) {
           setTokenValid(true);

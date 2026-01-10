@@ -68,11 +68,7 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
 
   const handleEditClose = (wasUpdated?: boolean) => {
     setShowEditDialog(false);
-    // If event was updated, we could show a success state or refresh
-    if (wasUpdated) {
-      // Keep the view dialog open to show updated event
-      console.log('Event updated successfully, view dialog remains open');
-    }
+    // If event was updated, view dialog remains open to show updated event
   };
 
   return (

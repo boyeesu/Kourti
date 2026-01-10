@@ -51,11 +51,8 @@ export function useCalendarEvents() {
     queryKey: ['calendar-events', { organizationId }],
     queryFn: async () => {
       if (!organizationId) {
-        console.warn('⚠️ No organization ID found. Skipping calendar events fetch.');
         return [];
       }
-
-      console.log('🔍 Fetching calendar events for org:', organizationId);
 
       const { data, error } = await supabase
         .from('calendar_events')
@@ -64,11 +61,9 @@ export function useCalendarEvents() {
         .order('start_date', { ascending: true });
 
       if (error) {
-        console.error('❌ Error fetching calendar events:', error);
         throw error;
       }
 
-      console.log('✅ Calendar events found:', data?.length || 0);
       return (data as unknown as CalendarEvent[]) || [];
     },
     // The query is only enabled if all necessary dependencies are met.

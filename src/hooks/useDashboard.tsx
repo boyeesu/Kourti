@@ -26,7 +26,6 @@ export function useDashboard() {
     queryKey: ['dashboard-stats', organizationId],
     queryFn: async () => {
       if (!organizationId) {
-        console.log('⚠️ No organization ID for dashboard stats');
         return {
           totalCases: 0,
           activeCases: 0,
@@ -41,8 +40,6 @@ export function useDashboard() {
       }
 
       try {
-        console.log('🔍 Fetching dashboard stats for org:', organizationId);
-
         // No mock data - always fetch from database
 
         // Fetch all stats in parallel for better performance
@@ -131,7 +128,6 @@ export function useDashboard() {
         // Check for errors
         if (casesResult.error || activeCasesResult.error || clientsResult.error || 
             documentsResult.error || upcomingEventsResult.error) {
-          console.error('Failed to fetch one or more dashboard metrics');
           throw new Error('Failed to load dashboard data. Please try again.');
         }
 
@@ -147,10 +143,8 @@ export function useDashboard() {
           upcomingCalendarEvents: (upcomingCalendarEventsResult.data || []) as Partial<CalendarEvent>[],
         };
 
-        console.log('📊 Dashboard stats loaded successfully');
         return result;
       } catch (error) {
-        console.error('Error fetching dashboard stats:', sanitizeErrorForLogging(error));
         throw error;
       }
     },
