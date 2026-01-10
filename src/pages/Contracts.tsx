@@ -296,13 +296,8 @@ export default function Contracts() {
                 accessorKey: "title",
                 minWidth: "250px",
                 cell: (contract) => (
-                  <div>
-                    <div className="font-medium">{contract.title}</div>
-                    {contract.description && (
-                      <div className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
-                        {contract.description}
-                      </div>
-                    )}
+                  <div className="font-medium truncate max-w-[250px]" title={contract.title}>
+                    {contract.title}
                   </div>
                 ),
               },
@@ -311,6 +306,11 @@ export default function Contracts() {
                 header: "Client",
                 accessorFn: (contract) => (contract as any).client?.name || contract.client_id || 'No client',
                 minWidth: "180px",
+                cell: (contract) => (
+                  <div className="truncate max-w-[180px]" title={(contract as any).client?.name || contract.client_id || 'No client'}>
+                    {(contract as any).client?.name || contract.client_id || 'No client'}
+                  </div>
+                ),
               },
               {
                 id: "status",

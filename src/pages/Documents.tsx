@@ -239,9 +239,9 @@ export default function Documents() {
                 accessorFn: (doc) => doc.title || doc.name,
                 minWidth: "250px",
                 cell: (doc) => (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 max-w-[250px]">
                     {getFileIcon(doc.file_type || 'file')}
-                    <div className="font-medium">{doc.title || doc.name}</div>
+                    <div className="font-medium truncate" title={doc.title || doc.name}>{doc.title || doc.name}</div>
                   </div>
                 ),
               },
@@ -254,8 +254,9 @@ export default function Documents() {
                   (doc as any).case ? (
                     <Badge
                       variant="secondary"
-                      className="cursor-pointer hover:bg-secondary/80"
+                      className="cursor-pointer hover:bg-secondary/80 max-w-[150px] truncate"
                       onClick={() => navigate(`/matters/${(doc as any).case.id}`)}
+                      title={(doc as any).case.title}
                     >
                       {(doc as any).case.title}
                     </Badge>

@@ -335,17 +335,13 @@ export default function App() { // Changed to App for React component export
                 accessorKey: "name",
                 minWidth: "200px",
                 cell: (case_item) => (
-                  <div className="space-y-1">
-                    <Link
-                      to={`/matters/${case_item.id}`}
-                      className="font-medium text-foreground outline-none transition hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:ring-offset-background rounded-sm"
-                    >
-                      {case_item.name}
-                    </Link>
-                    <div className="text-sm text-muted-foreground">
-                      Started {case_item.startDate}
-                    </div>
-                  </div>
+                  <Link
+                    to={`/matters/${case_item.id}`}
+                    className="font-medium text-foreground outline-none transition hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:ring-offset-background rounded-sm truncate block max-w-[200px]"
+                    title={case_item.name}
+                  >
+                    {case_item.name}
+                  </Link>
                 ),
               },
               {
@@ -353,6 +349,11 @@ export default function App() { // Changed to App for React component export
                 header: "Client",
                 accessorKey: "client",
                 minWidth: "150px",
+                cell: (case_item) => (
+                  <div className="truncate max-w-[150px]" title={case_item.client}>
+                    {case_item.client}
+                  </div>
+                ),
               },
               {
                 id: "status",
@@ -382,9 +383,9 @@ export default function App() { // Changed to App for React component export
                 accessorKey: "assignedTo",
                 minWidth: "150px",
                 cell: (case_item) => (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    {case_item.assignedTo}
+                  <div className="flex items-center gap-2 max-w-[150px]">
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="truncate" title={case_item.assignedTo}>{case_item.assignedTo}</span>
                   </div>
                 ),
               },

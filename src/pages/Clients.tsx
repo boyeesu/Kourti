@@ -5,7 +5,6 @@ import {
   Search,
   Building,
   Mail,
-  Phone,
   MoreHorizontal,
   Upload,
   UserCheck,
@@ -188,38 +187,31 @@ export default function Clients() {
                 accessorKey: "name",
                 minWidth: "200px",
                 cell: (client) => (
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
+                  <div className="flex items-center gap-3 max-w-[200px]">
+                    <Avatar className="h-10 w-10 shrink-0">
                       <AvatarFallback className="bg-primary/10 text-primary font-medium">
                         {getInitials(client.name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <button
-                        onClick={() => navigate(`/clients/${client.id}`)}
-                        className="font-medium text-foreground hover:text-primary text-left"
-                      >
-                        {client.name}
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => navigate(`/clients/${client.id}`)}
+                      className="font-medium text-foreground hover:text-primary text-left truncate"
+                      title={client.name}
+                    >
+                      {client.name}
+                    </button>
                   </div>
                 ),
               },
               {
                 id: "contact",
-                header: "Contact",
+                header: "Email",
                 sortable: false,
                 minWidth: "200px",
                 cell: (client) => (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-3 w-3 text-muted-foreground" />
-                      <span>{client.email || "No email"}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-3 w-3 text-muted-foreground" />
-                      <span>{client.phone || "No phone"}</span>
-                    </div>
+                  <div className="flex items-center gap-2 text-sm truncate max-w-[200px]" title={client.email || "No email"}>
+                    <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <span className="truncate">{client.email || "No email"}</span>
                   </div>
                 ),
               },

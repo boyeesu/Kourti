@@ -365,9 +365,9 @@ export default function Dashboard() {
                   <TableBody>
                     {upcomingCases.map((c: Case) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/cases/${c.id}`)}>
-                        <TableCell className="font-medium">{c.title}</TableCell>
+                        <TableCell className="font-medium max-w-[200px] truncate" title={c.title}>{c.title}</TableCell>
                         <TableCell>{formatDate(c.next_hearing_date)}</TableCell>
-                        <TableCell>{c.court || 'TBD'}</TableCell>
+                        <TableCell className="max-w-[120px] truncate" title={c.court || 'TBD'}>{c.court || 'TBD'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -418,7 +418,7 @@ export default function Dashboard() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => navigate(`/contracts/${contract.id}`)}
                       >
-                        <TableCell className="font-medium">{contract.title}</TableCell>
+                        <TableCell className="font-medium max-w-[200px] truncate" title={contract.title}>{contract.title}</TableCell>
                         <TableCell>{formatDate(contract.end_date)}</TableCell>
                         <TableCell>{formatCurrency(contract.value)}</TableCell>
                       </TableRow>

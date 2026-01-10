@@ -19,7 +19,7 @@ export default function Breadcrumbs() {
       <span key={url+"-sep"} className="mx-2 text-muted-foreground">/</span>
     );
     crumbs.push(
-      <Link key={url} to={url} className={"hover:underline text-accent-foreground" + (idx === pathnames.length - 1 ? " font-bold" : "") }>
+      <Link key={url} to={url} className={"hover:underline " + (idx === pathnames.length - 1 ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground") }>
         {label}
       </Link>
     );
