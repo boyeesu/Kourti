@@ -38,7 +38,6 @@ interface EnhancedNotificationsProps {
 
 export function EnhancedNotifications({
   notifications,
-  onMarkAsRead: _onMarkAsRead,
   onMarkAllAsRead,
   onDelete,
   onClearAll,

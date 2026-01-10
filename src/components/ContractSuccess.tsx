@@ -50,7 +50,7 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
         title: "Success",
         description: "Contract updated successfully.",
       });
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Error",
@@ -83,7 +83,7 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
         title: "Success",
         description: "Contract downloaded as PDF.",
       });
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Error",
@@ -102,7 +102,7 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
         title: "Success",
         description: "Contract downloaded as DOCX.",
       });
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Error",

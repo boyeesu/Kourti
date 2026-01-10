@@ -90,11 +90,12 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
       onOpenChange(false);
       reset();
       setSelectedRecipients([]);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to share document.';
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to share document.',
+        description: errorMessage,
       });
     }
   }

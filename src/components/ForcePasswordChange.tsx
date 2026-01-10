@@ -95,11 +95,12 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
       // Navigate to dashboard
       navigate("/dashboard", { replace: true });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Password change failed', { error });
+      const errorMessage = error instanceof Error ? error.message : "An error occurred. Please try again.";
       toast({
         title: "Failed to update password",
-        description: error.message || "An error occurred. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

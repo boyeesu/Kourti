@@ -55,7 +55,7 @@ export function manageContextWindow(
 }
 
 // Request debouncing
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -155,7 +155,7 @@ export function smartChunkText(
 export function calculateRelevanceScore(
   query: string,
   documentText: string,
-  metadata?: Record<string, any>
+  metadata?: { recent?: boolean; important?: boolean; relevance?: number }
 ): number {
   const queryLower = query.toLowerCase();
   const docLower = documentText.toLowerCase();
@@ -163,7 +163,7 @@ export function calculateRelevanceScore(
   // Simple keyword matching score
   const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
   let matchCount = 0;
-  let totalWords = queryWords.length;
+  const totalWords = queryWords.length;
 
   for (const word of queryWords) {
     if (docLower.includes(word)) {

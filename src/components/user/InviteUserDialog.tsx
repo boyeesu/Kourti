@@ -107,11 +107,12 @@ export function InviteUserDialog() {
         title: 'Success',
         description: 'Invitation sent successfully',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send invitation';
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to send invitation',
+        description: errorMessage,
       });
     }
   };
@@ -154,11 +155,12 @@ export function InviteUserDialog() {
           department: row.department,
         });
         results.push({ ...row, status: 'success' });
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to invite';
         results.push({
           ...row,
           status: 'error',
-          error: error.message || 'Failed to invite',
+          error: errorMessage,
         });
       }
     }

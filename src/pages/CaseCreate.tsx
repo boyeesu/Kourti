@@ -66,7 +66,7 @@ export default function CaseCreate() {
   const { data: caseIssues = [], isLoading: isLoadingCaseIssues } = useCaseIssues(caseTypeId);
   const [caseIssueId, setCaseIssueId] = useState<string>("");
   const { data: caseFields = [] } = useCaseFields(caseTypeId);
-  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+  const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
   
   // Remember last used matter type
   const lastMatterType = typeof window !== 'undefined' 
@@ -227,7 +227,7 @@ export default function CaseCreate() {
                       <FormControl>
                         <CaseTypeSelector
                           value={caseTypeId}
-                          onValueChange={(value, _selectedCaseType) => {
+                          onValueChange={(value) => {
                             setCaseTypeId(value);
                             field.onChange(value);
                             

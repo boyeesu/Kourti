@@ -67,7 +67,7 @@ export function NotificationPreferences() {
         title: 'Success',
         description: 'Notification preferences saved',
       });
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -130,7 +130,7 @@ export function NotificationPreferences() {
                 <Label htmlFor="email-frequency">Email frequency</Label>
                 <Select
                   value={formData.email_frequency}
-                  onValueChange={(value: any) =>
+                  onValueChange={(value: 'immediate' | 'daily' | 'weekly' | 'never') =>
                     setFormData({ ...formData, email_frequency: value })
                   }
                 >

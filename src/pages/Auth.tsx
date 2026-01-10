@@ -68,7 +68,7 @@ export default function Auth() {
   const invitedEmail = searchParams.get('email');
   const isInvited = searchParams.get('invited') === 'true';
 
-  const from = location.state?.from?.pathname || "/onboarding";
+  const from = location.state?.from?.pathname || "/dashboard";
 
   // Pre-fill email and switch to signup mode for invited users
   useEffect(() => {
@@ -180,7 +180,7 @@ export default function Auth() {
           });
         }
       }
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Error",

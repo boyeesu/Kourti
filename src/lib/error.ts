@@ -105,20 +105,20 @@ export function isErrorType(error: unknown, type: 'api' | 'validation' | 'networ
 /**
  * Helper function to check if a response has an error
  */
-export function hasErrorResponse(response: any): boolean {
-  return response?.error || 
-    response?.statusCode >= 400 || 
-    (typeof response === 'object' && 'errors' in response);
+export function hasErrorResponse(response: { error?: unknown; statusCode?: number; errors?: unknown } | null | undefined): boolean {
+  return response?.error !== undefined || 
+    (response?.statusCode !== undefined && response.statusCode >= 400) || 
+    (typeof response === 'object' && response !== null && 'errors' in response);
 }
 
 /**
  * Remove sensitive information from error logs
  */
-export function sanitizeErrorForLogging(error: any): any {
+export function sanitizeErrorForLogging(error: unknown): Record<string, unknown> | unknown {
   if (!error) return error;
   
   // Create a copy to avoid mutating the original error
-  const sanitized = { ...error };
+  const sanitized: Record<string, unknown> = { ...(error as Record<string, unknown>) };
   
   // Remove sensitive fields
   const sensitiveFields = [
@@ -177,7 +177,7 @@ export function sanitizeErrorForLogging(error: any): any {
         }
       });
       sanitized.url = url.toString();
-    } catch (e) {
+    } catch {
       // Invalid URL, just continue
     }
   }

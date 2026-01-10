@@ -145,96 +145,16 @@ export default function SSOTab() {
   const [googleSecretStored, setGoogleSecretStored] = useState(false);
   const [microsoftSecretStored, setMicrosoftSecretStored] = useState(false);
   const { toast } = useToast();
-
-  // Test connection handlers
-  const handleTestGoogle = async () => {
-    if (!googleConfig?.id) {
-      toast({
-        title: 'Error',
-        description: 'Please save your Google Workspace configuration first.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const result = await testMutation.mutateAsync(googleConfig.id);
-      
-      if (result.success) {
-        toast({
-          title: 'Connection Successful',
-          description: result.message,
-        });
-      } else {
-        toast({
-          title: 'Configuration Issues',
-          description: result.errors?.join(', ') || result.message,
-          variant: 'destructive',
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Test Failed',
-        description: error.message || 'Failed to test Google SSO connection.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleTestMicrosoft = async () => {
-    if (!microsoftConfig?.id) {
-      toast({
-        title: 'Error',
-        description: 'Please save your Microsoft Entra ID configuration first.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const result = await testMutation.mutateAsync(microsoftConfig.id);
-      
-      if (result.success) {
-        toast({
-          title: 'Connection Successful',
-          description: result.message,
-        });
-      } else {
-        toast({
-          title: 'Configuration Issues',
-          description: result.errors?.join(', ') || result.message,
-          variant: 'destructive',
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Test Failed',
-        description: error.message || 'Failed to test Microsoft SSO connection.',
-        variant: 'destructive',
-      });
-    }
-  };
   
-  // Check if user is superadmin
+  // Check if user is superadmin - MUST be before any conditional returns
   const { data: roleData } = useUserRoleAssignments();
   const isSuperAdmin = roleData?.isSuperAdmin || false;
-
-  // Show access denied if not superadmin
-  if (!isLoading && !isSuperAdmin) {
-    return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Only super administrators can configure Single Sign-On settings. Contact your organization administrator for access.
-        </AlertDescription>
-      </Alert>
-    );
-  }
 
   // Extract Google and Microsoft configs from array
   const googleConfig = configs?.find((c) => c.provider === 'google');
   const microsoftConfig = configs?.find((c) => c.provider === 'microsoft');
 
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const googleForm = useForm<GoogleFormValues>({
     resolver: zodResolver(googleSchema),
     defaultValues: {
@@ -299,6 +219,89 @@ export default function SSOTab() {
     []
   );
 
+  // Test connection handlers
+  const handleTestGoogle = async () => {
+    if (!googleConfig?.id) {
+      toast({
+        title: 'Error',
+        description: 'Please save your Google Workspace configuration first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const result = await testMutation.mutateAsync(googleConfig.id);
+      
+      if (result.success) {
+        toast({
+          title: 'Connection Successful',
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: 'Configuration Issues',
+          description: result.errors?.join(', ') || result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to test Google SSO connection.';
+      toast({
+        title: 'Test Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTestMicrosoft = async () => {
+    if (!microsoftConfig?.id) {
+      toast({
+        title: 'Error',
+        description: 'Please save your Microsoft Entra ID configuration first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const result = await testMutation.mutateAsync(microsoftConfig.id);
+      
+      if (result.success) {
+        toast({
+          title: 'Connection Successful',
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: 'Configuration Issues',
+          description: result.errors?.join(', ') || result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to test Microsoft SSO connection.';
+      toast({
+        title: 'Test Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Show access denied if not superadmin - AFTER all hooks
+  if (!isLoading && !isSuperAdmin) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Only super administrators can configure Single Sign-On settings. Contact your organization administrator for access.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   const handleGoogleSubmit = async (values: GoogleFormValues) => {
     const trimmed = {
       enabled: values.enabled,
@@ -336,11 +339,12 @@ export default function SSOTab() {
         title: 'Success',
         description: 'Google Workspace SSO configuration saved successfully.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Google SSO update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save Google SSO configuration. Please try again.';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to save Google SSO configuration. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -393,11 +397,12 @@ export default function SSOTab() {
         title: 'Success',
         description: 'Microsoft Entra ID SSO configuration saved successfully.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Microsoft SSO update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save Microsoft SSO configuration. Please try again.';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to save Microsoft SSO configuration. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     }

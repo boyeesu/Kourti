@@ -303,7 +303,7 @@ export default function Analytics() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-green-600">
-                    {((cases as any)?.data?.filter((c: any) => c.status === 'open') || []).length}
+                    {(Array.isArray(cases?.data) ? cases.data.filter((c: { status?: string }) => c.status === 'open') : []).length}
                   </p>
                   <p className="text-sm text-muted-foreground">Open Cases</p>
                 </div>
@@ -313,7 +313,7 @@ export default function Analytics() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-purple-600">
-                    {((cases as any)?.data?.filter((c: any) => c.priority === 'high') || []).length}
+                    {(Array.isArray(cases?.data) ? cases.data.filter((c: { priority?: string }) => c.priority === 'high') : []).length}
                   </p>
                   <p className="text-sm text-muted-foreground">High Priority</p>
                 </div>
@@ -357,7 +357,7 @@ export default function Analytics() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-blue-600">
-                    {((clients as any)?.data?.filter((c: any) => c.status === 'active') || []).length}
+                    {(Array.isArray(clients?.data) ? clients.data.filter((c: { status?: string }) => c.status === 'active') : []).length}
                   </p>
                   <p className="text-sm text-muted-foreground">Active Clients</p>
                 </div>
@@ -367,12 +367,12 @@ export default function Analytics() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-purple-600">
-                    {((clients as any)?.data?.filter((c: any) => {
-                      const created = new Date(c.created_at);
+                    {(Array.isArray(clients?.data) ? clients.data.filter((c: { created_at?: string }) => {
+                      const created = new Date(c.created_at || '');
                       const now = new Date();
                       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
                       return created >= thirtyDaysAgo;
-                    }) || []).length}
+                    }) : []).length}
                   </p>
                   <p className="text-sm text-muted-foreground">New This Month</p>
                 </div>
@@ -425,7 +425,7 @@ export default function Analytics() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-yellow-600">
-                    {contracts?.filter((c: any) => c.status === 'active').length || 0}
+                    {contracts?.filter((c: { status?: string }) => c.status === 'active').length || 0}
                   </p>
                   <p className="text-sm text-muted-foreground">Active Contracts</p>
                 </div>
@@ -456,7 +456,7 @@ export default function Analytics() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-yellow-600">
-                    {((invoices as any)?.data?.filter((i: any) => ['draft', 'sent'].includes(i.status)) || []).length}
+                    {(Array.isArray(invoices?.data) ? invoices.data.filter((i: { status?: string }) => ['draft', 'sent'].includes(i.status || '')) : []).length}
                   </p>
                   <p className="text-sm text-muted-foreground">Pending</p>
                 </div>
@@ -466,7 +466,7 @@ export default function Analytics() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-red-600">
-                    {((invoices as any)?.data?.filter((i: any) => i.status === 'overdue') || []).length}
+                    {(Array.isArray(invoices?.data) ? invoices.data.filter((i: { status?: string }) => i.status === 'overdue') : []).length}
                   </p>
                   <p className="text-sm text-muted-foreground">Overdue</p>
                 </div>
@@ -518,12 +518,12 @@ export default function Analytics() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-purple-600">
-                    {((documents as any)?.data?.filter((d: any) => {
-                      const created = new Date(d.created_at);
+                    {(Array.isArray(documents?.data) ? documents.data.filter((d: { created_at?: string }) => {
+                      const created = new Date(d.created_at || '');
                       const now = new Date();
                       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
                       return created >= sevenDaysAgo;
-                    }) || []).length}
+                    }) : []).length}
                   </p>
                   <p className="text-sm text-muted-foreground">This Week</p>
                 </div>

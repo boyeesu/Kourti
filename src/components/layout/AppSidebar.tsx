@@ -184,7 +184,7 @@ const AppSidebar: React.FC = () => {
         description: "You have been successfully signed out."
       });
       navigate("/auth", { replace: true });
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Error",
@@ -211,7 +211,7 @@ const AppSidebar: React.FC = () => {
   );
 
   const NavItemContent = React.forwardRef<HTMLDivElement, { item: NavigationItem }>(
-    ({ item }, _ref) => {
+    ({ item }) => {
       const active = isActive(item.url, item.end);
 
       const linkClass = cn(

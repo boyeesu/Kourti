@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 interface TemplateDownloaderProps {
   entityType: "clients" | "cases" | "contracts" | "documents";
   fields: string[];
-  sampleData: Record<string, any>[];
+  sampleData: Record<string, unknown>[];
 }
 
 export function TemplateDownloader({ entityType, fields, sampleData }: TemplateDownloaderProps) {

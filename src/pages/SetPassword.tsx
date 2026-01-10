@@ -122,12 +122,13 @@ export default function SetPassword() {
 
       // Redirect to dashboard after successful password set
       setTimeout(() => navigate('/dashboard'), 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error setting password:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to set password. Please try again.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to set password. Please try again.",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);

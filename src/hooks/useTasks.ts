@@ -171,7 +171,7 @@ export function useDeleteTask() {
   
   return useMutation<DeleteParams, AppError, DeleteParams>({
     mutationFn: async ({ id, case_id }: DeleteParams) => {
-      const [_, error] = await tryCatch(async () => {
+      const [, error] = await tryCatch(async () => {
         const { error } = await supabase
           .from('tasks')
           .delete()

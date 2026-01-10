@@ -16,6 +16,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
+interface OrganizationMember {
+  user_id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  department?: string | null;
+  avatar_url?: string | null;
+}
+
 interface NewChatDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,7 +55,7 @@ export function NewChatDialog({
     return name.includes(query) || email.includes(query) || department.includes(query);
   });
 
-  const handleSelectMember = async (member: any) => {
+  const handleSelectMember = async (member: OrganizationMember) => {
     try {
       const conversationId = await createConversation.mutateAsync(member.user_id);
       const recipientName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email || 'Unknown';
@@ -57,17 +66,18 @@ export function NewChatDialog({
         title: "Conversation started",
         description: `Started a conversation with ${recipientName}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create conversation:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create conversation. Please try again.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error?.message || "Failed to create conversation. Please try again.",
+        description: errorMessage,
       });
     }
   };
 
-  const getMemberInitials = (member: any) => {
+  const getMemberInitials = (member: OrganizationMember) => {
     if (member.first_name && member.last_name) {
       return `${member.first_name[0]}${member.last_name[0]}`.toUpperCase();
     }
@@ -77,7 +87,7 @@ export function NewChatDialog({
     return 'U';
   };
 
-  const getMemberName = (member: any) => {
+  const getMemberName = (member: OrganizationMember) => {
     if (member.first_name || member.last_name) {
       return `${member.first_name || ''} ${member.last_name || ''}`.trim();
     }
@@ -88,7 +98,7 @@ export function NewChatDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         className="sm:max-w-[500px]"
-        {...({ highZ: true } as any)}
+        {...({ highZ: true } as { highZ: boolean })}
       >
         <DialogHeader>
           <DialogTitle>New Conversation</DialogTitle>

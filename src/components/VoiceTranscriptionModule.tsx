@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { useCases } from '@/hooks/useCases';
 import { useCreateActivity } from '@/features/activities/api/useCreateActivity';
 import { Mic, Play, Pause, Square, Save, FileText, Loader2, List } from 'lucide-react';
@@ -177,7 +178,7 @@ const VoiceTranscriptionModule: React.FC = () => {
             throw new Error('Failed to process audio file');
           }
 
-          const { data, error } = await supabase.functions.invoke('voice-transcription', {
+          const { data, error } = await invokeFunctionWithCsrf<{ error?: string; transcript?: string }>('voice-transcription', {
             body: {
               audio: base64Audio,
               action: 'transcribe'
@@ -257,7 +258,7 @@ const VoiceTranscriptionModule: React.FC = () => {
           throw new Error('Failed to process audio');
         }
 
-        const { data, error } = await supabase.functions.invoke('voice-transcription', {
+        const { data, error } = await invokeFunctionWithCsrf<{ error?: string; transcript?: string }>('voice-transcription', {
           body: {
             audio: base64Audio,
             action: 'transcribe'
@@ -304,7 +305,7 @@ const VoiceTranscriptionModule: React.FC = () => {
     setIsSummarizing(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('voice-transcription', {
+      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; summary?: string }>('voice-transcription', {
         body: {
           transcript,
           action: 'summarize'

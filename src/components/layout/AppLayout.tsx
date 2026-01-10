@@ -61,7 +61,7 @@ import { useTotalUnreadCount } from '@/hooks/useChat';
 export type NavItem = {
   title: string;
   url: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   end: boolean;
   badge?: string;
   badgeVariant?: "default" | "outline" | "destructive" | "secondary";
@@ -522,6 +522,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
+interface AppLayoutInnerProps {
+  children: React.ReactNode;
+  term: string;
+  setTerm: (term: string) => void;
+  searchDialogOpen: boolean;
+  setSearchDialogOpen: (open: boolean) => void;
+  searchResults: Record<string, unknown[]> | null;
+  hasSearchTerm: boolean;
+  isGlobalSearchLoading: boolean;
+  globalSearchError: Error | null;
+  moduleMeta: { title?: string; description?: string } | null;
+  breadcrumbLabels: Record<string, string>;
+  toneClassMap: Record<string, string>;
+  headerTimestamp: number;
+  navigate: (path: string) => void;
+  user: { email?: string } | null;
+  userInitials: string;
+  handleSignOut: () => void;
+}
+
 function AppLayoutInner({
   children,
   term,
@@ -540,7 +560,7 @@ function AppLayoutInner({
   user,
   userInitials,
   handleSignOut
-}: any) {
+}: AppLayoutInnerProps) {
   const hasSearchResults =
     hasSearchTerm &&
     Object.values(searchResults ?? {}).some(
@@ -709,7 +729,7 @@ function AppLayoutInner({
                 {hasSearchTerm &&
                   searchResults.cases.length > 0 && (
                     <CommandGroup heading="Matters">
-                      {searchResults.cases.map((item: any) => (
+                      {searchResults.cases.map((item: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }) => (
                         <CommandItem
                           key={`case-${item.id}`}
                           value={`case-${item.title}`}
@@ -736,7 +756,7 @@ function AppLayoutInner({
                 {hasSearchTerm &&
                   searchResults.clients.length > 0 && (
                     <CommandGroup heading="Clients">
-                      {searchResults.clients.map((item: any) => (
+                      {searchResults.clients.map((item: { id: string; title: string; subtitle?: string; url: string }) => (
                         <CommandItem
                           key={`client-${item.id}`}
                           value={`client-${item.title}`}
@@ -758,7 +778,7 @@ function AppLayoutInner({
                 {hasSearchTerm &&
                   searchResults.calendarEvents.length > 0 && (
                     <CommandGroup heading="Calendar Events">
-                      {searchResults.calendarEvents.map((item: any) => (
+                      {searchResults.calendarEvents.map((item: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }) => (
                         <CommandItem
                           key={`event-${item.id}`}
                           value={`event-${item.title}`}
@@ -785,7 +805,7 @@ function AppLayoutInner({
                 {hasSearchTerm &&
                   searchResults.voiceRecordings.length > 0 && (
                     <CommandGroup heading="Voice Recordings">
-                      {searchResults.voiceRecordings.map((item: any) => (
+                      {searchResults.voiceRecordings.map((item: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }) => (
                         <CommandItem
                           key={`voice-${item.id}`}
                           value={`voice-${item.title}`}
@@ -812,7 +832,7 @@ function AppLayoutInner({
                 {hasSearchTerm &&
                   searchResults.transcriptions.length > 0 && (
                     <CommandGroup heading="Transcriptions">
-                      {searchResults.transcriptions.map((item: any) => (
+                      {searchResults.transcriptions.map((item: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }) => (
                         <CommandItem
                           key={`transcription-${item.id}`}
                           value={`transcription-${item.title}`}

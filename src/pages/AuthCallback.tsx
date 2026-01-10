@@ -54,12 +54,13 @@ export default function AuthCallback() {
         } else {
           navigate("/onboarding", { replace: true });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!isMounted) return;
+        const errorMessage = error instanceof Error ? error.message : "Unable to complete sign-in. Please try again.";
         toast({
           variant: "destructive",
           title: "Sign-in failed",
-          description: error?.message || "Unable to complete sign-in. Please try again.",
+          description: errorMessage,
         });
         navigate("/auth", { replace: true });
       }

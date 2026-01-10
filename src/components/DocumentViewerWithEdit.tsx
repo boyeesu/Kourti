@@ -50,7 +50,7 @@ export function DocumentViewerWithEdit({ open, onOpenChange, document, onUpdate 
             });
             setActiveTab('view');
             if (onUpdate) onUpdate();
-        } catch (error) {
+        } catch {
             toast({
                 variant: 'destructive',
                 title: 'Error',
@@ -77,7 +77,7 @@ export function DocumentViewerWithEdit({ open, onOpenChange, document, onUpdate 
                 title: 'Success',
                 description: 'Document downloaded as PDF.',
             });
-        } catch (error) {
+        } catch {
             toast({
                 variant: 'destructive',
                 title: 'Error',
@@ -96,7 +96,7 @@ export function DocumentViewerWithEdit({ open, onOpenChange, document, onUpdate 
                 title: 'Success',
                 description: 'Document downloaded as DOCX.',
             });
-        } catch (error) {
+        } catch {
             toast({
                 variant: 'destructive',
                 title: 'Error',

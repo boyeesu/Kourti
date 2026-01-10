@@ -43,7 +43,7 @@ const inviteSchema = z.object({
 type InviteFormData = z.infer<typeof inviteSchema>;
 
 interface InviteUserDialogProps {
-  onInvite: (data: any) => Promise<any>;
+  onInvite: (data: { email: string; role_id: string; first_name?: string; last_name?: string; department?: string }) => Promise<unknown>;
 }
 
 export function InviteUserDialog({ onInvite }: InviteUserDialogProps) {

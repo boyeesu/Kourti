@@ -16,7 +16,7 @@ interface DocumentViewerProps {
     mime_type?: string;
     file_size?: number;
     content?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   };
 }
 
@@ -34,6 +34,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
         URL.revokeObjectURL(fileUrl);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, document.file_path]);
 
   const loadFile = async () => {

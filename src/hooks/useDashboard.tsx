@@ -38,11 +38,10 @@ export function useDashboard() {
         };
       }
 
-      try {
-        // No mock data - always fetch from database
+      // No mock data - always fetch from database
 
-        // Fetch all stats in parallel for better performance
-        const [
+      // Fetch all stats in parallel for better performance
+      const [
           casesResult,
           activeCasesResult,
           clientsResult,
@@ -64,7 +63,7 @@ export function useDashboard() {
             .from('cases')
             .select('*', { count: 'exact', head: true })
             .eq('organization_id', organizationId)
-            .in('status', ['open', 'active', 'in_progress'] as any),
+            .in('status', ['open', 'active', 'in_progress']),
 
           // Total clients count
           supabase
@@ -83,7 +82,7 @@ export function useDashboard() {
             .from('invoices')
             .select('total_amount')
             .eq('organization_id', organizationId)
-            .eq('status', 'paid' as any),
+            .eq('status', 'paid'),
 
           // Upcoming events count (next 7 days)
           supabase
@@ -119,33 +118,30 @@ export function useDashboard() {
             .limit(5)
         ]);
 
-        // Calculate total revenue from paid invoices
-        const totalRevenue = invoicesResult.data?.reduce((sum, invoice: any) => {
-          return sum + (invoice?.total_amount || 0);
-        }, 0) || 0;
+      // Calculate total revenue from paid invoices
+      const totalRevenue = invoicesResult.data?.reduce((sum, invoice: { total_amount?: number | null }) => {
+        return sum + (invoice?.total_amount || 0);
+      }, 0) || 0;
 
-        // Check for errors
-        if (casesResult.error || activeCasesResult.error || clientsResult.error || 
-            documentsResult.error || upcomingEventsResult.error) {
-          throw new Error('Failed to load dashboard data. Please try again.');
-        }
-
-        const result = {
-          totalCases: casesResult.count || 0,
-          activeCases: activeCasesResult.count || 0,
-          totalClients: clientsResult.count || 0,
-          totalDocuments: documentsResult.count || 0,
-          totalRevenue: totalRevenue,
-          upcomingEvents: upcomingEventsResult.count || 0,
-          recentCases: (recentCasesResult.data || []) as Partial<Case>[],
-          recentClients: (recentClientsResult.data || []) as Partial<Client>[],
-          upcomingCalendarEvents: (upcomingCalendarEventsResult.data || []) as Partial<CalendarEvent>[],
-        };
-
-        return result;
-      } catch (error) {
-        throw error;
+      // Check for errors
+      if (casesResult.error || activeCasesResult.error || clientsResult.error || 
+          documentsResult.error || upcomingEventsResult.error) {
+        throw new Error('Failed to load dashboard data. Please try again.');
       }
+
+      const result = {
+        totalCases: casesResult.count || 0,
+        activeCases: activeCasesResult.count || 0,
+        totalClients: clientsResult.count || 0,
+        totalDocuments: documentsResult.count || 0,
+        totalRevenue: totalRevenue,
+        upcomingEvents: upcomingEventsResult.count || 0,
+        recentCases: (recentCasesResult.data || []) as Partial<Case>[],
+        recentClients: (recentClientsResult.data || []) as Partial<Client>[],
+        upcomingCalendarEvents: (upcomingCalendarEventsResult.data || []) as Partial<CalendarEvent>[],
+      };
+
+      return result;
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 60 * 1000, // 1 minute

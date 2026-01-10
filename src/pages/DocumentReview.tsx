@@ -36,7 +36,7 @@ export default function DocumentReview() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
 
-  const normalizeResult = (raw: any): AnalysisResult => {
+  const normalizeResult = (raw: { analysis?: string; persona?: string; analysisType?: string; success?: boolean; tokensUsed?: number } | null): AnalysisResult => {
     const analysis = raw?.analysis;
     if (!analysis) {
       throw new Error('No analysis returned from AI service');
@@ -98,10 +98,11 @@ export default function DocumentReview() {
         title: "Analysis Complete",
         description: "REAM AI has finished analyzing your document.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to analyze document";
       toast({
         title: "Analysis Failed",
-        description: error.message || "Failed to analyze document",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

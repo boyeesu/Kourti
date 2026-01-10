@@ -169,12 +169,13 @@ export default function ResetPassword() {
 
       // Redirect to login after successful password reset
       setTimeout(() => navigate('/login'), 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resetting password:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to reset password. Please try again.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to reset password. Please try again.",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);

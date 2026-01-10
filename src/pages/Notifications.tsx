@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 export default function Notifications() {
   const { data: notifications = [] } = useNotificationsHook();
   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const markAsRead = (_id: string) => {
     // TODO: Implement mark as read functionality
   };
@@ -31,10 +32,10 @@ export default function Notifications() {
   
   // Group notifications by type
   const allNotifications = [...notifications];
-  const unreadNotifications = notifications.filter((n: any) => n.status === 'unread');
-  const caseNotifications = notifications.filter((n: any) => n.type === 'case');
-  const documentNotifications = notifications.filter((n: any) => n.type === 'document');
-  const eventNotifications = notifications.filter((n: any) => n.type === 'calendar');
+  const unreadNotifications = notifications.filter((n: Notification) => n.status === 'unread');
+  const caseNotifications = notifications.filter((n: Notification) => n.type === 'case');
+  const documentNotifications = notifications.filter((n: Notification) => n.type === 'document');
+  const eventNotifications = notifications.filter((n: Notification) => n.type === 'calendar');
   
   // Sort notifications by date (newest first)
   const sortedNotifications = (notifs: Notification[]) => {
@@ -92,13 +93,13 @@ export default function Notifications() {
         notificationsToMark = unreadNotifications;
         break;
       case 'cases':
-        notificationsToMark = caseNotifications.filter((n: any) => n.status === 'unread');
+        notificationsToMark = caseNotifications.filter((n: Notification) => n.status === 'unread');
         break;
       case 'documents':
-        notificationsToMark = documentNotifications.filter((n: any) => n.status === 'unread');
+        notificationsToMark = documentNotifications.filter((n: Notification) => n.status === 'unread');
         break;
       case 'events':
-        notificationsToMark = eventNotifications.filter((n: any) => n.status === 'unread');
+        notificationsToMark = eventNotifications.filter((n: Notification) => n.status === 'unread');
         break;
       default:
         notificationsToMark = unreadNotifications;
@@ -260,23 +261,23 @@ export default function Notifications() {
             </TabsList>
             
             <TabsContent value="all">
-              {renderNotificationList(allNotifications as any)}
+              {renderNotificationList(allNotifications)}
             </TabsContent>
             
             <TabsContent value="unread">
-              {renderNotificationList(unreadNotifications as any)}
+              {renderNotificationList(unreadNotifications)}
             </TabsContent>
             
             <TabsContent value="cases">
-              {renderNotificationList(caseNotifications as any)}
+              {renderNotificationList(caseNotifications)}
             </TabsContent>
             
             <TabsContent value="documents">
-              {renderNotificationList(documentNotifications as any)}
+              {renderNotificationList(documentNotifications)}
             </TabsContent>
             
             <TabsContent value="events">
-              {renderNotificationList(eventNotifications as any)}
+              {renderNotificationList(eventNotifications)}
             </TabsContent>
           </Tabs>
         </CardContent>

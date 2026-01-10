@@ -16,7 +16,7 @@ export interface ColumnDef<T> {
     id: string;
     header: string;
     accessorKey?: keyof T;
-    accessorFn?: (row: T) => any;
+    accessorFn?: (row: T) => unknown;
     cell?: (row: T) => ReactNode;
     sortable?: boolean;
     minWidth?: string;
@@ -69,8 +69,8 @@ export function DataTable<T>({
         if (!column) return data;
 
         return [...data].sort((a, b) => {
-            let aValue: any;
-            let bValue: any;
+            let aValue: unknown;
+            let bValue: unknown;
 
             if (column.accessorFn) {
                 aValue = column.accessorFn(a);

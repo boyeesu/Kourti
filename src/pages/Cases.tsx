@@ -148,7 +148,7 @@ export default function App() { // Changed to App for React component export
         title: "Matter Deleted",
         description: "The matter has been successfully deleted.",
       });
-    } catch (error) {
+    } catch {
       // The useDeleteCase hook should handle its own error toasts,
       // but a generic fallback is good here if needed.
       toast({

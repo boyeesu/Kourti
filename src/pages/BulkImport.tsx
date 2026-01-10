@@ -21,7 +21,7 @@ const BulkImport = () => {
     }
   }, [entityType, navigate]);
 
-  const handleImportComplete = (data: any[]) => {
+  const handleImportComplete = (data: Record<string, unknown>[]) => {
     toast.success(`Successfully imported ${data.length} ${entityType}`);
     // Navigate back to the respective module
     navigate(entityType === "clients" ? "/clients" : "/matters");

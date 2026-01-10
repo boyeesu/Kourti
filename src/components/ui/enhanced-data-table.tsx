@@ -68,7 +68,7 @@ export function EnhancedDataTable<T>({
       const rows = data.map((row) =>
         filteredColumns
           .map((col) => {
-            let value: any;
+            let value: unknown;
             if (col.accessorFn) {
               value = col.accessorFn(row);
             } else if (col.accessorKey) {

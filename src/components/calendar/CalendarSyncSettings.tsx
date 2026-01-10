@@ -40,11 +40,12 @@ export function CalendarSyncSettings() {
         title: 'Disconnected',
         description: `${provider === 'google' ? 'Google' : 'Microsoft'} calendar disconnected`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to disconnect calendar';
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to disconnect calendar',
+        description: errorMessage,
       });
     }
   };
@@ -56,11 +57,12 @@ export function CalendarSyncSettings() {
         title: 'Sync Started',
         description: `Syncing ${provider === 'google' ? 'Google' : 'Microsoft'} calendar...`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start sync';
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to start sync',
+        description: errorMessage,
       });
     }
   };
@@ -148,7 +150,7 @@ export function CalendarSyncSettings() {
                   <Label>Sync Direction</Label>
                   <Select
                     value={googleIntegration.sync_direction || 'bidirectional'}
-                    onValueChange={(value: any) =>
+                    onValueChange={(value: 'import' | 'export' | 'bidirectional') =>
                       updateSyncSettings.mutate({
                         provider: 'google',
                         sync_direction: value,
@@ -244,7 +246,7 @@ export function CalendarSyncSettings() {
                   <Label>Sync Direction</Label>
                   <Select
                     value={microsoftIntegration.sync_direction || 'bidirectional'}
-                    onValueChange={(value: any) =>
+                    onValueChange={(value: 'import' | 'export' | 'bidirectional') =>
                       updateSyncSettings.mutate({
                         provider: 'microsoft',
                         sync_direction: value,

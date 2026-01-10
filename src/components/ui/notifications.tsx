@@ -1,8 +1,6 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 
-interface NotificationsContextType {
-  // Add any notification context properties here if needed
-}
+type NotificationsContextType = Record<string, never>;
 
 const NotificationsContext = createContext<NotificationsContextType>({});
 

@@ -43,7 +43,7 @@ export function NotificationCenter() {
         title: 'Success',
         description: 'Notification archived',
       });
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -59,7 +59,7 @@ export function NotificationCenter() {
         title: 'Success',
         description: 'Notification unarchived',
       });
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -145,7 +145,7 @@ export function NotificationCenter() {
                 </Button>
               )}
             </div>
-            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+            <Select value={statusFilter} onValueChange={(v: 'all' | 'unread' | 'read') => setStatusFilter(v)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>

@@ -16,7 +16,7 @@ export default function OrganizationSetup() {
       setTimeout(() => {
         window.location.href = "/auth";
       }, 2000);
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation's onError callback
     }
   };

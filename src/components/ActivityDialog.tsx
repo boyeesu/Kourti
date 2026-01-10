@@ -163,7 +163,7 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map((user: any) => (
+                  {users.map((user: { user_id: string; first_name: string; last_name: string; email: string }) => (
                     <SelectItem key={user.user_id} value={user.user_id}>
                       {user.first_name} {user.last_name} ({user.email})
                     </SelectItem>

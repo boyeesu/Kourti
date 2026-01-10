@@ -4,13 +4,21 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { useEffect } from 'react';
 
+export interface FileMetadata {
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  file_path: string;
+  file_url?: string;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
   sender_id: string;
   content: string;
   message_type: 'text' | 'file' | 'system';
-  metadata?: Record<string, any>;
+  metadata?: FileMetadata | Record<string, any>;
   created_at: string;
   updated_at: string;
   sender?: {
@@ -248,32 +256,66 @@ export function useMessages(conversationId: string | null) {
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          // Fetch sender profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, email')
-            .eq('user_id', (payload.new as any).sender_id)
-            .single();
+          const newMessagePayload = payload.new as any;
+          
+          // First, immediately add the message to ensure it shows up
+          // This prevents the message from being lost if profile fetch fails
+          let senderProfile: { id: string; first_name: string | null; last_name: string | null; email: string | null } | undefined;
+          
+          try {
+            // Fetch sender profile (non-blocking for message display)
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles' as any)
+              .select('first_name, last_name, email')
+              .eq('user_id', newMessagePayload.sender_id)
+              .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no profile exists
+
+            if (!profileError && profile) {
+              senderProfile = {
+                id: newMessagePayload.sender_id,
+                first_name: profile.first_name,
+                last_name: profile.last_name,
+                email: profile.email
+              };
+            }
+          } catch (err) {
+            console.warn('Failed to fetch sender profile for realtime message:', err);
+          }
 
           const newMessage: Message = {
-            ...(payload.new as any),
-            sender: profile ? {
-              id: (payload.new as any).sender_id,
-              ...profile
-            } : undefined
+            ...newMessagePayload,
+            sender: senderProfile
           };
           
-          queryClient.setQueryData(['messages', conversationId], (old: Message[] = []) => {
-            // Avoid duplicates
-            if (old.some(m => m.id === newMessage.id)) return old;
-            return [...old, newMessage];
+          queryClient.setQueryData(['messages', conversationId], (old: Message[] | undefined) => {
+            const messages = old ?? [];
+            // Avoid duplicates (check both real IDs and temp IDs)
+            if (messages.some(m => m.id === newMessage.id)) return messages;
+            // Also avoid adding if we already have a temp version of this message from optimistic update
+            // by checking content + sender + recent timestamp
+            const recentTempMessage = messages.find(m => 
+              m.id.startsWith('temp-') && 
+              m.sender_id === newMessage.sender_id && 
+              m.content === newMessage.content
+            );
+            if (recentTempMessage) {
+              // Replace temp message with real one
+              return messages.map(m => m.id === recentTempMessage.id ? newMessage : m);
+            }
+            return [...messages, newMessage];
           });
 
           // Update conversations list
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Subscribed to messages for conversation ${conversationId}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`Failed to subscribe to messages for conversation ${conversationId}`);
+        }
+      });
 
     return () => {
       supabase.removeChannel(newChannel);
@@ -376,6 +418,147 @@ export function useSendMessage() {
           const filtered = old.filter(m => !m.id.startsWith('temp-'));
           if (!filtered.some(m => m.id === (data as any).id)) {
             return [...filtered, data as any];
+          }
+          return filtered;
+        });
+      }
+    },
+  });
+}
+
+/**
+ * Hook to send a file message with upload to storage
+ */
+export function useSendFileMessage() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { data: organizationId } = useUserOrganization();
+
+  return useMutation({
+    mutationFn: async ({ 
+      conversationId, 
+      file 
+    }: { 
+      conversationId: string; 
+      file: File;
+    }): Promise<Message> => {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      if (!organizationId) {
+        throw new Error('Organization not found');
+      }
+
+      // Upload file to Supabase storage
+      const timestamp = Date.now();
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filePath = `chat-attachments/${organizationId}/${conversationId}/${timestamp}_${sanitizedName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('File upload error:', uploadError);
+        throw new Error(`Failed to upload file: ${uploadError.message}`);
+      }
+
+      // Get signed URL (1 hour expiry, will be refreshed when viewing)
+      const { data: signedUrlData } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(filePath, 3600);
+
+      const fileMetadata: FileMetadata = {
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type,
+        file_path: filePath,
+        file_url: signedUrlData?.signedUrl,
+      };
+
+      // Create file message
+      const { data, error } = await supabase
+        .from('messages' as any)
+        .insert({
+          conversation_id: conversationId,
+          sender_id: user.id,
+          content: file.name, // Use filename as content for searchability
+          message_type: 'file',
+          metadata: fileMetadata,
+        } as any)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error inserting file message:', error);
+        // Try to clean up uploaded file on message insert failure
+        await supabase.storage.from('documents').remove([filePath]);
+        throw new Error(error.message || 'Failed to send file message');
+      }
+
+      // Update conversation timestamp (fire and forget)
+      supabase
+        .from('conversations' as any)
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId)
+        .then(({ error: updateError }) => {
+          if (updateError) console.error('Error updating conversation timestamp:', updateError);
+        });
+
+      return data as Message;
+    },
+    // Optimistic update for file messages
+    onMutate: async ({ conversationId, file }) => {
+      await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
+
+      const previousMessages = queryClient.getQueryData<Message[]>(['messages', conversationId]);
+
+      const optimisticMessage: Message = {
+        id: `temp-file-${Date.now()}`,
+        conversation_id: conversationId,
+        sender_id: user!.id,
+        content: file.name,
+        message_type: 'file',
+        metadata: {
+          file_name: file.name,
+          file_size: file.size,
+          file_type: file.type,
+          file_path: '',
+          file_url: URL.createObjectURL(file), // Temporary local URL for preview
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        sender: {
+          id: user!.id,
+          first_name: user?.user_metadata?.first_name || null,
+          last_name: user?.user_metadata?.last_name || null,
+          email: user?.email || null,
+        },
+      };
+
+      queryClient.setQueryData<Message[]>(['messages', conversationId], (old = []) => {
+        return [...old, optimisticMessage];
+      });
+
+      return { previousMessages, optimisticMessage };
+    },
+    onError: (_err, { conversationId }, context) => {
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['messages', conversationId], context.previousMessages);
+      }
+    },
+    onSettled: (data, error, { conversationId }) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      
+      if (data && !error) {
+        queryClient.setQueryData<Message[]>(['messages', conversationId], (old = []) => {
+          const filtered = old.filter(m => !m.id.startsWith('temp-file-'));
+          if (!filtered.some(m => m.id === data.id)) {
+            return [...filtered, data];
           }
           return filtered;
         });

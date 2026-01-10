@@ -29,7 +29,7 @@ function cleanText(text: string): string {
 
 // Split text by sentences while preserving context
 function splitBySentences(text: string): string[] {
-  const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   return sentences.map(s => s.trim()).filter(s => s.length > 0);
 }
 

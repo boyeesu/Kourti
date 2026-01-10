@@ -323,7 +323,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">No Client</SelectItem>
-                  {clients.map((client: any) => (
+                  {clients.map((client: { id: string; name: string }) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>
@@ -343,7 +343,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">No Case</SelectItem>
-                  {cases.map((case_: any) => (
+                  {cases.map((case_: { id: string; title: string }) => (
                     <SelectItem key={case_.id} value={case_.id}>
                       {case_.title}
                     </SelectItem>

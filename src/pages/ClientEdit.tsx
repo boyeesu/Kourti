@@ -98,7 +98,7 @@ export default function ClientEdit() {
 
       await updateClient.mutateAsync(clientData);
       navigate(`/clients/${clientId}`);
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation
     }
   };
@@ -107,7 +107,7 @@ export default function ClientEdit() {
     try {
       await deleteClient.mutateAsync(clientId!);
       navigate("/clients");
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation
     }
   };

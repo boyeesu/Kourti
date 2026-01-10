@@ -98,7 +98,7 @@ function persistToLocalStorage() {
   if (typeof window !== 'undefined' && SHOULD_PERSIST_TO_LOCAL) {
     try {
       localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(logs));
-    } catch (e) {
+    } catch {
       // If storage is full, clear old logs and try again
       try {
         localStorage.removeItem(LOG_STORAGE_KEY);

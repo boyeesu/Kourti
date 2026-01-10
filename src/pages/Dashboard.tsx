@@ -76,7 +76,7 @@ export default function Dashboard() {
       });
 
       // Count activities by month and type
-      activitiesData.forEach((activity: any) => {
+      activitiesData.forEach((activity: { created_at?: string; activity_type?: string }) => {
         if (activity.created_at) {
           const month = months[new Date(activity.created_at).getMonth()];
           const activityType = activity.activity_type || 'Other';
@@ -92,7 +92,7 @@ export default function Dashboard() {
 
       // Get top 3 most common activity types
       const typeCounts: Record<string, number> = {};
-      activitiesData.forEach((activity: any) => {
+      activitiesData.forEach((activity: { activity_type?: string }) => {
         const type = activity.activity_type || 'Other';
         typeCounts[type] = (typeCounts[type] || 0) + 1;
       });
@@ -103,7 +103,7 @@ export default function Dashboard() {
         .map(([type]) => type);
 
       return months.map(month => {
-        const result: any = { month };
+        const result: Record<string, string | number> = { month };
         topTypes.forEach(type => {
           result[type] = monthlyData[month][type] || 0;
         });

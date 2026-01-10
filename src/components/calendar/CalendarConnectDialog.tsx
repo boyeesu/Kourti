@@ -33,11 +33,12 @@ export function CalendarConnectDialog({
       if (authUrl) {
         window.location.href = authUrl;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to initiate calendar connection';
       toast({
         variant: 'destructive',
         title: 'Connection Failed',
-        description: error.message || 'Failed to initiate calendar connection',
+        description: errorMessage,
       });
       setIsConnecting(false);
     }

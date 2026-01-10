@@ -30,6 +30,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CalendarEvent } from "@/types";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameMonth, startOfMonth, endOfMonth, startOfDay, isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunctionWithCsrf } from "@/lib/csrfClient";
 import { useEnhancedToast } from "@/components/ui/enhanced-toast";
 import { env } from "@/lib/env";
 import {
@@ -105,7 +106,7 @@ export default function Calendar() {
         if (data) {
           setHasSsoConfig(true);
         }
-      } catch (err) {
+      } catch {
         setHasSsoConfig(false);
       }
     };
@@ -128,7 +129,7 @@ export default function Calendar() {
       const timeMax = lastDay.toISOString();
 
       try {
-        const { data: googleData } = await supabase.functions.invoke('google-calendar-sync', {
+        const { data: googleData } = await invokeFunctionWithCsrf<{ events?: CalendarEvent[] }>('google-calendar-sync', {
           body: { action: 'list-events', timeMin, timeMax }
         });
 
@@ -136,12 +137,12 @@ export default function Calendar() {
           setExternalEvents(prev => [...prev.filter(e => e.source !== 'google_calendar'), ...googleData.events]);
           syncedCount++;
         }
-      } catch (err) {
+      } catch {
         // Silently ignore
       }
 
       try {
-        const { data: teamsData } = await supabase.functions.invoke('teams-calendar-sync', {
+        const { data: teamsData } = await invokeFunctionWithCsrf<{ events?: CalendarEvent[] }>('teams-calendar-sync', {
           body: { action: 'list-events', timeMin, timeMax }
         });
 
@@ -149,7 +150,7 @@ export default function Calendar() {
           setExternalEvents(prev => [...prev.filter(e => e.source !== 'microsoft_teams'), ...teamsData.events]);
           syncedCount++;
         }
-      } catch (err) {
+      } catch {
         // Silently ignore
       }
 
@@ -159,7 +160,7 @@ export default function Calendar() {
           description: "External calendars have been synchronized."
         });
       }
-    } catch (error) {
+    } catch {
       showError({
         title: "Sync Failed",
         description: "Unable to sync external calendars. Please try again."
@@ -173,6 +174,7 @@ export default function Calendar() {
     if (hasSsoConfig) {
       syncExternalCalendars();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate, hasSsoConfig]);
 
   const getEventTypeColor = (type: string) => {

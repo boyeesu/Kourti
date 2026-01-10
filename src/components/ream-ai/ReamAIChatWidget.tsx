@@ -52,7 +52,7 @@ export function ReamAIChatWidget({
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadedDocument, setUploadedDocument] = useState<any | null>(null);
+  const [uploadedDocument, setUploadedDocument] = useState<{ id: string; name?: string; content?: string; file_path?: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { streamAnalysis } = useEnhancedDocumentAnalysis();
@@ -165,17 +165,18 @@ export function ReamAIChatWidget({
           title: "Document Uploaded",
           description: "The document has been saved and is ready for analysis.",
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Upload error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `⚠️ Failed to upload "${file.name}": ${error.message || 'Unknown error'}`,
+          content: `⚠️ Failed to upload "${file.name}": ${errorMessage}`,
           timestamp: new Date(),
         }]);
         toast({
           variant: "destructive",
           title: "Upload Failed",
-          description: error.message || "Failed to upload document.",
+          description: errorMessage,
         });
       } finally {
         setIsUploading(false);

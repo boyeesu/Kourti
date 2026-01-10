@@ -78,7 +78,7 @@ export default function ClientCreate({ onSuccess, showHeader = true }: ClientCre
       } else {
         navigate(`/clients/${newClient.id}`);
       }
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation
     }
   };

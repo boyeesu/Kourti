@@ -52,7 +52,7 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
     try {
       await deleteEvent.mutateAsync(event.id);
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to delete event",
@@ -66,7 +66,7 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
     // Don't close the view dialog, keep it in background
   };
 
-  const handleEditClose = (_wasUpdated?: boolean) => {
+  const handleEditClose = () => {
     setShowEditDialog(false);
     // If event was updated, view dialog remains open to show updated event
   };

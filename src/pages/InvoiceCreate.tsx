@@ -27,7 +27,7 @@ export default function InvoiceCreate() {
     try {
       const newInvoice = await createInvoice.mutateAsync(payload);
       navigate(`/invoices/${newInvoice.id}`);
-    } catch (error) {
+    } catch {
       // Error handling is done in the hook
     }
   };

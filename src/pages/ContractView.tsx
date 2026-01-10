@@ -26,7 +26,7 @@ function AIReviewDialog({ contractText }: { contractText: string }) {
         redlineContract(fullText),
       ]);
       setResults({ summary, clauses, redlines });
-    } catch (e) {
+    } catch {
       setError("There was an error with the AI review. Please try again or check your API key.");
     } finally {
       setLoading(false);

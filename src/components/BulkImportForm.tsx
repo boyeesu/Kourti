@@ -13,7 +13,7 @@ import * as z from "zod";
 
 interface BulkImportFormProps {
   entityType: "clients" | "cases";
-  onImportComplete?: (data: any[]) => void;
+  onImportComplete?: (data: Record<string, unknown>[]) => void;
 }
 
 interface ImportResult {
@@ -69,7 +69,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
     }
   };
 
-  const schemas: Record<BulkImportFormProps["entityType"], z.ZodSchema<any>> = {
+  const schemas: Record<BulkImportFormProps["entityType"], z.ZodSchema<Record<string, unknown>>> = {
     clients: z.object({
       name: z.string().min(1),
       email: z.string().email().optional().or(z.literal("")),
@@ -88,7 +88,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
     }),
   };
 
-  const processImport = async (data: any[]): Promise<ImportResult> => {
+  const processImport = async (data: Record<string, unknown>[]): Promise<ImportResult> => {
     let successful = 0;
     let failed = 0;
     const errors: string[] = [];

@@ -138,7 +138,7 @@ export default function ContractReview() {
         title: "Copied",
         description: "Contract analysis copied to clipboard.",
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Copy Failed",
         description: "Failed to copy to clipboard.",
@@ -189,7 +189,7 @@ export default function ContractReview() {
         title: "Contract Saved",
         description: "Contract has been saved successfully.",
       });
-    } catch (error: any) {
+    } catch {
       // Error toast is handled by the mutation hook
     } finally {
       setIsSaving(false);

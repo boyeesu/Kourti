@@ -141,14 +141,16 @@ invokeFunctionWithCsrf('function-name', ...)
 - `src/hooks/useAuth.tsx` - Auto-fetch CSRF token
 - `src/hooks/useUserManagement.tsx` - Use CSRF client
 - `src/hooks/useReamAIAssistant.ts` - Use CSRF client
+- `src/components/VoiceTranscriptionModule.tsx` - Use CSRF client for voice-transcription
+- `src/pages/Calendar.tsx` - Use CSRF client for calendar sync
 
 ---
 
 ## 🎯 Next Steps
 
-1. **Run Database Migration** - Execute `create_csrf_sessions_table.sql`
-2. **Deploy Edge Functions** - Deploy `get-csrf-token` and updated functions
-3. **Update Remaining Frontend Calls** - Replace `supabase.functions.invoke` with `invokeFunctionWithCsrf` where needed
+1. ~~**Run Database Migration** - Execute `create_csrf_sessions_table.sql`~~ ✅ DONE
+2. ~~**Deploy Edge Functions** - Deploy `get-csrf-token` and updated functions~~ ✅ DONE
+3. ~~**Update Remaining Frontend Calls** - Replace `supabase.functions.invoke` with `invokeFunctionWithCsrf` where needed~~ ✅ DONE
 4. **Test Thoroughly** - Verify all protected endpoints work with CSRF
 5. **Monitor** - Watch for CSRF errors in production logs
 

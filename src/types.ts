@@ -20,7 +20,7 @@ export interface Case {
   notes?: string;
   case_type_id?: string;
   case_issue_id?: string;
-  custom_fields?: Record<string, any>;
+  custom_fields?: Record<string, unknown>;
   client?: Client;
   case_type?: {
     id: string;
@@ -151,7 +151,7 @@ export interface Document {
   name?: string;
   content?: string;
   summary?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   /**
    * Workflow/status tracking (e.g. draft → signed).  Optional to keep
    * backwards compatibility.
@@ -198,7 +198,7 @@ export interface Contract {
   termination_date?: string;
   contract_type?: string;
   terms?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   /**
    * Aggregated count convenience field (e.g. number of contracts for a client).
    */

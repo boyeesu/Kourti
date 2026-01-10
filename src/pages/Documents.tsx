@@ -356,7 +356,7 @@ export default function Documents() {
                         try {
                           await exportAsPdf(doc.content || '', (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase(), doc.name || 'Document');
                           toast({ title: 'Success', description: 'Document exported as PDF.' });
-                        } catch (error) {
+                        } catch {
                           toast({ variant: 'destructive', title: 'Error', description: 'Failed to export PDF.' });
                         }
                       }}>
@@ -367,7 +367,7 @@ export default function Documents() {
                         try {
                           await exportAsDocx(doc.content || '', (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase());
                           toast({ title: 'Success', description: 'Document exported as DOCX.' });
-                        } catch (error) {
+                        } catch {
                           toast({ variant: 'destructive', title: 'Error', description: 'Failed to export DOCX.' });
                         }
                       }}>

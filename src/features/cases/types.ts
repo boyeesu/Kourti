@@ -28,7 +28,7 @@ export interface CaseField {
   field_key: string;
   data_type: string;
   is_required: boolean | null;
-  options?: any;
+  options?: string[] | { label: string; value: string }[] | Record<string, unknown>;
   field_order: number | null;
   organization_id: string;
   created_by?: string | null;

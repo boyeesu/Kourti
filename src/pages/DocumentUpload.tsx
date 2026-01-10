@@ -148,12 +148,13 @@ export default function DocumentUpload() {
       });
 
       navigate("/documents");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating document:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create document.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to create document.",
+        description: errorMessage,
       });
     }
   };

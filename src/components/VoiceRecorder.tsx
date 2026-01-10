@@ -86,28 +86,32 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
     }
   };
 
-  const transcribeAudio = async (_audioBlob: Blob) => {
+  const transcribeAudio = async () => {
     setIsTranscribing(true);
     
     try {
       // Check if Web Speech API is available
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         // Use Web Speech API for real-time transcription (Chrome/Edge)
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
+        const SpeechRecognitionAPI = (window as { SpeechRecognition?: new () => SpeechRecognition; webkitSpeechRecognition?: new () => SpeechRecognition }).SpeechRecognition || (window as { webkitSpeechRecognition?: new () => SpeechRecognition }).webkitSpeechRecognition;
+        if (!SpeechRecognitionAPI) {
+          fallbackTranscription();
+          return;
+        }
+        const recognition = new SpeechRecognitionAPI();
         
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
         
         // Handle recognition result
-        recognition.onresult = (event: any) => {
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
           const transcript = event.results[0][0].transcript;
           onTranscription(transcript);
           toast({ title: "Transcribed", description: "Audio transcribed successfully" });
         };
         
-        recognition.onerror = (event: any) => {
+        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
           console.error("Speech recognition error:", event.error);
           // Fallback to manual transcription entry
           fallbackTranscription();

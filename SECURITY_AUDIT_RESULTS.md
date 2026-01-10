@@ -54,7 +54,9 @@ See `CSRF_INTEGRATION_GUIDE.md` for detailed options and implementation steps.
 - [x] SECURITY DEFINER Audit (0 functions need fixing)
 
 ### ⏳ Pending:
-- [ ] CSRF Protection (helper ready, needs integration)
+- [x] CSRF Protection - Database migration deployed ✅
+- [x] CSRF Protection - Edge function deployed ✅
+- [x] CSRF Protection - Frontend calls updated to use `invokeFunctionWithCsrf` ✅
 
 ---
 

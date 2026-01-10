@@ -112,7 +112,7 @@ export default function PermissionsTab() {
         title: "Permissions saved",
         description: "All permission changes have been applied successfully.",
       });
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Failed to save permissions",

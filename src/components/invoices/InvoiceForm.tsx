@@ -190,7 +190,7 @@ export function InvoiceForm({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {clients.map((client: any) => (
+                            {clients.map((client: { id: string; name: string }) => (
                               <SelectItem key={client.id} value={client.id}>
                                 {client.name}
                               </SelectItem>
@@ -219,7 +219,7 @@ export function InvoiceForm({
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="">No Case</SelectItem>
-                            {cases.map((caseItem: any) => (
+                            {cases.map((caseItem: { id: string; title: string }) => (
                               <SelectItem key={caseItem.id} value={caseItem.id}>
                                 {caseItem.title}
                               </SelectItem>

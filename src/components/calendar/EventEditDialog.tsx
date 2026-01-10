@@ -149,7 +149,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
         ...cleanedData,
       });
       onOpenChange(false, true); // Pass true to indicate successful update
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation's onError callback
     }
   };

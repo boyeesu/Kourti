@@ -96,7 +96,7 @@ export default function ContractEdit() {
       });
       setIsModified(false);
       navigate(`/contracts/${id}`);
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };
@@ -105,12 +105,12 @@ export default function ContractEdit() {
     try {
       await deleteContract.mutateAsync(id!);
       navigate("/contracts");
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     setContractData(prev => ({
       ...prev,
       [field]: value

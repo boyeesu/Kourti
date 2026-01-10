@@ -195,7 +195,7 @@ export default function ReamAI() {
   ]);
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<{ id: string; name?: string; title?: string; type?: string; file_path?: string; content?: string; terms?: string; description?: string } | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [enableVectorSearch] = useState(true);
   const [activeQuery, setActiveQuery] = useState("");
@@ -498,7 +498,7 @@ export default function ReamAI() {
   // Dropzone is now used for file uploads
 
   // Handle document/contract selection with content extraction
-  async function handleSelectDoc(doc: any, isContract: boolean) {
+  async function handleSelectDoc(doc: { id: string; name?: string; title?: string; file_path?: string; content?: string; terms?: string; description?: string }, isContract: boolean) {
     setSelectedDoc({ ...doc, type: isContract ? "contract" : "document" });
     setSelectedFile(null); // Clear any uploaded file
     setIsDocSelectorOpen(false); // Close the popover
@@ -755,7 +755,7 @@ export default function ReamAI() {
       ) {
         if (selectedDoc && documentContent) {
           // Use the full content from the manually selected document, managing context window
-          let fullContent = documentContent.fullContent || "";
+          const fullContent = documentContent.fullContent || "";
           content = manageContextWindow(fullContent);
 
           // Also include RAG results if available for additional context
@@ -1064,7 +1064,7 @@ I'll answer based on the relevant information found above.`;
   }
 
   // Function to handle adding an example prompt
-  function useExamplePrompt(prompt: string) {
+  function handleExamplePrompt(prompt: string) {
     setInput(prompt);
   }
 
@@ -1239,7 +1239,7 @@ I'll answer based on the relevant information found above.`;
                               key={i}
                               variant="ghost"
                               className="justify-start h-auto py-2 px-3 text-sm text-left hover:bg-accent"
-                              onClick={() => useExamplePrompt(prompt)}
+                              onClick={() => handleExamplePrompt(prompt)}
                             >
                               {prompt}
                             </Button>
