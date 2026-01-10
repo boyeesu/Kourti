@@ -23,22 +23,30 @@ import { CalendarEvent } from '@/types';
 //   created_at: string;
 // }
 
+// Interface matches calendar_events table schema exactly
 export interface CreateCalendarEventData {
+  // Required fields
   title: string;
-  description?: string;
   start_date: string;
   end_date: string;
+  
+  // Optional basic fields (from calendar_events table)
+  description?: string;
   location?: string;
   attendees?: string[];
   event_type?: string;
   case_id?: string;
   client_id?: string;
+  
+  // Recurring event fields (from calendar_events table - added via migration)
   is_recurring?: boolean;
   recurrence_pattern?: {
     frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
     interval: number;
   };
   recurrence_end_date?: string;
+  
+  // Note: reminders are NOT in this interface as they're stored in event_reminders table
 }
 
 /**
@@ -161,13 +169,25 @@ export function useCreateCalendarEvent() {
       }
 
       const userId = await getCurrentUserId();
+      
+      // Explicitly build insert data with only fields that exist in calendar_events table
+      // This prevents errors from extra form fields (reminders, recurrence fields, etc.)
       const insertData: any = {
-        ...eventData,
+        title: eventData.title,
+        description: eventData.description || null,
+        start_date: eventData.start_date,
+        end_date: eventData.end_date,
+        location: eventData.location || null,
+        attendees: eventData.attendees || null,
+        event_type: eventData.event_type || null,
+        case_id: eventData.case_id || null,
+        client_id: eventData.client_id || null,
         organization_id: organizationId,
         created_by: userId,
       };
 
-      // Handle recurring events
+      // Add recurring event fields only if recurring is enabled
+      // Only include these fields if the migration has been applied and event is actually recurring
       if (eventData.is_recurring && eventData.recurrence_pattern) {
         insertData.is_recurring = true;
         insertData.recurrence_pattern = eventData.recurrence_pattern;
@@ -175,6 +195,8 @@ export function useCreateCalendarEvent() {
           insertData.recurrence_end_date = eventData.recurrence_end_date;
         }
       }
+      // Note: We don't set is_recurring to false if not recurring
+      // This avoids errors if the column doesn't exist yet
 
       const { data, error } = await supabase
         .from('calendar_events')

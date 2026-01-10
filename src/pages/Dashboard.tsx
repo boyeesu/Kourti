@@ -28,18 +28,18 @@ import {
   TrendingUp,
   AlertTriangle,
   Clock,
-  DollarSign,
   BarChart,
   RefreshCw,
   ArrowRight,
+  Scale,
 } from "lucide-react";
 import { useInsights } from "@/hooks/useInsights";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useUserRole } from "@/hooks/useUserManagement";
-import { useCases } from "@/hooks/useCases";
+import { useAllCases } from "@/hooks/useCases";
 import { useAllActivities } from "@/features/activities/api/useAllActivities";
 import { Case, Contract } from "@/types";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
 import { calculateCaseStatusData } from "@/lib/analyticsUtils";
@@ -52,7 +52,7 @@ export default function Dashboard() {
   const { upcomingCases, upcomingContracts } = useInsights(windowDays);
   const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard } = useDashboard();
   const { data: userRoleData } = useUserRole();
-  const { data: casesData, isLoading: casesLoading } = useCases();
+  const { data: casesData, isLoading: casesLoading } = useAllCases();
   const { data: activitiesData, isLoading: activitiesLoading } = useAllActivities();
 
   const role = userRoleData?.role;
@@ -60,7 +60,7 @@ export default function Dashboard() {
 
   // Process case status data for pie chart - ONLY use real data
   const casesByStatus = useMemo(() => {
-    return calculateCaseStatusData(casesData?.cases || []);
+    return calculateCaseStatusData(casesData || []);
   }, [casesData]);
 
   // Generate monthly activity data based on real activity data
@@ -147,23 +147,23 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="px-2 py-4 sm:px-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your legal practice</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Overview of your legal practice</p>
       </div>
 
-      {/* Stats Cards (Live Data) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="shadow-card">
+      {/* Stats Cards (Live Data) - No Revenue */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+        <Card className="shadow-card border-0 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/20 dark:to-blue-900/10">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Briefcase className="h-5 w-5 text-primary" />
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Active Cases</p>
+                <p className="text-sm text-muted-foreground">Active Matters</p>
                 <p className="text-2xl font-bold">
                   {dashboardLoading ? (
                     <span className="animate-pulse">—</span>
@@ -176,11 +176,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-card">
+        <Card className="shadow-card border-0 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/20 dark:to-emerald-900/10">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-success/10 rounded-lg">
-                <Users className="h-5 w-5 text-success" />
+              <div className="p-2 bg-emerald-500/10 rounded-lg">
+                <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Clients</p>
@@ -196,11 +196,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-card">
+        <Card className="shadow-card border-0 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-warning/10 rounded-lg">
-                <FileText className="h-5 w-5 text-warning" />
+              <div className="p-2 bg-amber-500/10 rounded-lg">
+                <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Documents</p>
@@ -216,36 +216,31 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {isAdmin && (
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-destructive/10 rounded-lg">
-                  <DollarSign className="h-5 w-5 text-destructive" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm text-muted-foreground">Revenue</p>
-                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold ml-2">Coming Soon</span>
-                  </div>
-                  <p className="text-2xl font-bold select-none" style={{ filter: 'blur(3px)', opacity: 0.7 }}>
-                    {dashboardLoading ? (
-                      <span className="animate-pulse">—</span>
-                    ) : (
-                      formatCurrency(dashboardData?.totalRevenue || 0)
-                    )}
-                  </p>
-                </div>
+        <Card className="shadow-card border-0 bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-950/20 dark:to-violet-900/10">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-violet-500/10 rounded-lg">
+                <Scale className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <div>
+                <p className="text-sm text-muted-foreground">Total Matters</p>
+                <p className="text-2xl font-bold">
+                  {dashboardLoading ? (
+                    <span className="animate-pulse">—</span>
+                  ) : (
+                    dashboardData?.totalCases ?? "0"
+                  )}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <ModuleErrorBoundary name="Monthly Activity Chart">
-          <Card className="shadow-card">
+          <Card className="shadow-card border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart className="h-5 w-5 text-primary" />
@@ -253,87 +248,104 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={recentActivity}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    width={30}
-                  />
-                  <Legend
-                    verticalAlign="top"
-                    height={36}
-                    iconType="circle"
-                  />
-                  {/* Render lines dynamically based on activity data */}
-                  {recentActivity.length > 0 && Object.keys(recentActivity[0]).filter(key => key !== 'month').map((activityType, index) => {
-                    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-                    return (
-                      <Line
-                        key={activityType}
-                        type="monotone"
-                        dataKey={activityType}
-                        name={activityType}
-                        stroke={colors[index % colors.length]}
-                        strokeWidth={3}
-                        activeDot={{ r: 8 }}
-                      />
-                    );
-                  })}
-                </LineChart>
-              </ResponsiveContainer>
+              {recentActivity.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={recentActivity}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      width={30}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      height={36}
+                      iconType="circle"
+                    />
+                    {/* Render lines dynamically based on activity data */}
+                    {recentActivity.length > 0 && Object.keys(recentActivity[0]).filter(key => key !== 'month').map((activityType, index) => {
+                      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                      return (
+                        <Line
+                          key={activityType}
+                          type="monotone"
+                          dataKey={activityType}
+                          name={activityType}
+                          stroke={colors[index % colors.length]}
+                          strokeWidth={3}
+                          dot={{ fill: colors[index % colors.length], strokeWidth: 2, r: 3 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      );
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No activity data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </ModuleErrorBoundary>
 
         <ModuleErrorBoundary name="Cases by Status Chart">
-          <Card className="shadow-card">
+          <Card className="shadow-card border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                Cases by Status
+                Matters by Status
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={casesByStatus}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, value, percent }) => `${name}: ${value} (${((percent || 0) * 100).toFixed(0)}%)`}
-                    labelLine={true}
-                  >
-                    {casesByStatus.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    iconType="circle"
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {casesByStatus.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={casesByStatus}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, value, percent }) => `${name}: ${value} (${((percent || 0) * 100).toFixed(0)}%)`}
+                      labelLine={true}
+                      strokeWidth={2}
+                      stroke="hsl(var(--background))"
+                    >
+                      {casesByStatus.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Legend
+                      verticalAlign="bottom"
+                      height={36}
+                      iconType="circle"
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No matter data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </ModuleErrorBoundary>
       </div>
 
       {/* Upcoming Events */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <ModuleErrorBoundary name="Upcoming Hearings">
-          <Card className="shadow-card">
+          <Card className="shadow-card border-0">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -357,14 +369,14 @@ export default function Dashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Case</TableHead>
+                      <TableHead>Matter</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Court</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {upcomingCases.map((c: Case) => (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/cases/${c.id}`)}>
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/matters/${c.id}`)}>
                         <TableCell className="font-medium max-w-[200px] truncate" title={c.title}>{c.title}</TableCell>
                         <TableCell>{formatDate(c.next_hearing_date)}</TableCell>
                         <TableCell className="max-w-[120px] truncate" title={c.court || 'TBD'}>{c.court || 'TBD'}</TableCell>
@@ -382,7 +394,7 @@ export default function Dashboard() {
         </ModuleErrorBoundary>
 
         <ModuleErrorBoundary name="Contract Renewals">
-          <Card className="shadow-card">
+          <Card className="shadow-card border-0">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -408,7 +420,7 @@ export default function Dashboard() {
                     <TableRow>
                       <TableHead>Contract</TableHead>
                       <TableHead>End Date</TableHead>
-                      <TableHead>Value</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -420,7 +432,17 @@ export default function Dashboard() {
                       >
                         <TableCell className="font-medium max-w-[200px] truncate" title={contract.title}>{contract.title}</TableCell>
                         <TableCell>{formatDate(contract.end_date)}</TableCell>
-                        <TableCell>{formatCurrency(contract.value)}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            contract.status === 'active' 
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              : contract.status === 'draft'
+                              ? 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          }`}>
+                            {contract.status || 'Unknown'}
+                          </span>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

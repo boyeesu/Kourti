@@ -1,7 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { logError } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
-import { sanitizeErrorForLogging } from '@/lib/utils';
+import { sanitizeErrorForLogging } from '@/lib/error';
 
 interface Props {
   children: ReactNode;

@@ -17,6 +17,7 @@ interface ChatWindowProps {
   conversationId: string;
   onClose: () => void;
   recipientName?: string;
+  showBackButton?: boolean;
 }
 
 // Component to load image preview with fresh signed URL
@@ -91,7 +92,7 @@ function FileImagePreview({
   );
 }
 
-export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindowProps) {
+export function ChatWindow({ conversationId, onClose, recipientName, showBackButton = false }: ChatWindowProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [message, setMessage] = useState('');
@@ -337,19 +338,22 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-background border-l border-border">
+    <div className="flex flex-col h-full w-full bg-background border-l border-border md:border-l">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-8 w-8 -ml-1"
-            title="Back to conversations"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+      <div className="flex items-center justify-between p-3 md:p-4 border-b border-border">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Back button - always shown on mobile, optional on desktop */}
+          {(showBackButton || true) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8 -ml-1"
+              title="Back to conversations"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
           <MessageCircle className="h-5 w-5 text-primary" />
           <div>
             <h3 className="font-semibold text-foreground">
@@ -409,10 +413,10 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
                       {getSenderInitials(msg)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className={cn(
-                    "flex flex-col max-w-[70%]",
-                    isOwn && "items-end"
-                  )}>
+                      <div className={cn(
+                        "flex flex-col max-w-[85%] md:max-w-[70%]",
+                        isOwn && "items-end"
+                      )}>
                     {/* Quoted message preview */}
                     {msg.reply_to && (
                       <div className={cn(
@@ -486,7 +490,7 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-border">
+      <div className="p-3 md:p-4 border-t border-border safe-area-bottom">
         {/* Reply preview banner */}
         {replyTo && (
           <div className="mb-3 p-3 bg-primary/10 border-l-4 border-primary rounded-r-lg flex items-start gap-3">

@@ -610,12 +610,6 @@ function AppLayoutInner({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {moduleMeta && (
-                    <div className="hidden items-center gap-2 rounded-full border border-[hsl(var(--surface-border))] bg-[hsl(var(--muted))] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:flex">
-                      <span className={cn("h-2 w-2 rounded-full", toneClassMap[moduleMeta.tone])} />
-                      <span>{moduleMeta.status}</span>
-                    </div>
-                  )}
                   <Button
                     variant="default"
                     className="hidden items-center gap-2 rounded-md bg-[hsl(var(--primary))] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[hsl(var(--primary))/0.9] sm:flex"

@@ -1,246 +1,389 @@
 /**
- * Analytics utility functions for calculating real metrics from data
+ * Analytics utility functions for calculating metrics from real database data
  */
 
-export interface MonthlyData {
-    month: string;
-    [key: string]: number | string;
+interface HasStatus {
+  status?: string | null;
 }
 
-export interface StatusData {
-    name: string;
-    value: number;
-    color: string;
-    [key: string]: string | number;
+interface HasCreatedAt {
+  created_at?: string | null;
+}
+
+interface HasValue {
+  value?: number | null;
+}
+
+interface Invoice extends HasCreatedAt {
+  total_amount?: number | null;
+  status?: string | null;
+}
+
+interface Contract extends HasCreatedAt, HasValue {
+  status?: string | null;
+}
+
+// Status colors for charts
+const STATUS_COLORS: Record<string, string> = {
+  open: "#3b82f6", // blue
+  active: "#10b981", // green
+  in_progress: "#f59e0b", // amber
+  pending: "#8b5cf6", // purple
+  closed: "#6b7280", // gray
+  review: "#ec4899", // pink
+  draft: "#94a3b8", // slate
+  expired: "#ef4444", // red
+  terminated: "#dc2626", // red darker
+};
+
+/**
+ * Calculate case status distribution for pie chart
+ */
+export function calculateCaseStatusData(cases: HasStatus[]): Array<{
+  name: string;
+  value: number;
+  color: string;
+}> {
+  if (!cases || cases.length === 0) {
+    return [];
+  }
+
+  const statusCounts: Record<string, number> = {};
+
+  cases.forEach((caseItem) => {
+    const status = (caseItem.status || "unknown").toLowerCase();
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+  });
+
+  return Object.entries(statusCounts)
+    .map(([status, count]) => ({
+      name: status.charAt(0).toUpperCase() + status.slice(1).replace("_", " "),
+      value: count,
+      color: STATUS_COLORS[status] || "#6b7280",
+    }))
+    .sort((a, b) => b.value - a.value);
 }
 
 /**
- * Get status color based on status name
- */
-export function getStatusColor(status: string): string {
-    const normalizedStatus = status.toLowerCase();
-
-    switch (normalizedStatus) {
-        case 'open':
-        case 'active':
-            return '#3b82f6'; // blue
-        case 'in_progress':
-        case 'pending':
-            return '#f59e0b'; // amber
-        case 'closed':
-        case 'completed':
-            return '#10b981'; // green
-        case 'expired':
-        case 'overdue':
-            return '#ef4444'; // red
-        case 'draft':
-            return '#6b7280'; // gray
-        default:
-            return '#8b5cf6'; // purple
-    }
-}
-
-/**
- * Calculate case status distribution from real case data
- */
-export function calculateCaseStatusData(cases: any[]): StatusData[] {
-    if (!cases || cases.length === 0) {
-        return [];
-    }
-
-    const statusMap: Record<string, number> = {};
-
-    cases.forEach((c) => {
-        const status = c.status || 'unknown';
-        statusMap[status] = (statusMap[status] || 0) + 1;
-    });
-
-    return Object.entries(statusMap).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' '),
-        value,
-        color: getStatusColor(name),
-    }));
-}
-
-/**
- * Calculate monthly trends from timestamped data
- */
-export function calculateMonthlyTrends(
-    data: any[],
-    dateField: string = 'created_at',
-    months: number = 6
-): MonthlyData[] {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const now = new Date();
-    const result: MonthlyData[] = [];
-
-    // Generate last N months
-    for (let i = months - 1; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthName = monthNames[date.getMonth()];
-        const year = date.getFullYear();
-
-        // Count items in this month
-        const count = data.filter((item) => {
-            if (!item[dateField]) return false;
-            const itemDate = new Date(item[dateField]);
-            return itemDate.getMonth() === date.getMonth() &&
-                itemDate.getFullYear() === year;
-        }).length;
-
-        result.push({
-            month: monthName,
-            count,
-            year,
-        });
-    }
-
-    return result;
-}
-
-/**
- * Calculate monthly client activity (new vs active)
+ * Calculate client activity trends over the past N months
  */
 export function calculateClientActivity(
-    clients: any[],
-    months: number = 6
-): MonthlyData[] {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const now = new Date();
-    const result: MonthlyData[] = [];
+  clients: HasCreatedAt[],
+  monthsBack: number = 6
+): Array<{ month: string; active: number; new: number }> {
+  const now = new Date();
+  const months: string[] = [];
+  const monthData: Record<string, { active: number; new: number }> = {};
 
-    for (let i = months - 1; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthName = monthNames[date.getMonth()];
-        const year = date.getFullYear();
+  // Generate month labels
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthLabel = date.toLocaleString("default", { month: "short" });
+    months.push(monthLabel);
+    monthData[monthLabel] = { active: 0, new: 0 };
+  }
 
-        // Count new clients in this month
-        const newClients = clients.filter((client) => {
-            if (!client.created_at) return false;
-            const clientDate = new Date(client.created_at);
-            return clientDate.getMonth() === date.getMonth() &&
-                clientDate.getFullYear() === year;
-        }).length;
+  // Count clients by month
+  clients.forEach((client) => {
+    if (!client.created_at) return;
 
-        // Count active clients (created on or before this month and status is active)
-        const activeClients = clients.filter((client) => {
-            if (!client.created_at) return false;
-            const clientDate = new Date(client.created_at);
-            const isCreatedBefore = clientDate <= new Date(year, date.getMonth() + 1, 0);
-            const isActive = client.status === 'active';
-            return isCreatedBefore && isActive;
-        }).length;
+    const createdDate = new Date(client.created_at);
+    const monthsSinceCreation = Math.floor(
+      (now.getTime() - createdDate.getTime()) / (30 * 24 * 60 * 60 * 1000)
+    );
 
-        result.push({
-            month: monthName,
-            new: newClients,
-            active: activeClients,
-        });
+    if (monthsSinceCreation < monthsBack) {
+      const monthLabel = createdDate.toLocaleString("default", { month: "short" });
+      if (monthData[monthLabel]) {
+        monthData[monthLabel].new++;
+      }
     }
+  });
 
-    return result;
+  // Calculate running total for "active" (cumulative)
+  let runningTotal = 0;
+  return months.map((month) => {
+    runningTotal += monthData[month].new;
+    return {
+      month,
+      active: runningTotal,
+      new: monthData[month].new,
+    };
+  });
 }
 
 /**
- * Calculate monthly revenue from invoices
+ * Calculate monthly revenue from invoices and contracts
+ * NOTE: Revenue functionality is hidden but kept for future use
  */
 export function calculateMonthlyRevenue(
-    invoices: any[],
-    contracts: any[],
-    months: number = 6
-): MonthlyData[] {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const now = new Date();
-    const result: MonthlyData[] = [];
+  invoices: Invoice[],
+  contracts: Contract[],
+  monthsBack: number = 6
+): Array<{ month: string; revenue: number; contracts: number }> {
+  const now = new Date();
+  const months: string[] = [];
+  const monthData: Record<string, { revenue: number; contracts: number }> = {};
 
-    for (let i = months - 1; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthName = monthNames[date.getMonth()];
-        const year = date.getFullYear();
+  // Generate month labels
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthLabel = date.toLocaleString("default", { month: "short" });
+    months.push(monthLabel);
+    monthData[monthLabel] = { revenue: 0, contracts: 0 };
+  }
 
-        // Sum revenue from paid invoices in this month
-        const revenue = invoices
-            .filter((invoice) => {
-                if (!invoice.created_at || invoice.status !== 'paid') return false;
-                const invoiceDate = new Date(invoice.created_at);
-                return invoiceDate.getMonth() === date.getMonth() &&
-                    invoiceDate.getFullYear() === year;
-            })
-            .reduce((sum, invoice) => sum + (invoice.total_amount || 0), 0);
+  // Sum paid invoice amounts by month
+  invoices.forEach((invoice) => {
+    if (!invoice.created_at || invoice.status !== "paid") return;
 
-        // Sum contract values created in this month
-        const contractValue = contracts
-            .filter((contract) => {
-                if (!contract.created_at) return false;
-                const contractDate = new Date(contract.created_at);
-                return contractDate.getMonth() === date.getMonth() &&
-                    contractDate.getFullYear() === year;
-            })
-            .reduce((sum, contract) => sum + (contract.value || 0), 0);
+    const createdDate = new Date(invoice.created_at);
+    const monthLabel = createdDate.toLocaleString("default", { month: "short" });
 
-        result.push({
-            month: monthName,
-            revenue,
-            contracts: contractValue,
-        });
+    if (monthData[monthLabel]) {
+      monthData[monthLabel].revenue += invoice.total_amount || 0;
     }
+  });
 
+  // Sum contract values by month
+  contracts.forEach((contract) => {
+    if (!contract.created_at) return;
+
+    const createdDate = new Date(contract.created_at);
+    const monthLabel = createdDate.toLocaleString("default", { month: "short" });
+
+    if (monthData[monthLabel]) {
+      monthData[monthLabel].contracts += contract.value || 0;
+    }
+  });
+
+  return months.map((month) => ({
+    month,
+    revenue: monthData[month].revenue,
+    contracts: monthData[month].contracts,
+  }));
+}
+
+/**
+ * Calculate month-over-month change metrics
+ */
+export function calculateMonthOverMonthMetrics(
+  items: HasCreatedAt[]
+): { current: number; previous: number; change: number; direction: "up" | "down" | "flat"; formatted: string } {
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  let currentCount = 0;
+  let previousCount = 0;
+
+  items.forEach((item) => {
+    if (!item.created_at) return;
+
+    const createdDate = new Date(item.created_at);
+
+    if (createdDate >= currentMonthStart) {
+      currentCount++;
+    } else if (createdDate >= previousMonthStart && createdDate < currentMonthStart) {
+      previousCount++;
+    }
+  });
+
+  const change = previousCount === 0 
+    ? (currentCount > 0 ? 100 : 0)
+    : Math.round(((currentCount - previousCount) / previousCount) * 100);
+
+  const direction: "up" | "down" | "flat" = 
+    change > 0 ? "up" : change < 0 ? "down" : "flat";
+
+  const formatted = change === 0 
+    ? "No change" 
+    : `${change > 0 ? "+" : ""}${change}%`;
+
+  return { current: currentCount, previous: previousCount, change, direction, formatted };
+}
+
+/**
+ * Calculate contract status distribution
+ */
+export function calculateContractStatusData(contracts: HasStatus[]): Array<{
+  name: string;
+  value: number;
+  color: string;
+}> {
+  if (!contracts || contracts.length === 0) {
+    return [];
+  }
+
+  const statusCounts: Record<string, number> = {};
+
+  contracts.forEach((contract) => {
+    const status = (contract.status || "unknown").toLowerCase();
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+  });
+
+  return Object.entries(statusCounts)
+    .map(([status, count]) => ({
+      name: status.charAt(0).toUpperCase() + status.slice(1),
+      value: count,
+      color: STATUS_COLORS[status] || "#6b7280",
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/**
+ * Calculate priority distribution for cases
+ */
+export function calculatePriorityDistribution(
+  cases: Array<{ priority?: string | null }>
+): Array<{ name: string; value: number; color: string }> {
+  const priorityColors: Record<string, string> = {
+    high: "#ef4444",
+    medium: "#f59e0b",
+    low: "#10b981",
+  };
+
+  const priorityCounts: Record<string, number> = {};
+
+  cases.forEach((caseItem) => {
+    const priority = (caseItem.priority || "unset").toLowerCase();
+    priorityCounts[priority] = (priorityCounts[priority] || 0) + 1;
+  });
+
+  return Object.entries(priorityCounts)
+    .map(([priority, count]) => ({
+      name: priority.charAt(0).toUpperCase() + priority.slice(1),
+      value: count,
+      color: priorityColors[priority] || "#6b7280",
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/**
+ * Calculate activity trends from case activities
+ */
+export function calculateActivityTrends(
+  activities: Array<{ created_at?: string | null; activity_type?: string | null }>,
+  monthsBack: number = 6
+): Array<Record<string, string | number>> {
+  const now = new Date();
+  const months: string[] = [];
+  const monthData: Record<string, Record<string, number>> = {};
+  const allTypes = new Set<string>();
+
+  // Generate month labels
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthLabel = date.toLocaleString("default", { month: "short" });
+    months.push(monthLabel);
+    monthData[monthLabel] = {};
+  }
+
+  // Count activities by month and type
+  activities.forEach((activity) => {
+    if (!activity.created_at) return;
+
+    const createdDate = new Date(activity.created_at);
+    const monthLabel = createdDate.toLocaleString("default", { month: "short" });
+    const activityType = activity.activity_type || "Other";
+
+    allTypes.add(activityType);
+
+    if (monthData[monthLabel]) {
+      monthData[monthLabel][activityType] = (monthData[monthLabel][activityType] || 0) + 1;
+    }
+  });
+
+  // Get top 3 activity types
+  const typeCounts: Record<string, number> = {};
+  activities.forEach((activity) => {
+    const type = activity.activity_type || "Other";
+    typeCounts[type] = (typeCounts[type] || 0) + 1;
+  });
+
+  const topTypes = Object.entries(typeCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([type]) => type);
+
+  // Build result array
+  return months.map((month) => {
+    const result: Record<string, string | number> = { month };
+    topTypes.forEach((type) => {
+      result[type] = monthData[month][type] || 0;
+    });
     return result;
+  });
 }
 
 /**
- * Calculate percentage change between two values
+ * Calculate documents uploaded per month
  */
-export function calculatePercentageChange(current: number, previous: number): {
-    percentage: number;
-    direction: 'up' | 'down' | 'neutral';
-    formatted: string;
-} {
-    if (previous === 0) {
-        return {
-            percentage: current > 0 ? 100 : 0,
-            direction: current > 0 ? 'up' : 'neutral',
-            formatted: current > 0 ? '↑ 100%' : '—',
-        };
+export function calculateDocumentTrends(
+  documents: HasCreatedAt[],
+  monthsBack: number = 6
+): Array<{ month: string; count: number }> {
+  const now = new Date();
+  const months: string[] = [];
+  const monthData: Record<string, number> = {};
+
+  // Generate month labels
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthLabel = date.toLocaleString("default", { month: "short" });
+    months.push(monthLabel);
+    monthData[monthLabel] = 0;
+  }
+
+  // Count documents by month
+  documents.forEach((doc) => {
+    if (!doc.created_at) return;
+
+    const createdDate = new Date(doc.created_at);
+    const monthLabel = createdDate.toLocaleString("default", { month: "short" });
+
+    if (monthData[monthLabel] !== undefined) {
+      monthData[monthLabel]++;
     }
+  });
 
-    const change = ((current - previous) / previous) * 100;
-    const direction = change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
-    const formatted = change > 0
-        ? `↑ ${Math.abs(change).toFixed(0)}%`
-        : change < 0
-            ? `↓ ${Math.abs(change).toFixed(0)}%`
-            : '—';
-
-    return {
-        percentage: change,
-        direction,
-        formatted,
-    };
+  return months.map((month) => ({
+    month,
+    count: monthData[month],
+  }));
 }
 
 /**
- * Calculate month-over-month metrics
+ * Calculate task completion rate
  */
-export function calculateMonthOverMonthMetrics(data: any[], dateField: string = 'created_at') {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+export function calculateTaskMetrics(
+  tasks: Array<{ completed?: boolean | null; priority?: string | null; due_date?: string | null }>
+): {
+  total: number;
+  completed: number;
+  pending: number;
+  overdue: number;
+  completionRate: number;
+} {
+  const now = new Date();
+  let total = 0;
+  let completed = 0;
+  let overdue = 0;
 
-    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  tasks.forEach((task) => {
+    total++;
+    if (task.completed) {
+      completed++;
+    } else if (task.due_date && new Date(task.due_date) < now) {
+      overdue++;
+    }
+  });
 
-    const currentMonthCount = data.filter((item) => {
-        if (!item[dateField]) return false;
-        const date = new Date(item[dateField]);
-        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-    }).length;
-
-    const lastMonthCount = data.filter((item) => {
-        if (!item[dateField]) return false;
-        const date = new Date(item[dateField]);
-        return date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear;
-    }).length;
-
-    return calculatePercentageChange(currentMonthCount, lastMonthCount);
+  return {
+    total,
+    completed,
+    pending: total - completed,
+    overdue,
+    completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+  };
 }

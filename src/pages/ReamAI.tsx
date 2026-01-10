@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   Send,
   Loader2,
@@ -25,7 +26,9 @@ import {
   FileText,
   Upload,
   Bot,
-  User
+  User,
+  Menu,
+  PanelLeftClose
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -92,6 +95,7 @@ interface ReamAIHeaderProps {
   isBusy: boolean;
   onQuickAction: (action: QuickAction) => void;
   conversationTitle?: string;
+  onToggleMobileSidebar?: () => void;
 }
 
 function ReamAIHeader({
@@ -99,37 +103,50 @@ function ReamAIHeader({
   hasDocumentContext,
   isBusy,
   onQuickAction,
-  conversationTitle
+  conversationTitle,
+  onToggleMobileSidebar
 }: ReamAIHeaderProps) {
   const [showQuickActions, setShowQuickActions] = useState(false);
   
   return (
-    <div className="flex items-center justify-between border-b bg-background px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h1 className="text-base font-semibold">
+    <div className="flex items-center justify-between border-b bg-background px-3 py-2 md:px-4 md:py-3">
+      <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        {/* Mobile menu button */}
+        {onToggleMobileSidebar && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleMobileSidebar}
+            className="h-8 w-8 lg:hidden shrink-0"
+            title="Open conversation history"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        )}
+        <div className="flex items-center gap-2 min-w-0">
+          <Sparkles className="h-5 w-5 text-primary shrink-0" />
+          <h1 className="text-sm md:text-base font-semibold truncate">
             {conversationTitle || "Ream AI"}
           </h1>
         </div>
         {activeDocumentLabel && (
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant="secondary" className="text-xs hidden sm:flex shrink-0">
             <FileText className="h-3 w-3 mr-1" />
-            {activeDocumentLabel}
+            <span className="truncate max-w-[100px] md:max-w-[200px]">{activeDocumentLabel}</span>
           </Badge>
         )}
       </div>
       
       {hasDocumentContext && (
-        <div className="relative">
+        <div className="relative shrink-0">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowQuickActions(!showQuickActions)}
             className="h-8"
           >
-            <Sparkles className="h-4 w-4 mr-1" />
-            Quick Actions
+            <Sparkles className="h-4 w-4 md:mr-1" />
+            <span className="hidden md:inline">Quick Actions</span>
           </Button>
           {showQuickActions && (
             <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border bg-popover p-2 shadow-lg z-50">
@@ -1147,6 +1164,9 @@ I'll answer based on the relevant information found above.`;
     updateConversation.mutate({ id, title });
   };
 
+  // Mobile sidebar state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   // Prevent body scroll when on Ream AI page
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -1155,20 +1175,48 @@ I'll answer based on the relevant information found above.`;
     };
   }, []);
 
+  // Close mobile sidebar when conversation is selected
+  const handleMobileSelectConversation = (id: string) => {
+    handleSelectConversation(id);
+    setIsMobileSidebarOpen(false);
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)] flex-col overflow-hidden lg:flex-row -mx-3 -my-3 sm:-mx-4 lg:-mx-6 lg:-my-4">
-      {/* Left: Conversation History */}
-      <ModuleErrorBoundary name="Conversation Sidebar">
-        <ConversationSidebar
-          conversations={conversations}
-          currentConversationId={currentConversationId}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
-          onDeleteConversation={handleDeleteConversation}
-          onUpdateConversation={handleUpdateConversation}
-          isLoading={conversationsLoading}
-        />
-      </ModuleErrorBoundary>
+      {/* Mobile sidebar toggle - shown only on smaller screens */}
+      <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+        <SheetContent side="left" className="w-[280px] p-0 lg:hidden">
+          <ModuleErrorBoundary name="Conversation Sidebar">
+            <ConversationSidebar
+              conversations={conversations}
+              currentConversationId={currentConversationId}
+              onSelectConversation={handleMobileSelectConversation}
+              onNewConversation={() => {
+                handleNewConversation();
+                setIsMobileSidebarOpen(false);
+              }}
+              onDeleteConversation={handleDeleteConversation}
+              onUpdateConversation={handleUpdateConversation}
+              isLoading={conversationsLoading}
+            />
+          </ModuleErrorBoundary>
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop sidebar - hidden on mobile */}
+      <div className="hidden lg:block">
+        <ModuleErrorBoundary name="Conversation Sidebar">
+          <ConversationSidebar
+            conversations={conversations}
+            currentConversationId={currentConversationId}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+            onDeleteConversation={handleDeleteConversation}
+            onUpdateConversation={handleUpdateConversation}
+            isLoading={conversationsLoading}
+          />
+        </ModuleErrorBoundary>
+      </div>
 
       {/* Main content area */}
       <ModuleErrorBoundary name="Chat Interface">
@@ -1180,6 +1228,7 @@ I'll answer based on the relevant information found above.`;
             isBusy={isStreaming || isTyping}
             onQuickAction={handleQuickAction}
             conversationTitle={conversations.find(c => c.id === currentConversationId)?.title}
+            onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
           />
 
           {/* Main chat/message area */}
@@ -1268,7 +1317,7 @@ I'll answer based on the relevant information found above.`;
                           msg.role === "user" ? "bg-muted/30" : "bg-background"
                         )}
                       >
-                        <div className="mx-auto flex max-w-3xl gap-4 px-4 py-6">
+                        <div className="mx-auto flex max-w-3xl gap-3 md:gap-4 px-3 py-4 md:px-4 md:py-6">
                           {/* Avatar */}
                           <div className="flex-shrink-0">
                             {msg.role === "user" ? (
@@ -1327,11 +1376,11 @@ I'll answer based on the relevant information found above.`;
                           {selectedDoc || selectedFile ? "Change" : "Select Document"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent 
-                        className="w-[600px] p-0" 
-                        align="start"
-                        side="top"
-                      >
+                        <PopoverContent 
+                          className="w-[calc(100vw-2rem)] sm:w-[500px] md:w-[600px] p-0" 
+                          align="start"
+                          side="top"
+                        >
                         <DocumentSuggestions
                           documents={documents}
                           contracts={contracts}
@@ -1371,11 +1420,11 @@ I'll answer based on the relevant information found above.`;
                 </div>
               )}
 
-              {/* Main input */}
-              <form
-                onSubmit={(event) => sendMessage(event)}
-                className="mx-auto max-w-3xl px-4 py-4"
-              >
+                {/* Main input */}
+                <form
+                  onSubmit={(event) => sendMessage(event)}
+                  className="mx-auto max-w-3xl px-3 py-3 md:px-4 md:py-4 safe-area-bottom"
+                >
                 <div className="relative flex items-end gap-2 rounded-2xl border border-border bg-background shadow-sm transition-shadow focus-within:shadow-md">
                   <div className="flex-1 p-3">
                     <Textarea

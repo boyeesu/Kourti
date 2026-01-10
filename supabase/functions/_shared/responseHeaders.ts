@@ -5,6 +5,7 @@ const DEFAULT_ALLOWED_HEADERS = [
   'x-client-info',
   'apikey',
   'content-type',
+  'x-csrf-token',
 ];
 
 const DEFAULT_PERMISSIONS_POLICY = [

@@ -212,15 +212,25 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
   }, [selectedCaseId, cases, form]);
 
   const onSubmit = async (data: EventFormValues) => {
-    // Convert 'none' to undefined/null for case_id and client_id
+    // Build payload with ONLY fields that exist in calendar_events table
+    // Database fields: title, description, start_date, end_date, location, attendees, 
+    // event_type, case_id, client_id, is_recurring, recurrence_pattern, recurrence_end_date
     const payload: any = {
-      ...data,
+      title: data.title,
+      description: data.description || undefined,
+      start_date: data.start_date,
+      end_date: data.end_date,
+      location: data.location || undefined,
+      attendees: data.attendees && data.attendees.length > 0 ? data.attendees : undefined,
+      event_type: data.event_type,
       case_id: data.case_id === 'none' ? undefined : data.case_id,
       client_id: data.client_id === 'none' ? undefined : data.client_id,
     };
 
-    // Build recurrence pattern if recurring
+    // Add recurring event fields ONLY if recurring is enabled
+    // These map to: is_recurring (boolean), recurrence_pattern (jsonb), recurrence_end_date (timestamptz)
     if (data.is_recurring && data.recurrence_frequency) {
+      payload.is_recurring = true;
       payload.recurrence_pattern = {
         frequency: data.recurrence_frequency,
         interval: data.recurrence_interval || 1,
@@ -230,7 +240,8 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
       }
     }
 
-    // Store reminders separately (will be created after event creation)
+    // Reminders are stored in separate event_reminders table (not in calendar_events)
+    // Store reminders separately to create after event creation
     const remindersToCreate = data.reminders || [];
 
     try {
@@ -268,6 +279,13 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
       setOpen(false);
     } catch (error) {
       console.error("Failed to create event:", error);
+      // The useCreateCalendarEvent hook should already show a toast with error details
+      // Log additional details for debugging
+      console.error("Event creation error details:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        payload,
+      });
     }
   };
 
@@ -534,7 +552,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
               )}
             </div>
 
-            {/* Reminders Section */}
+            {/* Reminders Section - Stored in separate event_reminders table */}
             <div className="space-y-3 border-t pt-4">
               <Label className="flex items-center gap-2">
                 <Bell className="h-4 w-4" />

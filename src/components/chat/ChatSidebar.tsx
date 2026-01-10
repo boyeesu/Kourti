@@ -14,12 +14,14 @@ interface ChatSidebarProps {
   onSelectConversation: (conversationId: string, recipientName?: string) => void;
   onNewChat: () => void;
   selectedConversationId?: string;
+  className?: string;
 }
 
 export function ChatSidebar({
   onSelectConversation,
   onNewChat,
   selectedConversationId,
+  className,
 }: ChatSidebarProps) {
   const { user } = useAuth();
   const { data: conversations = [], isLoading } = useConversations();
@@ -77,7 +79,11 @@ export function ChatSidebar({
   };
 
   return (
-    <div className="flex flex-col h-full w-80 shrink-0 border-r border-border bg-background">
+    <div className={cn(
+      "flex flex-col h-full shrink-0 border-r border-border bg-background",
+      "w-full md:w-80", // Full width on mobile, fixed on desktop
+      className
+    )}>
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">

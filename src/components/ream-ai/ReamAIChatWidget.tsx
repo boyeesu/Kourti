@@ -330,7 +330,8 @@ CRITICAL INSTRUCTIONS:
       <button
         onClick={onMaximize}
         className={cn(
-          'fixed bottom-4 right-4 h-20 w-20 rounded-full shadow-2xl z-50',
+          'fixed z-50 rounded-full shadow-2xl',
+          'bottom-4 right-4 h-16 w-16 sm:h-20 sm:w-20',
           'hover:scale-110 active:scale-95 transition-all duration-300',
           'cursor-pointer border-0 bg-transparent p-0',
           'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full',
@@ -375,7 +376,12 @@ CRITICAL INSTRUCTIONS:
 
   return (
     <Card className={cn(
-      variant === 'floating' && 'fixed bottom-4 right-4 w-96 h-[600px] shadow-2xl z-50',
+      variant === 'floating' && 'fixed z-50 shadow-2xl',
+      // Responsive dimensions for floating widget
+      variant === 'floating' && 'bottom-2 right-2 sm:bottom-4 sm:right-4',
+      variant === 'floating' && 'w-[calc(100vw-1rem)] sm:w-96',
+      variant === 'floating' && 'h-[calc(100vh-5rem)] sm:h-[600px]',
+      variant === 'floating' && 'max-h-[calc(100vh-5rem)]',
       variant === 'embedded' && 'w-full h-full',
       className
     )}>
@@ -416,7 +422,7 @@ CRITICAL INSTRUCTIONS:
           )}
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col h-[calc(100%-4rem)] p-0">
+      <CardContent className="flex flex-col h-[calc(100%-4rem)] p-0 overflow-hidden">
         <ScrollArea className="flex-1 px-4" ref={scrollRef}>
           <div className="space-y-4 py-4">
             {messages.map((message, index) => (
@@ -448,7 +454,7 @@ CRITICAL INSTRUCTIONS:
             ))}
           </div>
         </ScrollArea>
-        <form onSubmit={handleSend} className="border-t bg-background">
+        <form onSubmit={handleSend} className="border-t bg-background safe-area-bottom">
           {/* Upload section - more prominent */}
           <div {...getRootProps()} className={cn(
             "px-4 pt-3 pb-2 border-b",

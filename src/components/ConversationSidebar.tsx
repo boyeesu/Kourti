@@ -72,11 +72,11 @@ export function ConversationSidebar({
 
   return (
     <>
-      <aside className="flex h-full w-full flex-shrink-0 flex-col border-r border-border bg-background lg:w-64 lg:min-w-[16rem] overflow-hidden">
-        <div className="flex flex-col gap-2 p-3">
+      <aside className="flex h-full w-full flex-shrink-0 flex-col border-r border-border bg-background lg:w-64 lg:min-w-[16rem] overflow-hidden max-h-full">
+        <div className="flex flex-col gap-2 p-3 shrink-0">
           <Button
             onClick={onNewConversation}
-            className="w-full justify-start gap-2 h-9 bg-primary hover:bg-primary/90"
+            className="w-full justify-start gap-2 h-10 md:h-9 bg-primary hover:bg-primary/90"
             size="sm"
           >
             <Plus className="h-4 w-4" />
@@ -89,7 +89,7 @@ export function ConversationSidebar({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search chats..."
-              className="h-9 pl-9 text-sm bg-muted/50 border-0"
+              className="h-10 md:h-9 pl-9 text-sm bg-muted/50 border-0"
             />
           </div>
         </div>
@@ -154,7 +154,7 @@ export function ConversationSidebar({
                     <>
                       <button
                         onClick={() => onSelectConversation(conv.id)}
-                        className="w-full text-left p-3 pr-16 rounded-lg"
+                        className="w-full text-left p-3 pr-16 rounded-lg min-h-[56px] md:min-h-0"
                       >
                         <div className="flex items-start gap-3">
                           <MessageSquare className={cn(

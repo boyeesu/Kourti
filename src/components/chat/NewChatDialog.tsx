@@ -97,7 +97,7 @@ export function NewChatDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="sm:max-w-[500px]"
+        className="w-[calc(100vw-2rem)] max-w-[500px] max-h-[calc(100vh-4rem)] overflow-hidden"
         {...({ highZ: true } as { highZ: boolean })}
       >
         <DialogHeader>
@@ -116,7 +116,7 @@ export function NewChatDialog({
               className="pl-8"
             />
           </div>
-          <ScrollArea className="h-[400px]">
+          <ScrollArea className="h-[300px] sm:h-[400px]">
             {membersLoading ? (
               <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
@@ -144,6 +144,7 @@ export function NewChatDialog({
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left",
                       "hover:bg-muted border border-transparent hover:border-border",
+                      "min-h-[56px]", // Touch-friendly height
                       createConversation.isPending && "opacity-50 cursor-not-allowed"
                     )}
                   >

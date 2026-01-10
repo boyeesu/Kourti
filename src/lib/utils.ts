@@ -2,223 +2,171 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 /**
- * Combines class names with Tailwind CSS optimizations
+ * Utility function to merge Tailwind CSS classes
  */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 /**
- * Format a date consistently across the application
+ * Format a number as currency
+ * @param amount - The amount to format
+ * @param currency - The currency code (default: USD)
+ * @param locale - The locale for formatting (default: en-US)
  */
-export function formatDate(date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string {
-  if (!date) return 'N/A';
-  
-  const defaultOptions: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    ...options
-  };
-  
-  return new Date(date).toLocaleDateString(undefined, defaultOptions);
-}
+export function formatCurrency(
+  amount: number | null | undefined,
+  currency: string = "USD",
+  locale: string = "en-US"
+): string {
+  if (amount === null || amount === undefined) {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+    }).format(0);
+  }
 
-/**
- * Format currency values consistently
- */
-export function formatCurrency(amount: number | null | undefined, currency: string = 'USD'): string {
-  if (amount === null || amount === undefined) return 'N/A';
-  
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
   }).format(amount);
 }
 
 /**
- * Get status color for badges
+ * Format a date string or Date object
+ * @param date - The date to format
+ * @param options - Intl.DateTimeFormatOptions for customization
  */
-export function getStatusColor(status: string | null | undefined): string {
-  if (!status) return 'bg-muted text-muted-foreground';
-  
-  switch (status.toLowerCase()) {
-    case 'active':
-    case 'completed':
-    case 'paid':
-    case 'approved':
-      return 'bg-success text-success-foreground';
-    case 'pending':
-    case 'in_progress':
-    case 'review':
-    case 'draft':
-      return 'bg-warning text-warning-foreground';
-    case 'inactive':
-    case 'closed':
-    case 'expired':
-    case 'rejected':
-    case 'overdue':
-      return 'bg-destructive text-destructive-foreground';
-    case 'open':
-    case 'signed':
-      return 'bg-primary text-primary-foreground';
-    default:
-      return 'bg-secondary text-secondary-foreground';
+export function formatDate(
+  date: string | Date | null | undefined,
+  options: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }
+): string {
+  if (!date) return "—";
+
+  try {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return "—";
+    return dateObj.toLocaleDateString("en-US", options);
+  } catch {
+    return "—";
   }
 }
 
 /**
- * Remove sensitive information from error logs
+ * Format a date with time
  */
-export function sanitizeErrorForLogging(error: any): any {
-  if (!error) return error;
-  
-  // Create a copy to avoid mutating the original error
-  const sanitized = { ...error };
-  
-  // Remove sensitive fields
-  const sensitiveFields = [
-    'password', 
-    'token', 
-    'authorization', 
-    'auth', 
-    'key', 
-    'secret',
-    'apiKey',
-    'accessToken',
-    'refreshToken',
-    'sessionToken'
-  ];
-  
-  for (const field of sensitiveFields) {
-    if (sanitized[field]) {
-      sanitized[field] = '[REDACTED]';
-    }
-    
-    // Also check headers if they exist
-    if (sanitized.headers && typeof sanitized.headers === 'object') {
-      for (const headerKey in sanitized.headers) {
-        if (headerKey.toLowerCase().includes(field)) {
-          sanitized.headers[headerKey] = '[REDACTED]';
-        }
-      }
-    }
+export function formatDateTime(
+  date: string | Date | null | undefined
+): string {
+  return formatDate(date, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * Get relative time string (e.g., "2 days ago")
+ */
+export function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return "—";
+
+  try {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return "—";
+
+    const now = new Date();
+    const diffMs = now.getTime() - dateObj.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+    if (diffMinutes < 1) return "Just now";
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return formatDate(dateObj);
+  } catch {
+    return "—";
   }
-  
-  // Sanitize nested objects
-  for (const key in sanitized) {
-    if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
-      sanitized[key] = sanitizeErrorForLogging(sanitized[key]);
-    }
-  }
-  
-  // If it's an Error object, preserve the message and stack
-  if (error instanceof Error) {
-    sanitized.message = error.message;
-    sanitized.stack = error.stack;
-    sanitized.name = error.name;
-  }
-  
-  return sanitized;
+}
+
+/**
+ * Truncate text with ellipsis
+ */
+export function truncate(str: string, maxLength: number): string {
+  if (!str) return "";
+  if (str.length <= maxLength) return str;
+  return str.slice(0, maxLength - 3) + "...";
+}
+
+/**
+ * Generate initials from a name
+ */
+export function getInitials(name: string | null | undefined): string {
+  if (!name) return "??";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+/**
+ * Capitalize first letter of each word
+ */
+export function capitalize(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 /**
  * Format file size in human readable format
  */
 export function formatFileSize(bytes: number | null | undefined): string {
-  if (bytes === null || bytes === undefined) return 'Unknown';
-  
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let size = bytes;
-  let unitIndex = 0;
-  
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-  
-  return `${size.toFixed(1)} ${units[unitIndex]}`;
+  if (!bytes || bytes === 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
 /**
- * Get file icon based on file type
+ * Check if a date is in the past
  */
-export function getFileTypeIcon(fileType: string | null | undefined): string {
-  if (!fileType) return 'file';
-  
-  switch (fileType.toLowerCase()) {
-    case 'pdf':
-      return 'file-text';
-    case 'doc':
-    case 'docx':
-      return 'file-text';
-    case 'xls':
-    case 'xlsx':
-      return 'file-spreadsheet';
-    case 'ppt':
-    case 'pptx':
-      return 'file-presentation';
-    case 'jpg':
-    case 'jpeg':
-    case 'png':
-    case 'gif':
-      return 'file-image';
-    default:
-      return 'file';
+export function isOverdue(date: string | Date | null | undefined): boolean {
+  if (!date) return false;
+  try {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    return dateObj < new Date();
+  } catch {
+    return false;
   }
 }
 
 /**
- * Generate initials from a name
+ * Get days until a date (negative if past)
  */
-export function getInitials(name: string): string {
-  if (!name) return '';
-  
-  return name
-    .split(' ')
-    .map(part => part[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-}
-
-/**
- * Delay for a specified time (in ms)
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Debounce a function call
- */
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  
-  return function(...args: Parameters<T>): void {
-    const later = () => {
-      timeout = null;
-      func(...args);
-    };
-    
-    if (timeout !== null) {
-      clearTimeout(timeout);
-    }
-    
-    timeout = setTimeout(later, wait);
-  };
-}
-
-/**
- * Generate a UUID v4
- */
-export function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+export function daysUntil(date: string | Date | null | undefined): number | null {
+  if (!date) return null;
+  try {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    const now = new Date();
+    const diffMs = dateObj.getTime() - now.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
 }
