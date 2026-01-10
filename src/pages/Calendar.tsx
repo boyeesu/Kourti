@@ -147,7 +147,7 @@ export default function Calendar() {
         });
 
         if (teamsData?.events) {
-          setExternalEvents(prev => [...prev.filter(e => e.source !== 'microsoft_teams'), ...teamsData.events]);
+          setExternalEvents(prev => [...prev.filter(e => e.source !== 'microsoft_teams'), ...(teamsData.events || [])]);
           syncedCount++;
         }
       } catch {

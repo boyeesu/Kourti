@@ -66,7 +66,7 @@ const NotificationsDropdown: React.FC = () => {
           </div>
         ) : (
           <div className="max-h-96 overflow-y-auto">
-            {notifications.map((n: { id: string; status: string; type: string; title: string; description?: string; created_at: string }) => (
+            {notifications.map((n) => (
               <div 
                 key={n.id} 
                 className={`p-3 border-b last:border-b-0 ${

@@ -241,7 +241,7 @@ export default function ReamAI() {
   // Get full document content for AI context
   const { data: documentContent } = useDocumentContent(
     selectedDoc?.id || null,
-    selectedDoc?.type || null
+    (selectedDoc?.type as "document" | "contract" | null) || null
   );
 
   // Use RAG search to find relevant document chunks
@@ -393,7 +393,7 @@ export default function ReamAI() {
         setExtractedContent(extractedText);
         
         // Set the uploaded document as selected
-        setSelectedDoc({ ...uploadedDoc, type: 'document' });
+        setSelectedDoc({ ...uploadedDoc, type: 'document' as const });
         setSelectedFile(null); // Clear temporary file reference
 
         // Process document for RAG if we have organization and content

@@ -144,31 +144,34 @@ export function sanitizeErrorForLogging(error: unknown): Record<string, unknown>
     }
     
     // Check headers
-    if (sanitized.headers && typeof sanitized.headers === 'object') {
-      for (const headerKey in sanitized.headers) {
+    const headers = sanitized.headers as Record<string, unknown> | undefined;
+    if (headers && typeof headers === 'object') {
+      for (const headerKey in headers) {
         if (headerKey.toLowerCase().includes(field)) {
-          sanitized.headers[headerKey] = '[REDACTED]';
+          headers[headerKey] = '[REDACTED]';
         }
       }
     }
     
     // Check request/config object (for axios errors)
-    if (sanitized.config) {
-      if (sanitized.config.headers) {
-        for (const headerKey in sanitized.config.headers) {
+    const config = sanitized.config as Record<string, unknown> | undefined;
+    if (config) {
+      const configHeaders = config.headers as Record<string, unknown> | undefined;
+      if (configHeaders) {
+        for (const headerKey in configHeaders) {
           if (headerKey.toLowerCase().includes(field)) {
-            sanitized.config.headers[headerKey] = '[REDACTED]';
+            configHeaders[headerKey] = '[REDACTED]';
           }
         }
       }
-      if (sanitized.config.auth) {
-        sanitized.config.auth = '[REDACTED]';
+      if (config.auth) {
+        config.auth = '[REDACTED]';
       }
     }
   }
   
   // Sanitize query parameters
-  if (sanitized.url) {
+  if (sanitized.url && typeof sanitized.url === 'string') {
     try {
       const url = new URL(sanitized.url);
       sensitiveFields.forEach(field => {

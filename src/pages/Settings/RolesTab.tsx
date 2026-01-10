@@ -358,7 +358,7 @@ export default function RolesTab() {
             </div>
             
             {isCurrentUserAdmin && (
-              <InviteUserDialog onInvite={inviteUser.mutateAsync} />
+              <InviteUserDialog onInvite={(data) => inviteUser.mutateAsync(data)} />
             )}
           </CardHeader>
           

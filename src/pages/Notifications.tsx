@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNotifications as useNotificationsHook } from "@/hooks/useNotifications";
-import { Notification } from '@/components/ui/notifications';
 import { 
   Bell, 
   CheckCircle, 
@@ -17,8 +16,37 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+// Define local notification type to match database
+interface Notification {
+  id: string;
+  title: string | null;
+  description: string | null;
+  type: string | null;
+  status: string | null;
+  read: boolean;
+  created_at: string | null;
+  date: string;
+}
+
+// Transform database notification to local type
+function transformNotification(n: { 
+  id: string; 
+  title: string | null; 
+  description: string | null; 
+  type: string | null; 
+  status: string | null; 
+  created_at: string | null;
+}): Notification {
+  return {
+    ...n,
+    read: n.status !== 'unread',
+    date: n.created_at || new Date().toISOString(),
+  };
+}
+
 export default function Notifications() {
-  const { data: notifications = [] } = useNotificationsHook();
+  const { data: rawNotifications = [] } = useNotificationsHook();
+  const notifications = rawNotifications.map(transformNotification);
   
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const markAsRead = (_id: string) => {
@@ -32,10 +60,10 @@ export default function Notifications() {
   
   // Group notifications by type
   const allNotifications = [...notifications];
-  const unreadNotifications = notifications.filter((n: Notification) => n.status === 'unread');
-  const caseNotifications = notifications.filter((n: Notification) => n.type === 'case');
-  const documentNotifications = notifications.filter((n: Notification) => n.type === 'document');
-  const eventNotifications = notifications.filter((n: Notification) => n.type === 'calendar');
+  const unreadNotifications = notifications.filter((n) => n.status === 'unread');
+  const caseNotifications = notifications.filter((n) => n.type === 'case');
+  const documentNotifications = notifications.filter((n) => n.type === 'document');
+  const eventNotifications = notifications.filter((n) => n.type === 'calendar');
   
   // Sort notifications by date (newest first)
   const sortedNotifications = (notifs: Notification[]) => {
@@ -93,13 +121,13 @@ export default function Notifications() {
         notificationsToMark = unreadNotifications;
         break;
       case 'cases':
-        notificationsToMark = caseNotifications.filter((n: Notification) => n.status === 'unread');
+        notificationsToMark = caseNotifications.filter((n) => n.status === 'unread');
         break;
       case 'documents':
-        notificationsToMark = documentNotifications.filter((n: Notification) => n.status === 'unread');
+        notificationsToMark = documentNotifications.filter((n) => n.status === 'unread');
         break;
       case 'events':
-        notificationsToMark = eventNotifications.filter((n: Notification) => n.status === 'unread');
+        notificationsToMark = eventNotifications.filter((n) => n.status === 'unread');
         break;
       default:
         notificationsToMark = unreadNotifications;

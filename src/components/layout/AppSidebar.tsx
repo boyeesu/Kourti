@@ -193,7 +193,7 @@ const AppSidebar: React.FC = () => {
     }
   };
 
-  const NavItemWithPermission = React.forwardRef<HTMLDivElement, { item: NavigationItem }>(
+  const NavItemWithPermission = React.forwardRef<HTMLLIElement, { item: NavigationItem }>(
     ({ item }, ref) => {
       // Check if user has read access to this resource
       const hasAccess = useCanPerformAction(
@@ -209,9 +209,10 @@ const AppSidebar: React.FC = () => {
       return <NavItemContent item={item} ref={ref} />;
     }
   );
+  NavItemWithPermission.displayName = 'NavItemWithPermission';
 
-  const NavItemContent = React.forwardRef<HTMLDivElement, { item: NavigationItem }>(
-    ({ item }) => {
+  const NavItemContent = React.forwardRef<HTMLLIElement, { item: NavigationItem }>(
+    ({ item }, ref) => {
       const active = isActive(item.url, item.end);
 
       const linkClass = cn(
@@ -228,7 +229,7 @@ const AppSidebar: React.FC = () => {
       const isLiveChat = item.url === "/live-chat";
       
       const content = (
-        <SidebarMenuItem key={item.url}>
+        <SidebarMenuItem ref={ref} key={item.url}>
           <SidebarMenuButton asChild isActive={active} className={cn("h-11 px-0", collapsed && "justify-center")}>
             <NavLink
               to={item.url}
@@ -277,6 +278,7 @@ const AppSidebar: React.FC = () => {
       );
     }
   );
+  NavItemContent.displayName = 'NavItemContent';
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -305,8 +307,7 @@ const AppSidebar: React.FC = () => {
             </div>
             {!collapsed && (
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-foreground">Kouti Legal Hub</span>
-                <span className="text-xs text-muted-foreground">Admin Console</span>
+                <span className="text-[19px] font-semibold text-foreground">Kourti Legal</span>
               </div>
             )}
           </div>

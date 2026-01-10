@@ -81,7 +81,13 @@ export function InviteUserDialog({ onInvite }: InviteUserDialogProps) {
 
   const handleSubmit = async (data: InviteFormData) => {
     try {
-      await onInvite(data);
+      await onInvite({
+        email: data.email,
+        role_id: data.role,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        department: data.department,
+      });
       form.reset();
       setOpen(false);
     } catch (error) {

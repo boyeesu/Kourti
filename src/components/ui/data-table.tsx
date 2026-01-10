@@ -154,7 +154,7 @@ export function DataTable<T>({
                                     if (column.cell) {
                                         cellContent = column.cell(row);
                                     } else if (column.accessorFn) {
-                                        cellContent = column.accessorFn(row);
+                                        cellContent = column.accessorFn(row) as ReactNode;
                                     } else if (column.accessorKey) {
                                         cellContent = String(row[column.accessorKey] ?? "");
                                     } else {

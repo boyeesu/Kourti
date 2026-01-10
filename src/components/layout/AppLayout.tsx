@@ -522,22 +522,32 @@ export function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
+type GlobalSearchResults = {
+  cases: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
+  clients: { id: string; title: string; subtitle?: string; url: string }[];
+  calendarEvents: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
+  voiceRecordings: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
+  transcriptions: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
+};
+
+type ModuleMeta = { label: string; status: string; tone: ModuleTone };
+
 interface AppLayoutInnerProps {
   children: React.ReactNode;
   term: string;
   setTerm: (term: string) => void;
   searchDialogOpen: boolean;
   setSearchDialogOpen: (open: boolean) => void;
-  searchResults: Record<string, unknown[]> | null;
+  searchResults: GlobalSearchResults | null;
   hasSearchTerm: boolean;
   isGlobalSearchLoading: boolean;
   globalSearchError: Error | null;
-  moduleMeta: { title?: string; description?: string } | null;
-  breadcrumbLabels: Record<string, string>;
-  toneClassMap: Record<string, string>;
-  headerTimestamp: number;
+  moduleMeta: ModuleMeta | null;
+  breadcrumbLabels: string[];
+  toneClassMap: Record<ModuleTone, string>;
+  headerTimestamp: string;
   navigate: (path: string) => void;
-  user: { email?: string } | null;
+  user: { email?: string; user_metadata?: { avatar_url?: string; name?: string } } | null;
   userInitials: string;
   handleSignOut: () => void;
 }
@@ -593,16 +603,18 @@ function AppLayoutInner({
                   <div className="flex flex-col">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Workspace</span>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-semibold text-foreground">{moduleMeta.label}</span>
-                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">{moduleMeta.status}</span>
+                      <span className="text-xl font-semibold text-foreground">{moduleMeta?.label}</span>
+                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">{moduleMeta?.status}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="hidden items-center gap-2 rounded-full border border-[hsl(var(--surface-border))] bg-[hsl(var(--muted))] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:flex">
-                    <span className={cn("h-2 w-2 rounded-full", toneClassMap[moduleMeta.tone])} />
-                    <span>{moduleMeta.status}</span>
-                  </div>
+                  {moduleMeta && (
+                    <div className="hidden items-center gap-2 rounded-full border border-[hsl(var(--surface-border))] bg-[hsl(var(--muted))] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:flex">
+                      <span className={cn("h-2 w-2 rounded-full", toneClassMap[moduleMeta.tone])} />
+                      <span>{moduleMeta.status}</span>
+                    </div>
+                  )}
                   <Button
                     variant="default"
                     className="hidden items-center gap-2 rounded-md bg-[hsl(var(--primary))] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[hsl(var(--primary))/0.9] sm:flex"
@@ -640,7 +652,7 @@ function AppLayoutInner({
                         className="ml-1 flex h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-0 text-foreground transition-colors hover:border-[hsl(var(--primary))]"
                       >
                         <Avatar className="h-7 w-7">
-                          <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
+                          <AvatarImage src={(user as { user_metadata?: { avatar_url?: string } })?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
                           <AvatarFallback className="bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))] text-sm">
                             {userInitials}
                           </AvatarFallback>
@@ -650,7 +662,7 @@ function AppLayoutInner({
                     <DropdownMenuContent align="end" className="mt-1 w-56">
                       <DropdownMenuLabel>
                         <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none">{user?.user_metadata?.name || user?.email}</p>
+                          <p className="text-sm font-medium leading-none">{(user as { user_metadata?: { name?: string } })?.user_metadata?.name || user?.email}</p>
                           <p className="text-xs leading-none text-muted-foreground">
                             {user?.email}
                           </p>
@@ -705,9 +717,9 @@ function AppLayoutInner({
                 </div>
               </div>
 
-              {breadcrumbLabels.length > 1 && (
+              {breadcrumbLabels && breadcrumbLabels.length > 1 && (
                 <nav className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                  {breadcrumbLabels.map((label: string, index: number) => (
+                  {breadcrumbLabels.map((label, index) => (
                     <span key={`${label}-${index}`} className="flex items-center gap-1">
                       {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/60" />}
                       <span className={index === breadcrumbLabels.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}>
@@ -726,10 +738,10 @@ function AppLayoutInner({
                 onValueChange={setTerm}
               />
               <CommandList>
-                {hasSearchTerm &&
+                {hasSearchTerm && searchResults &&
                   searchResults.cases.length > 0 && (
                     <CommandGroup heading="Matters">
-                      {searchResults.cases.map((item: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }) => (
+                      {searchResults.cases.map((item) => (
                         <CommandItem
                           key={`case-${item.id}`}
                           value={`case-${item.title}`}
@@ -744,7 +756,7 @@ function AppLayoutInner({
                             )}
                           </div>
                           {item.badge && (
-                            <Badge variant={item.badge.variant ?? 'secondary'} className="ml-2">
+                            <Badge variant={(item.badge.variant as "secondary" | "destructive" | "default" | "outline") ?? 'secondary'} className="ml-2">
                               {item.badge.label}
                             </Badge>
                           )}
@@ -753,10 +765,10 @@ function AppLayoutInner({
                     </CommandGroup>
                   )}
 
-                {hasSearchTerm &&
+                {hasSearchTerm && searchResults &&
                   searchResults.clients.length > 0 && (
                     <CommandGroup heading="Clients">
-                      {searchResults.clients.map((item: { id: string; title: string; subtitle?: string; url: string }) => (
+                      {searchResults.clients.map((item) => (
                         <CommandItem
                           key={`client-${item.id}`}
                           value={`client-${item.title}`}
@@ -775,10 +787,10 @@ function AppLayoutInner({
                     </CommandGroup>
                   )}
 
-                {hasSearchTerm &&
+                {hasSearchTerm && searchResults &&
                   searchResults.calendarEvents.length > 0 && (
                     <CommandGroup heading="Calendar Events">
-                      {searchResults.calendarEvents.map((item: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }) => (
+                      {searchResults.calendarEvents.map((item) => (
                         <CommandItem
                           key={`event-${item.id}`}
                           value={`event-${item.title}`}
@@ -793,7 +805,7 @@ function AppLayoutInner({
                             )}
                           </div>
                           {item.badge && (
-                            <Badge variant={item.badge.variant ?? 'secondary'} className="ml-2 capitalize">
+                            <Badge variant={(item.badge.variant as "secondary" | "destructive" | "default" | "outline") ?? 'secondary'} className="ml-2 capitalize">
                               {item.badge.label}
                             </Badge>
                           )}
@@ -802,10 +814,10 @@ function AppLayoutInner({
                     </CommandGroup>
                   )}
 
-                {hasSearchTerm &&
+                {hasSearchTerm && searchResults &&
                   searchResults.voiceRecordings.length > 0 && (
                     <CommandGroup heading="Voice Recordings">
-                      {searchResults.voiceRecordings.map((item: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }) => (
+                      {searchResults.voiceRecordings.map((item) => (
                         <CommandItem
                           key={`voice-${item.id}`}
                           value={`voice-${item.title}`}
@@ -820,7 +832,7 @@ function AppLayoutInner({
                             )}
                           </div>
                           {item.badge && (
-                            <Badge variant={item.badge.variant ?? 'secondary'} className="ml-2 capitalize">
+                            <Badge variant={(item.badge.variant as "secondary" | "destructive" | "default" | "outline") ?? 'secondary'} className="ml-2 capitalize">
                               {item.badge.label}
                             </Badge>
                           )}
@@ -829,10 +841,10 @@ function AppLayoutInner({
                     </CommandGroup>
                   )}
 
-                {hasSearchTerm &&
+                {hasSearchTerm && searchResults &&
                   searchResults.transcriptions.length > 0 && (
                     <CommandGroup heading="Transcriptions">
-                      {searchResults.transcriptions.map((item: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }) => (
+                      {searchResults.transcriptions.map((item) => (
                         <CommandItem
                           key={`transcription-${item.id}`}
                           value={`transcription-${item.title}`}
@@ -847,7 +859,7 @@ function AppLayoutInner({
                             )}
                           </div>
                           {item.badge && (
-                            <Badge variant={item.badge.variant ?? 'secondary'} className="ml-2 capitalize">
+                            <Badge variant={(item.badge.variant as "secondary" | "destructive" | "default" | "outline") ?? 'secondary'} className="ml-2 capitalize">
                               {item.badge.label}
                             </Badge>
                           )}
@@ -856,7 +868,7 @@ function AppLayoutInner({
                     </CommandGroup>
                   )}
 
-                {hasSearchTerm && !isGlobalSearchLoading && hasSearchResults && (() => {
+                {hasSearchTerm && searchResults && !isGlobalSearchLoading && hasSearchResults && (() => {
                   const totalResults = Object.values(searchResults).reduce((sum: number, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
                   return (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground border-t">
@@ -885,7 +897,7 @@ function AppLayoutInner({
           </header>
 
           <main className="workspace-body flex-1 overflow-auto">
-            <div className="workspace-body__inner">
+            <div className="workspace-body__inner h-full">
               {children}
             </div>
           </main>

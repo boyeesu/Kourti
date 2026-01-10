@@ -107,7 +107,7 @@ export function ChatSidebar({
       </div>
 
       {/* Conversations List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center h-full p-4">
             <div className="text-sm text-muted-foreground">Loading conversations...</div>

@@ -21,7 +21,7 @@ export default function LiveChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-12rem)] min-h-[500px] rounded-lg border border-border bg-background overflow-hidden">
+    <div className="flex h-[calc(100vh-13rem)] min-h-[500px] rounded-lg border border-border bg-background overflow-hidden">
       <ChatSidebar
         onSelectConversation={handleSelectConversation}
         onNewChat={() => setShowNewChatDialog(true)}

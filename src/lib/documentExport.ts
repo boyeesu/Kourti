@@ -1,5 +1,4 @@
 import { Document, Paragraph, TextRun, HeadingLevel, Packer } from 'docx';
-// @ts-expect-error - file-saver doesn't have type definitions
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 

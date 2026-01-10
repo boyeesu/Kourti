@@ -71,7 +71,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
         const url = URL.createObjectURL(data);
         const a = globalThis.document.createElement('a');
         a.href = url;
-        a.download = document.metadata?.original_filename || document.name;
+        a.download = (document.metadata?.original_filename as string) || document.name;
         globalThis.document.body.appendChild(a);
         a.click();
         globalThis.document.body.removeChild(a);

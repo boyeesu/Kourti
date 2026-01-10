@@ -280,7 +280,7 @@ const App = () => (
     <Toaster />
     <Sonner />
     <NotificationsProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <PageViewTracker />
         <AuthProvider>
           <InactivityHandler />

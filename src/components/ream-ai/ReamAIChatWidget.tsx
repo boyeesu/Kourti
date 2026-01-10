@@ -153,7 +153,7 @@ export function ReamAIChatWidget({
           }
         }
 
-        setUploadedDocument({ ...uploadedDoc, type: 'document', content: extractedText });
+        setUploadedDocument({ ...uploadedDoc, content: extractedText });
         
         setMessages(prev => [...prev, {
           role: 'assistant',

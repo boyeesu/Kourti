@@ -19,6 +19,8 @@ export interface Message {
   content: string;
   message_type: 'text' | 'file' | 'system';
   metadata?: FileMetadata | Record<string, any>;
+  reply_to_id?: string | null;
+  reply_to?: Message | null;
   created_at: string;
   updated_at: string;
   sender?: {
@@ -233,9 +235,19 @@ export function useMessages(conversationId: string | null) {
         (profiles || []).map((p: any) => [p.user_id, p])
       );
 
-      return (data || []).map((msg: any) => ({
+      // Create messages with sender info
+      const messagesWithSender = (data || []).map((msg: any) => ({
         ...msg,
         sender: profilesMap.get(msg.sender_id) || null
+      }));
+
+      // Create a map of message_id -> message for reply_to lookup
+      const messagesMap = new Map(messagesWithSender.map((m: any) => [m.id, m]));
+
+      // Add reply_to data to messages
+      return messagesWithSender.map((msg: any) => ({
+        ...msg,
+        reply_to: msg.reply_to_id ? messagesMap.get(msg.reply_to_id) || null : null
       })) as Message[];
     },
     enabled: !!conversationId,
@@ -271,11 +283,12 @@ export function useMessages(conversationId: string | null) {
               .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no profile exists
 
             if (!profileError && profile) {
+              const typedProfile = profile as { first_name: string | null; last_name: string | null; email: string | null };
               senderProfile = {
                 id: newMessagePayload.sender_id,
-                first_name: profile.first_name,
-                last_name: profile.last_name,
-                email: profile.email
+                first_name: typedProfile.first_name,
+                last_name: typedProfile.last_name,
+                email: typedProfile.email
               };
             }
           } catch (err) {
@@ -333,7 +346,7 @@ export function useSendMessage() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ conversationId, content }: { conversationId: string; content: string }) => {
+    mutationFn: async ({ conversationId, content, replyToId }: { conversationId: string; content: string; replyToId?: string | null }) => {
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -349,6 +362,7 @@ export function useSendMessage() {
           sender_id: user.id,
           content: content.trim(),
           message_type: 'text',
+          reply_to_id: replyToId || null,
         } as any)
         .select()
         .single();
@@ -370,12 +384,17 @@ export function useSendMessage() {
       return data;
     },
     // Optimistic update - show message immediately
-    onMutate: async ({ conversationId, content }) => {
+    onMutate: async ({ conversationId, content, replyToId }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
 
       // Snapshot previous value
       const previousMessages = queryClient.getQueryData<Message[]>(['messages', conversationId]);
+
+      // Find the reply_to message if replyToId is provided
+      const replyToMessage = replyToId 
+        ? previousMessages?.find(m => m.id === replyToId) 
+        : null;
 
       // Create optimistic message
       const optimisticMessage: Message = {
@@ -384,6 +403,8 @@ export function useSendMessage() {
         sender_id: user!.id,
         content: content.trim(),
         message_type: 'text',
+        reply_to_id: replyToId || null,
+        reply_to: replyToMessage || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         sender: {
@@ -453,10 +474,10 @@ export function useSendFileMessage() {
       // Upload file to Supabase storage
       const timestamp = Date.now();
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = `chat-attachments/${organizationId}/${conversationId}/${timestamp}_${sanitizedName}`;
+      const filePath = `${organizationId}/${conversationId}/${timestamp}_${sanitizedName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('documents')
+        .from('Chat_Storage')
         .upload(filePath, file, {
           contentType: file.type,
           upsert: false,
@@ -469,7 +490,7 @@ export function useSendFileMessage() {
 
       // Get signed URL (1 hour expiry, will be refreshed when viewing)
       const { data: signedUrlData } = await supabase.storage
-        .from('documents')
+        .from('Chat_Storage')
         .createSignedUrl(filePath, 3600);
 
       const fileMetadata: FileMetadata = {
@@ -496,7 +517,7 @@ export function useSendFileMessage() {
       if (error) {
         console.error('Error inserting file message:', error);
         // Try to clean up uploaded file on message insert failure
-        await supabase.storage.from('documents').remove([filePath]);
+        await supabase.storage.from('Chat_Storage').remove([filePath]);
         throw new Error(error.message || 'Failed to send file message');
       }
 
@@ -509,7 +530,7 @@ export function useSendFileMessage() {
           if (updateError) console.error('Error updating conversation timestamp:', updateError);
         });
 
-      return data as Message;
+      return data as unknown as Message;
     },
     // Optimistic update for file messages
     onMutate: async ({ conversationId, file }) => {

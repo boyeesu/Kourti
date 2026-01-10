@@ -100,20 +100,20 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
       try {
         if (entityType === "clients") {
           await createClient.mutateAsync({
-            name: item.name,
-            email: item.email || undefined,
-            phone: item.phone || undefined,
-            address: item.address || undefined,
-            company: item.company || undefined,
-            notes: item.notes || undefined,
-            status: item.status || "active",
+            name: item.name as string,
+            email: (item.email as string) || undefined,
+            phone: (item.phone as string) || undefined,
+            address: (item.address as string) || undefined,
+            company: (item.company as string) || undefined,
+            notes: (item.notes as string) || undefined,
+            status: (item.status as string) || "active",
           });
         } else if (entityType === "cases") {
           await createCase.mutateAsync({
-            title: item.title,
-            description: item.description || undefined,
-            status: item.status || "active",
-            priority: item.priority || "medium",
+            title: item.title as string,
+            description: (item.description as string) || undefined,
+            status: (item.status as string) || "active",
+            priority: (item.priority as string) || "medium",
             // Note: client_name would need to be resolved to client_id in a real implementation
           });
         }

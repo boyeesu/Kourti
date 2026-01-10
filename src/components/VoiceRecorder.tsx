@@ -64,7 +64,7 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
         stream.getTracks().forEach(track => track.stop());
         
         // Transcribe the audio
-        await transcribeAudio(audioBlob);
+        await transcribeAudio();
       };
 
       mediaRecorder.start();
@@ -93,7 +93,7 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
       // Check if Web Speech API is available
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         // Use Web Speech API for real-time transcription (Chrome/Edge)
-        const SpeechRecognitionAPI = (window as { SpeechRecognition?: new () => SpeechRecognition; webkitSpeechRecognition?: new () => SpeechRecognition }).SpeechRecognition || (window as { webkitSpeechRecognition?: new () => SpeechRecognition }).webkitSpeechRecognition;
+        const SpeechRecognitionAPI = (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition; webkitSpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
         if (!SpeechRecognitionAPI) {
           fallbackTranscription();
           return;
@@ -105,13 +105,13 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
         recognition.lang = 'en-US';
         
         // Handle recognition result
-        recognition.onresult = (event: SpeechRecognitionEvent) => {
+        recognition.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           onTranscription(transcript);
           toast({ title: "Transcribed", description: "Audio transcribed successfully" });
         };
         
-        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        recognition.onerror = (event) => {
           console.error("Speech recognition error:", event.error);
           // Fallback to manual transcription entry
           fallbackTranscription();

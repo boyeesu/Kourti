@@ -267,11 +267,13 @@ const VoiceTranscriptionModule: React.FC = () => {
 
         if (error) throw error;
         
-        if (data.error) {
+        if (data?.error) {
           throw new Error(data.error);
         }
 
-        setTranscript(data.transcript);
+        if (data?.transcript) {
+          setTranscript(data.transcript);
+        }
         
         toast({
           title: "Transcription Complete",
@@ -314,11 +316,13 @@ const VoiceTranscriptionModule: React.FC = () => {
 
       if (error) throw error;
       
-      if (data.error) {
+      if (data?.error) {
         throw new Error(data.error);
       }
 
-      setSummary(data.summary);
+      if (data?.summary) {
+        setSummary(data.summary);
+      }
       
       toast({
         title: "Summary Generated",
