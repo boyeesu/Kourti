@@ -3,6 +3,8 @@ declare const Deno: any;
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse } from "../_shared/errorHandling.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -25,15 +27,28 @@ const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
   "http://localhost:3000",
   "http://localhost:5173",
-].filter(Boolean);
+  "http://localhost:8080",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
     ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "*");
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
 
   return {
     origin,
+    requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
     allowMethods: ["POST", "OPTIONS"],
@@ -319,14 +334,45 @@ async function redirectToMagicLink(email: string, provider: Provider, redirectTo
 }
 
 serve(async (req) => {
-  const corsOptions = getCorsOptions(req.headers.get('origin'));
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === "OPTIONS") {
     return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   if (!supabase) {
-    return createJsonResponse({ error: "Supabase client is not configured" }, { status: 500, cors: corsOptions });
+    return createJsonResponse(
+      {
+        success: false,
+        error: "Service configuration error",
+        errorCode: "CONFIG_ERROR"
+      },
+      { status: 500, cors: corsOptions }
+    );
+  }
+
+  // Rate limiting - prevent abuse of SSO callback
+  const rateLimitId = getRateLimitIdentifier(req);
+  const rateLimitResult = checkRateLimit({
+    ...RATE_LIMIT_PRESETS.AUTH,
+    identifier: rateLimitId,
+  });
+
+  if (!rateLimitResult.allowed) {
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      {
+        success: false,
+        error: 'Too many requests. Please try again later.',
+        errorCode: 'RATE_LIMIT_EXCEEDED',
+      },
+      {
+        status: 429,
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
+    );
   }
 
   try {
@@ -419,7 +465,7 @@ serve(async (req) => {
     const magicLink = await redirectToMagicLink(email, payload.provider, payload.redirect_to);
 
     return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: magicLink } });
-  } catch (error) {
+  } catch (error: unknown) {
     // SECURITY FIX: Generic error messages - log detailed errors server-side only
     const errorId = crypto.randomUUID().substring(0, 8);
     console.error(`[SSO-ERROR-${errorId}] SSO callback handler error`, error);
@@ -433,10 +479,10 @@ serve(async (req) => {
       return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: location } });
     }
     
-    // Generic error message for client - reference error ID for support
-    return createJsonResponse(
-      { error: "Authentication failed. Please try again or contact support.", error_id: errorId }, 
-      { status: 500, cors: corsOptions }
-    );
+    // Use sanitized error response
+    return createErrorResponse(error, corsOptions, {
+      function: 'sso-callback',
+      errorId,
+    });
   }
 });

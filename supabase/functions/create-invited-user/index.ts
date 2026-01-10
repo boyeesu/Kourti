@@ -3,6 +3,10 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse } from "../_shared/errorHandling.ts";
+import { requireOrganizationAccess } from "../_shared/organizationValidation.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
@@ -123,6 +127,29 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log('User authenticated:', callerUser.id);
 
+    // Rate limiting - prevent user enumeration and abuse (after auth check)
+    const rateLimitId = callerUser.id || getRateLimitIdentifier(req);
+    const rateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.AUTH,
+      identifier: rateLimitId,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
+    }
+
     // Get caller's profile and organization
     const { data: callerProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
@@ -160,10 +187,11 @@ const handler = async (req: Request): Promise<Response> => {
       organizationId,
     }: CreateInvitedUserRequest = await req.json();
 
-    // Validate organization matches caller's org
-    if (organizationId !== callerProfile.organization_id) {
-      throw new Error('Unauthorized: Cannot invite to a different organization');
-    }
+    // Validate organization access using shared helper
+    await requireOrganizationAccess(supabaseAdmin, callerUser.id, organizationId);
+
+    // CSRF Protection - validate token for sensitive operation
+    await requireCsrfTokenForUser(supabaseAdmin, callerUser.id, req);
 
     console.log('Creating invited user:', { email, role, organizationId });
 
@@ -310,6 +338,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Continue - user is created, email can be sent later
     }
 
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
     return createJsonResponse(
       {
         success: true,
@@ -319,21 +348,14 @@ const handler = async (req: Request): Promise<Response> => {
       { 
         status: 200,
         cors: corsOptions,
+        headers: rateLimitHeaders,
       }
     );
 
-  } catch (error: any) {
-    console.error('Error in create-invited-user function:', error);
-    return createJsonResponse(
-      { 
-        success: false,
-        error: error.message 
-      },
-      { 
-        status: error.message.includes('Unauthorized') ? 403 : 500,
-        cors: corsOptions,
-      }
-    );
+  } catch (error: unknown) {
+    return createErrorResponse(error, corsOptions, {
+      function: 'create-invited-user',
+    });
   }
 };
 

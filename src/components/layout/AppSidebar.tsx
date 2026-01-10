@@ -42,7 +42,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { cn } from "@/lib/utils";
-import { LiveChat } from "@/components/chat/LiveChat";
 import { useTotalUnreadCount } from "@/hooks/useChat";
 
 // Navigation item type definition
@@ -84,7 +83,7 @@ const toolsNavigation: NavigationGroup = {
   items: [
     {
       title: "Live Chat",
-      url: "#live-chat",
+      url: "/live-chat",
       icon: MessageCircle,
       badge: "New",
       badgeVariant: "default"
@@ -138,7 +137,6 @@ const AppSidebar: React.FC = () => {
   const { toast } = useToast();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || "U";
   const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
-  const [isChatOpen, setIsChatOpen] = React.useState(false);
   const totalUnreadCount = useTotalUnreadCount();
 
   const { data: userRoleData } = useUserRole();
@@ -226,57 +224,9 @@ const AppSidebar: React.FC = () => {
 
       const iconClass = cn("h-5 w-5", active ? "text-[hsl(var(--primary))]" : "text-muted-foreground");
 
-      // Handle Live Chat specially
-      if (item.url === "#live-chat") {
-        const active = isChatOpen; // Highlight when chat is open
-        const linkClass = cn(
-          "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-          collapsed && "justify-center px-0 gap-0",
-          active
-            ? "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]"
-            : "text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground"
-        );
-        const iconClass = cn("h-5 w-5", active ? "text-[hsl(var(--primary))]" : "text-muted-foreground");
-        
-        return (
-          <SidebarMenuItem key={item.url}>
-            <SidebarMenuButton
-              asChild
-              isActive={active}
-              className={cn("h-11 px-0", collapsed && "justify-center")}
-            >
-              <button
-                onClick={() => setIsChatOpen(true)}
-                className={cn(linkClass, "relative")}
-              >
-                <div className="relative">
-                  <item.icon className={iconClass} />
-                  {collapsed && totalUnreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
-                      {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
-                    </span>
-                  )}
-                </div>
-                {!collapsed && (
-                  <>
-                    <span className="truncate">{item.title}</span>
-                    {totalUnreadCount > 0 ? (
-                      <Badge variant="destructive" className="ml-auto text-[10px] min-w-5 justify-center">
-                        {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                      </Badge>
-                    ) : (
-                      <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </>
-                )}
-              </button>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        );
-      }
-
+      // Handle Live Chat with unread badge
+      const isLiveChat = item.url === "/live-chat";
+      
       const content = (
         <SidebarMenuItem key={item.url}>
           <SidebarMenuButton asChild isActive={active} className={cn("h-11 px-0", collapsed && "justify-center")}>
@@ -291,15 +241,26 @@ const AppSidebar: React.FC = () => {
                 }
               }}
             >
-              <item.icon className={iconClass} />
+              <div className="relative">
+                <item.icon className={iconClass} />
+                {collapsed && isLiveChat && totalUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+                    {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+                  </span>
+                )}
+              </div>
               {!collapsed && (
                 <span className="truncate">{item.title}</span>
               )}
-              {!collapsed && item.badge && (
+              {!collapsed && isLiveChat && totalUnreadCount > 0 ? (
+                <Badge variant="destructive" className="ml-auto text-[10px] min-w-5 justify-center">
+                  {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                </Badge>
+              ) : !collapsed && item.badge ? (
                 <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
                   {item.badge}
                 </Badge>
-              )}
+              ) : null}
             </NavLink>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -417,7 +378,6 @@ const AppSidebar: React.FC = () => {
           </div>
         </SidebarContent>
       </Sidebar>
-      <LiveChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </TooltipProvider>
   );
 };

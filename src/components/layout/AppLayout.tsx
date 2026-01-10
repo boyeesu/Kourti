@@ -55,7 +55,6 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { KeyboardShortcutsDialog } from '@/hooks/useKeyboardShortcuts';
-import { LiveChat } from '@/components/chat/LiveChat';
 import { useTotalUnreadCount } from '@/hooks/useChat';
 
 // Navigation item type
@@ -237,7 +236,7 @@ function MobileAccessNotice() {
   );
 }
 
-function MobileNavigation({ setIsChatOpen }: { setIsChatOpen: (open: boolean) => void }) {
+function MobileNavigation() {
   const [open, setOpen] = useState(false);
   const [showInvoiceSoon, setShowInvoiceSoon] = useState(false);
   const navigate = useNavigate();
@@ -267,7 +266,7 @@ function MobileNavigation({ setIsChatOpen }: { setIsChatOpen: (open: boolean) =>
   const toolsNavigation = {
     label: "Tools",
     items: [
-      { title: "Live Chat", url: "#live-chat", icon: MessageCircle, end: false, badge: "New", badgeVariant: "default" as const },
+      { title: "Live Chat", url: "/live-chat", icon: MessageCircle, end: false, badge: "New", badgeVariant: "default" as const },
       { title: "Ream AI", url: "/ream-ai", icon: Bot, end: false },
       { title: "Voice Recorder", url: "/voice-recorder", icon: Mic, end: false },
       { title: "Transcriptions", url: "/transcriptions", icon: FileText, end: false },
@@ -354,37 +353,7 @@ function MobileNavigation({ setIsChatOpen }: { setIsChatOpen: (open: boolean) =>
                     {group.items.map(item => {
                       if (!item) return null;
                       const isInvoice = item.url === "/invoices";
-                      const isLiveChat = item.url === "#live-chat";
-                      
-                      // Handle Live Chat specially
-                      if (isLiveChat) {
-                        return (
-                          <Button
-                            key={item.url}
-                            variant="ghost"
-                            className={cn(
-                              "w-full justify-start gap-3 rounded-lg border border-transparent px-3 py-2 text-sm font-medium",
-                              "text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground"
-                            )}
-                            onClick={() => {
-                              setOpen(false);
-                              setIsChatOpen(true);
-                            }}
-                          >
-                            <item.icon className="h-5 w-5" />
-                            <span>{item.title}</span>
-                            {totalUnreadCount > 0 ? (
-                              <Badge variant="destructive" className="ml-auto text-[10px] min-w-5 justify-center">
-                                {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                              </Badge>
-                            ) : (
-                              <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
-                                {item.badge}
-                              </Badge>
-                            )}
-                          </Button>
-                        );
-                      }
+                      const isLiveChat = item.url === "/live-chat";
                       
                       return (
                         <Button
@@ -409,11 +378,15 @@ function MobileNavigation({ setIsChatOpen }: { setIsChatOpen: (open: boolean) =>
                         >
                           <item.icon className="h-5 w-5" />
                           <span>{item.title}</span>
-                          {item.badge && (
+                          {isLiveChat && totalUnreadCount > 0 ? (
+                            <Badge variant="destructive" className="ml-auto text-[10px] min-w-5 justify-center">
+                              {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                            </Badge>
+                          ) : item.badge ? (
                             <Badge variant={item.badgeVariant} className="ml-auto text-[10px]">
                               {item.badge}
                             </Badge>
-                          )}
+                          ) : null}
                         </Button>
                       );
                     })}
@@ -452,7 +425,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
   const { data: organizationId } = useUserOrganization();
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Command palette
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
@@ -545,9 +517,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         user={user}
         userInitials={userInitials}
         handleSignOut={handleSignOut}
-        isChatOpen={isChatOpen}
-        setIsChatOpen={setIsChatOpen}
-        setIsChatOpenForMobile={setIsChatOpen}
       />
     </SidebarProvider>
   );
@@ -570,10 +539,7 @@ function AppLayoutInner({
   navigate,
   user,
   userInitials,
-  handleSignOut,
-  isChatOpen,
-  setIsChatOpen,
-  setIsChatOpenForMobile
+  handleSignOut
 }: any) {
   const hasSearchResults =
     hasSearchTerm &&
@@ -603,7 +569,7 @@ function AppLayoutInner({
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <MobileNavigation setIsChatOpen={setIsChatOpenForMobile} />
+                  <MobileNavigation />
                   <div className="flex flex-col">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Workspace</span>
                     <div className="flex items-baseline gap-2">
@@ -905,7 +871,6 @@ function AppLayoutInner({
           </main>
         </div>
       </div>
-      <LiveChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </>
   );
 }

@@ -2,15 +2,44 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore: Deno module
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse, logError } from "../_shared/errorHandling.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "onboarding@resend.dev";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 interface SsoLink {
   provider: 'google' | 'microsoft';
@@ -35,8 +64,34 @@ interface InvitationEmailRequest {
 const handler = async (req: Request): Promise<Response> => {
   console.log("send-invitation-email function invoked");
 
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
+  }
+
+  // Rate limiting - prevent email spam
+  const rateLimitId = getRateLimitIdentifier(req);
+  const rateLimitResult = checkRateLimit({
+    ...RATE_LIMIT_PRESETS.EMAIL,
+    identifier: rateLimitId,
+  });
+
+  if (!rateLimitResult.allowed) {
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      {
+        success: false,
+        error: 'Too many requests. Please try again later.',
+        errorCode: 'RATE_LIMIT_EXCEEDED',
+      },
+      {
+        status: 429,
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
+    );
   }
 
   try {
@@ -108,21 +163,24 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Invitation email sent successfully:", data?.id);
 
-    return new Response(
-      JSON.stringify({
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      {
         success: true,
         message: 'Invitation email sent successfully',
         messageId: data?.id,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      },
+      {
+        status: 200,
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
     );
 
-  } catch (error: any) {
-    console.error('Error in send-invitation-email function:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+  } catch (error: unknown) {
+    return createErrorResponse(error, corsOptions, {
+      function: 'send-invitation-email',
+    });
   }
 };
 

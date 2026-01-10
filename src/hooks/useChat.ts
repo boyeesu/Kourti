@@ -316,11 +316,14 @@ export function useSendMessage() {
         throw new Error(error.message || 'Failed to send message');
       }
 
-      // Update conversation updated_at
-      await supabase
+      // Update conversation updated_at - fire and forget (non-blocking)
+      supabase
         .from('conversations' as any)
         .update({ updated_at: new Date().toISOString() })
-        .eq('id', conversationId);
+        .eq('id', conversationId)
+        .then(({ error: updateError }) => {
+          if (updateError) console.error('Error updating conversation timestamp:', updateError);
+        });
 
       return data;
     },

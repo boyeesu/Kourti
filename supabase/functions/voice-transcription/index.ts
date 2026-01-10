@@ -3,11 +3,42 @@ declare const Deno: any;
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
 // @ts-ignore - Deno-compatible import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
-const voiceCorsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 const DEFAULT_CHAT_MODEL = 'gpt-4.1';
 const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -129,14 +160,43 @@ async function authenticateRequest(req: Request) {
 }
 
 export const voiceTranscriptionHandler = async (req: Request) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: voiceCorsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
     // Authenticate the request first
-    const { user, organizationId: _orgId } = await authenticateRequest(req);
+    const { user, organizationId: _orgId, supabase: authSupabase } = await authenticateRequest(req);
     console.log(`Processing voice transcription for user ${user.id}`);
+
+    // CSRF Protection - validate token for authenticated mutation
+    await requireCsrfTokenForUser(authSupabase, user.id, req);
+
+    // Rate limiting - prevent resource exhaustion
+    const rateLimitId = user.id || getRateLimitIdentifier(req);
+    const rateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.AI,
+      identifier: rateLimitId,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
+    }
 
     let body: any;
 
@@ -190,12 +250,14 @@ export const voiceTranscriptionHandler = async (req: Request) => {
       const transcriptionResult = await response.json();
       console.log('Transcription completed successfully');
 
-      return new Response(JSON.stringify({ 
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse({ 
         success: true,
         transcript: transcriptionResult.text,
         duration: transcriptionResult.duration || null
-      }), {
-        headers: { ...voiceCorsHeaders, 'Content-Type': 'application/json' },
+      }, {
+        cors: corsOptions,
+        headers: rateLimitHeaders,
       });
 
     } else if (action === 'summarize') {
@@ -227,21 +289,28 @@ export const voiceTranscriptionHandler = async (req: Request) => {
 
       console.log('Summary generated successfully');
 
-      return new Response(JSON.stringify({
+      const rateLimitHeaders2 = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse({
         success: true,
         summary,
         modelUsed,
-      }), {
-        headers: { ...voiceCorsHeaders, 'Content-Type': 'application/json' },
+      }, {
+        cors: corsOptions,
+        headers: rateLimitHeaders2,
       });
 
     } else {
       throw new HttpError('Invalid action. Must be "transcribe" or "summarize"', 400, 'INVALID_ACTION');
     }
 
-  } catch (error: any) {
-    console.error('Error in voice-transcription function:', error);
-    return createErrorResponse(error, { allowMethods: ['POST', 'OPTIONS'] }, 'Voice transcription failed');
+  } catch (error: unknown) {
+    // Use HttpError if available, otherwise use sanitized error response
+    if (error instanceof HttpError) {
+      return createErrorResponse(error, corsOptions);
+    }
+    return createSanitizedErrorResponse(error, corsOptions, {
+      function: 'voice-transcription',
+    });
   }
 };
 

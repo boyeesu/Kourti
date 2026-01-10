@@ -6,7 +6,10 @@ import {
   createCorsSecurityHeaders,
   createEmptyResponse,
   createJsonResponse,
+  CorsSecurityHeadersOptions,
 } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse } from "../_shared/errorHandling.ts";
 
 type CalendarEvent = {
   id: string;
@@ -21,10 +24,38 @@ type CalendarEvent = {
   updated_at: string;
 };
 
-const corsOptions = {
-  allowMethods: ["GET", "OPTIONS"],
-  exposeHeaders: ["Content-Disposition"],
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["GET", "OPTIONS"],
+    exposeHeaders: ["Content-Disposition"],
+  };
+}
 
 const PROD_ID = "-//Kouti//Calendar//EN";
 const CALENDAR_NAME = "Kouti Calendar";
@@ -159,19 +190,59 @@ function parseDateParam(value: string | null): string | null {
 }
 
 serve(async (req) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === "OPTIONS") {
     return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   if (req.method !== "GET") {
-    return createJsonResponse({ error: "Method not allowed" }, { status: 405, cors: corsOptions });
+    return createJsonResponse(
+      { 
+        success: false,
+        error: "Method not allowed",
+        errorCode: "METHOD_NOT_ALLOWED"
+      },
+      { status: 405, cors: corsOptions }
+    );
+  }
+
+  // Rate limiting - prevent abuse
+  const rateLimitId = getRateLimitIdentifier(req);
+  const rateLimitResult = checkRateLimit({
+    ...RATE_LIMIT_PRESETS.API,
+    identifier: rateLimitId,
+  });
+
+  if (!rateLimitResult.allowed) {
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      {
+        success: false,
+        error: 'Too many requests. Please try again later.',
+        errorCode: 'RATE_LIMIT_EXCEEDED',
+      },
+      {
+        status: 429,
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
+    );
   }
 
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
     if (!token) {
-      return createJsonResponse({ error: "Missing token" }, { status: 400, cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: false,
+          error: "Missing token",
+          errorCode: "VALIDATION_ERROR"
+        },
+        { status: 400, cors: corsOptions }
+      );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -186,22 +257,50 @@ serve(async (req) => {
 
     if (profileError) {
       console.error("calendar-ics profile lookup error:", profileError);
-      return createJsonResponse({ error: "Failed to validate token" }, { status: 500, cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: false,
+          error: "Failed to validate token",
+          errorCode: "VALIDATION_ERROR"
+        },
+        { status: 500, cors: corsOptions }
+      );
     }
 
     if (!profile?.organization_id) {
-      return createJsonResponse({ error: "Invalid token" }, { status: 401, cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: false,
+          error: "Invalid token",
+          errorCode: "UNAUTHORIZED"
+        },
+        { status: 401, cors: corsOptions }
+      );
     }
 
     const startParam = parseDateParam(url.searchParams.get("start"));
     const endParam = parseDateParam(url.searchParams.get("end"));
 
     if (url.searchParams.get("start") && !startParam) {
-      return createJsonResponse({ error: "Invalid start parameter" }, { status: 400, cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: false,
+          error: "Invalid start parameter",
+          errorCode: "VALIDATION_ERROR"
+        },
+        { status: 400, cors: corsOptions }
+      );
     }
 
     if (url.searchParams.get("end") && !endParam) {
-      return createJsonResponse({ error: "Invalid end parameter" }, { status: 400, cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: false,
+          error: "Invalid end parameter",
+          errorCode: "VALIDATION_ERROR"
+        },
+        { status: 400, cors: corsOptions }
+      );
     }
 
     let eventsQuery = supabase
@@ -224,23 +323,33 @@ serve(async (req) => {
 
     if (eventsError) {
       console.error("calendar-ics events query error:", eventsError);
-      return createJsonResponse({ error: "Failed to load events" }, { status: 500, cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: false,
+          error: "Failed to load events",
+          errorCode: "INTERNAL_ERROR"
+        },
+        { status: 500, cors: corsOptions }
+      );
     }
 
     const calendarBody = buildCalendar((events ?? []) as CalendarEvent[]);
     const corsHeaders = createCorsSecurityHeaders(corsOptions);
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
 
     return new Response(calendarBody, {
       status: 200,
       headers: {
         ...corsHeaders,
+        ...rateLimitHeaders,
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": 'attachment; filename="kouti-calendar.ics"',
         "Cache-Control": "no-cache",
       },
     });
-  } catch (error) {
-    console.error("Error in calendar-ics:", error);
-    return createJsonResponse({ error: String(error) }, { status: 500, cors: corsOptions });
+  } catch (error: unknown) {
+    return createErrorResponse(error, corsOptions, {
+      function: 'calendar-ics',
+    });
   }
 });

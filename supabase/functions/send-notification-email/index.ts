@@ -4,6 +4,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 // @ts-ignore: Deno module
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse } from "../_shared/errorHandling.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -12,10 +15,37 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "onboarding@resend.dev";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 interface NotificationEmailRequest {
   type: 'task_assigned' | 'case_update' | 'document_shared' | 'calendar_reminder' | 'invoice_created' | 'general';
@@ -31,8 +61,34 @@ interface NotificationEmailRequest {
 const handler = async (req: Request): Promise<Response> => {
   console.log("send-notification-email function invoked");
 
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
+  }
+
+  // Rate limiting - prevent email spam
+  const rateLimitId = getRateLimitIdentifier(req);
+  const rateLimitResult = checkRateLimit({
+    ...RATE_LIMIT_PRESETS.EMAIL,
+    identifier: rateLimitId,
+  });
+
+  if (!rateLimitResult.allowed) {
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      {
+        success: false,
+        error: 'Too many requests. Please try again later.',
+        errorCode: 'RATE_LIMIT_EXCEEDED',
+      },
+      {
+        status: 429,
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
+    );
   }
 
   let deliveryLogId: string | null = null;
@@ -53,9 +109,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (profileError || !profile?.email) {
       console.error('Could not find recipient email:', profileError);
-      return new Response(
-        JSON.stringify({ error: 'Recipient email not found' }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      return createJsonResponse(
+        { 
+          success: false,
+          error: 'Recipient email not found',
+          errorCode: 'NOT_FOUND'
+        },
+        { status: 400, cors: corsOptions }
       );
     }
 
@@ -89,10 +149,15 @@ const handler = async (req: Request): Promise<Response> => {
         }).select().single();
         notificationId = notif?.id || null;
       }
-      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'preferences' }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        { success: true, skipped: true, reason: 'preferences' },
+        {
+          status: 200,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
     }
 
     // Get organization name
@@ -214,15 +279,18 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('id', deliveryLogId);
     }
 
-    return new Response(JSON.stringify({ success: true, messageId: data?.id, deliveryLogId }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
-  } catch (error: any) {
-    console.error("Error in send-notification-email function:", error);
-    
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      { success: true, messageId: data?.id, deliveryLogId },
+      {
+        status: 200,
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
+    );
+  } catch (error: unknown) {
     // Update delivery log with error if it exists
-    if (deliveryLogId) {
+    if (deliveryLogId && error instanceof Error) {
       await supabase
         .from('email_delivery_logs')
         .update({
@@ -234,10 +302,9 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('id', deliveryLogId);
     }
 
-    return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return createErrorResponse(error, corsOptions, {
+      function: 'send-notification-email',
+    });
   }
 };
 

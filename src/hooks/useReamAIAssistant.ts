@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserOrganization } from './useUserOrganization';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -44,8 +45,8 @@ export function useReamAIAssistant() {
         throw new Error('Organization not found');
       }
 
-      // Call the Ream AI Assistant edge function
-      const { data, error } = await supabase.functions.invoke('ream-ai-assistant', {
+      // Call the Ream AI Assistant edge function with CSRF protection
+      const { data, error } = await invokeFunctionWithCsrf('ream-ai-assistant', {
         body: {
           message: message.trim(),
           conversationHistory: conversationHistory.map(msg => ({

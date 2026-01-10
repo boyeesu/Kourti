@@ -2,15 +2,47 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { createJsonResponse, createEmptyResponse } from "../_shared/responseHeaders.ts";
+import { createJsonResponse, createEmptyResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse } from "../_shared/errorHandling.ts";
+import { requireOrganizationAccess } from "../_shared/organizationValidation.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const openAIApiKey = Deno.env.get("OPENAI_API_KEY")!;
 
-const corsOptions = {
-  allowMethods: ['POST', 'OPTIONS'],
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 interface ReamAIRequest {
   message: string;
@@ -29,6 +61,9 @@ serve(async (req: Request): Promise<Response> => {
     url: req.url
   });
 
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   // Handle CORS preflight requests first
   if (req.method === "OPTIONS") {
     console.log("Handling OPTIONS preflight request");
@@ -42,20 +77,22 @@ serve(async (req: Request): Promise<Response> => {
     let requestData: ReamAIRequest;
     try {
       requestData = await req.json();
-    } catch (jsonError: any) {
-      console.error("JSON parse error:", jsonError);
-      return createJsonResponse(
-        { error: "Invalid JSON in request body" },
-        { status: 400, cors: corsOptions }
-      );
+    } catch (jsonError: unknown) {
+      return createErrorResponse(jsonError, corsOptions, {
+        function: 'ream-ai-assistant',
+        errorType: 'JSON_PARSE_ERROR',
+      });
     }
 
     const { message, conversationHistory = [], userId, organizationId, context } = requestData;
 
     if (!message || !userId || !organizationId) {
-      console.error("Missing required fields:", { message: !!message, userId: !!userId, organizationId: !!organizationId });
       return createJsonResponse(
-        { error: "Missing required fields: message, userId, or organizationId" },
+        { 
+          success: false,
+          error: 'Missing required fields: message, userId, or organizationId',
+          errorCode: 'VALIDATION_ERROR'
+        },
         { status: 400, cors: corsOptions }
       );
     }
@@ -63,6 +100,35 @@ serve(async (req: Request): Promise<Response> => {
     console.log("Processing request for user:", userId, "org:", organizationId);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Rate limiting - prevent AI cost abuse
+    const rateLimitId = userId || getRateLimitIdentifier(req);
+    const rateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.AI,
+      identifier: rateLimitId,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
+    }
+
+    // Validate organization access
+    await requireOrganizationAccess(supabase, userId, organizationId);
+
+    // CSRF Protection - validate token for authenticated mutation
+    await requireCsrfTokenForUser(supabase, userId, req);
 
     // Gather system context - query relevant tables
     // Wrap in try-catch to prevent context gathering from breaking the request
@@ -267,6 +333,7 @@ IMPORTANT: This question is about the document above. Extract information direct
       .replace(/\n\s*\n\s*\n/g, "\n\n") // Clean up excessive spacing
       .trim();
 
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
     return createJsonResponse(
       {
         response: cleanResponse,
@@ -274,27 +341,14 @@ IMPORTANT: This question is about the document above. Extract information direct
       },
       {
         status: 200,
-        cors: corsOptions
+        cors: corsOptions,
+        headers: rateLimitHeaders,
       }
     );
-  } catch (error: any) {
-    console.error("Error in ream-ai-assistant:", error);
-    console.error("Error stack:", error.stack);
-    console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
-    
-    // Return a more detailed error response
-    const errorMessage = error?.message || error?.toString() || "Failed to process request";
-    return createJsonResponse(
-      { 
-        error: errorMessage,
-        success: false,
-        details: process.env.NODE_ENV === "development" ? error.stack : undefined
-      },
-      { 
-        status: 500,
-        cors: corsOptions
-      }
-    );
+  } catch (error: unknown) {
+    return createErrorResponse(error, corsOptions, {
+      function: 'ream-ai-assistant',
+    });
   }
 });
 

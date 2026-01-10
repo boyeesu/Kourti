@@ -52,10 +52,12 @@ import VoiceRecorder from "./pages/VoiceRecorder";
 import TranscriptionView from "./pages/TranscriptionView";
 import TranscriptionsList from "./pages/TranscriptionsList";
 import BulkImport from "./pages/BulkImport";
+import LiveChatPage from "./pages/LiveChatPage";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 import { logInfo, logWarn } from "./lib/logger";
 import { FloatingChatWidget } from "@/components/ream-ai/FloatingChatWidget";
+// LiveChat overlay removed - now using LiveChatPage as a proper route
 // ThemeProvider removed - now handled in main.tsx
 
 // Lazy load pages for better performance
@@ -116,6 +118,7 @@ const protectedRoutes: ProtectedRouteConfig[] = [
   { path: '/transcriptions', component: TranscriptionsList, boundaryName: 'Transcriptions List', permission: { resource: 'documents', action: 'read' } },
   { path: '/transcriptions/:id', component: TranscriptionView, boundaryName: 'Transcription View', permission: { resource: 'documents', action: 'read' } },
   { path: '/bulk-import', component: BulkImport, boundaryName: 'Bulk Import', permission: { resource: 'documents', action: 'manage' } },
+  { path: '/live-chat', component: LiveChatPage, boundaryName: 'Live Chat' },
   { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center', suspense: true },
   { path: '/changelog', component: Changelog, boundaryName: 'Changelog', suspense: true },
   { path: '/users', component: UserManagement, boundaryName: 'User Management', permission: { resource: 'users', action: 'manage' } },

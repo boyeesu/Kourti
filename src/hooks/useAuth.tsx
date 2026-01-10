@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { logError, logInfo } from '@/lib/logger';
 import { env } from '@/lib/env';
 import { getAuthRedirectUrl } from '@/utils/auth-helpers';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
 interface UserData {
   first_name?: string;
@@ -47,10 +48,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
+      async (event, currentSession) => {
         logInfo('Auth state change detected', { event, hasSession: Boolean(currentSession) });
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        
+        // Fetch CSRF token when user signs in
+        if (event === 'SIGNED_IN' && currentSession?.access_token) {
+          try {
+            const { data: csrfData, error: csrfError } = await supabase.functions.invoke('get-csrf-token', {
+              headers: {
+                Authorization: `Bearer ${currentSession.access_token}`,
+              },
+            });
+
+            if (!csrfError && csrfData?.csrfToken) {
+              sessionStorage.setItem('csrf_token', csrfData.csrfToken);
+              logInfo('CSRF token obtained after auth state change');
+            }
+          } catch (csrfErr) {
+            logError('Error fetching CSRF token on auth change', { csrfErr });
+          }
+        }
+
+        // Clear CSRF token on sign out
+        if (event === 'SIGNED_OUT') {
+          sessionStorage.removeItem('csrf_token');
+        }
+        
         setLoading(false);
       }
     );
@@ -108,14 +133,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      if (error) {
+        return {
+          error,
+          success: false
+        };
+      }
+
+      // After successful login, fetch CSRF token from server
+      if (authData?.session?.access_token) {
+        try {
+          const { data: csrfData, error: csrfError } = await supabase.functions.invoke('get-csrf-token', {
+            headers: {
+              Authorization: `Bearer ${authData.session.access_token}`,
+            },
+          });
+
+          if (!csrfError && csrfData?.csrfToken) {
+            // Store CSRF token in sessionStorage
+            sessionStorage.setItem('csrf_token', csrfData.csrfToken);
+            logInfo('CSRF token obtained after login');
+          } else {
+            logError('Failed to get CSRF token', { csrfError });
+          }
+        } catch (csrfErr) {
+          logError('Error fetching CSRF token', { csrfErr });
+          // Don't fail login if CSRF token fetch fails
+        }
+      }
+
       return {
-        error,
-        success: !error
+        error: null,
+        success: true
       };
     } catch (error) {
       logError('Sign in error', { error });
@@ -177,6 +231,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Clear CSRF token on sign out
+      sessionStorage.removeItem('csrf_token');
       await supabase.auth.signOut();
     } catch (error) {
       logError('Sign out error', { error });
@@ -193,7 +249,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Use Resend-based edge function instead of Supabase's built-in email service
-      const { data, error } = await supabase.functions.invoke('send-password-reset-email', {
+      // Note: Password reset doesn't require CSRF (unauthenticated endpoint)
+      // But we'll include it if available for additional security
+      const { data, error } = await invokeFunctionWithCsrf('send-password-reset-email', {
         body: {
           email: email.toLowerCase(),
           redirectUrl,

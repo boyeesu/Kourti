@@ -5,11 +5,42 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
-const corsOptions = {
-  allowMethods: ['POST', 'OPTIONS'],
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 type DocumentChunkInsert = {
   document_id?: string | null;
@@ -56,8 +87,34 @@ function chunkText(text: string, maxTokens: number = 500): Array<{content: strin
 }
 
 export const processDocumentChunksHandler = async (req: Request) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === 'OPTIONS') {
     return createEmptyResponse({ status: 204, cors: corsOptions });
+  }
+
+  // Rate limiting - prevent AI cost abuse
+  const rateLimitId = getRateLimitIdentifier(req);
+  const rateLimitResult = checkRateLimit({
+    ...RATE_LIMIT_PRESETS.AI,
+    identifier: rateLimitId,
+  });
+
+  if (!rateLimitResult.allowed) {
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      {
+        success: false,
+        error: 'Too many requests. Please try again later.',
+        errorCode: 'RATE_LIMIT_EXCEEDED',
+      },
+      {
+        status: 429,
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
+    );
   }
 
   try {
@@ -122,6 +179,9 @@ export const processDocumentChunksHandler = async (req: Request) => {
     if (!organizationId) {
       throw new HttpError('User does not belong to an organization', 403, 'FORBIDDEN');
     }
+
+    // CSRF Protection - validate token for authenticated mutation
+    await requireCsrfTokenForUser(supabase, user.id, req);
 
     let payload: any;
 
@@ -364,6 +424,7 @@ export const processDocumentChunksHandler = async (req: Request) => {
 
     console.log(`Successfully processed ${processedChunks.length} chunks`);
 
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
     return createJsonResponse(
       {
         success: true,
@@ -373,12 +434,18 @@ export const processDocumentChunksHandler = async (req: Request) => {
         documentId: documentId || contractId,
         documentType,
       },
-      { cors: corsOptions },
+      {
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
     );
-
-  } catch (error: any) {
-    console.error('Error in process-document-chunks function:', error);
-    return createErrorResponse(error, corsOptions, 'Failed to process document chunks');
+  } catch (error: unknown) {
+    if (error instanceof HttpError) {
+      return createErrorResponse(error, corsOptions);
+    }
+    return createSanitizedErrorResponse(error, corsOptions, {
+      function: 'process-document-chunks',
+    });
   }
 };
 

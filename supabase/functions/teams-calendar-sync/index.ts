@@ -2,11 +2,43 @@ declare const Deno: any;
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { createErrorResponse } from "../_shared/errorHandling.ts";
+import { requireOrganizationAccess } from "../_shared/organizationValidation.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
-const corsOptions = {
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["GET", "POST", "OPTIONS"],
+  };
+}
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -181,15 +213,48 @@ function buildRedirectUrl(target: string, provider: string) {
 }
 
 serve(async (req) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === 'OPTIONS') {
     return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return createJsonResponse({ error: 'Supabase client not configured' }, { status: 500, cors: corsOptions });
+    return createJsonResponse(
+      {
+        success: false,
+        error: 'Service configuration error',
+        errorCode: 'CONFIG_ERROR'
+      },
+      { status: 500, cors: corsOptions }
+    );
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // Rate limiting - prevent abuse
+  const rateLimitId = getRateLimitIdentifier(req);
+  const rateLimitResult = checkRateLimit({
+    ...RATE_LIMIT_PRESETS.API,
+    identifier: rateLimitId,
+  });
+
+  if (!rateLimitResult.allowed) {
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      {
+        success: false,
+        error: 'Too many requests. Please try again later.',
+        errorCode: 'RATE_LIMIT_EXCEEDED',
+      },
+      {
+        status: 429,
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
+    );
+  }
 
   try {
     const url = new URL(req.url);
@@ -316,8 +381,21 @@ serve(async (req) => {
       .maybeSingle();
 
     if (profileError || !profile?.organization_id) {
-      return createJsonResponse({ error: 'Organization not found' }, { status: 400, cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Organization not found',
+          errorCode: 'NOT_FOUND'
+        },
+        { status: 400, cors: corsOptions }
+      );
     }
+
+    // Validate organization access
+    await requireOrganizationAccess(supabase, user.id, profile.organization_id);
+
+    // CSRF Protection - validate token for authenticated mutations
+    await requireCsrfTokenForUser(supabase, user.id, req);
 
     const body = await req.json();
     const action = body.action as CalendarAction | undefined;
@@ -910,9 +988,17 @@ serve(async (req) => {
       }, { cors: corsOptions });
     }
 
-    return createJsonResponse({ error: 'Invalid action' }, { status: 400, cors: corsOptions });
-  } catch (error) {
-    console.error('Error in teams-calendar-sync:', error);
-    return createJsonResponse({ error: String(error) }, { status: 500, cors: corsOptions });
+    return createJsonResponse(
+      {
+        success: false,
+        error: 'Invalid action',
+        errorCode: 'VALIDATION_ERROR'
+      },
+      { status: 400, cors: corsOptions }
+    );
+  } catch (error: unknown) {
+    return createErrorResponse(error, corsOptions, {
+      function: 'teams-calendar-sync',
+    });
   }
 });

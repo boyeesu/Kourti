@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { logError, logInfo } from '@/lib/logger';
 import type { Profile } from '@/lib/types/database';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
 export interface InviteUserData {
   email: string;
@@ -55,7 +56,7 @@ export function useInviteUser() {
       // NEW FLOW: Create the user with temp password via edge function
       logInfo('Creating invited user with temp password', { email: userData.email });
 
-      const { data: createResult, error: createError } = await supabase.functions.invoke('create-invited-user', {
+      const { data: createResult, error: createError } = await invokeFunctionWithCsrf('create-invited-user', {
         body: {
           email: userData.email,
           firstName: userData.firstName,

@@ -23,13 +23,25 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
   const { data: messages = [], isLoading } = useMessages(conversationId);
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isInitialMount = useRef(true);
 
   // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  // Reset initial mount flag when switching conversations
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    isInitialMount.current = true;
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Instant scroll on initial load, smooth for new messages
+      scrollToBottom(isInitialMount.current ? 'instant' : 'smooth');
+      isInitialMount.current = false;
     }
   }, [messages]);
 
@@ -59,12 +71,7 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
 
     try {
       await sendMessage.mutateAsync({ conversationId, content });
-      // Auto-scroll after sending
-      setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-      }, 100);
+      // Scroll handled by useEffect when messages update
     } catch (error: any) {
       console.error('Failed to send message:', error);
       setMessage(content); // Restore message on error
@@ -115,7 +122,7 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 p-4">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-sm text-muted-foreground">Loading messages...</div>
@@ -170,6 +177,8 @@ export function ChatWindow({ conversationId, onClose, recipientName }: ChatWindo
                 </div>
               );
             })}
+            {/* Scroll anchor */}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </ScrollArea>
