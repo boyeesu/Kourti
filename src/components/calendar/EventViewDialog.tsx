@@ -66,7 +66,7 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
     // Don't close the view dialog, keep it in background
   };
 
-  const handleEditClose = (wasUpdated?: boolean) => {
+  const handleEditClose = (_wasUpdated?: boolean) => {
     setShowEditDialog(false);
     // If event was updated, view dialog remains open to show updated event
   };

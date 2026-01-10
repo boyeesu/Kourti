@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { sanitizeErrorForLogging } from '@/lib/utils';
 import { Case, Client, CalendarEvent } from '@/types';
 
 export interface DashboardStats {

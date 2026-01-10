@@ -61,7 +61,7 @@ export default function CaseCreate() {
   const { createCaseNotification } = useNotificationTriggers();
 
   // hooks for case types, issues & fields
-  const { data: caseTypes = [] } = useCaseTypes();
+  useCaseTypes(); // Load case types for selector
   const [caseTypeId, setCaseTypeId] = useState<string>("");
   const { data: caseIssues = [], isLoading: isLoadingCaseIssues } = useCaseIssues(caseTypeId);
   const [caseIssueId, setCaseIssueId] = useState<string>("");
