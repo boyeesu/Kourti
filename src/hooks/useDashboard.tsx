@@ -40,10 +40,10 @@ export function useDashboard() {
 
       // No mock data - always fetch from database
 
-      // Calculate date range for upcoming events (start of today to end of 7 days from now)
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      const endOfWeek = new Date(startOfToday);
+      // Calculate date range for upcoming events (now to 7 days from now)
+      // Match the calendar page logic: events that start more than 0 days from now and within 7 days
+      const now = new Date();
+      const endOfWeek = new Date(now);
       endOfWeek.setDate(endOfWeek.getDate() + 7);
       endOfWeek.setHours(23, 59, 59, 999);
 
@@ -96,7 +96,7 @@ export function useDashboard() {
             .from('calendar_events')
             .select('*', { count: 'exact', head: true })
             .eq('organization_id', organizationId)
-            .gte('start_date', startOfToday.toISOString())
+            .gt('start_date', now.toISOString())
             .lte('start_date', endOfWeek.toISOString()),
 
           // Recent cases (last 5)
@@ -118,9 +118,9 @@ export function useDashboard() {
           // Upcoming calendar events (next 7 days, limit 5)
           supabase
             .from('calendar_events')
-            .select('id, title, start_date, end_date, event_type, case_id, case:case_id(title)')
+            .select('id, title, start_date, end_date, event_type, case_id')
             .eq('organization_id', organizationId)
-            .gte('start_date', startOfToday.toISOString())
+            .gt('start_date', now.toISOString())
             .lte('start_date', endOfWeek.toISOString())
             .order('start_date', { ascending: true })
             .limit(5)
@@ -136,8 +136,24 @@ export function useDashboard() {
           documentsResult.error || upcomingEventsResult.error || 
           upcomingCalendarEventsResult.error || recentCasesResult.error || 
           recentClientsResult.error || invoicesResult.error) {
+        // Log specific errors for debugging
+        if (upcomingCalendarEventsResult.error) {
+          console.error('Calendar events query error:', upcomingCalendarEventsResult.error);
+        }
         throw new Error('Failed to load dashboard data. Please try again.');
       }
+
+      // Debug: Log calendar events data
+      console.log('Calendar events query result:', {
+        data: upcomingCalendarEventsResult.data,
+        count: upcomingCalendarEventsResult.data?.length || 0,
+        error: upcomingCalendarEventsResult.error,
+        dateRange: {
+          start: now.toISOString(),
+          end: endOfWeek.toISOString()
+        },
+        organizationId
+      });
 
       const result = {
         totalCases: casesResult.count || 0,
@@ -150,6 +166,8 @@ export function useDashboard() {
         recentClients: (recentClientsResult.data || []) as Partial<Client>[],
         upcomingCalendarEvents: (upcomingCalendarEventsResult.data || []) as Partial<CalendarEvent>[],
       };
+
+      console.log('Dashboard result - upcomingCalendarEvents count:', result.upcomingCalendarEvents.length, result.upcomingCalendarEvents);
 
       return result;
     },
