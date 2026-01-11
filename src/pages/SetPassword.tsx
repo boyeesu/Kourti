@@ -117,11 +117,11 @@ export default function SetPassword() {
 
       toast({
         title: "Password set successfully!",
-        description: "You can now sign in with your new password.",
+        description: "Welcome to Kourti Legal!",
       });
 
-      // Redirect to dashboard after successful password set
-      setTimeout(() => navigate('/dashboard'), 2000);
+      // Redirect to dashboard immediately after successful password set
+      navigate('/dashboard');
     } catch (error: unknown) {
       console.error('Error setting password:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to set password. Please try again.";
