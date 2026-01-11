@@ -15,7 +15,27 @@ Based on the logs and codebase analysis, the 504 Gateway Timeout on `/auth/v1/si
 
 ## Solution Options
 
-### Option 1: Optimized Trigger (Recommended First Try)
+### Option 1: Enhanced with Job Queue (Best Performance - Recommended)
+
+**File**: `fix_signup_504_with_job_queue.sql`
+
+**What it does**:
+- All optimizations from Option 2
+- **Plus**: Defers invitation updates to background job queue (non-blocking)
+- Processes jobs via Edge Function or cron job
+- Includes retry logic and error handling
+
+**Expected performance**: <100ms for signups
+
+**Steps**:
+1. Run `fix_signup_504_with_job_queue.sql` in Supabase SQL Editor
+2. Deploy Edge Function: `supabase functions deploy process-invitation-updates`
+3. Set up cron job or call Edge Function periodically
+4. Test signup
+
+**See**: `fix_signup_504_with_job_queue_README.md` for full setup instructions
+
+### Option 2: Optimized Trigger (Fast Synchronous)
 
 **File**: `fix_signup_504_optimized.sql`
 
@@ -33,7 +53,7 @@ Based on the logs and codebase analysis, the 504 Gateway Timeout on `/auth/v1/si
 3. Test signup
 4. If still timing out, proceed to Option 2
 
-### Option 2: Minimal Trigger (Fallback)
+### Option 3: Minimal Trigger (Fallback)
 
 **File**: `fix_signup_504_minimal.sql`
 
@@ -94,5 +114,8 @@ LIMIT 1;
 ## Files Created
 
 - `diagnose_signup_504.sql` - Diagnostic queries
-- `fix_signup_504_optimized.sql` - Optimized trigger (try this first)
+- `fix_signup_504_with_job_queue.sql` - Enhanced with job queue (best performance)
+- `fix_signup_504_optimized.sql` - Optimized trigger (fast synchronous)
 - `fix_signup_504_minimal.sql` - Minimal trigger (fallback)
+- `supabase/functions/process-invitation-updates/index.ts` - Edge Function for job processing
+- `fix_signup_504_with_job_queue_README.md` - Full setup guide for job queue version
