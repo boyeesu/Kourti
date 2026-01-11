@@ -303,7 +303,7 @@ const App = () => (
               )}
             />
             <Route
-              path="/thanos"
+              path="/thanos/*"
               element={(
                 <SuperAdminRoute>
                   <ModuleErrorBoundary name="Thanos Dashboard">

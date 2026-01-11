@@ -1,79 +1,62 @@
-import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Users, BarChart3, FileText } from 'lucide-react';
-import { usePlatformAnalytics } from '@/hooks/usePlatformAnalytics';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { Shield } from 'lucide-react';
+import { ThanosSidebar } from '@/components/super-admin/ThanosSidebar';
 import { OverviewTab } from '@/components/super-admin/OverviewTab';
 import { OrganizationsTab } from '@/components/super-admin/OrganizationsTab';
 import { UsersTab } from '@/components/super-admin/UsersTab';
+import { PlansTab } from '@/components/super-admin/PlansTab';
 import { AnalyticsTab } from '@/components/super-admin/AnalyticsTab';
-import { AuditLogTab } from '@/components/super-admin/AuditLogTab';
+import { OrganizationDetail } from '@/components/super-admin/OrganizationDetail';
+import { UserDetail } from '@/components/super-admin/UserDetail';
+import { usePlatformAnalytics } from '@/hooks/usePlatformAnalytics';
 
 export default function ThanosDashboard() {
+  const location = useLocation();
   const { data: analytics, isLoading } = usePlatformAnalytics();
-  const [activeTab, setActiveTab] = useState('overview');
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
-              <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+    <SidebarProvider>
+      <div className="app-shell flex min-h-screen w-full bg-[hsl(var(--background))]">
+        <aside className="hidden shrink-0 px-2 py-3 md:flex md:w-[220px] lg:w-[260px] lg:px-3 lg:py-4">
+          <div className="workspace-sidebar h-full w-full overflow-hidden">
+            <ThanosSidebar />
+          </div>
+        </aside>
+
+        <div className="flex flex-col flex-1 min-w-0 gap-3 px-3 py-3 sm:px-4 lg:gap-4 lg:px-6">
+          <header className="workspace-header surface-panel px-3 py-3 sm:px-4 lg:px-5">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Platform</span>
+                    <div className="flex items-baseline gap-2">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-primary" />
+                        <span className="text-xl font-semibold text-foreground">Administration</span>
+                      </div>
+                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">System-wide management</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold">Thanos Dashboard</h1>
-              <p className="text-muted-foreground">Platform Administration & Analytics</p>
-            </div>
+          </header>
+
+          <div className="flex-1">
+            <Routes>
+              <Route index element={<OverviewTab analytics={analytics} isLoading={isLoading} />} />
+              <Route path="organizations" element={<OrganizationsTab />} />
+              <Route path="organizations/:id" element={<OrganizationDetail />} />
+              <Route path="users" element={<UsersTab />} />
+              <Route path="users/:id" element={<UserDetail />} />
+              <Route path="plans" element={<PlansTab />} />
+              <Route path="analytics" element={<AnalyticsTab />} />
+            </Routes>
           </div>
         </div>
       </div>
-
-      <div className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="organizations" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Organizations
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Audit Log
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <OverviewTab analytics={analytics} isLoading={isLoading} />
-          </TabsContent>
-
-          <TabsContent value="organizations" className="space-y-6">
-            <OrganizationsTab />
-          </TabsContent>
-
-          <TabsContent value="users" className="space-y-6">
-            <UsersTab />
-          </TabsContent>
-
-          <TabsContent value="analytics" className="space-y-6">
-            <AnalyticsTab />
-          </TabsContent>
-
-          <TabsContent value="audit" className="space-y-6">
-            <AuditLogTab />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+    </SidebarProvider>
   );
 }

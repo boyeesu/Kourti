@@ -16,7 +16,8 @@ import {
   Mic,
   LucideIcon,
   HelpCircle,
-  MessageCircle
+  MessageCircle,
+  Shield
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -34,6 +35,7 @@ import {
 import { PermissionGate } from "@/components/PermissionGate";
 import { Resource, Action, useCanPerformAction } from "@/hooks/usePermissions";
 import { useUserRole } from "@/hooks/useUserManagement";
+import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -126,7 +128,14 @@ const managementNavigation: NavigationGroup = {
   ]
 };
 
-const groups = [primaryNavigation, documentsNavigation, toolsNavigation, managementNavigation];
+const platformAdminNavigation: NavigationGroup = {
+  label: "Platform Admin",
+  items: [
+    { title: "Platform Admin", url: "/thanos", icon: Shield }
+  ]
+};
+
+const groups = [primaryNavigation, documentsNavigation, toolsNavigation, managementNavigation, platformAdminNavigation];
 
 const AppSidebar: React.FC = () => {
   const { state } = useSidebar();
@@ -142,6 +151,7 @@ const AppSidebar: React.FC = () => {
   const { data: userRoleData } = useUserRole();
   const role = userRoleData && "role" in userRoleData ? userRoleData.role : null;
   const isAdmin = role === "superadmin" || role === "admin";
+  const { data: isPlatformAdmin = false } = usePlatformAdmin();
 
   const filteredGroups = React.useMemo(() => {
     return groups
@@ -161,10 +171,13 @@ const AppSidebar: React.FC = () => {
             items: managementNavigation.items.filter((item) => item.url === "/settings")
           };
         }
+        if (group === platformAdminNavigation && !isPlatformAdmin) {
+          return null; // Hide platform admin group if user is not platform admin
+        }
         return group;
       })
-      .filter((group) => group.items.length > 0);
-  }, [isAdmin]);
+      .filter((group) => group !== null && group.items.length > 0);
+  }, [isAdmin, isPlatformAdmin]);
 
   const isActive = React.useCallback(
     (path: string, end?: boolean) => {

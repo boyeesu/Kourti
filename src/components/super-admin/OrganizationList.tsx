@@ -1,60 +1,182 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Organization } from '@/hooks/useAllOrganizations';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Users, Mail, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Power, PowerOff, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useToggleOrganizationStatus } from '@/hooks/useToggleOrganizationStatus';
+import { useDeleteOrganization } from '@/hooks/useDeleteOrganization';
 
 interface OrganizationListProps {
   organizations: Organization[];
 }
 
+const formatOrgType = (type: string | null) => {
+  if (!type) return 'N/A';
+  return type
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export function OrganizationList({ organizations }: OrganizationListProps) {
+  const navigate = useNavigate();
+  const toggleStatus = useToggleOrganizationStatus();
+  const deleteOrg = useDeleteOrganization();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState<Organization | null>(null);
+
+  const handleDeleteClick = (org: Organization) => {
+    setOrgToDelete(org);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (orgToDelete) {
+      deleteOrg.mutate({
+        orgId: orgToDelete.id,
+        reason: 'Deleted by platform admin',
+      });
+      setDeleteDialogOpen(false);
+      setOrgToDelete(null);
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      {organizations.map((org) => (
-        <Card key={org.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <Building2 className="h-5 w-5 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold">{org.name}</h3>
+    <>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Address</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Users</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {organizations.map((org) => (
+              <TableRow 
+                key={org.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => navigate(`/thanos/organizations/${org.id}`)}
+              >
+                <TableCell className="font-medium">{org.name}</TableCell>
+                <TableCell>{formatOrgType(org.type)}</TableCell>
+                <TableCell>{org.email || '—'}</TableCell>
+                <TableCell>{org.phone || '—'}</TableCell>
+                <TableCell className="max-w-[200px] truncate">{org.address || '—'}</TableCell>
+                <TableCell>
+                  {[org.state, org.country].filter(Boolean).join(', ') || '—'}
+                </TableCell>
+                <TableCell>{org.user_count}</TableCell>
+                <TableCell>
                   <Badge
                     variant={
-                      org.status === 'active'
+                      !org.is_active
+                        ? 'destructive'
+                        : org.status === 'active'
                         ? 'default'
                         : org.status === 'empty'
                         ? 'secondary'
                         : 'destructive'
                     }
                   >
-                    {org.status}
+                    {!org.is_active ? 'Disabled' : org.status}
                   </Badge>
-                </div>
-                {org.description && (
-                  <p className="text-sm text-muted-foreground mb-3">{org.description}</p>
-                )}
-                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                  {org.email && (
-                    <div className="flex items-center gap-1">
-                      <Mail className="h-4 w-4" />
-                      {org.email}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    {org.user_count} users
+                </TableCell>
+                <TableCell>{format(new Date(org.created_at), 'MMM dd, yyyy')}</TableCell>
+                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant={org.is_active ? 'destructive' : 'default'}
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleStatus.mutate({
+                          orgId: org.id,
+                          isActive: !org.is_active,
+                        });
+                      }}
+                      disabled={toggleStatus.isPending}
+                    >
+                      {org.is_active ? (
+                        <>
+                          <PowerOff className="h-4 w-4 mr-1" />
+                          Disable
+                        </>
+                      ) : (
+                        <>
+                          <Power className="h-4 w-4 mr-1" />
+                          Enable
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(org);
+                      }}
+                      disabled={deleteOrg.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    {format(new Date(org.created_at), 'MMM dd, yyyy')}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{orgToDelete?.name}</strong>? 
+              This will permanently delete the organization and all associated data, including {orgToDelete?.user_count || 0} users.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

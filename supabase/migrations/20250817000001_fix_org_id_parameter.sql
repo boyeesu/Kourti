@@ -1,1 +1,0 @@
-  'Returns true if current user has admin privileges in their organization';

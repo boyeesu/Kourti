@@ -4,9 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 export interface Organization {
   id: string;
   name: string;
+  type: string | null;
   email: string | null;
   description: string | null;
   address: string | null;
+  state: string | null;
+  country: string | null;
   phone: string | null;
   website: string | null;
   logo_url: string | null;
@@ -14,6 +17,7 @@ export interface Organization {
   updated_at: string;
   user_count: number;
   status: string;
+  is_active: boolean;
 }
 
 /**

@@ -7,11 +7,13 @@ export interface PlatformUser {
   email: string | null;
   first_name: string | null;
   last_name: string | null;
+  phone: string | null;
   role: string | null;
   department: string | null;
   status: string | null;
   organization_id: string | null;
   organization_name: string | null;
+  organization_type: string | null;
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
