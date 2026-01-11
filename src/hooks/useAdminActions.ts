@@ -95,9 +95,9 @@ export function useLogAdminAction() {
         const { data, error } = await supabase.rpc('log_admin_action', {
           p_action_type: params.action_type,
           p_target_type: params.target_type,
-          p_target_id: params.target_id || null,
+          p_target_id: params.target_id || undefined,
           p_details: params.details || {},
-          p_ip_address: null, // IP will be captured by backend
+          p_ip_address: undefined, // IP will be captured by backend
           p_user_agent: userAgent,
         });
 

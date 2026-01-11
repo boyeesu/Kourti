@@ -20,8 +20,6 @@ import { trackEvent, AnalyticsEvents, identifyUser } from "@/lib/analytics";
 import { useOnboardingSteps } from "@/hooks/useOnboardingSteps";
 import { AlertCircle, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { useAllRoles } from '@/hooks/useAllRoles';
 import { useMemo } from "react";
 
 type ProviderName = "google" | "microsoft";
@@ -166,7 +164,6 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { createOnboardingNotification } = useNotificationTriggers();
   const { markStepComplete } = useOnboardingSteps();
-  const { data: allRoles = [] } = useAllRoles();
 
   const enforceSso = useMemo(() => {
     return (providerState.google.enforceSso && providerState.google.available)

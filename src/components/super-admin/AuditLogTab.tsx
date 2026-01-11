@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Download, Search, Filter } from 'lucide-react';
-import { useAdminActions, AdminAction } from '@/hooks/useAdminActions';
+import { Download, Search } from 'lucide-react';
+import { useAdminActions } from '@/hooks/useAdminActions';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 

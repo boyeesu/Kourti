@@ -2271,7 +2271,6 @@ export type Database = {
         Args: { p_id: string }
         Returns: boolean
       }
-      disable_user: { Args: { target_user_id: string }; Returns: Json }
       enable_user: { Args: { target_user_id: string }; Returns: Json }
       generate_invoice_number: { Args: { org_id: string }; Returns: string }
       get_current_user_organization_id: { Args: never; Returns: string }

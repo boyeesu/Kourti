@@ -34,8 +34,7 @@ export function SuperAdminRoute({
 
   // If not authenticated, redirect to login
   if (!user) {
-    const state: { from: Location } = { from: location };
-    return <Navigate to="/auth" state={state} replace />;
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   // If not platform admin, redirect to dashboard

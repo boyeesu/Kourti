@@ -67,7 +67,7 @@ export function useDisableUser() {
       try {
         const { data, error } = await supabase.rpc('disable_user', {
           p_user_id: params.userId,
-          p_reason: params.reason || null,
+          p_reason: params.reason || undefined,
         });
 
         if (error) {
@@ -119,7 +119,7 @@ export function useDeleteUser() {
       try {
         const { data, error } = await supabase.rpc('delete_user_safe', {
           p_user_id: params.userId,
-          p_reason: params.reason || null,
+          p_reason: params.reason || undefined,
         });
 
         if (error) {
@@ -178,11 +178,11 @@ export function useCreateOrganization() {
       try {
         const { data, error } = await supabase.rpc('create_organization_admin', {
           p_name: params.name,
-          p_email: params.email || null,
-          p_description: params.description || null,
-          p_address: params.address || null,
-          p_phone: params.phone || null,
-          p_website: params.website || null,
+          p_email: params.email || undefined,
+          p_description: params.description || undefined,
+          p_address: params.address || undefined,
+          p_phone: params.phone || undefined,
+          p_website: params.website || undefined,
         });
 
         if (error) {

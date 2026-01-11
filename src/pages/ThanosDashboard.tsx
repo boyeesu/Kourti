@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Building2, Users, BarChart3, FileText } from 'lucide-react';
 import { usePlatformAnalytics } from '@/hooks/usePlatformAnalytics';
 import { OverviewTab } from '@/components/super-admin/OverviewTab';
