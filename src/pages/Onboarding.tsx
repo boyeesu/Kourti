@@ -328,8 +328,19 @@ export default function Onboarding() {
             signUpError = result.error;
             console.error('Signup error on attempt', retryCount + 1, ':', signUpError);
 
-            // Check if it's a timeout error that we should retry
-            if (signUpError.message?.includes('timeout') || signUpError.message?.includes('504') || signUpError.message?.includes('Gateway')) {
+            // Check if it's a retryable error (timeout, 504, network issues, or AuthRetryableFetchError)
+            const errorMessage = signUpError.message || '';
+            const errorName = signUpError.name || signUpError.constructor?.name || '';
+            const isRetryableError =
+              errorMessage.includes('timeout') ||
+              errorMessage.includes('504') ||
+              errorMessage.includes('Gateway') ||
+              errorMessage.includes('fetch') ||
+              errorName.includes('Retryable') ||
+              errorName.includes('FetchError') ||
+              errorName === 'AuthRetryableFetchError';
+
+            if (isRetryableError) {
               retryCount++;
               if (retryCount < maxRetries) {
                 toast({
@@ -342,13 +353,23 @@ export default function Onboarding() {
               }
             }
 
-            // Not a timeout error, or we've exhausted retries
+            // Not a retryable error, or we've exhausted retries
             break;
 
           } catch (error: any) {
             signUpError = error;
             // Handle network errors and timeouts
-            if (error.message?.includes('fetch') || error.message?.includes('timeout') || error.message?.includes('504')) {
+            const catchErrorMessage = error.message || '';
+            const catchErrorName = error.name || error.constructor?.name || '';
+            const isCatchRetryable =
+              catchErrorMessage.includes('fetch') ||
+              catchErrorMessage.includes('timeout') ||
+              catchErrorMessage.includes('504') ||
+              catchErrorName.includes('Retryable') ||
+              catchErrorName.includes('FetchError') ||
+              catchErrorName === 'AuthRetryableFetchError';
+
+            if (isCatchRetryable) {
               retryCount++;
               if (retryCount < maxRetries) {
                 toast({
@@ -366,20 +387,30 @@ export default function Onboarding() {
 
         if (signUpError) {
           // Handle specific error types with better messaging
-          if (signUpError.message?.includes('timeout') || signUpError.message?.includes('504') ||
-              signUpError.message?.includes('Gateway') || signUpError.message?.includes('network')) {
+          const finalErrorMessage = signUpError.message || '';
+          const finalErrorName = signUpError.name || signUpError.constructor?.name || '';
+          const isTimeoutError =
+            finalErrorMessage.includes('timeout') ||
+            finalErrorMessage.includes('504') ||
+            finalErrorMessage.includes('Gateway') ||
+            finalErrorMessage.includes('network') ||
+            finalErrorName.includes('Retryable') ||
+            finalErrorName.includes('FetchError') ||
+            finalErrorName === 'AuthRetryableFetchError';
+
+          if (isTimeoutError) {
             toast({
               variant: "destructive",
               title: "Connection timeout",
-              description: "The signup is taking longer than usual due to network delays. The system will retry automatically.",
+              description: "The signup is taking longer than usual. Please try again in a moment.",
             });
-          } else if (signUpError.message?.includes('rate limit') || signUpError.message?.includes('too many')) {
+          } else if (finalErrorMessage.includes('rate limit') || finalErrorMessage.includes('too many')) {
             toast({
               variant: "destructive",
               title: "Too many attempts",
               description: "Please wait a few minutes before trying again.",
             });
-          } else if (signUpError.message?.includes('email') && signUpError.message?.includes('already')) {
+          } else if (finalErrorMessage.includes('email') && finalErrorMessage.includes('already')) {
             toast({
               variant: "destructive",
               title: "Email already registered",
@@ -391,7 +422,7 @@ export default function Onboarding() {
             toast({
               variant: "destructive",
               title: "Account creation failed",
-              description: signUpError.message || "Unable to create your account. Please check your information and try again.",
+              description: finalErrorMessage || "Unable to create your account. Please check your information and try again.",
             });
           }
           return;
