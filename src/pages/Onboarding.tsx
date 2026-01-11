@@ -1310,7 +1310,7 @@ export default function Onboarding() {
                 <div className="mt-2 space-y-2">
                   <Progress value={progress} className="w-full" />
                   <p className="text-xs text-muted-foreground">
-                    Step {currentStep} of {steps.length}
+                    Step {currentStep + 1} of {steps.length}
                   </p>
                 </div>
               </div>
@@ -1354,8 +1354,8 @@ export default function Onboarding() {
 
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold">{steps[currentStep - 1]?.title}</h2>
-                <p className="text-sm text-muted-foreground">{steps[currentStep - 1]?.description}</p>
+                <h2 className="text-xl font-semibold">{steps[currentStep]?.title}</h2>
+                <p className="text-sm text-muted-foreground">{steps[currentStep]?.description}</p>
               </div>
 
               {renderStepContent()}
