@@ -396,7 +396,7 @@ export default function Onboarding() {
       return;
     }
 
-    // Handle account creation on step 0
+    // Step 0: Just validate and move to next step (don't create account yet)
     if (currentStep === 0) {
       if (enforceSso) {
         toast({
@@ -406,45 +406,9 @@ export default function Onboarding() {
         });
         return;
       }
-
-      setSsoError(null);
-      const { error } = await signUp(formData.account.email, formData.account.password, {
-        email: formData.account.email,
-        first_name: formData.account.firstName,
-        last_name: formData.account.lastName,
-      });
-
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Account creation failed",
-          description: error.message,
-        });
-        return;
-      }
-
-      toast({
-        title: "Account created!",
-        description: "Your account has been created. Continuing with onboarding...",
-      });
-
-      // Check if user is now authenticated (email confirmations may be disabled)
-      // If authenticated, proceed to next step; otherwise wait for email verification
-      const checkAuth = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setCurrentStep(1);
-          setValidationErrors({});
-        } else {
-          toast({
-            title: "Email verification required",
-            description: "Please check your email to verify your account, then refresh this page to continue.",
-          });
-        }
-      };
-      
-      // Wait a moment for auth state to update
-      setTimeout(checkAuth, 500);
+      // Just move to next step - account creation happens at the end
+      setCurrentStep(1);
+      setValidationErrors({});
       return;
     }
     
@@ -464,22 +428,99 @@ export default function Onboarding() {
     try {
       const warningMessages: string[] = [];
 
-      // Create organization with all collected data
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: formData.organization.name,
-          description: formData.organization.description,
-          address: formData.organization.address,
-          state: formData.organization.state,
-          country: formData.organization.country,
-          phone: formData.organization.phone,
-          email: formData.organization.email,
-        })
-        .select()
+      // Create account first if not already authenticated
+      if (!user) {
+        if (enforceSso) {
+          toast({
+            variant: "destructive",
+            title: "SSO Required",
+            description: "Your organization requires SSO. Please use one of the SSO options above.",
+          });
+          return;
+        }
+
+        setSsoError(null);
+        const { error: signUpError } = await signUp(formData.account.email, formData.account.password, {
+          email: formData.account.email,
+          first_name: formData.account.firstName,
+          last_name: formData.account.lastName,
+        });
+
+        if (signUpError) {
+          toast({
+            variant: "destructive",
+            title: "Account creation failed",
+            description: signUpError.message,
+          });
+          return;
+        }
+
+        // Wait for auth state to update
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check if user is now authenticated
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          toast({
+            title: "Email verification required",
+            description: "Please check your email to verify your account, then refresh this page to continue.",
+          });
+          return;
+        }
+      }
+
+      // Get current user (should be authenticated now)
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated. Please try again.');
+      }
+
+      // Check if user already has an organization (created by trigger)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', currentUser.id)
         .single();
 
-      if (orgError) throw orgError;
+      let orgData;
+      if (existingProfile?.organization_id) {
+        // Update existing organization created by trigger
+        const { data: updatedOrg, error: updateError } = await supabase
+          .from('organizations')
+          .update({
+            name: formData.organization.name,
+            description: formData.organization.description,
+            address: formData.organization.address,
+            state: formData.organization.state,
+            country: formData.organization.country,
+            phone: formData.organization.phone,
+            email: formData.organization.email,
+          })
+          .eq('id', existingProfile.organization_id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        orgData = updatedOrg;
+      } else {
+        // Create new organization if trigger didn't create one
+        const { data: newOrg, error: orgError } = await supabase
+          .from('organizations')
+          .insert({
+            name: formData.organization.name,
+            description: formData.organization.description,
+            address: formData.organization.address,
+            state: formData.organization.state,
+            country: formData.organization.country,
+            phone: formData.organization.phone,
+            email: formData.organization.email,
+          })
+          .select()
+          .single();
+
+        if (orgError) throw orgError;
+        orgData = newOrg;
+      }
 
       // Update user profile with organization and user details (default to superadmin for onboarding)
       // Ensure first_name and last_name are saved even if trigger didn't capture them
@@ -488,10 +529,10 @@ export default function Onboarding() {
         .update({
           organization_id: orgData.id,
           role: 'superadmin',
-          first_name: formData.account.firstName || user?.user_metadata?.first_name || null,
-          last_name: formData.account.lastName || user?.user_metadata?.last_name || null,
+          first_name: formData.account.firstName || currentUser.user_metadata?.first_name || null,
+          last_name: formData.account.lastName || currentUser.user_metadata?.last_name || null,
         })
-        .eq('user_id', user?.id || '');
+        .eq('user_id', currentUser.id);
 
       if (profileError) throw profileError;
 
@@ -500,13 +541,13 @@ export default function Onboarding() {
         .filter((email) => email.length > 0);
 
       if (inviteEmails.length > 0) {
-        let inviterName = user?.email ?? 'Team member';
+        let inviterName = currentUser.email ?? 'Team member';
 
         try {
           const { data: profileDetails, error: profileDetailsError } = await supabase
             .from('profiles')
             .select('first_name,last_name')
-            .eq('user_id', user?.id || '')
+            .eq('user_id', currentUser.id)
             .single();
 
           if (profileDetailsError) throw profileDetailsError;
@@ -515,7 +556,7 @@ export default function Onboarding() {
             inviterName = buildDisplayName(
               (profileDetails as any)?.first_name ?? null,
               (profileDetails as any)?.last_name ?? null,
-              user?.email ?? undefined
+              currentUser.email ?? undefined
             );
           }
         } catch (profileDetailsError: any) {
@@ -667,7 +708,7 @@ export default function Onboarding() {
         orgSize: formData.organization.size,
         practiceAreas: formData.practiceAreas.length 
       });
-      identifyUser(user?.id || '', orgData.id);
+      identifyUser(currentUser.id, orgData.id);
       
       // Create welcome notification
       await createOnboardingNotification(formData.organization.name);
@@ -1478,7 +1519,7 @@ export default function Onboarding() {
                   </Button>
                 ) : (
                   <Button onClick={handleNext} className="min-w-[120px]">
-                    {currentStep === 0 ? "Create Account" : "Continue"}
+                    Continue
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 )}
