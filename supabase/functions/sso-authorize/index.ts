@@ -9,6 +9,7 @@ const ALLOWED_ORIGINS = [
   Deno.env.get("SSO_ALLOWED_REDIRECT_ORIGINS"),
   "http://localhost:3000",
   "http://localhost:5173",
+  "http://localhost:8080",
   "https://kouti-legal-hub-41.lovable.app",
 ]
   .flatMap((value) => (value ? value.split(",") : []))
