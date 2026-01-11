@@ -6,6 +6,7 @@ import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateL
 import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
 // @ts-ignore: Deno module
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createTrace, traceOpenAIEmbedding } from "../_shared/langfuse.ts";
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
@@ -92,6 +93,16 @@ export const generateEmbeddingsHandler = async (req: Request) => {
       throw new HttpError('Missing required parameters: documentId, documentType, content', 400, 'INVALID_INPUT');
     }
 
+    // Create Langfuse trace for this request
+    const traceId = await createTrace({
+      name: 'generate-embeddings',
+      metadata: {
+        documentId,
+        documentType,
+      },
+      tags: ['embeddings', 'document-processing'],
+    });
+
     console.log(`Generating embedding for ${documentType} ${documentId}`);
 
     // Generate embedding using OpenAI
@@ -127,6 +138,17 @@ export const generateEmbeddingsHandler = async (req: Request) => {
 
     const embeddingData = await response.json();
     const embedding = embeddingData.data[0].embedding;
+
+    // Trace the embedding generation
+    await traceOpenAIEmbedding(traceId, {
+      model: 'text-embedding-3-small',
+      input: content.substring(0, 8000),
+      response: embeddingData,
+      metadata: {
+        documentId,
+        documentType,
+      },
+    });
 
     console.log(`Generated embedding with ${embedding.length} dimensions`);
 

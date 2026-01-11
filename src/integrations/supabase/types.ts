@@ -145,6 +145,50 @@ export type Database = {
           },
         ]
       }
+      admin_actions: {
+        Row: {
+          id: string
+          admin_user_id: string
+          action_type: string
+          target_type: string
+          target_id: string | null
+          details: Json
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id: string
+          action_type: string
+          target_type: string
+          target_id?: string | null
+          details?: Json
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string
+          action_type?: string
+          target_type?: string
+          target_id?: string | null
+          details?: Json
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_actions_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       best_practices: {
         Row: {
           clause: string
@@ -2409,6 +2453,83 @@ export type Database = {
       validate_role_exists: {
         Args: { p_organization_id: string; p_role_name: string }
         Returns: boolean
+      }
+      is_platform_admin: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      get_all_organizations: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+          email: string | null
+          description: string | null
+          address: string | null
+          phone: string | null
+          website: string | null
+          logo_url: string | null
+          created_at: string
+          updated_at: string
+          user_count: number
+          status: string
+        }[]
+      }
+      get_all_users: {
+        Args: never
+        Returns: {
+          id: string
+          user_id: string
+          email: string | null
+          first_name: string | null
+          last_name: string | null
+          role: string | null
+          department: string | null
+          status: string | null
+          organization_id: string | null
+          organization_name: string | null
+          created_at: string
+          updated_at: string
+          last_login_at: string | null
+          approved_at: string | null
+          approved_by: string | null
+          disabled_at: string | null
+          disabled_by: string | null
+        }[]
+      }
+      approve_user: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      disable_user: {
+        Args: { p_user_id: string; p_reason?: string }
+        Returns: boolean
+      }
+      delete_user_safe: {
+        Args: { p_user_id: string; p_reason?: string }
+        Returns: boolean
+      }
+      create_organization_admin: {
+        Args: {
+          p_name: string
+          p_email?: string
+          p_description?: string
+          p_address?: string
+          p_phone?: string
+          p_website?: string
+        }
+        Returns: string
+      }
+      log_admin_action: {
+        Args: {
+          p_action_type: string
+          p_target_type: string
+          p_target_id?: string
+          p_details?: Json
+          p_ip_address?: string
+          p_user_agent?: string
+        }
+        Returns: string
       }
     }
     Enums: {

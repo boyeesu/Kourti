@@ -7,6 +7,7 @@ import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } f
 import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
 import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
 import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
+import { createTrace, traceOpenAIAudioTranscription, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
@@ -213,6 +214,18 @@ export const voiceTranscriptionHandler = async (req: Request) => {
       throw new HttpError('OPENAI_API_KEY not configured', 503, 'OPENAI_CONFIG_MISSING');
     }
 
+    // Create Langfuse trace for this request
+    const traceId = await createTrace({
+      name: 'voice-transcription',
+      userId: user.id,
+      metadata: {
+        action,
+        hasAudio: !!audio,
+        hasTranscript: !!transcript,
+      },
+      tags: ['voice-transcription', 'audio-ai'],
+    });
+
     if (action === 'transcribe') {
       if (!audio) {
         throw new HttpError('Audio data is required for transcription', 400, 'INVALID_INPUT');
@@ -250,6 +263,16 @@ export const voiceTranscriptionHandler = async (req: Request) => {
       const transcriptionResult = await response.json();
       console.log('Transcription completed successfully');
 
+      // Trace the audio transcription
+      await traceOpenAIAudioTranscription(traceId, {
+        model: 'whisper-1',
+        response: transcriptionResult,
+        userId: user.id,
+        metadata: {
+          action: 'transcribe',
+        },
+      });
+
       const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
       return createJsonResponse({ 
         success: true,
@@ -267,17 +290,19 @@ export const voiceTranscriptionHandler = async (req: Request) => {
 
       console.log('Generating summary for transcript...');
 
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are a legal assistant. Summarize the following transcript of legal proceedings in a clear, professional format. Focus on key points, decisions, actions required, and important details.'
+        },
+        {
+          role: 'user',
+          content: `Please summarize this legal proceeding transcript:\n\n${transcript}`
+        }
+      ];
+
       const { data: summaryResult, modelUsed } = await requestChatCompletion(OPENAI_API_KEY, {
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a legal assistant. Summarize the following transcript of legal proceedings in a clear, professional format. Focus on key points, decisions, actions required, and important details.'
-          },
-          {
-            role: 'user',
-            content: `Please summarize this legal proceeding transcript:\n\n${transcript}`
-          }
-        ],
+        messages,
         max_completion_tokens: 1000,
       });
 
@@ -286,6 +311,18 @@ export const voiceTranscriptionHandler = async (req: Request) => {
       if (!summary) {
         throw new HttpError('Summary generation failed: Empty response from OpenAI', 502, 'OPENAI_UPSTREAM_ERROR');
       }
+
+      // Trace the chat completion for summarization
+      await traceOpenAIChatCompletion(traceId, {
+        model: modelUsed,
+        messages,
+        response: summaryResult,
+        userId: user.id,
+        metadata: {
+          action: 'summarize',
+          maxTokens: 1000,
+        },
+      });
 
       console.log('Summary generated successfully');
 

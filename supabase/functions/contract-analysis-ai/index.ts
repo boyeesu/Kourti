@@ -3,6 +3,7 @@ declare const Deno: any;
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
 
 const corsOptions = {
   allowMethods: ["POST", "OPTIONS"],
@@ -97,6 +98,17 @@ Please provide a comprehensive, detailed response that covers all of the followi
 
 Remember: Write in plain text paragraphs, be extremely detailed, avoid all markdown formatting, and structure your response naturally with clear transitions between sections.`;
 
+    // Create Langfuse trace for this request
+    const traceId = await createTrace({
+      name: 'contract-analysis-ai',
+      metadata: {
+        analysisType,
+        hasGoal: !!goal,
+        textLength: text.length,
+      },
+      tags: ['contract-analysis', 'legal-ai'],
+    });
+
     const requestStartTime = Date.now();
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -127,6 +139,23 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
     if (!analysis) {
       throw new Error("Failed to generate analysis");
     }
+
+    // Trace the OpenAI chat completion
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
+    await traceOpenAIChatCompletion(traceId, {
+      model: "gpt-4o",
+      messages,
+      response: data,
+      metadata: {
+        analysisType,
+        hasGoal: !!goal,
+        textLength: text.length,
+        maxTokens: 2000,
+      },
+    });
 
     const cleanAnalysis = analysis
       .replace(/^#{1,6}\s+/gm, "") // Remove markdown headers

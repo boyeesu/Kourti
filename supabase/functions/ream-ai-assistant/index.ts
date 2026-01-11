@@ -7,6 +7,7 @@ import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateL
 import { createErrorResponse } from "../_shared/errorHandling.ts";
 import { requireOrganizationAccess } from "../_shared/organizationValidation.ts";
 import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
+import { createTrace, traceOpenAIChatCompletion, traceOpenAIEmbedding } from "../_shared/langfuse.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -130,12 +131,24 @@ serve(async (req: Request): Promise<Response> => {
     // CSRF Protection - validate token for authenticated mutation
     await requireCsrfTokenForUser(supabase, userId, req);
 
+    // Create Langfuse trace for this request
+    const traceId = await createTrace({
+      name: 'ream-ai-assistant',
+      userId,
+      metadata: {
+        organizationId,
+        hasDocumentContext: !!context?.documentContent,
+        conversationHistoryLength: conversationHistory.length,
+      },
+      tags: ['ai-assistant', 'legal'],
+    });
+
     // Gather system context - query relevant tables
     // Wrap in try-catch to prevent context gathering from breaking the request
     let systemContext = "No system context available.";
     try {
       console.log("Gathering system context...");
-      systemContext = await gatherSystemContext(supabase, organizationId, message);
+      systemContext = await gatherSystemContext(supabase, organizationId, message, traceId);
       console.log("System context gathered, length:", systemContext.length);
     } catch (contextError: any) {
       console.error("Error gathering system context:", contextError);
@@ -275,6 +288,12 @@ IMPORTANT: This question is about the document above. Extract information direct
 
     // Call OpenAI
     console.log("Calling OpenAI API...");
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...conversationHistory,
+      { role: "user", content: userMessage },
+    ];
+    
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -283,11 +302,7 @@ IMPORTANT: This question is about the document above. Extract information direct
       },
       body: JSON.stringify({
         model: "gpt-5.1", // Using Thinking mode for complex reasoning and execution
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...conversationHistory,
-          { role: "user", content: userMessage },
-        ],
+        messages,
         temperature: 0.3, // Lower temperature for more precise, thoughtful responses
         max_tokens: 4000, // Increased for comprehensive answers
         stream: false,
@@ -302,6 +317,20 @@ IMPORTANT: This question is about the document above. Extract information direct
 
     const data = await response.json();
     let aiResponse = data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
+    
+    // Trace the OpenAI chat completion
+    await traceOpenAIChatCompletion(traceId, {
+      model: "gpt-5.1",
+      messages,
+      response: data,
+      userId,
+      metadata: {
+        organizationId,
+        hasDocumentContext: !!context?.documentContent,
+        temperature: 0.3,
+        maxTokens: 4000,
+      },
+    });
     
     console.log("OpenAI response received, length:", aiResponse.length);
 
@@ -355,7 +384,8 @@ IMPORTANT: This question is about the document above. Extract information direct
 async function gatherSystemContext(
   supabase: any,
   organizationId: string,
-  userMessage: string
+  userMessage: string,
+  traceId: string | null = null
 ): Promise<string> {
   const contextParts: string[] = [];
   const messageLower = userMessage.toLowerCase();
@@ -574,6 +604,7 @@ async function gatherSystemContext(
     try {
       // Generate embedding for the user's query using OpenAI embedding model
       // This is the only real-time embedding generation - document embeddings are pre-computed
+      const embeddingInput = userMessage.substring(0, 8000);
       const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
         method: "POST",
         headers: {
@@ -582,7 +613,7 @@ async function gatherSystemContext(
         },
         body: JSON.stringify({
           model: "text-embedding-3-small", // Using OpenAI embedding model from your key
-          input: userMessage.substring(0, 8000),
+          input: embeddingInput,
           encoding_format: "float"
         }),
       });
@@ -590,6 +621,17 @@ async function gatherSystemContext(
       if (embeddingResponse.ok) {
         const embeddingData = await embeddingResponse.json();
         const queryEmbedding = embeddingData.data[0].embedding;
+        
+        // Trace the embedding generation
+        await traceOpenAIEmbedding(traceId, {
+          model: "text-embedding-3-small",
+          input: embeddingInput,
+          response: embeddingData,
+          metadata: {
+            purpose: 'vector-search-query',
+            organizationId,
+          },
+        });
 
         // Perform vector search against pre-computed embeddings in document_chunks table
         // This uses the match_document_chunks RPC which searches pre-existing embeddings

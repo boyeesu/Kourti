@@ -212,10 +212,10 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --popover: 0 0% 100%;
     --popover-foreground: 211 35% 20%;
 
-    /* Primary accent - professional blue */
-    --primary: 211 74% 31%;
+    /* Primary accent - Blue Lavender (aligned with dark mode) */
+    --primary: 217 71% 50%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 211 74% 45%;
+    --primary-glow: 217 71% 60%;
 
     /* Secondary neutrals */
     --secondary: 214 25% 92%;
@@ -225,22 +225,22 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --muted: 214 22% 93%;
     --muted-foreground: 211 12% 45%;
 
-    /* Accent tint */
-    --accent: 214 24% 90%;
+    /* Accent - Light Blue Lavender (aligned with dark mode) */
+    --accent: 216 65% 75%;
     --accent-foreground: 211 30% 26%;
 
-    /* Status colours */
-    --success: 146 45% 40%;
+    /* Status colours - Kourti palette (aligned with dark mode) */
+    --success: 142 69% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 90% 55%;
+    --warning: 48 96% 50%;
     --warning-foreground: 26 20% 18%;
-    --destructive: 0 72% 48%;
+    --destructive: 0 91% 55%;
     --destructive-foreground: 0 0% 100%;
 
     /* Structure */
     --border: 214 18% 82%;
     --input: 214 20% 80%;
-    --ring: 211 74% 31%;
+    --ring: 217 71% 50%;
 
     /* Motion */
     --transition-smooth: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
@@ -251,12 +251,12 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     /* Sidebar palette */
     --sidebar-background: 214 28% 96%;
     --sidebar-foreground: 211 18% 24%;
-    --sidebar-primary: 211 74% 31%;
+    --sidebar-primary: 217 71% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 214 26% 92%;
     --sidebar-accent-foreground: 211 25% 26%;
     --sidebar-border: 214 20% 84%;
-    --sidebar-ring: 211 74% 31%;
+    --sidebar-ring: 217 71% 50%;
   }
 }
 

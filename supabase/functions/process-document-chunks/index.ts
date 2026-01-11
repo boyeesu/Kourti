@@ -9,6 +9,7 @@ import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } f
 import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
 import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
 import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
+import { createTrace, traceOpenAIEmbedding } from "../_shared/langfuse.ts";
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
@@ -183,6 +184,19 @@ export const processDocumentChunksHandler = async (req: Request) => {
     // CSRF Protection - validate token for authenticated mutation
     await requireCsrfTokenForUser(supabase, user.id, req);
 
+    // Create Langfuse trace for this request
+    const traceId = await createTrace({
+      name: 'process-document-chunks',
+      userId: user.id,
+      metadata: {
+        documentId,
+        contractId,
+        documentType,
+        organizationId,
+      },
+      tags: ['document-processing', 'embeddings'],
+    });
+
     let payload: any;
 
     try {
@@ -351,6 +365,21 @@ export const processDocumentChunksHandler = async (req: Request) => {
 
         const embeddingData = await embeddingResponse.json();
         const embeddings: number[][] = embeddingData.data.map((d: any) => d.embedding);
+
+        // Trace the embedding generation
+        await traceOpenAIEmbedding(traceId, {
+          model: 'text-embedding-3-small',
+          input: batch.map(c => c.content),
+          response: embeddingData,
+          userId: user.id,
+          metadata: {
+            batchIndex: Math.floor(i / embeddingBatchSize),
+            batchSize: batch.length,
+            documentId,
+            contractId,
+            documentType,
+          },
+        });
 
         console.log(`Generated ${embeddings.length} embeddings in ${Date.now() - batchStartTime}ms`);
 

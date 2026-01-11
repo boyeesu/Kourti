@@ -40,7 +40,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { KourtiKLogo } from "@/components/ui/KourtiKLogo";
 import { cn } from "@/lib/utils";
 import { useTotalUnreadCount } from "@/hooks/useChat";
 
@@ -300,16 +300,9 @@ const AppSidebar: React.FC = () => {
         collapsible="icon"
         className="h-full border-r border-[hsl(var(--sidebar-border)/.8)] bg-[hsl(var(--sidebar-background))]"
       >
-        <SidebarHeader className="border-b border-[hsl(var(--sidebar-border))] px-4 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(var(--primary))/0.1]">
-              <AppLogo size="sm" />
-            </div>
-            {!collapsed && (
-              <div className="flex flex-col">
-                <span className="text-[19px] font-semibold text-foreground">Kourti Legal</span>
-              </div>
-            )}
+        <SidebarHeader className="border-b border-[hsl(var(--sidebar-border))] px-3 py-2">
+          <div className="flex items-center justify-start w-full pl-3">
+            <KourtiKLogo size="md" className="max-w-full" />
           </div>
         </SidebarHeader>
         <SidebarContent className="flex h-full flex-col px-3 py-2">

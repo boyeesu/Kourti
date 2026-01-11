@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
 import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
 
 const corsOptions = {
   allowMethods: ['POST', 'OPTIONS'],
@@ -237,6 +238,20 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
     }
 
     console.log('Processing analysis request for user:', userId);
+
+    // Create Langfuse trace for this request
+    const traceId = await createTrace({
+      name: 'advanced-contract-analysis',
+      userId: userId || undefined,
+      metadata: {
+        analysisType,
+        hasDocumentId: !!documentId,
+        hasConversationHistory: !!conversationHistory,
+        hasRAGContext: !!ragContext,
+        stream: stream === true,
+      },
+      tags: ['contract-analysis', 'legal-ai'],
+    });
 
     // Enhanced system prompt for better legal analysis with RAG support
     const systemPrompt = `You are an expert legal AI assistant specializing in contract and document analysis. Your role is to provide comprehensive, structured, and actionable legal insights.
@@ -475,6 +490,20 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
     const { data, modelUsed } = await requestChatCompletion({
       messages,
       max_completion_tokens: 4000,
+    });
+
+    // Trace the OpenAI chat completion
+    await traceOpenAIChatCompletion(traceId, {
+      model: modelUsed,
+      messages,
+      response: data,
+      userId: userId || undefined,
+      metadata: {
+        analysisType,
+        documentId,
+        hasRAGContext: !!ragContext,
+        maxTokens: 4000,
+      },
     });
 
     console.log(`OpenAI response received using model ${modelUsed}`);

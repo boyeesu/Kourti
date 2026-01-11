@@ -7,6 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore Deno runtime
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
 
 const corsOptions = {
   allowMethods: ['POST', 'OPTIONS'],
@@ -311,6 +312,22 @@ Generate a complete, professional contract that:
 
 Generate the complete contract now.`;
 
+    // Create Langfuse trace for this request
+    const traceId = await createTrace({
+      name: 'ai-contract-generator',
+      userId,
+      metadata: {
+        organizationId,
+        contractType: basicInfo.type,
+        jurisdiction: basicInfo.jurisdiction || 'Nigeria',
+        hasTemplate: !!template,
+        partiesCount: parties?.length || 0,
+        hasTerms: !!terms,
+        clausesCount: clauses?.length || 0,
+      },
+      tags: ['contract-generation', 'legal-ai'],
+    });
+
     console.log('Sending request to OpenAI GPT-4.1');
 
     // Call OpenAI API with GPT-4.1
@@ -338,6 +355,24 @@ Generate the complete contract now.`;
 
     const data = await response.json();
     console.log('Received response from OpenAI');
+
+    // Trace the OpenAI chat completion
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ];
+    await traceOpenAIChatCompletion(traceId, {
+      model: 'gpt-4.1-2025-04-14',
+      messages,
+      response: data,
+      userId,
+      metadata: {
+        organizationId,
+        contractType: basicInfo.type,
+        jurisdiction: basicInfo.jurisdiction || 'Nigeria',
+        maxTokens: 8000,
+      },
+    });
 
     const generatedContract = data.choices[0].message.content;
 

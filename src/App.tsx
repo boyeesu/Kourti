@@ -55,8 +55,10 @@ import BulkImport from "./pages/BulkImport";
 import LiveChatPage from "./pages/LiveChatPage";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
+import ThanosDashboard from "./pages/ThanosDashboard";
 import { logInfo, logWarn } from "./lib/logger";
 import { FloatingChatWidget } from "@/components/ream-ai/FloatingChatWidget";
+import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 // LiveChat overlay removed - now using LiveChatPage as a proper route
 // ThemeProvider removed - now handled in main.tsx
 
@@ -295,11 +297,19 @@ const App = () => (
             <Route
               path="/onboarding"
               element={(
-                <ProtectedRoute>
-                  <ModuleErrorBoundary name="Onboarding">
-                    <Onboarding />
+                <ModuleErrorBoundary name="Onboarding">
+                  <Onboarding />
+                </ModuleErrorBoundary>
+              )}
+            />
+            <Route
+              path="/thanos"
+              element={(
+                <SuperAdminRoute>
+                  <ModuleErrorBoundary name="Thanos Dashboard">
+                    <ThanosDashboard />
                   </ModuleErrorBoundary>
-                </ProtectedRoute>
+                </SuperAdminRoute>
               )}
             />
             <Route

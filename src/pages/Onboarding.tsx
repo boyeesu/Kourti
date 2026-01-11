@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Building, Users, FileText, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
+import { Building, Users, FileText, CheckCircle, ArrowRight, ArrowLeft, User, Mail, Lock, Eye, EyeOff, Globe2, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,8 +20,19 @@ import { trackEvent, AnalyticsEvents, identifyUser } from "@/lib/analytics";
 import { useOnboardingSteps } from "@/hooks/useOnboardingSteps";
 import { AlertCircle, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { useAllRoles } from '@/hooks/useAllRoles';
+import { useMemo } from "react";
+
+type ProviderName = "google" | "microsoft";
 
 const steps = [
+  {
+    id: 0,
+    title: "Create Your Account",
+    description: "Set up your account to get started",
+    icon: User,
+  },
   {
     id: 1,
     title: "Organization Setup",
@@ -112,10 +123,26 @@ const countries = [
 ];
 
 export default function Onboarding() {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [ssoError, setSsoError] = useState<string | null>(null);
+  const [ssoLoading, setSsoLoading] = useState<ProviderName | null>(null);
+  const [debouncedEmail, setDebouncedEmail] = useState("");
+  const [providerState, setProviderState] = useState<Record<ProviderName, { available: boolean; enforceSso?: boolean; checking?: boolean }>>({
+    google: { available: false },
+    microsoft: { available: false },
+  });
   
   const [formData, setFormData] = useState({
+    account: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
     organization: {
       name: "",
       type: "",
@@ -134,17 +161,120 @@ export default function Onboarding() {
     practiceAreas: [] as string[],
   });
 
-  const { user } = useAuth();
+  const { user, signUp, signInWithProvider } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createOnboardingNotification } = useNotificationTriggers();
   const { markStepComplete } = useOnboardingSteps();
+  const { data: allRoles = [] } = useAllRoles();
 
+  const enforceSso = useMemo(() => {
+    return (providerState.google.enforceSso && providerState.google.available)
+      || (providerState.microsoft.enforceSso && providerState.microsoft.available);
+  }, [providerState]);
+
+  // Only require auth for steps after account creation
   useEffect(() => {
-    if (!user) {
+    if (currentStep > 0 && !user) {
       navigate("/auth", { replace: true });
     }
-  }, [user, navigate]);
+    // If user is already authenticated and on step 0, skip to step 1
+    if (currentStep === 0 && user) {
+      setCurrentStep(1);
+    }
+    // If user is authenticated and formData.account is empty, populate from user metadata
+    // This handles cases where user returns after email verification
+    if (user && !formData.account.firstName && !formData.account.lastName) {
+      const firstName = user.user_metadata?.first_name || user.user_metadata?.firstName;
+      const lastName = user.user_metadata?.last_name || user.user_metadata?.lastName;
+      if (firstName || lastName) {
+        setFormData(prev => ({
+          ...prev,
+          account: {
+            ...prev.account,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            email: user.email || prev.account.email,
+          }
+        }));
+      }
+    }
+  }, [user, navigate, currentStep]);
+
+  // Check SSO availability for email
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedEmail(formData.account.email.trim());
+    }, 400);
+
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [formData.account.email]);
+
+  useEffect(() => {
+    if (!supabase || currentStep !== 0) return;
+    let active = true;
+
+    const fetchConfigs = async () => {
+      const nextState: Record<ProviderName, { available: boolean; enforceSso?: boolean; checking?: boolean }> = {
+        google: { available: false, checking: true },
+        microsoft: { available: false, checking: true },
+      };
+
+      setProviderState((prev) => ({
+        google: { ...prev.google, checking: true },
+        microsoft: { ...prev.microsoft, checking: true },
+      }));
+
+      for (const provider of ["google", "microsoft"] as ProviderName[]) {
+        try {
+          const { data, error } = await supabase.functions.invoke('sso-authorize', {
+            body: {
+              provider,
+              email: debouncedEmail || undefined,
+              dry_run: true,
+            },
+          });
+
+          if (!active) return;
+
+          if (error) {
+            nextState[provider] = { available: false, checking: false };
+          } else {
+            nextState[provider] = {
+              available: Boolean(data?.available),
+              enforceSso: Boolean(data?.enforce_sso),
+              checking: false,
+            };
+          }
+        } catch (err) {
+          console.warn('Failed to check SSO config', provider, err);
+          nextState[provider] = { available: false, checking: false };
+        }
+      }
+
+      if (active) {
+        setProviderState((prev) => ({
+          google: { ...prev.google, ...nextState.google },
+          microsoft: { ...prev.microsoft, ...nextState.microsoft },
+        }));
+      }
+    };
+
+    if (debouncedEmail) {
+      fetchConfigs();
+    } else {
+      setProviderState({
+        google: { available: false },
+        microsoft: { available: false },
+      });
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedEmail, currentStep]);
 
   const practiceAreaOptions = [
     "Corporate Law",
@@ -164,10 +294,57 @@ export default function Onboarding() {
     "Contract Law",
   ];
 
-  const progress = (currentStep / steps.length) * 100;
+  const progress = ((currentStep + 1) / steps.length) * 100;
+
+  const handleProvider = async (provider: ProviderName) => {
+    setSsoError(null);
+    setSsoLoading(provider);
+    const result = await signInWithProvider(provider, formData.account.email || undefined);
+    if (result.error) {
+      setSsoError(result.error.message);
+      setSsoLoading(null);
+    }
+  };
+
+  const renderProviderLabel = (provider: ProviderName) => {
+    if (provider === 'google') return 'Continue with Google';
+    if (provider === 'microsoft') return 'Continue with Microsoft';
+    return 'Continue';
+  };
+
+  const renderProviderIcon = (provider: ProviderName) => {
+    if (ssoLoading === provider) {
+      return <LogIn className="h-5 w-5 animate-spin" />;
+    }
+    return <Globe2 className="h-5 w-5" />;
+  };
 
   const validateStep = (step: number): boolean => {
     const errors: Record<string, string> = {};
+    
+    if (step === 0) {
+      if (!formData.account.firstName.trim()) {
+        errors.firstName = "First name is required";
+      }
+      if (!formData.account.lastName.trim()) {
+        errors.lastName = "Last name is required";
+      }
+      if (!formData.account.email.trim()) {
+        errors.email = "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.account.email)) {
+        errors.email = "Please enter a valid email address";
+      }
+      if (!enforceSso) {
+        if (!formData.account.password) {
+          errors.password = "Password is required";
+        } else if (formData.account.password.length < 8) {
+          errors.password = "Password must be at least 8 characters";
+        }
+        if (formData.account.password !== formData.account.confirmPassword) {
+          errors.confirmPassword = "Passwords do not match";
+        }
+      }
+    }
     
     if (step === 1) {
       if (!formData.organization.name.trim()) {
@@ -212,7 +389,7 @@ export default function Onboarding() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validateStep(currentStep)) {
       toast({
         variant: "destructive",
@@ -221,15 +398,67 @@ export default function Onboarding() {
       });
       return;
     }
+
+    // Handle account creation on step 0
+    if (currentStep === 0) {
+      if (enforceSso) {
+        toast({
+          variant: "destructive",
+          title: "SSO Required",
+          description: "Your organization requires SSO. Please use one of the SSO options above.",
+        });
+        return;
+      }
+
+      setSsoError(null);
+      const { error } = await signUp(formData.account.email, formData.account.password, {
+        email: formData.account.email,
+        first_name: formData.account.firstName,
+        last_name: formData.account.lastName,
+      });
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Account creation failed",
+          description: error.message,
+        });
+        return;
+      }
+
+      toast({
+        title: "Account created!",
+        description: "Your account has been created. Continuing with onboarding...",
+      });
+
+      // Check if user is now authenticated (email confirmations may be disabled)
+      // If authenticated, proceed to next step; otherwise wait for email verification
+      const checkAuth = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setCurrentStep(1);
+          setValidationErrors({});
+        } else {
+          toast({
+            title: "Email verification required",
+            description: "Please check your email to verify your account, then refresh this page to continue.",
+          });
+        }
+      };
+      
+      // Wait a moment for auth state to update
+      setTimeout(checkAuth, 500);
+      return;
+    }
     
-    if (currentStep < steps.length) {
+    if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
       setValidationErrors({});
     }
   };
 
   const handlePrevious = () => {
-    if (currentStep > 1) {
+    if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
   };
@@ -255,12 +484,15 @@ export default function Onboarding() {
 
       if (orgError) throw orgError;
 
-      // Update user profile with organization (default to superadmin for onboarding)
+      // Update user profile with organization and user details (default to superadmin for onboarding)
+      // Ensure first_name and last_name are saved even if trigger didn't capture them
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           organization_id: orgData.id,
           role: 'superadmin',
+          first_name: formData.account.firstName || user?.user_metadata?.first_name || null,
+          last_name: formData.account.lastName || user?.user_metadata?.last_name || null,
         })
         .eq('user_id', user?.id || '');
 
@@ -496,6 +728,277 @@ export default function Onboarding() {
 
   const renderStepContent = () => {
     switch (currentStep) {
+      case 0:
+        return (
+          <div className="space-y-6">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Create your account to get started. You can use email and password, or continue with your organization's SSO provider.
+              </AlertDescription>
+            </Alert>
+
+            {ssoError && (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+                {ssoError}
+              </div>
+            )}
+
+            {(providerState.google.available || providerState.google.checking || providerState.microsoft.available || providerState.microsoft.checking) && (
+              <div className="space-y-4 rounded-lg border border-border/60 bg-muted/40 p-5">
+                <p className="text-sm font-medium text-foreground">
+                  {enforceSso
+                    ? 'Your organization requires SSO to finish onboarding. Continue with the provider configured by your admin.'
+                    : 'Prefer single sign-on? Continue with your organization provider.'}
+                </p>
+                {(["google", "microsoft"] as ProviderName[]).map((provider) => {
+                  const state = providerState[provider];
+                  if (!state.available && !state.checking) return null;
+                  const disabled = !state.available || Boolean(ssoLoading && ssoLoading !== provider);
+                  return (
+                    <Button
+                      key={provider}
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-start gap-3 bg-background h-12 text-base"
+                      disabled={disabled}
+                      onClick={() => handleProvider(provider)}
+                    >
+                      {state.checking && ssoLoading !== provider ? (
+                        <LogIn className="h-5 w-5 animate-spin" />
+                      ) : (
+                        renderProviderIcon(provider)
+                      )}
+                      <span>{renderProviderLabel(provider)}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+
+            {enforceSso && (
+              <div className="rounded-md border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
+                <p className="font-medium text-primary">Single sign-on required</p>
+                <p className="text-muted-foreground">
+                  The organization you&apos;re joining only allows access through their configured SSO provider. Use the button above to continue.
+                </p>
+              </div>
+            )}
+
+            {!enforceSso && (
+              <>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2.5">
+                    <Label htmlFor="firstName" className="text-sm font-medium">First Name *</Label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                      <Input
+                        id="firstName"
+                        name="firstName"
+                        autoComplete="given-name"
+                        placeholder="John"
+                        className={`pl-12 h-12 text-base ${validationErrors.firstName ? 'border-destructive' : ''}`}
+                        value={formData.account.firstName}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            account: { ...formData.account, firstName: e.target.value }
+                          });
+                          if (validationErrors.firstName) {
+                            setValidationErrors({ ...validationErrors, firstName: '' });
+                          }
+                        }}
+                        required
+                      />
+                    </div>
+                    {validationErrors.firstName && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {validationErrors.firstName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <Label htmlFor="lastName" className="text-sm font-medium">Last Name *</Label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                      <Input
+                        id="lastName"
+                        name="lastName"
+                        autoComplete="family-name"
+                        placeholder="Doe"
+                        className={`pl-12 h-12 text-base ${validationErrors.lastName ? 'border-destructive' : ''}`}
+                        value={formData.account.lastName}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            account: { ...formData.account, lastName: e.target.value }
+                          });
+                          if (validationErrors.lastName) {
+                            setValidationErrors({ ...validationErrors, lastName: '' });
+                          }
+                        }}
+                        required
+                      />
+                    </div>
+                    {validationErrors.lastName && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {validationErrors.lastName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <Label htmlFor="email" className="text-sm font-medium">Work Email *</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      className={`pl-12 h-12 text-base ${validationErrors.email ? 'border-destructive' : ''}`}
+                      autoComplete="email"
+                      value={formData.account.email}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          account: { ...formData.account, email: e.target.value }
+                        });
+                        if (validationErrors.email) {
+                          setValidationErrors({ ...validationErrors, email: '' });
+                        }
+                      }}
+                      required
+                    />
+                  </div>
+                  {validationErrors.email && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.email}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2.5">
+                    <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Create a password"
+                        className={`pl-12 pr-12 h-12 text-base ${validationErrors.password ? 'border-destructive' : ''}`}
+                        autoComplete="new-password"
+                        value={formData.account.password}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            account: { ...formData.account, password: e.target.value }
+                          });
+                          if (validationErrors.password) {
+                            setValidationErrors({ ...validationErrors, password: '' });
+                          }
+                        }}
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                    {validationErrors.password && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {validationErrors.password}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password *</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                      <Input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm your password"
+                        className={`pl-12 pr-12 h-12 text-base ${validationErrors.confirmPassword ? 'border-destructive' : ''}`}
+                        autoComplete="new-password"
+                        value={formData.account.confirmPassword}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            account: { ...formData.account, confirmPassword: e.target.value }
+                          });
+                          if (validationErrors.confirmPassword) {
+                            setValidationErrors({ ...validationErrors, confirmPassword: '' });
+                          }
+                        }}
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                    {validationErrors.confirmPassword && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {validationErrors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border/60 bg-muted/40 p-5 text-sm text-muted-foreground">
+                  <p className="font-semibold text-foreground mb-3">What happens next?</p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5">•</span>
+                      <span>Verify your email to activate the account.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5">•</span>
+                      <span>Complete onboarding to set up your organization.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5">•</span>
+                      <span>Invite teammates when you&apos;re ready.</span>
+                    </li>
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
+        );
+        
       case 1:
         return (
           <div className="space-y-6">
@@ -952,7 +1455,7 @@ export default function Onboarding() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-x-2">
-                  {currentStep === 1 ? (
+                  {currentStep === 0 ? (
                     <Button
                       variant="outline"
                       onClick={() => navigate("/auth")}
@@ -971,14 +1474,14 @@ export default function Onboarding() {
                   )}
                 </div>
 
-                {currentStep === steps.length ? (
+                {currentStep === steps.length - 1 ? (
                   <Button onClick={handleFinish} className="min-w-[120px]">
                     Get Started
                     <CheckCircle className="w-4 h-4 ml-2" />
                   </Button>
                 ) : (
                   <Button onClick={handleNext} className="min-w-[120px]">
-                    Continue
+                    {currentStep === 0 ? "Create Account" : "Continue"}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 )}

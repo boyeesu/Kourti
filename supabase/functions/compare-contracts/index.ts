@@ -3,6 +3,7 @@ declare const Deno: any;
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
 
 const corsOptions = {
   allowMethods: ['POST', 'OPTIONS'],
@@ -65,6 +66,16 @@ ${comparisonText}
 
 Provide a detailed JSON comparison following the specified structure.`;
 
+    // Create Langfuse trace for this request
+    const traceId = await createTrace({
+      name: 'compare-contracts',
+      metadata: {
+        primaryTextLength: primaryText.length,
+        comparisonTextLength: comparisonText.length,
+      },
+      tags: ['contract-comparison', 'legal-ai'],
+    });
+
     console.log('Requesting contract comparison from OpenAI...');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -95,6 +106,23 @@ Provide a detailed JSON comparison following the specified structure.`;
 
     const data = await response.json();
     let analysis = data.choices[0].message.content;
+
+    // Trace the OpenAI chat completion
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ];
+    await traceOpenAIChatCompletion(traceId, {
+      model: 'gpt-4o',
+      messages,
+      response: data,
+      metadata: {
+        primaryTextLength: primaryText.length,
+        comparisonTextLength: comparisonText.length,
+        maxTokens: 4000,
+        temperature: 0.3,
+      },
+    });
 
     // Clean up markdown formatting if present
     analysis = analysis.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
