@@ -317,12 +317,16 @@ export default function Onboarding() {
               last_name: formData.account.lastName,
             });
 
+            console.log('Signup result:', result);
+
             if (!result.error) {
               // Success, break out of retry loop
+              console.log('Signup successful, breaking retry loop');
               break;
             }
 
             signUpError = result.error;
+            console.error('Signup error on attempt', retryCount + 1, ':', signUpError);
 
             // Check if it's a timeout error that we should retry
             if (signUpError.message?.includes('timeout') || signUpError.message?.includes('504') || signUpError.message?.includes('Gateway')) {
@@ -382,26 +386,45 @@ export default function Onboarding() {
               description: "This email address is already associated with an account. Please try signing in instead.",
             });
           } else {
+            // Log the actual error for debugging
+            console.error('Signup error details:', signUpError);
             toast({
               variant: "destructive",
               title: "Account creation failed",
-              description: "Unable to create your account. Please check your information and try again.",
+              description: signUpError.message || "Unable to create your account. Please check your information and try again.",
             });
           }
           return;
         }
 
-        // Wait for auth state to update
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait for auth state to update with retry logic
+        let sessionRetries = 0;
+        const maxSessionRetries = 5;
+        let session = null;
+        
+        while (sessionRetries < maxSessionRetries) {
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+          }
+          if (sessionData?.session?.user) {
+            session = sessionData.session;
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 500));
+          sessionRetries++;
+        }
 
-        // Check if user is now authenticated
-        const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
-          toast({
-            title: "Email verification required",
-            description: "Please check your email to verify your account, then refresh this page to continue.",
-          });
-          return;
+          // Try one more time with getUser
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (!currentUser) {
+            toast({
+              title: "Email verification required",
+              description: "Please check your email to verify your account, then refresh this page to continue.",
+            });
+            return;
+          }
         }
       }
 

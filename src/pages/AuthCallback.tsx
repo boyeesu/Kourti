@@ -37,6 +37,17 @@ export default function AuthCallback() {
 
         setStatusMessage("Checking your workspace...");
 
+        // Check for pending invitation and apply it if exists (async, non-blocking)
+        try {
+          await supabase.rpc('check_and_apply_invitation', {
+            p_user_id: sessionUser.id,
+            p_email: sessionUser.email || ''
+          });
+        } catch (inviteError) {
+          // Non-critical - log but don't block
+          console.warn('Error checking invitation:', inviteError);
+        }
+
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("organization_id")
