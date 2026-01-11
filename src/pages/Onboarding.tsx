@@ -528,6 +528,38 @@ export default function Onboarding() {
 
       if (profileError) throw profileError;
 
+      // Seed default permissions for the superadmin role in this organization
+      try {
+        const resources = ['cases', 'clients', 'documents', 'contracts', 'calendars', 'invoices', 'tasks', 'settings', 'users'];
+        const actions = ['create', 'read', 'update', 'delete', 'manage'];
+
+        const permissionsToInsert = resources.flatMap(resource =>
+          actions.map(action => ({
+            role_name: 'superadmin',
+            organization_id: orgData.id,
+            resource,
+            action,
+            granted: true,
+            created_by: currentUser.id,
+          }))
+        );
+
+        const { error: permError } = await supabase
+          .from('role_permissions')
+          .upsert(permissionsToInsert, {
+            onConflict: 'role_name,organization_id,resource,action',
+            ignoreDuplicates: true,
+          });
+
+        if (permError) {
+          console.warn('Failed to seed permissions:', permError);
+          // Non-fatal - continue with onboarding
+        }
+      } catch (permSeedError) {
+        console.warn('Error seeding permissions:', permSeedError);
+        // Non-fatal - continue with onboarding
+      }
+
       const inviteEmails = formData.team.inviteEmails
         .map((email) => email.trim())
         .filter((email) => email.length > 0);
