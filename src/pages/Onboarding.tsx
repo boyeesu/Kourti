@@ -425,6 +425,7 @@ export default function Onboarding() {
           .from('organizations')
           .update({
             name: formData.organization.name,
+            type: formData.organization.type,
             description: formData.organization.description,
             address: formData.organization.address,
             state: formData.organization.state,
@@ -444,6 +445,7 @@ export default function Onboarding() {
           .from('organizations')
           .insert({
             name: formData.organization.name,
+            type: formData.organization.type,
             description: formData.organization.description,
             address: formData.organization.address,
             state: formData.organization.state,
