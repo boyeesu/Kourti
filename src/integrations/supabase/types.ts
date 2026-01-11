@@ -2256,6 +2256,10 @@ export type Database = {
         Args: { p_new_role_name: string; p_target_user_id: string }
         Returns: Json
       }
+      check_and_apply_invitation: {
+        Args: { p_user_id: string; p_email: string }
+        Returns: undefined
+      }
       create_notification: {
         Args: {
           p_description: string

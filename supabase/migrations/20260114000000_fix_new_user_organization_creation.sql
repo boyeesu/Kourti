@@ -194,6 +194,48 @@ CREATE POLICY "Users can update their organization" ON organizations
     id IN (SELECT organization_id FROM profiles WHERE user_id = auth.uid())
   );
 
+-- Create async invitation check function (called from frontend after signup)
+CREATE OR REPLACE FUNCTION public.check_and_apply_invitation(p_user_id uuid, p_email text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'public'
+AS $$
+DECLARE
+  inv_org uuid;
+  inv_role text;
+BEGIN
+  -- Check for pending invitation
+  SELECT organization_id, role::text INTO inv_org, inv_role
+  FROM invitations
+  WHERE email = p_email
+    AND status = 'pending'
+    AND expires_at > now()
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  -- If invitation found, update profile
+  IF inv_org IS NOT NULL THEN
+    UPDATE profiles
+    SET organization_id = inv_org,
+        role = COALESCE(inv_role::user_role, 'user'::user_role),
+        is_organization_creator = FALSE,
+        updated_at = now()
+    WHERE user_id = p_user_id;
+
+    -- Mark invitation as accepted
+    UPDATE invitations
+    SET status = 'accepted', updated_at = now()
+    WHERE email = p_email
+      AND status = 'pending'
+      AND expires_at > now()
+      AND organization_id = inv_org;
+  END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_and_apply_invitation TO authenticated;
+
 -- Verify the fix
 DO $$
 BEGIN
