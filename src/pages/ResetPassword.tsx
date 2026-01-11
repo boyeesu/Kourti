@@ -162,13 +162,17 @@ export default function ResetPassword() {
 
       if (error) throw error;
 
+      // Sign out to clear the recovery session before redirecting
+      // This ensures a clean state when the user logs in with their new password
+      await supabase.auth.signOut();
+
       toast({
         title: "Password reset successfully!",
         description: "Your password has been updated. You can now sign in with your new password.",
       });
 
       // Redirect to login after successful password reset
-      setTimeout(() => navigate('/login'), 2000);
+      navigate('/login');
     } catch (error: unknown) {
       console.error('Error resetting password:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to reset password. Please try again.";
