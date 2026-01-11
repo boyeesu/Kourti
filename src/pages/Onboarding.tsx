@@ -361,18 +361,31 @@ export default function Onboarding() {
         }
 
         if (signUpError) {
-          // Handle specific error types
-          if (signUpError.message?.includes('timeout') || signUpError.message?.includes('504') || signUpError.message?.includes('Gateway')) {
+          // Handle specific error types with better messaging
+          if (signUpError.message?.includes('timeout') || signUpError.message?.includes('504') ||
+              signUpError.message?.includes('Gateway') || signUpError.message?.includes('network')) {
             toast({
               variant: "destructive",
-              title: "Service temporarily unavailable",
-              description: "The signup service is experiencing delays. Please wait a few minutes and try again.",
+              title: "Connection timeout",
+              description: "The signup is taking longer than usual due to network delays. The system will retry automatically.",
+            });
+          } else if (signUpError.message?.includes('rate limit') || signUpError.message?.includes('too many')) {
+            toast({
+              variant: "destructive",
+              title: "Too many attempts",
+              description: "Please wait a few minutes before trying again.",
+            });
+          } else if (signUpError.message?.includes('email') && signUpError.message?.includes('already')) {
+            toast({
+              variant: "destructive",
+              title: "Email already registered",
+              description: "This email address is already associated with an account. Please try signing in instead.",
             });
           } else {
             toast({
               variant: "destructive",
               title: "Account creation failed",
-              description: signUpError.message,
+              description: "Unable to create your account. Please check your information and try again.",
             });
           }
           return;

@@ -104,24 +104,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Use origin + path as redirect URL for better UX
       const redirectUrl = getAuthRedirectUrl('/auth/callback', env.APP_URL);
 
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            first_name: userData?.first_name || '',
-            last_name: userData?.last_name || '',
-            email: email,
-            ...userData
+      // Add retry logic for network timeouts
+      let lastError: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: redirectUrl,
+              data: {
+                first_name: userData?.first_name || '',
+                last_name: userData?.last_name || '',
+                email: email,
+                ...userData
+              }
+            }
+          });
+
+          if (!error) {
+            logInfo('Sign up successful', { email, attempt });
+            return { error: null, success: true };
           }
+
+          // Check if it's a timeout error
+          if (error.message?.includes('timeout') || error.message?.includes('504') ||
+              error.message?.includes('Gateway') || error.message?.includes('network')) {
+            lastError = error;
+            if (attempt < 3) {
+              logInfo(`Sign up attempt ${attempt} failed, retrying...`, { error: error.message });
+              // Wait with exponential backoff
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+              continue;
+            }
+          }
+
+          // Not a timeout error, return immediately
+          return { error, success: false };
+
+        } catch (fetchError: any) {
+          lastError = fetchError;
+          if (fetchError.name === 'AbortError' || fetchError.message?.includes('timeout') ||
+              fetchError.message?.includes('504')) {
+            if (attempt < 3) {
+              logInfo(`Sign up attempt ${attempt} failed with network error, retrying...`, { error: fetchError.message });
+              // Wait with exponential backoff
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+              continue;
+            }
+          }
+          // Not a retryable error
+          break;
         }
-      });
-      
-      return { 
-        error, 
-        success: !error 
+      }
+
+      // All retries exhausted
+      logError('Sign up failed after retries', { error: lastError, email });
+      return {
+        error: lastError || new AuthError('Sign up failed after multiple attempts. Please try again.'),
+        success: false
       };
+
     } catch (error) {
       logError('Sign up error', { error });
       return {

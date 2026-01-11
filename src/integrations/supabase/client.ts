@@ -5,7 +5,7 @@ import { env } from '@/lib/env';
 const SUPABASE_URL = env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY;
 
-// Client configuration with proper typing
+// Client configuration with proper typing and timeout handling
 const supabaseConfig: SupabaseClientOptions<'public'> = {
   auth: {
     storage: localStorage,
@@ -19,10 +19,18 @@ const supabaseConfig: SupabaseClientOptions<'public'> = {
       eventsPerSecond: 10,
     },
   },
-  // Set global error handler to improve debugging
+  // Set global error handler and timeout handling
   global: {
     fetch: (...args) => {
-      return fetch(...args);
+      const [url, options = {}] = args;
+      // Increase timeout for auth operations to 60 seconds
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      return fetch(url, {
+        ...options,
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
     },
   },
 };
