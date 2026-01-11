@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface AdminAction {
   id: string;
@@ -96,7 +97,7 @@ export function useLogAdminAction() {
           p_action_type: params.action_type,
           p_target_type: params.target_type,
           p_target_id: params.target_id || undefined,
-          p_details: params.details || {},
+          p_details: (params.details || {}) as Json,
           p_ip_address: undefined, // IP will be captured by backend
           p_user_agent: userAgent,
         });
