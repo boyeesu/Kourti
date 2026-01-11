@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Building, Users, FileText, CheckCircle, ArrowRight, ArrowLeft, User, Mail, Lock, Eye, EyeOff, Globe2, LogIn } from "lucide-react";
+import { Building, Users, FileText, CheckCircle, ArrowRight, ArrowLeft, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,9 +20,6 @@ import { trackEvent, AnalyticsEvents, identifyUser } from "@/lib/analytics";
 import { useOnboardingSteps } from "@/hooks/useOnboardingSteps";
 import { AlertCircle, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useMemo } from "react";
-
-type ProviderName = "google" | "microsoft";
 
 const steps = [
   {
@@ -125,13 +122,6 @@ export default function Onboarding() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [ssoError, setSsoError] = useState<string | null>(null);
-  const [ssoLoading, setSsoLoading] = useState<ProviderName | null>(null);
-  const [debouncedEmail, setDebouncedEmail] = useState("");
-  const [providerState, setProviderState] = useState<Record<ProviderName, { available: boolean; enforceSso?: boolean; checking?: boolean }>>({
-    google: { available: false },
-    microsoft: { available: false },
-  });
   
   const [formData, setFormData] = useState({
     account: {
@@ -159,16 +149,11 @@ export default function Onboarding() {
     practiceAreas: [] as string[],
   });
 
-  const { user, signUp, signInWithProvider } = useAuth();
+  const { user, signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createOnboardingNotification } = useNotificationTriggers();
   const { markStepComplete } = useOnboardingSteps();
-
-  const enforceSso = useMemo(() => {
-    return (providerState.google.enforceSso && providerState.google.available)
-      || (providerState.microsoft.enforceSso && providerState.microsoft.available);
-  }, [providerState]);
 
   // Only require auth for steps after account creation
   useEffect(() => {
@@ -198,81 +183,6 @@ export default function Onboarding() {
     }
   }, [user, navigate, currentStep]);
 
-  // Check SSO availability for email
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setDebouncedEmail(formData.account.email.trim());
-    }, 400);
-
-    return () => {
-      window.clearTimeout(handle);
-    };
-  }, [formData.account.email]);
-
-  useEffect(() => {
-    if (!supabase || currentStep !== 0) return;
-    let active = true;
-
-    const fetchConfigs = async () => {
-      const nextState: Record<ProviderName, { available: boolean; enforceSso?: boolean; checking?: boolean }> = {
-        google: { available: false, checking: true },
-        microsoft: { available: false, checking: true },
-      };
-
-      setProviderState((prev) => ({
-        google: { ...prev.google, checking: true },
-        microsoft: { ...prev.microsoft, checking: true },
-      }));
-
-      for (const provider of ["google", "microsoft"] as ProviderName[]) {
-        try {
-          const { data, error } = await supabase.functions.invoke('sso-authorize', {
-            body: {
-              provider,
-              email: debouncedEmail || undefined,
-              dry_run: true,
-            },
-          });
-
-          if (!active) return;
-
-          if (error) {
-            nextState[provider] = { available: false, checking: false };
-          } else {
-            nextState[provider] = {
-              available: Boolean(data?.available),
-              enforceSso: Boolean(data?.enforce_sso),
-              checking: false,
-            };
-          }
-        } catch (err) {
-          console.warn('Failed to check SSO config', provider, err);
-          nextState[provider] = { available: false, checking: false };
-        }
-      }
-
-      if (active) {
-        setProviderState((prev) => ({
-          google: { ...prev.google, ...nextState.google },
-          microsoft: { ...prev.microsoft, ...nextState.microsoft },
-        }));
-      }
-    };
-
-    if (debouncedEmail) {
-      fetchConfigs();
-    } else {
-      setProviderState({
-        google: { available: false },
-        microsoft: { available: false },
-      });
-    }
-
-    return () => {
-      active = false;
-    };
-  }, [debouncedEmail, currentStep]);
-
   const practiceAreaOptions = [
     "Corporate Law",
     "Litigation",
@@ -293,29 +203,6 @@ export default function Onboarding() {
 
   const progress = ((currentStep + 1) / steps.length) * 100;
 
-  const handleProvider = async (provider: ProviderName) => {
-    setSsoError(null);
-    setSsoLoading(provider);
-    const result = await signInWithProvider(provider, formData.account.email || undefined);
-    if (result.error) {
-      setSsoError(result.error.message);
-      setSsoLoading(null);
-    }
-  };
-
-  const renderProviderLabel = (provider: ProviderName) => {
-    if (provider === 'google') return 'Continue with Google';
-    if (provider === 'microsoft') return 'Continue with Microsoft';
-    return 'Continue';
-  };
-
-  const renderProviderIcon = (provider: ProviderName) => {
-    if (ssoLoading === provider) {
-      return <LogIn className="h-5 w-5 animate-spin" />;
-    }
-    return <Globe2 className="h-5 w-5" />;
-  };
-
   const validateStep = (step: number): boolean => {
     const errors: Record<string, string> = {};
     
@@ -331,15 +218,13 @@ export default function Onboarding() {
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.account.email)) {
         errors.email = "Please enter a valid email address";
       }
-      if (!enforceSso) {
-        if (!formData.account.password) {
-          errors.password = "Password is required";
-        } else if (formData.account.password.length < 8) {
-          errors.password = "Password must be at least 8 characters";
-        }
-        if (formData.account.password !== formData.account.confirmPassword) {
-          errors.confirmPassword = "Passwords do not match";
-        }
+      if (!formData.account.password) {
+        errors.password = "Password is required";
+      } else if (formData.account.password.length < 8) {
+        errors.password = "Password must be at least 8 characters";
+      }
+      if (formData.account.password !== formData.account.confirmPassword) {
+        errors.confirmPassword = "Passwords do not match";
       }
     }
     
@@ -398,14 +283,6 @@ export default function Onboarding() {
 
     // Step 0: Just validate and move to next step (don't create account yet)
     if (currentStep === 0) {
-      if (enforceSso) {
-        toast({
-          variant: "destructive",
-          title: "SSO Required",
-          description: "Your organization requires SSO. Please use one of the SSO options above.",
-        });
-        return;
-      }
       // Just move to next step - account creation happens at the end
       setCurrentStep(1);
       setValidationErrors({});
@@ -430,16 +307,6 @@ export default function Onboarding() {
 
       // Create account first if not already authenticated
       if (!user) {
-        if (enforceSso) {
-          toast({
-            variant: "destructive",
-            title: "SSO Required",
-            description: "Your organization requires SSO. Please use one of the SSO options above.",
-          });
-          return;
-        }
-
-        setSsoError(null);
         const { error: signUpError } = await signUp(formData.account.email, formData.account.password, {
           email: formData.account.email,
           first_name: formData.account.firstName,
@@ -598,54 +465,6 @@ export default function Onboarding() {
               }
 
               try {
-                const ssoLinks: Array<{ provider: 'google' | 'microsoft'; url: string; mode: 'supabase_managed' | 'federated' }> = [];
-                let ssoEnforced = false;
-                const ssoRedirect = getAuthRedirectUrl('/auth/callback', env.APP_URL);
-
-                for (const provider of ['google', 'microsoft'] as const) {
-                  try {
-                    const { data: dryRun } = await supabase.functions.invoke('sso-authorize', {
-                      body: {
-                        provider,
-                        email,
-                        organization_id: orgData.id,
-                        dry_run: true,
-                      },
-                    });
-
-                    if (!dryRun?.available) continue;
-                    if (dryRun.enforce_sso) {
-                      ssoEnforced = true;
-                    }
-
-                    if (dryRun.mode === 'federated') {
-                      const { data: authData } = await supabase.functions.invoke('sso-authorize', {
-                        body: {
-                          provider,
-                          email,
-                          organization_id: orgData.id,
-                          redirect_to: ssoRedirect,
-                        },
-                      });
-                      if (authData?.authorization_url) {
-                        ssoLinks.push({ provider, url: authData.authorization_url, mode: 'federated' });
-                      }
-                    } else if (dryRun.mode === 'supabase_managed') {
-                      try {
-                        const authorizeUrl = new URL('/auth/v1/authorize', env.SUPABASE_URL);
-                        authorizeUrl.searchParams.set('provider', provider);
-                        authorizeUrl.searchParams.set('redirect_to', ssoRedirect);
-                        authorizeUrl.searchParams.set('login_hint', email);
-                        ssoLinks.push({ provider, url: authorizeUrl.toString(), mode: 'supabase_managed' });
-                      } catch (urlError) {
-                        console.warn('Unable to build managed SSO link during onboarding invite', urlError);
-                      }
-                    }
-                  } catch (ssoError) {
-                    console.warn('Failed to resolve SSO config for onboarding invitation', provider, ssoError);
-                  }
-                }
-
                 const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
                   body: {
                     email,
@@ -655,8 +474,6 @@ export default function Onboarding() {
                     organizationName: orgData.name,
                     inviterName,
                     invitationUrl,
-                    ssoEnforced,
-                    ssoLinks,
                   },
                 });
 
@@ -772,60 +589,11 @@ export default function Onboarding() {
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Create your account to get started. You can use email and password, or continue with your organization's SSO provider.
+                Create your account to get started with email and password.
               </AlertDescription>
             </Alert>
 
-            {ssoError && (
-              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
-                {ssoError}
-              </div>
-            )}
-
-            {(providerState.google.available || providerState.google.checking || providerState.microsoft.available || providerState.microsoft.checking) && (
-              <div className="space-y-4 rounded-lg border border-border/60 bg-muted/40 p-5">
-                <p className="text-sm font-medium text-foreground">
-                  {enforceSso
-                    ? 'Your organization requires SSO to finish onboarding. Continue with the provider configured by your admin.'
-                    : 'Prefer single sign-on? Continue with your organization provider.'}
-                </p>
-                {(["google", "microsoft"] as ProviderName[]).map((provider) => {
-                  const state = providerState[provider];
-                  if (!state.available && !state.checking) return null;
-                  const disabled = !state.available || Boolean(ssoLoading && ssoLoading !== provider);
-                  return (
-                    <Button
-                      key={provider}
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-start gap-3 bg-background h-12 text-base"
-                      disabled={disabled}
-                      onClick={() => handleProvider(provider)}
-                    >
-                      {state.checking && ssoLoading !== provider ? (
-                        <LogIn className="h-5 w-5 animate-spin" />
-                      ) : (
-                        renderProviderIcon(provider)
-                      )}
-                      <span>{renderProviderLabel(provider)}</span>
-                    </Button>
-                  );
-                })}
-              </div>
-            )}
-
-            {enforceSso && (
-              <div className="rounded-md border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
-                <p className="font-medium text-primary">Single sign-on required</p>
-                <p className="text-muted-foreground">
-                  The organization you&apos;re joining only allows access through their configured SSO provider. Use the button above to continue.
-                </p>
-              </div>
-            )}
-
-            {!enforceSso && (
-              <>
-                <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2.5">
                     <Label htmlFor="firstName" className="text-sm font-medium">First Name *</Label>
                     <div className="relative">
@@ -1032,8 +800,6 @@ export default function Onboarding() {
                     </li>
                   </ul>
                 </div>
-              </>
-            )}
           </div>
         );
         
