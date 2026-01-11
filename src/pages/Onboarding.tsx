@@ -122,6 +122,7 @@ export default function Onboarding() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     account: {
@@ -155,18 +156,11 @@ export default function Onboarding() {
   const { createOnboardingNotification } = useNotificationTriggers();
   const { markStepComplete } = useOnboardingSteps();
 
-  // Only require auth for steps after account creation
+  // Handle authentication state changes during onboarding
   useEffect(() => {
-    if (currentStep > 0 && !user) {
-      navigate("/auth", { replace: true });
-    }
-    // If user is already authenticated and on step 0, skip to step 1
-    if (currentStep === 0 && user) {
-      setCurrentStep(1);
-    }
-    // If user is authenticated and formData.account is empty, populate from user metadata
-    // This handles cases where user returns after email verification
-    if (user && !formData.account.firstName && !formData.account.lastName) {
+    // If user becomes authenticated during onboarding (e.g., after email verification),
+    // populate form data from user metadata and advance to organization setup
+    if (user && currentStep === 0 && !formData.account.firstName && !formData.account.lastName) {
       const firstName = user.user_metadata?.first_name || user.user_metadata?.firstName;
       const lastName = user.user_metadata?.last_name || user.user_metadata?.lastName;
       if (firstName || lastName) {
@@ -179,9 +173,11 @@ export default function Onboarding() {
             email: user.email || prev.account.email,
           }
         }));
+        // Auto-advance to step 1 since account is already created
+        setCurrentStep(1);
       }
     }
-  }, [user, navigate, currentStep]);
+  }, [user, currentStep, formData.account.firstName, formData.account.lastName]);
 
   const practiceAreaOptions = [
     "Corporate Law",
@@ -302,29 +298,89 @@ export default function Onboarding() {
   };
 
   const handleFinish = async () => {
+    setIsSubmitting(true);
     try {
       const warningMessages: string[] = [];
 
       // Create account first if not already authenticated
       if (!user) {
-        const { error: signUpError } = await signUp(formData.account.email, formData.account.password, {
-          email: formData.account.email,
-          first_name: formData.account.firstName,
-          last_name: formData.account.lastName,
-        });
+        // Retry signup up to 3 times for timeout errors
+        let signUpError = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (retryCount < maxRetries) {
+          try {
+            const result = await signUp(formData.account.email, formData.account.password, {
+              email: formData.account.email,
+              first_name: formData.account.firstName,
+              last_name: formData.account.lastName,
+            });
+
+            if (!result.error) {
+              // Success, break out of retry loop
+              break;
+            }
+
+            signUpError = result.error;
+
+            // Check if it's a timeout error that we should retry
+            if (signUpError.message?.includes('timeout') || signUpError.message?.includes('504') || signUpError.message?.includes('Gateway')) {
+              retryCount++;
+              if (retryCount < maxRetries) {
+                toast({
+                  title: `Retrying signup... (${retryCount}/${maxRetries})`,
+                  description: "The signup service is busy. Trying again...",
+                });
+                // Wait before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+                continue;
+              }
+            }
+
+            // Not a timeout error, or we've exhausted retries
+            break;
+
+          } catch (error: any) {
+            signUpError = error;
+            // Handle network errors and timeouts
+            if (error.message?.includes('fetch') || error.message?.includes('timeout') || error.message?.includes('504')) {
+              retryCount++;
+              if (retryCount < maxRetries) {
+                toast({
+                  title: `Retrying signup... (${retryCount}/${maxRetries})`,
+                  description: "Network issue detected. Trying again...",
+                });
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+                continue;
+              }
+            }
+            break;
+          }
+        }
 
         if (signUpError) {
-          toast({
-            variant: "destructive",
-            title: "Account creation failed",
-            description: signUpError.message,
-          });
+          // Handle specific error types
+          if (signUpError.message?.includes('timeout') || signUpError.message?.includes('504') || signUpError.message?.includes('Gateway')) {
+            toast({
+              variant: "destructive",
+              title: "Service temporarily unavailable",
+              description: "The signup service is experiencing delays. Please wait a few minutes and try again.",
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Account creation failed",
+              description: signUpError.message,
+            });
+          }
           return;
         }
 
         // Wait for auth state to update
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         // Check if user is now authenticated
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
@@ -549,6 +605,8 @@ export default function Onboarding() {
         title: "Error",
         description: error.message || "Failed to complete onboarding. Please try again.",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -842,8 +900,8 @@ export default function Onboarding() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Organization Type *</Label>
-                <Select 
-                  value={formData.organization.type || "law-firm"}
+                <Select
+                  value={formData.organization.type}
                   onValueChange={(value) => {
                     setFormData({
                       ...formData,
@@ -855,10 +913,17 @@ export default function Onboarding() {
                   }}
                 >
                   <SelectTrigger className={validationErrors.orgType ? 'border-destructive' : ''}>
-                    <SelectValue placeholder="Law Firm" />
+                    <SelectValue placeholder="Select organization type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="law-firm">Law Firm</SelectItem>
+                    <SelectItem value="solo-practitioner">Solo Practitioner</SelectItem>
+                    <SelectItem value="legal-clinic">Legal Clinic</SelectItem>
+                    <SelectItem value="corporate-legal-dept">Corporate Legal Department</SelectItem>
+                    <SelectItem value="government-agency">Government Agency</SelectItem>
+                    <SelectItem value="non-profit">Non-Profit Organization</SelectItem>
+                    <SelectItem value="academic-institution">Academic Institution</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
                 {validationErrors.orgType && (
@@ -1279,9 +1344,13 @@ export default function Onboarding() {
                 </div>
 
                 {currentStep === steps.length - 1 ? (
-                  <Button onClick={handleFinish} className="min-w-[120px]">
-                    Get Started
-                    <CheckCircle className="w-4 h-4 ml-2" />
+                  <Button onClick={handleFinish} disabled={isSubmitting} className="min-w-[120px]">
+                    {isSubmitting ? "Creating Account..." : "Get Started"}
+                    {isSubmitting ? (
+                      <div className="w-4 h-4 ml-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 ml-2" />
+                    )}
                   </Button>
                 ) : (
                   <Button onClick={handleNext} className="min-w-[120px]">
