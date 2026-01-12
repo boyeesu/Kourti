@@ -53,6 +53,11 @@ BEGIN
     SET status = 'accepted', updated_at = now()
     WHERE email = NEW.email AND status = 'pending' AND expires_at > now();
 
+    -- CRITICAL: Assign role from invitation to the new user_role_assignments table
+    INSERT INTO public.user_role_assignments (user_id, role_name, organization_id, assigned_by)
+    VALUES (NEW.id, COALESCE(inv_role, 'user'), inv_org, NEW.id);
+
+
   ELSE
     -- No invitation found - CREATE A NEW ORGANIZATION for this user
     -- This is the critical fix - the previous version did NOT create an organization
@@ -94,6 +99,11 @@ BEGIN
       now(),
       now()
     );
+
+    -- CRITICAL: Assign superadmin role in the new user_role_assignments table
+    -- The profiles.role column is deprecated and used only for backward compatibility
+    INSERT INTO public.user_role_assignments (user_id, role_name, organization_id, assigned_by)
+    VALUES (NEW.id, 'superadmin', new_org_id, NEW.id);
   END IF;
 
   RETURN NEW;
@@ -230,6 +240,11 @@ BEGIN
       AND status = 'pending'
       AND expires_at > now()
       AND organization_id = inv_org;
+
+    -- Assign role from invitation to the new user_role_assignments table
+    INSERT INTO public.user_role_assignments (user_id, role_name, organization_id, assigned_by)
+    VALUES (p_user_id, COALESCE(inv_role, 'user'), inv_org, p_user_id)
+    ON CONFLICT (user_id, role_name, organization_id) DO NOTHING;
   END IF;
 END;
 $$;

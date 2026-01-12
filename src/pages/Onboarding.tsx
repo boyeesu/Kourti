@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -118,12 +119,13 @@ const countries = [
 ];
 
 export default function Onboarding() {
+  const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(0);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     account: {
       firstName: "",
@@ -201,7 +203,7 @@ export default function Onboarding() {
 
   const validateStep = (step: number): boolean => {
     const errors: Record<string, string> = {};
-    
+
     if (step === 0) {
       if (!formData.account.firstName.trim()) {
         errors.firstName = "First name is required";
@@ -223,7 +225,7 @@ export default function Onboarding() {
         errors.confirmPassword = "Passwords do not match";
       }
     }
-    
+
     if (step === 1) {
       if (!formData.organization.name.trim()) {
         errors.orgName = "Organization name is required";
@@ -252,7 +254,7 @@ export default function Onboarding() {
         errors.orgEmail = "Please enter a valid email address";
       }
     }
-    
+
     if (step === 2) {
       // Team step is optional, but validate emails if provided
       const validEmails = formData.team.inviteEmails.filter(email => email.trim());
@@ -262,7 +264,7 @@ export default function Onboarding() {
         }
       }
     }
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -284,7 +286,7 @@ export default function Onboarding() {
       setValidationErrors({});
       return;
     }
-    
+
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
       setValidationErrors({});
@@ -432,7 +434,7 @@ export default function Onboarding() {
         let sessionRetries = 0;
         const maxSessionRetries = 5;
         let session = null;
-        
+
         while (sessionRetries < maxSessionRetries) {
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
           if (sessionError) {
@@ -527,6 +529,24 @@ export default function Onboarding() {
         .eq('user_id', currentUser.id);
 
       if (profileError) throw profileError;
+
+      // Ensure the role is also set in the new user_role_assignments table
+      const { error: roleAssigmentError } = await supabase
+        .from('user_role_assignments')
+        .insert({
+          user_id: currentUser.id,
+          role_name: 'superadmin',
+          organization_id: orgData.id,
+          assigned_by: currentUser.id
+        } as any)
+        .select()
+        .single();
+
+      if (roleAssigmentError) {
+        // If it fails (e.g. already exists from trigger), we just log it and continue
+        // as the trigger might have already handled it
+        console.log('Role assignment status:', roleAssigmentError);
+      }
 
       // Seed default permissions for the superadmin role in this organization
       try {
@@ -678,12 +698,12 @@ export default function Onboarding() {
       }
 
       // Track onboarding completion and send welcome notification
-      trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED, { 
+      trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED, {
         orgSize: formData.organization.size,
-        practiceAreas: formData.practiceAreas.length 
+        practiceAreas: formData.practiceAreas.length
       });
       identifyUser(currentUser.id, orgData.id);
-      
+
       // Create welcome notification
       await createOnboardingNotification(formData.organization.name);
 
@@ -698,6 +718,13 @@ export default function Onboarding() {
           description: warningMessages.join(' '),
         });
       }
+
+      // Invalidate queries to ensure permissions are fresh
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['user-permission'] }),
+        queryClient.invalidateQueries({ queryKey: ['role-permissions'] }),
+        queryClient.invalidateQueries({ queryKey: ['user-organization'] }),
+      ]);
 
       navigate("/dashboard", { replace: true });
     } catch (error: any) {
@@ -753,215 +780,215 @@ export default function Onboarding() {
             </Alert>
 
             <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2.5">
-                    <Label htmlFor="firstName" className="text-sm font-medium">First Name *</Label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        autoComplete="given-name"
-                        placeholder="John"
-                        className={`pl-12 h-12 text-base ${validationErrors.firstName ? 'border-destructive' : ''}`}
-                        value={formData.account.firstName}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            account: { ...formData.account, firstName: e.target.value }
-                          });
-                          if (validationErrors.firstName) {
-                            setValidationErrors({ ...validationErrors, firstName: '' });
-                          }
-                        }}
-                        required
-                      />
-                    </div>
-                    {validationErrors.firstName && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {validationErrors.firstName}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <Label htmlFor="lastName" className="text-sm font-medium">Last Name *</Label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        autoComplete="family-name"
-                        placeholder="Doe"
-                        className={`pl-12 h-12 text-base ${validationErrors.lastName ? 'border-destructive' : ''}`}
-                        value={formData.account.lastName}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            account: { ...formData.account, lastName: e.target.value }
-                          });
-                          if (validationErrors.lastName) {
-                            setValidationErrors({ ...validationErrors, lastName: '' });
-                          }
-                        }}
-                        required
-                      />
-                    </div>
-                    {validationErrors.lastName && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {validationErrors.lastName}
-                      </p>
-                    )}
-                  </div>
+              <div className="space-y-2.5">
+                <Label htmlFor="firstName" className="text-sm font-medium">First Name *</Label>
+                <div className="relative">
+                  <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    autoComplete="given-name"
+                    placeholder="John"
+                    className={`pl-12 h-12 text-base ${validationErrors.firstName ? 'border-destructive' : ''}`}
+                    value={formData.account.firstName}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        account: { ...formData.account, firstName: e.target.value }
+                      });
+                      if (validationErrors.firstName) {
+                        setValidationErrors({ ...validationErrors, firstName: '' });
+                      }
+                    }}
+                    required
+                  />
                 </div>
+                {validationErrors.firstName && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.firstName}
+                  </p>
+                )}
+              </div>
 
-                <div className="space-y-2.5">
-                  <Label htmlFor="email" className="text-sm font-medium">Work Email *</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="john@example.com"
-                      className={`pl-12 h-12 text-base ${validationErrors.email ? 'border-destructive' : ''}`}
-                      autoComplete="email"
-                      value={formData.account.email}
-                      onChange={(e) => {
-                        setFormData({
-                          ...formData,
-                          account: { ...formData.account, email: e.target.value }
-                        });
-                        if (validationErrors.email) {
-                          setValidationErrors({ ...validationErrors, email: '' });
-                        }
-                      }}
-                      required
-                    />
-                  </div>
-                  {validationErrors.email && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {validationErrors.email}
-                    </p>
-                  )}
+              <div className="space-y-2.5">
+                <Label htmlFor="lastName" className="text-sm font-medium">Last Name *</Label>
+                <div className="relative">
+                  <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    autoComplete="family-name"
+                    placeholder="Doe"
+                    className={`pl-12 h-12 text-base ${validationErrors.lastName ? 'border-destructive' : ''}`}
+                    value={formData.account.lastName}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        account: { ...formData.account, lastName: e.target.value }
+                      });
+                      if (validationErrors.lastName) {
+                        setValidationErrors({ ...validationErrors, lastName: '' });
+                      }
+                    }}
+                    required
+                  />
                 </div>
+                {validationErrors.lastName && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.lastName}
+                  </p>
+                )}
+              </div>
+            </div>
 
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2.5">
-                    <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
-                      <Input
-                        id="password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Create a password"
-                        className={`pl-12 pr-12 h-12 text-base ${validationErrors.password ? 'border-destructive' : ''}`}
-                        autoComplete="new-password"
-                        value={formData.account.password}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            account: { ...formData.account, password: e.target.value }
-                          });
-                          if (validationErrors.password) {
-                            setValidationErrors({ ...validationErrors, password: '' });
-                          }
-                        }}
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-5 w-5 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-5 w-5 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                    {validationErrors.password && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {validationErrors.password}
-                      </p>
+            <div className="space-y-2.5">
+              <Label htmlFor="email" className="text-sm font-medium">Work Email *</Label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  className={`pl-12 h-12 text-base ${validationErrors.email ? 'border-destructive' : ''}`}
+                  autoComplete="email"
+                  value={formData.account.email}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      account: { ...formData.account, email: e.target.value }
+                    });
+                    if (validationErrors.email) {
+                      setValidationErrors({ ...validationErrors, email: '' });
+                    }
+                  }}
+                  required
+                />
+              </div>
+              {validationErrors.email && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.email}
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2.5">
+                <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a password"
+                    className={`pl-12 pr-12 h-12 text-base ${validationErrors.password ? 'border-destructive' : ''}`}
+                    autoComplete="new-password"
+                    value={formData.account.password}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        account: { ...formData.account, password: e.target.value }
+                      });
+                      if (validationErrors.password) {
+                        setValidationErrors({ ...validationErrors, password: '' });
+                      }
+                    }}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-muted-foreground" />
                     )}
-                  </div>
+                  </Button>
+                </div>
+                {validationErrors.password && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.password}
+                  </p>
+                )}
+              </div>
 
-                  <div className="space-y-2.5">
-                    <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password *</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
-                      <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Confirm your password"
-                        className={`pl-12 pr-12 h-12 text-base ${validationErrors.confirmPassword ? 'border-destructive' : ''}`}
-                        autoComplete="new-password"
-                        value={formData.account.confirmPassword}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            account: { ...formData.account, confirmPassword: e.target.value }
-                          });
-                          if (validationErrors.confirmPassword) {
-                            setValidationErrors({ ...validationErrors, confirmPassword: '' });
-                          }
-                        }}
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff className="h-5 w-5 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-5 w-5 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                    {validationErrors.confirmPassword && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {validationErrors.confirmPassword}
-                      </p>
+              <div className="space-y-2.5">
+                <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password *</Label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    className={`pl-12 pr-12 h-12 text-base ${validationErrors.confirmPassword ? 'border-destructive' : ''}`}
+                    autoComplete="new-password"
+                    value={formData.account.confirmPassword}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        account: { ...formData.account, confirmPassword: e.target.value }
+                      });
+                      if (validationErrors.confirmPassword) {
+                        setValidationErrors({ ...validationErrors, confirmPassword: '' });
+                      }
+                    }}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-muted-foreground" />
                     )}
-                  </div>
+                  </Button>
                 </div>
+                {validationErrors.confirmPassword && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.confirmPassword}
+                  </p>
+                )}
+              </div>
+            </div>
 
-                <div className="rounded-lg border border-border/60 bg-muted/40 p-5 text-sm text-muted-foreground">
-                  <p className="font-semibold text-foreground mb-3">What happens next?</p>
-                  <ul className="space-y-2">
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary mt-0.5">•</span>
-                      <span>Verify your email to activate the account.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary mt-0.5">•</span>
-                      <span>Complete onboarding to set up your organization.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary mt-0.5">•</span>
-                      <span>Invite teammates when you&apos;re ready.</span>
-                    </li>
-                  </ul>
-                </div>
+            <div className="rounded-lg border border-border/60 bg-muted/40 p-5 text-sm text-muted-foreground">
+              <p className="font-semibold text-foreground mb-3">What happens next?</p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>Verify your email to activate the account.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>Complete onboarding to set up your organization.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>Invite teammates when you&apos;re ready.</span>
+                </li>
+              </ul>
+            </div>
           </div>
         );
-        
+
       case 1:
         return (
           <div className="space-y-6">
@@ -971,7 +998,7 @@ export default function Onboarding() {
                 This information helps us customize your experience. You can update these details later in Settings.
               </AlertDescription>
             </Alert>
-            
+
             <div className="space-y-2">
               <Label htmlFor="orgName">Organization Name *</Label>
               <Input
@@ -997,7 +1024,7 @@ export default function Onboarding() {
                 </p>
               )}
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Organization Type *</Label>
@@ -1034,10 +1061,10 @@ export default function Onboarding() {
                   </p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Organization Size *</Label>
-                <Select 
+                <Select
                   value={formData.organization.size}
                   onValueChange={(value) => {
                     setFormData({
@@ -1121,10 +1148,10 @@ export default function Onboarding() {
                   </p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Country *</Label>
-                <Select 
+                <Select
                   value={formData.organization.country}
                   onValueChange={(value) => {
                     setFormData({
@@ -1183,7 +1210,7 @@ export default function Onboarding() {
                   </p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="orgEmail">Organization Email *</Label>
                 <Input
@@ -1211,7 +1238,7 @@ export default function Onboarding() {
                 )}
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="orgDescription">Description (Optional)</Label>
               <Textarea
@@ -1226,7 +1253,7 @@ export default function Onboarding() {
             </div>
           </div>
         );
-        
+
       case 2:
         return (
           <div className="space-y-6">
@@ -1236,13 +1263,13 @@ export default function Onboarding() {
                 You can skip this step and invite team members later. Invitations will be sent via email.
               </AlertDescription>
             </Alert>
-            
+
             <div>
               <Label className="text-base font-medium">Invite Team Members (Optional)</Label>
               <p className="text-sm text-muted-foreground mb-4">
                 Add email addresses to invite your team members. They'll receive an invitation email with setup instructions.
               </p>
-              
+
               <div className="space-y-3">
                 {formData.team.inviteEmails.map((email, index) => (
                   <div key={index} className="space-y-1">
@@ -1266,9 +1293,9 @@ export default function Onboarding() {
                     )}
                   </div>
                 ))}
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={addEmailField}
                   className="w-full"
                 >
@@ -1278,7 +1305,7 @@ export default function Onboarding() {
             </div>
           </div>
         );
-        
+
       case 3:
         return (
           <div className="space-y-6">
@@ -1288,13 +1315,13 @@ export default function Onboarding() {
                 Select all practice areas that apply to your organization. This helps us customize features and templates for you.
               </AlertDescription>
             </Alert>
-            
+
             <div>
               <Label className="text-base font-medium">Practice Areas (Optional)</Label>
               <p className="text-sm text-muted-foreground mb-4">
                 Select the practice areas relevant to your organization. You can add more later.
               </p>
-              
+
               {formData.practiceAreas.length > 0 && (
                 <div className="mb-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
                   <p className="text-sm font-medium text-primary mb-1">
@@ -1302,7 +1329,7 @@ export default function Onboarding() {
                   </p>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-2 gap-3">
                 {practiceAreaOptions.map((area) => (
                   <div key={area} className="flex items-center space-x-2">
@@ -1320,7 +1347,7 @@ export default function Onboarding() {
             </div>
           </div>
         );
-        
+
       case 4:
         return (
           <div className="text-center space-y-6">
@@ -1344,7 +1371,7 @@ export default function Onboarding() {
             </div>
           </div>
         );
-        
+
       default:
         return null;
     }
@@ -1364,7 +1391,7 @@ export default function Onboarding() {
             </p>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <div className="grid gap-8 lg:grid-cols-[260px,1fr]">
             <aside className="space-y-6 rounded-xl border border-border/60 bg-muted/40 p-4">
@@ -1386,22 +1413,20 @@ export default function Onboarding() {
                   return (
                     <div
                       key={step.id}
-                      className={`flex items-start gap-3 rounded-lg border p-3 ${
-                        isActive
-                          ? "border-primary/50 bg-primary/5 text-foreground"
-                          : isComplete
+                      className={`flex items-start gap-3 rounded-lg border p-3 ${isActive
+                        ? "border-primary/50 bg-primary/5 text-foreground"
+                        : isComplete
                           ? "border-border/60 bg-background text-muted-foreground"
                           : "border-border/30 bg-background/60 text-muted-foreground"
-                      }`}
+                        }`}
                     >
                       <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                          isActive
-                            ? "bg-primary text-primary-foreground"
-                            : isComplete
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${isActive
+                          ? "bg-primary text-primary-foreground"
+                          : isComplete
                             ? "bg-primary/20 text-primary"
                             : "bg-muted text-muted-foreground"
-                        }`}
+                          }`}
                       >
                         <Icon className="h-4 w-4" />
                       </div>
