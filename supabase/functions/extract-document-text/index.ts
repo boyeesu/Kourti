@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,42 +53,66 @@ serve(async (req: Request) => {
     // Determine file type and extract text
     let extractedText = '';
     const fileName = filePath.toLowerCase();
+    let extractionError: string | null = null;
 
-    if (fileName.endsWith('.txt')) {
-      // Plain text file
-      extractedText = await fileData.text();
-      console.log('Extracted text file content, length:', extractedText.length);
-    } else if (fileName.endsWith('.pdf')) {
-      // For PDF files, we'll use a basic text extraction approach
-      // Convert blob to ArrayBuffer
-      const arrayBuffer = await fileData.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      
-      // Try to extract text from PDF using basic stream parsing
-      extractedText = extractTextFromPDF(uint8Array);
-      console.log('Extracted PDF content, length:', extractedText.length);
-      
-      if (!extractedText || extractedText.length < 50) {
-        // If basic extraction fails, return a message indicating OCR may be needed
-        extractedText = `[PDF document detected: ${filePath}. Basic text extraction yielded limited content. This PDF may contain images or scanned content that requires OCR processing.]`;
-      }
-    } else if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
-      // For Word documents, try basic text extraction
-      try {
+    try {
+      if (fileName.endsWith('.txt')) {
+        // Plain text file
+        extractedText = await fileData.text();
+        console.log('Extracted text file content, length:', extractedText.length);
+      } else if (fileName.endsWith('.pdf')) {
+        // For PDF files, we'll use a basic text extraction approach
+        // Convert blob to ArrayBuffer
         const arrayBuffer = await fileData.arrayBuffer();
-        extractedText = extractTextFromDocx(new Uint8Array(arrayBuffer));
-        console.log('Extracted Word document content, length:', extractedText.length);
-      } catch (e) {
-        console.error('Word extraction error:', e);
-        extractedText = `[Word document detected: ${filePath}. Unable to extract text content automatically.]`;
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Try to extract text from PDF using basic stream parsing
+        extractedText = extractTextFromPDF(uint8Array);
+        console.log('Extracted PDF content, length:', extractedText.length);
+        
+        if (!extractedText || extractedText.length < 50) {
+          // If basic extraction fails, return a message indicating OCR may be needed
+          extractionError = 'PDF text extraction yielded limited content. This PDF may contain images or scanned content that requires OCR processing.';
+          extractedText = `[PDF document detected: ${filePath}. Basic text extraction yielded limited content. This PDF may contain images or scanned content that requires OCR processing.]`;
+        }
+      } else if (fileName.endsWith('.docx')) {
+        // DOCX files are ZIP archives containing XML files
+        try {
+          const arrayBuffer = await fileData.arrayBuffer();
+          extractedText = await extractTextFromDocx(new Uint8Array(arrayBuffer));
+          console.log('Extracted DOCX content, length:', extractedText.length);
+          
+          if (!extractedText || extractedText.length < 10) {
+            extractionError = 'DOCX extraction yielded no meaningful content';
+            extractedText = `[DOCX document detected: ${filePath}. Unable to extract text content automatically.]`;
+          }
+        } catch (e) {
+          const errorMsg = e instanceof Error ? e.message : String(e);
+          console.error('DOCX extraction error:', errorMsg);
+          extractionError = `DOCX extraction failed: ${errorMsg}`;
+          extractedText = `[DOCX document detected: ${filePath}. Unable to extract text content automatically. Error: ${errorMsg}]`;
+        }
+      } else if (fileName.endsWith('.doc')) {
+        // Legacy .doc format - very difficult to parse without specialized libraries
+        extractionError = 'Legacy .doc format is not supported. Please convert to .docx or .pdf';
+        extractedText = `[Legacy DOC document detected: ${filePath}. This format is not supported for automatic text extraction. Please convert to DOCX or PDF format.]`;
+      } else {
+        // Unknown file type
+        extractionError = `Unsupported file type: ${filePath}`;
+        extractedText = `[File type not supported for automatic text extraction: ${filePath}]`;
       }
-    } else {
-      // Unknown file type
-      extractedText = `[File type not supported for automatic text extraction: ${filePath}]`;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('General extraction error:', errorMsg);
+      extractionError = `Extraction failed: ${errorMsg}`;
+      extractedText = `[Error extracting text from ${filePath}: ${errorMsg}]`;
     }
 
     // Update the document record with the extracted content
-    if (extractedText && extractedText.length > 50 && !extractedText.startsWith('[')) {
+    // Only update if we have meaningful content (not error messages)
+    const hasValidContent = extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
+    
+    if (hasValidContent) {
       const { error: updateError } = await supabase
         .from('documents' as any)
         .update({ 
@@ -98,18 +123,22 @@ serve(async (req: Request) => {
 
       if (updateError) {
         console.error('Error updating document content:', updateError);
-        // Don't fail the request, still return the extracted content
+        // Log but don't fail - we still return the extracted content
       } else {
-        console.log('Successfully updated document content in database');
+        console.log(`Successfully updated document ${documentId} content in database (${extractedText.length} characters)`);
       }
+    } else {
+      console.warn(`Document ${documentId} extraction did not yield valid content. Length: ${extractedText?.length || 0}, Error: ${extractionError || 'None'}`);
     }
 
     return new Response(
       JSON.stringify({ 
-        success: true,
+        success: hasValidContent,
         content: extractedText,
         contentLength: extractedText.length,
-        documentId
+        documentId,
+        error: extractionError || undefined,
+        warning: !hasValidContent ? 'Extraction did not yield meaningful content' : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -199,32 +228,104 @@ function decodeEscapedText(text: string): string {
 }
 
 /**
- * Basic DOCX text extraction
+ * DOCX text extraction
  * DOCX files are ZIP archives containing XML files
+ * We need to unzip and read word/document.xml
  */
-function extractTextFromDocx(data: Uint8Array): string {
-  const decoder = new TextDecoder('utf-8', { fatal: false });
-  const content = decoder.decode(data);
-  
-  // Look for text content in the XML
-  const textPattern = /<w:t[^>]*>(.*?)<\/w:t>/g;
-  const text: string[] = [];
-  let match;
-  
-  while ((match = textPattern.exec(content)) !== null) {
-    if (match[1].trim()) {
-      text.push(match[1]);
+async function extractTextFromDocx(data: Uint8Array): Promise<string> {
+  try {
+    // Load the DOCX file as a ZIP archive using JSZip
+    const zip = await JSZip.loadAsync(data);
+    
+    // Get the main document XML file
+    const documentXml = zip.file('word/document.xml');
+    
+    if (!documentXml) {
+      throw new Error('word/document.xml not found in DOCX archive');
     }
-  }
-  
-  // Also try to find plain text content
-  const plainTextPattern = />([^<]{10,})</g;
-  while ((match = plainTextPattern.exec(content)) !== null) {
-    const potential = match[1].trim();
-    if (potential && !potential.includes('=') && !potential.startsWith('http')) {
-      text.push(potential);
+    
+    // Read the document XML content as text
+    const xmlText = await documentXml.async('string');
+    
+    // Extract text from XML using regex
+    const text: string[] = [];
+    
+    // Look for text content in <w:t> tags (Word's text elements)
+    // Use global flag and handle multiline content
+    const textPattern = /<w:t[^>]*>(.*?)<\/w:t>/gs;
+    let match;
+    
+    while ((match = textPattern.exec(xmlText)) !== null) {
+      const textContent = match[1];
+      // Decode XML entities
+      const decoded = textContent
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+      
+      if (decoded.trim()) {
+        text.push(decoded);
+      }
     }
+    
+    // If no text found with the standard pattern, try a more aggressive approach
+    if (text.length === 0) {
+      // Look for any text between tags, but be more selective
+      const fallbackPattern = />([^<]{3,})</g;
+      while ((match = fallbackPattern.exec(xmlText)) !== null) {
+        const potential = match[1].trim();
+        // Filter out XML tags, attributes, and other non-text content
+        if (potential && 
+            !potential.startsWith('?') &&
+            !potential.startsWith('!') &&
+            !potential.includes('xmlns') &&
+            !potential.match(/^[a-z]+:/i) &&
+            !potential.match(/^[A-Z][a-z]+:/) && // Filter namespace prefixes
+            potential.match(/[A-Za-z]/)) { // Must contain at least one letter
+          text.push(potential);
+        }
+      }
+    }
+    
+    const result = text.join(' ')
+      .replace(/\s+/g, ' ')
+      .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+      .trim();
+    
+    if (result.length < 10) {
+      throw new Error('Extracted text is too short, likely extraction failed');
+    }
+    
+    return result;
+    
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('DOCX extraction error:', errorMsg);
+    
+    // Fallback: try to extract any readable text from the raw data
+    try {
+      const decoder = new TextDecoder('utf-8', { fatal: false });
+      const content = decoder.decode(data);
+      
+      // Look for any readable text sequences (this is a last resort)
+      const readablePattern = /[A-Za-z0-9\s.,;:!?\-'"]{30,}/g;
+      const matches = content.match(readablePattern);
+      
+      if (matches && matches.length > 0) {
+        const fallbackText = matches.join(' ').substring(0, 10000); // Limit to 10k chars
+        if (fallbackText.length > 50) {
+          console.log('Using fallback text extraction, length:', fallbackText.length);
+          return fallbackText;
+        }
+      }
+    } catch (fallbackError) {
+      console.error('Fallback extraction also failed:', fallbackError);
+    }
+    
+    throw new Error(`Failed to extract DOCX content: ${errorMsg}`);
   }
-  
-  return text.join(' ').replace(/\s+/g, ' ').trim();
 }

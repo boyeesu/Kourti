@@ -382,8 +382,11 @@ export default function ReamAI() {
 
         // Extract text content from the uploaded document
         let extractedText = '';
+        let extractionError: string | null = null;
+        
         if (uploadedDoc.file_path) {
           try {
+            // Try server-side extraction first (handles PDF, DOCX, etc.)
             const { data: extractResult, error: extractError } = await supabase.functions.invoke(
               'extract-document-text',
               {
@@ -392,34 +395,58 @@ export default function ReamAI() {
             );
 
             if (!extractError && extractResult?.content) {
-              extractedText = extractResult.content;
+              // Only use extracted text if it's valid (not an error message)
+              if (extractResult.content && !extractResult.content.startsWith('[')) {
+                extractedText = extractResult.content;
+                console.log('Server-side extraction successful, length:', extractedText.length);
+              } else {
+                extractionError = extractResult.error || extractResult.warning || 'Extraction yielded no meaningful content';
+                console.warn('Server-side extraction returned error/warning:', extractionError);
+                if (extractResult.content) {
+                  extractedText = extractResult.content; // Still store it for reference
+                }
+              }
+            } else if (extractError) {
+              extractionError = extractError.message || 'Extraction failed';
+              console.error('Server-side extraction error:', extractError);
             }
           } catch (extractErr) {
+            const errorMsg = extractErr instanceof Error ? extractErr.message : String(extractErr);
+            extractionError = errorMsg;
             console.error('Text extraction error:', extractErr);
           }
         }
 
-        // Try client-side extraction as fallback
-        if (!extractedText) {
+        // Try client-side extraction as fallback for simple text files
+        if (!extractedText || extractedText.length < 10) {
           if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-            extractedText = await file.text();
+            try {
+              extractedText = await file.text();
+              console.log('Client-side text extraction successful, length:', extractedText.length);
+            } catch (e) {
+              console.error('Client-side text extraction failed:', e);
+              if (!extractionError) {
+                extractionError = 'Failed to extract text content';
+              }
+            }
           }
         }
 
-        setExtractedContent(extractedText);
+        setExtractedContent(extractedText || null);
         
         // Set the uploaded document as selected
         setSelectedDoc({ 
           id: uploadedDoc.id, 
           name: uploadedDoc.name ?? undefined,
           file_path: uploadedDoc.file_path ?? undefined,
-          content: uploadedDoc.content ?? undefined,
+          content: extractedText || uploadedDoc.content || undefined,
           type: 'document' as const 
         });
         setSelectedFile(null); // Clear temporary file reference
 
-        // Process document for RAG if we have organization and content
-        if (organization?.id && extractedText && extractedText.length > 50) {
+        // Process document for RAG if we have organization and valid content
+        const hasValidContent = extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
+        if (organization?.id && hasValidContent) {
           setMessages((msgs) =>
             msgs.map((msg, i) =>
               i === msgs.length - 1
@@ -465,14 +492,15 @@ export default function ReamAI() {
             );
           }
         } else {
+          const hasValidContent = extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
           setMessages((msgs) =>
             msgs.map((msg, i) =>
               i === msgs.length - 1
                 ? {
                     ...msg,
-                    content: extractedText
-                      ? `✅ Document "${file.name}" uploaded and saved! You can now ask questions about it.`
-                      : `✅ Document "${file.name}" uploaded and saved! Note: Text extraction was limited. You can still ask questions, and I'll help based on available information.`,
+                    content: hasValidContent
+                      ? `✅ Document "${file.name}" uploaded and saved! I've extracted ${extractedText.length.toLocaleString()} characters. You can now ask questions about it.`
+                      : `✅ Document "${file.name}" uploaded and saved! ${extractionError ? `Note: ${extractionError}. ` : 'Note: Text extraction was limited. '}You can still ask questions, and I'll help based on available information.`,
                     isStreaming: false
                   }
                 : msg

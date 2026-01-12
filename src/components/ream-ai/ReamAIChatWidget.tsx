@@ -186,9 +186,9 @@ export function ReamAIChatWidget({
         // Server-side extraction fallback (with timeout)
         if (!extractedText && uploadedDoc.file_path) {
           try {
-            // Create a promise that rejects after 15 seconds
+            // Create a promise that rejects after 30 seconds (increased timeout for large files)
             const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('Extraction timed out')), 15000);
+              setTimeout(() => reject(new Error('Extraction timed out')), 30000);
             });
 
             const extractionPromise = supabase.functions.invoke(
@@ -205,42 +205,65 @@ export function ReamAIChatWidget({
             ]) as any;
 
             if (!extractError && extractResult?.content) {
-              extractedText = extractResult.content;
+              // Only use extracted text if it's valid (not an error message)
+              if (extractResult.content && !extractResult.content.startsWith('[')) {
+                extractedText = extractResult.content;
+                console.log('Server-side extraction successful, length:', extractedText.length);
+              } else {
+                console.warn('Server-side extraction returned error message:', extractResult.content);
+                if (extractResult.error) {
+                  console.error('Extraction error:', extractResult.error);
+                }
+              }
             } else if (extractError) {
               console.error('Server-side extraction error:', extractError);
             }
           } catch (extractErr) {
-            console.error('Text extraction failed or timed out:', extractErr);
+            const errorMsg = extractErr instanceof Error ? extractErr.message : String(extractErr);
+            console.error('Text extraction failed or timed out:', errorMsg);
             // Don't fail the whole upload if extraction only fails
           }
         }
 
-        // Process for RAG (non-blocking)
-        if (organization?.id && extractedText && extractedText.length > 50) {
+        // Set uploaded document state with extracted content
+        setUploadedDocument({
+          id: uploadedDoc.id,
+          name: uploadedDoc.name ?? undefined,
+          content: extractedText || undefined,
+          file_path: uploadedDoc.file_path ?? undefined
+        });
+
+        // Process for RAG (non-blocking) - only if we have valid extracted text
+        if (organization?.id && extractedText && extractedText.length > 50 && !extractedText.startsWith('[')) {
+          // Process in background without blocking UI
           processDocument.mutateAsync({
             documentId: uploadedDoc.id,
             content: extractedText,
             documentType: "document"
           }).then(() => {
-            console.log('Background RAG processing complete');
+            console.log('Background RAG processing complete for document:', uploadedDoc.id);
+            logInfo('RAG processing completed', { documentId: uploadedDoc.id });
           }).catch(processError => {
             console.error("Background RAG processing error:", processError);
+            logError('RAG processing failed', { error: processError, documentId: uploadedDoc.id });
+          });
+        } else if (!extractedText || extractedText.length <= 50) {
+          console.warn('Skipping RAG processing - insufficient extracted text', {
+            documentId: uploadedDoc.id,
+            textLength: extractedText?.length || 0
           });
         }
 
-        setUploadedDocument({
-          id: uploadedDoc.id,
-          name: uploadedDoc.name ?? undefined,
-          content: extractedText,
-          file_path: uploadedDoc.file_path ?? undefined
-        });
-
-        // Clear loading state immediately
+        // Clear loading state
         setIsUploading(false);
 
+        // Provide user feedback based on extraction success
+        const hasValidContent = extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `✅ Document "${file.name}" uploaded! You can start asking questions right away while I process it for deep search.`,
+          content: hasValidContent
+            ? `✅ Document "${file.name}" uploaded and processed! I've extracted ${extractedText.length.toLocaleString()} characters. You can start asking questions right away while I process it for deep search.`
+            : `✅ Document "${file.name}" uploaded! ${extractedText ? 'Note: Text extraction was limited. ' : ''}You can still ask questions, and I'll help based on available information.`,
           timestamp: new Date(),
         }]);
 
