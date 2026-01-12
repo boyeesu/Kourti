@@ -147,22 +147,6 @@ export function useEnhancedDocumentAnalysis() {
           }
         }
 
-        // Call the advanced contract analysis edge function with CSRF protection
-        const { data, error } = await invokeFunctionWithCsrf<{ 
-          analysis?: string;
-          success?: boolean;
-          tokensUsed?: number;
-          modelUsed?: string;
-        }>('advanced-contract-analysis', {
-          body: {
-            text: content,
-            analysisType: analysisType,
-            goal: analysisType === 'general'
-              ? 'Provide a comprehensive analysis of this document'
-              : analysisType
-          }
-        });
-
         // Prepare payload with size checks
         const payload = preparePayload({ content });
         
