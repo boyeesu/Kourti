@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePlatformUser } from '@/hooks/usePlatformUser';
+import { PlatformUser } from '@/hooks/useAllUsers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -105,6 +106,8 @@ export function UserDetail() {
     );
   }
 
+  const platformUser = user as PlatformUser;
+
   return (
     <>
       <div className="space-y-6">
@@ -115,7 +118,7 @@ export function UserDetail() {
             </Button>
             <div>
               <h1 className="text-3xl font-bold">
-                {user.first_name} {user.last_name}
+                {platformUser.first_name} {platformUser.last_name}
               </h1>
               <p className="text-muted-foreground">User Details & KYC Information</p>
             </div>
@@ -125,13 +128,13 @@ export function UserDetail() {
               <Crown className="h-4 w-4 mr-2" />
               Assign Plan
             </Button>
-            {user.status === 'pending' && (
+            {platformUser.status === 'pending' && (
               <Button variant="default" onClick={handleApprove} disabled={approveUser.isPending}>
                 <Check className="h-4 w-4 mr-2" />
                 Approve
               </Button>
             )}
-            {user.status !== 'disabled' && (
+            {platformUser.status !== 'disabled' && (
               <Button variant="destructive" onClick={handleDisable} disabled={disableUser.isPending}>
                 <X className="h-4 w-4 mr-2" />
                 Disable
@@ -155,30 +158,30 @@ export function UserDetail() {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Full Name</label>
                 <p className="text-sm font-medium">
-                  {user.first_name} {user.last_name}
+                  {platformUser.first_name} {platformUser.last_name}
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <Mail className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Email</label>
-                  <p className="text-sm">{user.email || '—'}</p>
+                  <p className="text-sm">{platformUser.email || '—'}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                  <p className="text-sm">{user.phone || '—'}</p>
+                  <p className="text-sm">{platformUser.phone || '—'}</p>
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Role</label>
-                <div className="mt-1">{getRoleBadge(user.role)}</div>
+                <div className="mt-1">{getRoleBadge(platformUser.role)}</div>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Status</label>
-                <div className="mt-1">{getStatusBadge(user.status)}</div>
+                <div className="mt-1">{getStatusBadge(platformUser.status)}</div>
               </div>
             </CardContent>
           </Card>
@@ -210,13 +213,13 @@ export function UserDetail() {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Organization Type</label>
-                <p className="text-sm">{user.organization_type || '—'}</p>
+                <p className="text-sm">{platformUser.organization_type || '—'}</p>
               </div>
               <div className="flex items-start gap-3">
                 <Briefcase className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Department</label>
-                  <p className="text-sm">{user.department || '—'}</p>
+                  <p className="text-sm">{platformUser.department || '—'}</p>
                 </div>
               </div>
             </CardContent>
@@ -233,29 +236,29 @@ export function UserDetail() {
                 <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                  <p className="text-sm">{format(new Date(user.created_at), 'PPpp')}</p>
+                  <p className="text-sm">{format(new Date(platformUser.created_at), 'PPpp')}</p>
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                <p className="text-sm">{format(new Date(user.updated_at), 'PPpp')}</p>
+                <p className="text-sm">{format(new Date(platformUser.updated_at), 'PPpp')}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Last Login</label>
                 <p className="text-sm">
-                  {user.last_login_at ? format(new Date(user.last_login_at), 'PPpp') : 'Never'}
+                  {platformUser.last_login_at ? format(new Date(platformUser.last_login_at), 'PPpp') : 'Never'}
                 </p>
               </div>
-              {user.approved_at && (
+              {platformUser.approved_at && (
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Approved At</label>
-                  <p className="text-sm">{format(new Date(user.approved_at), 'PPpp')}</p>
+                  <p className="text-sm">{format(new Date(platformUser.approved_at), 'PPpp')}</p>
                 </div>
               )}
-              {user.disabled_at && (
+              {platformUser.disabled_at && (
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Disabled At</label>
-                  <p className="text-sm">{format(new Date(user.disabled_at), 'PPpp')}</p>
+                  <p className="text-sm">{format(new Date(platformUser.disabled_at), 'PPpp')}</p>
                 </div>
               )}
             </CardContent>
@@ -268,7 +271,7 @@ export function UserDetail() {
               <CardDescription>User's current plan</CardDescription>
             </CardHeader>
             <CardContent>
-              <UserPlanInfo userId={user.user_id} />
+              <UserPlanInfo userId={platformUser.user_id} />
             </CardContent>
           </Card>
         </div>
@@ -279,7 +282,7 @@ export function UserDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete user {user.first_name} {user.last_name} ({user.email}). 
+              This will permanently delete user {platformUser.first_name} {platformUser.last_name} ({platformUser.email}). 
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -295,7 +298,7 @@ export function UserDetail() {
       <AssignPlanDialog
         open={assignPlanDialogOpen}
         onOpenChange={setAssignPlanDialogOpen}
-        user={user}
+        user={platformUser}
       />
     </>
   );

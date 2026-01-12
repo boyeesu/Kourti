@@ -474,7 +474,7 @@ export default function ContractCreate() {
                             </SelectItem>}
                           {orgMembers.filter(({
                           user_id
-                        }) => !profile || user_id !== profile.user_id).map(user => <SelectItem key={user.user_id} value={user.user_id}>
+                        }: any) => !profile || user_id !== profile.user_id).map((user: any) => <SelectItem key={user.user_id} value={user.user_id}>
                                 {user.first_name} {user.last_name} ({user.email})
                               </SelectItem>)}
                         </SelectContent>
@@ -849,7 +849,7 @@ export default function ContractCreate() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Assigned To</p>
-                  <p className="font-medium">{contractData.assignedTo ? orgMembers.find(({ user_id }) => user_id === contractData.assignedTo)?.first_name || "Team member" : "Unassigned"}</p>
+                  <p className="font-medium">{contractData.assignedTo ? orgMembers.find(({ user_id }: any) => user_id === contractData.assignedTo)?.first_name || "Team member" : "Unassigned"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Value</p>

@@ -12,7 +12,7 @@ import { useUploadDocument } from '@/hooks/useDocuments';
 import { useToast } from '@/hooks/use-toast';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/integrations/supabase/client';
-import { useOrganization } from '@/hooks/useOrganization';
+import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useProcessDocument } from '@/hooks/useRAGSearch';
 
 interface Message {
@@ -58,7 +58,7 @@ export function ReamAIChatWidget({
   const { streamAnalysis } = useEnhancedDocumentAnalysis();
   const { sendMessage: sendAssistantMessage, isLoading: assistantLoading } = useReamAIAssistant();
   const uploadDocument = useUploadDocument();
-  const { data: organization } = useOrganization();
+  const { data: organization } = useCurrentUserOrganization();
   const processDocument = useProcessDocument();
 
   useEffect(() => {

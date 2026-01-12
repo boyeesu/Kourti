@@ -320,7 +320,9 @@ const AppSidebar: React.FC = () => {
         </SidebarHeader>
         <SidebarContent className="flex h-full flex-col px-3 py-2">
           <div className="flex-1 space-y-3">
-            {filteredGroups.map((group) => (
+            {filteredGroups.map((group) => {
+              if (!group) return null;
+              return (
               <SidebarGroup key={group.label}>
                 {!collapsed && (
                   <SidebarGroupLabel className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -340,7 +342,8 @@ const AppSidebar: React.FC = () => {
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
-            ))}
+              );
+            })}
           </div>
 
           <div className="mt-auto space-y-2 border-t border-[hsl(var(--sidebar-border))] pt-2">

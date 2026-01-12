@@ -9,7 +9,7 @@ interface CreateCaseFieldData {
   field_key: string;
   data_type: string;
   is_required?: boolean | null;
-  options?: any;
+  options?: Record<string, any> | null;
   field_order?: number | null;
 }
 
@@ -23,7 +23,7 @@ export function useCreateCaseField() {
   return useMutation({
     mutationFn: async (newField: CreateCaseFieldData) => {
       const userId = await getCurrentUserId();
-      
+
       const fieldData = {
         ...newField,
         organization_id: organizationId!,
@@ -32,7 +32,7 @@ export function useCreateCaseField() {
 
       const { data, error } = await supabase
         .from('case_fields')
-        .insert(fieldData as any)
+        .insert([fieldData])
         .select()
         .single();
       if (error) throw error;

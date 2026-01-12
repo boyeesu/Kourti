@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { useCases } from '@/hooks/useCases';
+import { Case } from '@/types';
 import { useCreateActivity } from '@/features/activities/api/useCreateActivity';
 import { Mic, Play, Pause, Square, Save, FileText, Loader2, List } from 'lucide-react';
 
@@ -203,10 +204,11 @@ const VoiceTranscriptionModule: React.FC = () => {
             title: "Transcription Complete",
             description: "Audio has been transcribed successfully",
           });
-        } catch (innerError: any) {
+        } catch (innerError: unknown) {
+          const errorMessage = innerError instanceof Error ? innerError.message : "Failed to transcribe audio automatically";
           toast({
             title: "Transcription Failed",
-            description: innerError.message || "Failed to transcribe audio automatically",
+            description: errorMessage,
             variant: "destructive",
           });
         } finally {
@@ -225,12 +227,13 @@ const VoiceTranscriptionModule: React.FC = () => {
       };
       
       reader.readAsDataURL(blob);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Auto-transcription setup error:', error);
       setIsTranscribing(false);
+      const errorMessage = error instanceof Error ? error.message : "Failed to set up transcription";
       toast({
         title: "Transcription Setup Failed",
-        description: error.message || "Failed to set up transcription",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -282,11 +285,12 @@ const VoiceTranscriptionModule: React.FC = () => {
       };
       
       reader.readAsDataURL(audioBlob);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Transcription error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to transcribe audio";
       toast({
         title: "Transcription Failed",
-        description: error.message || "Failed to transcribe audio",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -328,11 +332,12 @@ const VoiceTranscriptionModule: React.FC = () => {
         title: "Summary Generated",
         description: "Transcript summary has been generated",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Summary error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate summary";
       toast({
         title: "Summary Failed",
-        description: error.message || "Failed to generate summary",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -461,11 +466,12 @@ const VoiceTranscriptionModule: React.FC = () => {
       setAudioBlob(null);
       setDuration(null);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Save error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to save transcription";
       toast({
         title: "Save Failed",
-        description: error.message || "Failed to save transcription",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -652,7 +658,7 @@ const VoiceTranscriptionModule: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No matter selected</SelectItem>
-                {cases?.map((caseItem: any) => (
+                {cases?.map((caseItem: Case) => (
                   <SelectItem key={caseItem.id} value={caseItem.id}>
                     {caseItem.title} - {caseItem.case_number || 'No number'}
                   </SelectItem>

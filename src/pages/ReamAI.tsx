@@ -8,7 +8,7 @@ import { useDocuments, useUploadDocument } from "@/hooks/useDocuments";
 import { useContracts } from "@/hooks/useContracts";
 import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
 import { useDocumentContent } from "@/hooks/useDocumentContext";
-import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentUserOrganization } from "@/hooks/useOrganization";
 import { useReamAIAssistant } from "@/hooks/useReamAIAssistant";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
@@ -236,7 +236,7 @@ export default function ReamAI() {
   }, []);
 
   // Get current organization for document processing
-  const { data: organization } = useOrganization();
+  const { data: organization } = useCurrentUserOrganization();
 
   // Fetch documents and contracts
   const { data: documents = [], isLoading: docsLoading } = useDocuments();

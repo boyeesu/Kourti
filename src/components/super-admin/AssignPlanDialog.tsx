@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useUserPlans, useAssignUserPlan, useCurrentUserPlan, UserPlan } from '@/hooks/useUserPlans';
+import { useUserPlans, useAssignUserPlan, useCurrentUserPlan } from '@/hooks/useUserPlans';
 import { PlatformUser } from '@/hooks/useAllUsers';
 import { format } from 'date-fns';
 

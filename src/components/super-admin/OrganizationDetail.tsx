@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrganization } from '@/hooks/useOrganization';
+import { Organization } from '@/hooks/useAllOrganizations';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,8 +43,9 @@ export function OrganizationDetail() {
 
   const handleDeleteConfirm = () => {
     if (organization) {
+      const org = organization as Organization;
       deleteOrg.mutate({
-        orgId: organization.id,
+        orgId: org.id,
         reason: 'Deleted by platform admin',
       });
       setDeleteDialogOpen(false);
@@ -72,6 +74,8 @@ export function OrganizationDetail() {
     );
   }
 
+  const org = organization as Organization;
+
   return (
     <>
       <div className="space-y-6">
@@ -81,22 +85,22 @@ export function OrganizationDetail() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">{organization.name}</h1>
+              <h1 className="text-3xl font-bold">{org.name}</h1>
               <p className="text-muted-foreground">Organization Details & KYC Information</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Button
-              variant={organization.is_active ? 'destructive' : 'default'}
+              variant={org.is_active ? 'destructive' : 'default'}
               onClick={() => {
                 toggleStatus.mutate({
-                  orgId: organization.id,
-                  isActive: !organization.is_active,
+                  orgId: org.id,
+                  isActive: !org.is_active,
                 });
               }}
               disabled={toggleStatus.isPending}
             >
-              {organization.is_active ? (
+              {org.is_active ? (
                 <>
                   <PowerOff className="h-4 w-4 mr-2" />
                   Disable
@@ -125,33 +129,33 @@ export function OrganizationDetail() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Name</label>
-                <p className="text-sm font-medium">{organization.name}</p>
+                <p className="text-sm font-medium">{org.name}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Type</label>
-                <p className="text-sm">{formatOrgType(organization.type)}</p>
+                <p className="text-sm">{formatOrgType(org.type)}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Status</label>
                 <div className="mt-1">
                   <Badge
                     variant={
-                      !organization.is_active
+                      !org.is_active
                         ? 'destructive'
-                        : organization.status === 'active'
+                        : org.status === 'active'
                         ? 'default'
-                        : organization.status === 'empty'
+                        : org.status === 'empty'
                         ? 'secondary'
                         : 'destructive'
                     }
                   >
-                    {!organization.is_active ? 'Disabled' : organization.status}
+                    {!org.is_active ? 'Disabled' : org.status}
                   </Badge>
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Description</label>
-                <p className="text-sm">{organization.description || '—'}</p>
+                <p className="text-sm">{org.description || '—'}</p>
               </div>
             </CardContent>
           </Card>
@@ -182,9 +186,9 @@ export function OrganizationDetail() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Website</label>
                   <p className="text-sm">
-                    {organization.website ? (
-                      <a href={organization.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                        {organization.website}
+                    {org.website ? (
+                      <a href={org.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        {org.website}
                       </a>
                     ) : (
                       '—'
@@ -206,16 +210,16 @@ export function OrganizationDetail() {
                 <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Address</label>
-                  <p className="text-sm">{organization.address || '—'}</p>
+                  <p className="text-sm">{org.address || '—'}</p>
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">State</label>
-                <p className="text-sm">{organization.state || '—'}</p>
+                <p className="text-sm">{org.state || '—'}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Country</label>
-                <p className="text-sm">{organization.country || '—'}</p>
+                <p className="text-sm">{org.country || '—'}</p>
               </div>
             </CardContent>
           </Card>
@@ -231,25 +235,25 @@ export function OrganizationDetail() {
                 <Users className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Total Users</label>
-                  <p className="text-sm font-medium">{organization.user_count}</p>
+                  <p className="text-sm font-medium">{org.user_count}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                  <p className="text-sm">{format(new Date(organization.created_at), 'PPpp')}</p>
+                  <p className="text-sm">{format(new Date(org.created_at), 'PPpp')}</p>
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                <p className="text-sm">{format(new Date(organization.updated_at), 'PPpp')}</p>
+                <p className="text-sm">{format(new Date(org.updated_at), 'PPpp')}</p>
               </div>
-              {organization.logo_url && (
+              {org.logo_url && (
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Logo</label>
                   <div className="mt-2">
-                    <img src={organization.logo_url} alt={organization.name} className="h-16 w-16 object-contain rounded" />
+                    <img src={org.logo_url} alt={org.name} className="h-16 w-16 object-contain rounded" />
                   </div>
                 </div>
               )}
@@ -263,8 +267,8 @@ export function OrganizationDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Organization</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{organization.name}</strong>? 
-              This will permanently delete the organization and all associated data, including {organization.user_count || 0} users.
+              Are you sure you want to delete <strong>{org.name}</strong>?
+              This will permanently delete the organization and all associated data, including {org.user_count || 0} users.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

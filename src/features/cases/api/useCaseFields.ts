@@ -10,7 +10,7 @@ export function useCaseFields(caseTypeId: string) {
       const { data, error } = await supabase
         .from('case_fields')
         .select('*')
-        .eq('case_type_id', caseTypeId as any)
+        .eq('case_type_id', caseTypeId)
         .order('field_order', { ascending: true });
       if (error) throw error;
       return (data as unknown as CaseField[]) || [];

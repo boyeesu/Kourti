@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { useToast } from '@/hooks/use-toast';
-import { useOrganization } from '@/hooks/useOrganization';
+import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useProfile } from '@/hooks/useProfile';
 import { env } from '@/lib/env';
 import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
@@ -121,7 +121,7 @@ export function useDeleteInvitation() {
 
 export function useResendInvitation() {
   const { toast } = useToast();
-  const { data: organization } = useOrganization();
+  const { data: organization } = useCurrentUserOrganization();
   const { data: profile } = useProfile();
 
   return useMutation({

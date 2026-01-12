@@ -34,6 +34,8 @@ import { Plus, X, Repeat, Bell } from "lucide-react";
 import { useCreateCalendarEvent } from "@/hooks/useCalendar";
 import { useCases } from "@/hooks/useCases";
 import { useClients } from "@/hooks/useClients";
+import { Case, Client } from "@/types";
+import { CreateCalendarEventData } from "@/hooks/useCalendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
@@ -146,7 +148,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
       start_date: getDefaultStartDate(),
       end_date: getDefaultEndDate(),
       location: "",
-      event_type: defaultEventType as any,
+      event_type: defaultEventType as "meeting" | "hearing" | "deadline" | "deposition" | "review" | "consultation",
       case_id: "",
       client_id: "",
       attendees: [],
@@ -204,7 +206,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
   // Auto-populate client when case is selected
   useEffect(() => {
     if (selectedCaseId && selectedCaseId !== 'none') {
-      const selectedCase = cases.find((c: any) => c.id === selectedCaseId);
+      const selectedCase = cases.find((c: Case) => c.id === selectedCaseId);
       if (selectedCase?.client_id) {
         form.setValue("client_id", selectedCase.client_id);
       }
@@ -215,7 +217,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
     // Build payload with ONLY fields that exist in calendar_events table
     // Database fields: title, description, start_date, end_date, location, attendees, 
     // event_type, case_id, client_id, is_recurring, recurrence_pattern, recurrence_end_date
-    const payload: any = {
+    const payload: CreateCalendarEventData = {
       title: data.title,
       description: data.description || undefined,
       start_date: data.start_date,
@@ -435,7 +437,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">No case</SelectItem>
-                        {cases.map((case_: any) => (
+                        {cases.map((case_: Case) => (
                           <SelectItem key={case_.id} value={case_.id}>
                             {case_.title}
                           </SelectItem>
@@ -461,7 +463,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">No client</SelectItem>
-                        {clients.map((client: any) => (
+                        {clients.map((client: Client) => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.name}
                           </SelectItem>
@@ -591,7 +593,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
                       {reminder && (
                         <Select
                           value={reminder.method}
-                          onValueChange={(value: any) => {
+                          onValueChange={(value: "in_app" | "email" | "both") => {
                             const updated = reminders.map(r => 
                               r.minutes === minutes ? { ...r, method: value } : r
                             );

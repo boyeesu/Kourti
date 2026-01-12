@@ -343,7 +343,7 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
       <div className="flex items-center justify-between p-3 md:p-4 border-b border-border">
         <div className="flex items-center gap-2 md:gap-3">
           {/* Back button - always shown on mobile, optional on desktop */}
-          {(showBackButton || true) && (
+          {showBackButton && (
             <Button
               variant="ghost"
               size="icon"

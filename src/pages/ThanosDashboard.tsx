@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { Shield } from 'lucide-react';
 import { ThanosSidebar } from '@/components/super-admin/ThanosSidebar';
@@ -12,7 +12,6 @@ import { UserDetail } from '@/components/super-admin/UserDetail';
 import { usePlatformAnalytics } from '@/hooks/usePlatformAnalytics';
 
 export default function ThanosDashboard() {
-  const location = useLocation();
   const { data: analytics, isLoading } = usePlatformAnalytics();
 
   return (

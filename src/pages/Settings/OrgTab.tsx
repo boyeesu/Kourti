@@ -1,9 +1,9 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentUserOrganization } from "@/hooks/useOrganization";
 
 export default function OrgTab() {
-  const { data: organization, isLoading } = useOrganization();
+  const { data: organization, isLoading } = useCurrentUserOrganization();
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -26,7 +26,7 @@ export default function OrgTab() {
             </div>
             <div>
               <label className="text-sm font-medium">Industry</label>
-              <p className="text-sm text-muted-foreground">{organization?.industry || 'Not specified'}</p>
+              <p className="text-sm text-muted-foreground">{/* organization?.industry || */ 'Not specified'}</p>
             </div>
             <div>
               <label className="text-sm font-medium">Created</label>

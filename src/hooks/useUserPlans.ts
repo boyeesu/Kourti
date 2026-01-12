@@ -100,11 +100,12 @@ export function useCurrentUserPlan(userId?: string) {
           throw error;
         }
 
-        if (!data || data.length === 0) {
+        const planData = data as CurrentUserPlan[] | null;
+        if (!planData || planData.length === 0) {
           return null;
         }
 
-        const plan = data[0] as CurrentUserPlan;
+        const plan = planData[0];
         return {
           ...plan,
           features: (plan.features as string[]) || [],
@@ -133,7 +134,8 @@ export function useAllUserPlanAssignments() {
           throw error;
         }
 
-        return (data || []) as UserPlanAssignment[];
+        const assignments = data as UserPlanAssignment[] | null;
+        return assignments || [];
       } catch (error) {
         console.error('Error fetching all user plan assignments:', error);
         throw error;

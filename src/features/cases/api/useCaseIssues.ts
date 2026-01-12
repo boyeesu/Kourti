@@ -13,7 +13,7 @@ export const useCaseIssues = (caseTypeId?: string) => {
       const { data, error } = await supabase
         .from("case_issues")
         .select("*")
-        .eq("case_type_id", caseTypeId as any)
+        .eq("case_type_id", caseTypeId)
         .order("name");
 
       if (error) {

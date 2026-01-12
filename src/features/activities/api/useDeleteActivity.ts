@@ -11,7 +11,7 @@ export function useDeleteActivity() {
       const { error } = await supabase
         .from('case_activities')
         .delete()
-        .eq('id', activityId as any);
+        .eq('id', activityId);
 
       if (error) throw error;
     },

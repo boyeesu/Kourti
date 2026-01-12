@@ -39,7 +39,7 @@ export function OrganizationCreate({ onSuccess }: OrganizationCreateProps) {
       setPhone('');
       setWebsite('');
       onSuccess?.();
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };

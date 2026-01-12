@@ -15,15 +15,15 @@ export function useUpdateActivity() {
     mutationFn: async ({ id, ...updateData }: UpdateActivityData) => {
       const { data, error } = await supabase
         .from('case_activities')
-        .update(updateData as any)
-        .eq('id', id as any)
+        .update(updateData)
+        .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
       return data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['activities'] });
       queryClient.invalidateQueries({ queryKey: ['case-activities'] });
       queryClient.invalidateQueries({ queryKey: ['activity', data?.id] });

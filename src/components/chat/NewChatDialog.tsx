@@ -43,7 +43,7 @@ export function NewChatDialog({
   const { toast } = useToast();
 
   // Filter out current user and filter by search query
-  const availableMembers = members.filter((member) => {
+  const availableMembers = members.filter((member: any) => {
     if (member.user_id === user?.id) return false;
     if (!searchQuery) return true;
     
@@ -136,7 +136,7 @@ export function NewChatDialog({
               </div>
             ) : (
               <div className="space-y-1">
-                {availableMembers.map((member) => (
+                {availableMembers.map((member: any) => (
                   <button
                     key={member.user_id}
                     onClick={() => handleSelectMember(member)}

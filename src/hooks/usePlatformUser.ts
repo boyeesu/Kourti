@@ -20,7 +20,7 @@ export function usePlatformUser(userId: string | null) {
           throw error;
         }
 
-        const user = (data || []).find((u: PlatformUser) => u.user_id === userId || u.id === userId);
+        const user = (data || []).find((u: any) => u.user_id === userId || u.id === userId) as PlatformUser | undefined;
         return user || null;
       } catch (error) {
         console.error('Error fetching user:', error);

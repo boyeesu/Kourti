@@ -61,7 +61,7 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
   };
 
   const getSelectedMember = (userId: string) => {
-    return orgMembers.find(member => member.user_id === userId);
+    return orgMembers.find((member: any) => member.user_id === userId);
   };
 
   async function onSubmit(data: FormData) {
@@ -100,7 +100,7 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
     }
   }
 
-  const availableMembers = orgMembers.filter(member => 
+  const availableMembers = orgMembers.filter((member: any) => 
     !selectedRecipients.includes(member.user_id)
   );
 
@@ -158,7 +158,7 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
                 <SelectValue placeholder="Select team members to share with..." />
               </SelectTrigger>
               <SelectContent>
-                {availableMembers.map(member => (
+                {availableMembers.map((member: any) => (
                   <SelectItem key={member.user_id} value={member.user_id}>
                     <div className="flex items-center gap-2">
                       <Avatar className="h-6 w-6">

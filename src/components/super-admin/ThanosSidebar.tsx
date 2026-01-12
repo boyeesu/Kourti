@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { KourtiKLogo } from '@/components/ui/KourtiKLogo';
-import { Shield, BarChart3, Building2, Users, LogOut, Home, Crown } from 'lucide-react';
+import { BarChart3, Building2, Users, LogOut, Home, Crown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';

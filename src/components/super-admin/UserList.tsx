@@ -77,32 +77,6 @@ export function UserList({ users }: UserListProps) {
     setAssignPlanDialogOpen(true);
   };
 
-  const getStatusBadge = (status: string | null) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="default">Active</Badge>;
-      case 'approved':
-        return <Badge variant="default">Approved</Badge>;
-      case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
-      case 'disabled':
-        return <Badge variant="destructive">Disabled</Badge>;
-      default:
-        return <Badge variant="outline">{status || 'Unknown'}</Badge>;
-    }
-  };
-
-  const getRoleBadge = (role: string | null) => {
-    switch (role) {
-      case 'superadmin':
-        return <Badge variant="default">Super Admin</Badge>;
-      case 'admin':
-        return <Badge variant="secondary">Admin</Badge>;
-      default:
-        return <Badge variant="outline">{role || 'User'}</Badge>;
-    }
-  };
-
   return (
     <>
       <div className="rounded-md border">

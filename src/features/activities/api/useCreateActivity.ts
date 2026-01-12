@@ -28,18 +28,18 @@ export function useCreateActivity() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', user.data.user.id as any)
+        .eq('user_id', user.data.user.id)
         .single();
 
-      if (!(profile as any)?.organization_id) throw new Error('User organization not found');
+      if (!profile?.organization_id) throw new Error('User organization not found');
 
       const { data, error } = await supabase
         .from('case_activities')
         .insert({ 
           ...payload, 
           case_id: caseId,
-          organization_id: (profile as any).organization_id 
-        } as any)
+          organization_id: profile.organization_id 
+        })
         .select()
         .single();
       if (error) throw error;
@@ -58,8 +58,8 @@ export function useUpdateActivity() {
     mutationFn: async ({ id, ...updateData }: UpdateActivityData) => {
       const { data, error } = await supabase
         .from('case_activities')
-        .update(updateData as any)
-        .eq('id', id as any)
+        .update(updateData)
+        .eq('id', id)
         .select()
         .single();
 
