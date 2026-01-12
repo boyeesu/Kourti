@@ -201,7 +201,7 @@ export function useProcessDocument() {
       }
 
       // Supabase client automatically includes Authorization header with session token
-      const { data, error } = await invokeFunctionWithCsrf('process-document-chunks', {
+      const { data, error } = await invokeFunctionWithCsrf<{ chunksProcessed: number }>('process-document-chunks', {
         body: {
           documentId,
           contractId,
@@ -213,6 +213,10 @@ export function useProcessDocument() {
       if (error) {
         logError('Failed to process document chunks', { error, documentId, contractId });
         throw new Error(`Failed to process document: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('No data returned from processing');
       }
 
       return data;
