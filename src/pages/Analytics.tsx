@@ -8,6 +8,9 @@ import { Progress } from "@/components/ui/progress";
 import { useAllCases } from "@/hooks/useCases";
 import { useAllContracts } from "@/hooks/useContracts";
 import { useClients } from "@/hooks/useClients";
+import { useUserOrganization } from "@/hooks/useUserOrganization";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useFetchData } from "@/lib/api";
 import {
   BarChart,
@@ -81,18 +84,37 @@ export default function Analytics() {
   });
   const documents = (Array.isArray(documentsData?.data) ? documentsData.data : []) as Array<{ created_at?: string | null }>;
 
-  const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks } = useFetchData({
-    table: "tasks",
-    queryKey: ["analytics-tasks"],
-    select: "id, completed, priority, due_date, created_at",
+  // Fetch active organization
+  const { data: organizationId } = useUserOrganization();
+
+  const { data: tasks = [], isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
+    queryKey: ["analytics-tasks", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          id, 
+          completed, 
+          priority, 
+          due_date, 
+          created_at, 
+          cases!inner(organization_id)
+        `)
+        .eq('cases.organization_id', organizationId);
+
+      if (error) {
+        console.error("Error fetching tasks for analytics:", error);
+        return [];
+      }
+
+      return data || [];
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000
   });
-  const tasks = (tasksData?.data || []) as Array<{
-    id: string;
-    completed?: boolean;
-    priority?: string;
-    due_date?: string;
-    created_at?: string;
-  }>;
+
 
   const { data: eventsData, isLoading: eventsLoading, refetch: refetchEvents } = useFetchData({
     table: "calendar_events",
@@ -825,11 +847,11 @@ export default function Analytics() {
                     <p className="text-3xl font-bold">
                       {Array.isArray(documents)
                         ? documents.filter((d: { created_at?: string | null }) => {
-                            if (!d.created_at) return false;
-                            const created = new Date(d.created_at);
-                            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-                            return created >= sevenDaysAgo;
-                          }).length
+                          if (!d.created_at) return false;
+                          const created = new Date(d.created_at);
+                          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                          return created >= sevenDaysAgo;
+                        }).length
                         : 0}
                     </p>
                     <p className="text-sm text-muted-foreground">This Week</p>
