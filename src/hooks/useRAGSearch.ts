@@ -2,6 +2,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logError, logInfo, logWarn } from '@/lib/logger';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
 export interface RAGSearchResult {
   chunkId: string;
@@ -28,109 +29,50 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
       try {
         // Ensure we have an active session
         const { data: sessionData } = await supabase.auth.getSession();
-        
+
         if (!sessionData?.session) {
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          
+
           if (refreshError || !refreshData?.session) {
             logWarn('No active session for RAG search, using text fallback');
             return performTextFallbackSearch(query);
           }
         }
 
-        // Step 1: Generate embedding for the query
-        const { data: embeddingData, error: embeddingError } = await supabase.functions.invoke('generate-embeddings', {
+        // Use the dedicated rag-search edge function
+        logInfo('Performing RAG search via edge function');
+
+        const { data: searchResponse, error: searchError } = await supabase.functions.invoke('rag-search', {
           body: {
-            documentId: 'query',
-            documentType: 'query',
-            content: query
+            query: query,
+            matchThreshold: 0.6,
+            matchCount: 15
           }
         });
-
-        if (embeddingError) {
-          logError('Failed to generate query embedding', { error: embeddingError });
-          return performTextFallbackSearch(query);
-        }
-
-        if (!embeddingData?.embedding) {
-          logWarn('No embedding returned for query embedding generation');
-          return performTextFallbackSearch(query);
-        }
-
-        // Step 2: Perform vector similarity search
-        logInfo('Performing vector search with embedding');
-        
-        // Ensure session is still valid for RPC call
-        const { data: sessionCheck } = await supabase.auth.getSession();
-        if (!sessionCheck?.session) {
-          logWarn('Session expired before RPC call, using text fallback');
-          return performTextFallbackSearch(query);
-        }
-        
-        const { data: searchData, error: searchError } = await supabase.rpc(
-          'match_document_chunks',
-          {
-            query_embedding: embeddingData.embedding,
-            match_threshold: 0.6, // Lowered from 0.7 to get more relevant results
-            match_count: 15 // Increased from 10 to get more context
-          }
-        );
 
         if (searchError) {
-          logError('Vector search error, falling back to text search', { 
-            error: searchError,
-            errorCode: searchError.code,
-            errorMessage: searchError.message
-          });
+          logError('RAG search edge function error', { error: searchError });
           return performTextFallbackSearch(query);
         }
 
-        if (!searchData || searchData.length === 0) {
-          logInfo('No vector search results, trying text fallback');
+        if (!searchResponse?.success || !searchResponse?.results || searchResponse.results.length === 0) {
+          logInfo('No RAG results found via edge function', { message: searchResponse?.message });
           return performTextFallbackSearch(query);
         }
 
-        // Enrich results with document/contract names
-        const documentIds = Array.from(new Set(searchData
-          .map((r: any) => r.document_id)
-          .filter(Boolean))) as string[];
-        const contractIds = Array.from(new Set(searchData
-          .map((r: any) => r.contract_id)
-          .filter(Boolean))) as string[];
+        // Transform edge function results to RAGSearchResult format
+        const enrichedResults: RAGSearchResult[] = searchResponse.results.map((result: any) => ({
+          chunkId: result.id,
+          documentId: result.document_id || undefined,
+          contractId: result.contract_id || undefined,
+          content: result.content,
+          similarity: result.similarity || 0,
+          metadata: result.metadata,
+          documentName: result.documentName || 'Unknown Document',
+          documentType: result.documentType || (result.document_id ? 'document' : 'contract')
+        }));
 
-        const [documentsResponse, contractsResponse] = await Promise.all([
-          documentIds.length
-            ? supabase.from('documents').select('id, name').in('id', documentIds)
-            : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
-          contractIds.length
-            ? supabase.from('contracts').select('id, title').in('id', contractIds)
-            : Promise.resolve({ data: [] as { id: string; title: string }[], error: null })
-        ]);
-
-        const documentNameMap = new Map<string, string>(
-          (documentsResponse.data || []).map((doc) => [doc.id, doc.name || 'Unknown Document'])
-        );
-        const contractNameMap = new Map<string, string>(
-          (contractsResponse.data || []).map((contract) => [contract.id, contract.title || 'Unknown Contract'])
-        );
-
-        const enrichedResults: RAGSearchResult[] = searchData.map((chunk: any) => {
-          const hasDocument = Boolean(chunk.document_id);
-          return {
-            chunkId: chunk.id,
-            documentId: chunk.document_id || undefined,
-            contractId: chunk.contract_id || undefined,
-            content: chunk.content,
-            similarity: chunk.similarity,
-            metadata: chunk.metadata,
-            documentName: hasDocument
-              ? documentNameMap.get(chunk.document_id) || 'Unknown Document'
-              : contractNameMap.get(chunk.contract_id) || 'Unknown Contract',
-            documentType: hasDocument ? 'document' : 'contract'
-          };
-        });
-
-        logInfo('Vector search completed', { resultCount: enrichedResults.length });
+        logInfo('RAG search completed', { resultCount: enrichedResults.length });
         return enrichedResults;
 
       } catch (error) {
@@ -247,11 +189,11 @@ export function useProcessDocument() {
     }) => {
       // Ensure we have an active session - Supabase client should automatically include auth header
       const { data: sessionData } = await supabase.auth.getSession();
-      
+
       if (!sessionData?.session) {
         // Try to refresh the session if it's missing
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
+
         if (refreshError || !refreshData?.session) {
           logError('No active session for document processing', { refreshError });
           throw new Error(`Authentication required. Please sign in again.`);
@@ -259,7 +201,7 @@ export function useProcessDocument() {
       }
 
       // Supabase client automatically includes Authorization header with session token
-      const { data, error } = await supabase.functions.invoke('process-document-chunks', {
+      const { data, error } = await invokeFunctionWithCsrf('process-document-chunks', {
         body: {
           documentId,
           contractId,

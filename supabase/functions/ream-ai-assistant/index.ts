@@ -19,6 +19,7 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:8080",
   "http://localhost:8083",
+  "http://localhost:8082",
   "https://app.kourti.com",
   "https://kouti-legal-hub-41.lovable.app",
 ]
@@ -69,7 +70,7 @@ serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests first
   if (req.method === "OPTIONS") {
     console.log("Handling OPTIONS preflight request");
-    return createEmptyResponse({ 
+    return createEmptyResponse({
       status: 204,
       cors: corsOptions
     });
@@ -90,7 +91,7 @@ serve(async (req: Request): Promise<Response> => {
 
     if (!message || !userId || !organizationId) {
       return createJsonResponse(
-        { 
+        {
           success: false,
           error: 'Missing required fields: message, userId, or organizationId',
           errorCode: 'VALIDATION_ERROR'
@@ -294,7 +295,7 @@ IMPORTANT: This question is about the document above. Extract information direct
       ...conversationHistory,
       { role: "user", content: userMessage },
     ];
-    
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -318,7 +319,7 @@ IMPORTANT: This question is about the document above. Extract information direct
 
     const data = await response.json();
     let aiResponse = data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
-    
+
     // Trace the OpenAI chat completion
     await traceOpenAIChatCompletion(traceId, {
       model: "gpt-5.1",
@@ -332,7 +333,7 @@ IMPORTANT: This question is about the document above. Extract information direct
         maxTokens: 4000,
       },
     });
-    
+
     console.log("OpenAI response received, length:", aiResponse.length);
 
     // Clean the response to remove markdown formatting, em dashes, and special characters
@@ -407,12 +408,12 @@ async function gatherSystemContext(
   // Fetch counts/statistics only for relevant modules based on query intent
   // This avoids unnecessary real-time queries - only query what's needed
   const countQueries: Record<string, Promise<any>> = {};
-  
+
   // Always get client count (most common query) or if it's a general/count query
   if (isClientQuery || isCountQuery || queryAll) {
     countQueries.clients = supabase.from("clients").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
   }
-  
+
   // Get other counts only if relevant to the query
   if (isCaseQuery || isCountQuery || queryAll) {
     countQueries.cases = supabase.from("cases").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
@@ -622,7 +623,7 @@ async function gatherSystemContext(
       if (embeddingResponse.ok) {
         const embeddingData = await embeddingResponse.json();
         const queryEmbedding = embeddingData.data[0].embedding;
-        
+
         // Trace the embedding generation
         await traceOpenAIEmbedding(traceId, {
           model: "text-embedding-3-small",

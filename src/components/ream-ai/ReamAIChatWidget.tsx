@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useProcessDocument } from '@/hooks/useRAGSearch';
+import { logInfo, logError } from '@/lib/logger';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -66,6 +67,51 @@ export function ReamAIChatWidget({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // RAG search helper - retrieves relevant context from document chunks
+  const performRAGSearch = useCallback(async (query: string): Promise<string> => {
+    try {
+      if (!query || query.trim().length < 10) {
+        return '';
+      }
+
+      logInfo('Performing RAG search for document analysis', { queryLength: query.length });
+
+      // Use the dedicated rag-search edge function which bypasses PostgREST RPC issues
+      const { data: searchData, error: searchError } = await supabase.functions.invoke('rag-search', {
+        body: {
+          query: query.substring(0, 2000),
+          matchThreshold: 0.6,
+          matchCount: 8
+        }
+      });
+
+      if (searchError) {
+        logError('RAG search edge function error', { error: searchError });
+        return '';
+      }
+
+      if (!searchData?.success || !searchData?.results || searchData.results.length === 0) {
+        logInfo('No RAG results found', { message: searchData?.message });
+        return '';
+      }
+
+      // Build RAG context string from results
+      const ragContext = searchData.results.map((result: any, index: number) => {
+        const sourceName = result.documentName || 'Unknown Document';
+        const similarity = ((result.similarity || 0) * 100).toFixed(1);
+
+        return `[RELATED CONTENT ${index + 1}] From "${sourceName}" (${similarity}% match):\n${(result.content || '').substring(0, 800)}`;
+      }).join('\n\n---\n\n');
+
+      logInfo('RAG search completed', { resultCount: searchData.results.length });
+      return ragContext;
+
+    } catch (error) {
+      logError('RAG search error', { error });
+      return '';
+    }
+  }, []);
 
   // Handle document upload
   const onDrop = async (acceptedFiles: File[]) => {
@@ -261,19 +307,35 @@ export function ReamAIChatWidget({
       // Determine if this is a document-specific query or system-wide query
       const activeDocContext = uploadedDocument?.content || documentContext?.content;
       const hasDocumentContext = activeDocContext && activeDocContext.trim().length > 0;
+
+      // Improved query detection - more comprehensive keyword matching
+      const messageLower = userMessage.toLowerCase();
+      const documentKeywords = [
+        'review', 'analyze', 'document', 'contract', 'clause', 'term',
+        'parties', 'party', 'agreement', 'section', 'provision', 'article',
+        'obligation', 'liability', 'indemnity', 'termination', 'renewal',
+        'confidential', 'warranty', 'representation', 'covenant',
+        'summarize', 'summary', 'key points', 'main points',
+        'risks', 'issues', 'concerns', 'problems',
+        'this document', 'the document', 'in here', 'in this',
+        'what does it say', 'what is stated', 'according to'
+      ];
+
       const isDocumentQuery = hasDocumentContext && (
-        userMessage.toLowerCase().includes('review') ||
-        userMessage.toLowerCase().includes('analyze') ||
-        userMessage.toLowerCase().includes('document') ||
-        userMessage.toLowerCase().includes('contract') ||
-        userMessage.toLowerCase().includes('clause') ||
-        userMessage.toLowerCase().includes('term')
+        documentKeywords.some(keyword => messageLower.includes(keyword)) ||
+        // If there's document context and the question is short (likely about the doc)
+        (messageLower.length < 100 && !messageLower.includes('how many') && !messageLower.includes('my client'))
       );
 
       if (isDocumentQuery && hasDocumentContext) {
         // Use document analysis for document-specific queries
         const docTitle = uploadedDocument?.name || documentContext?.title || 'Uploaded Document';
         const docContent = activeDocContext;
+
+        // Perform RAG search to find related content from other documents
+        logInfo('Starting RAG-enhanced document analysis');
+        const ragContext = await performRAGSearch(userMessage);
+
         const analysisPrompt = `You are currently reviewing a document. ALL questions should be answered using information from this document.
 
 Document: ${docTitle}
@@ -289,11 +351,13 @@ CRITICAL INSTRUCTIONS:
 - For example: "Who are the parties?" → Find and list the parties mentioned in the document
 - "What is the termination clause?" → Find and explain the termination clause from the document
 - Reference specific sections, clauses, or terms from the document when possible
-- If information isn't in the document, say so clearly rather than guessing`;
+- If information isn't in the document, say so clearly rather than guessing
+- If related content from other documents is provided below, use it to provide additional context or comparisons when relevant`;
 
         await streamAnalysis({
           content: analysisPrompt,
           analysisType: 'general',
+          ragContext: ragContext || undefined, // Pass RAG retrieved context
           onProgress: (content, done) => {
             setMessages(prev => {
               const newMessages = [...prev];

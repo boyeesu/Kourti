@@ -19,20 +19,20 @@ export function useEnhancedDocumentAnalysis() {
 
   // Basic document analysis mutation (non-streaming)
   const documentAnalysis = useMutation({
-    mutationFn: async ({ 
-      content, 
+    mutationFn: async ({
+      content,
       analysisType = 'general'
-    }: { 
+    }: {
       content: string;
       analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     }) => {
       try {
         // Ensure we have an active session
         const { data: sessionData } = await supabase.auth.getSession();
-        
+
         if (!sessionData?.session) {
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          
+
           if (refreshError || !refreshData?.session) {
             throw new Error('Authentication required. Please sign in again.');
           }
@@ -43,14 +43,14 @@ export function useEnhancedDocumentAnalysis() {
           body: {
             text: content,
             analysisType: analysisType,
-            goal: analysisType === 'general' 
+            goal: analysisType === 'general'
               ? 'Provide a comprehensive analysis of this document'
               : analysisType
           }
         });
 
         if (error) throw error;
-        
+
         return { analysis: data?.analysis || 'Analysis completed' };
       } catch (error) {
         logError('Document analysis failed', error);
@@ -91,11 +91,11 @@ export function useEnhancedDocumentAnalysis() {
   }) => {
     // Cancel any existing stream
     cancelStreaming();
-    
+
     try {
       setIsStreaming(true);
       setStreamingContent('');
-      
+
       // Check if content is too short for meaningful analysis
       if (content.trim().length < 50) {
         const shortMessage = 'Document content is too short for detailed analysis. Please provide a document with more substantial content.';
@@ -105,142 +105,91 @@ export function useEnhancedDocumentAnalysis() {
         setAbortController(null);
         return;
       }
-      
+
       // Create a new abort controller for this request
       const controller = new AbortController();
       setAbortController(controller);
-      
+
       // Ensure we have an active session
       const { data: sessionData } = await supabase.auth.getSession();
-      
+
       if (!sessionData?.session) {
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
+
         if (refreshError || !refreshData?.session) {
           throw new Error('Authentication required. Please sign in again.');
         }
       }
-      
-      // Use the advanced contract analysis edge function with streaming
+
+      // Use the advanced contract analysis edge function
+      // Note: stream: false because Supabase functions.invoke doesn't handle SSE properly
       const { data: responseData, error } = await supabase.functions.invoke('advanced-contract-analysis', {
         body: {
           text: content,
           analysisType: analysisType,
-          goal: analysisType === 'general' 
+          goal: analysisType === 'general'
             ? 'Provide a comprehensive analysis of this document'
             : analysisType,
           conversationHistory: conversationHistory || [],
           ragContext: ragContext,
-          stream: true
+          stream: false // SSE streaming not supported by functions.invoke
         }
       });
+
+      console.log('Analysis response:', { hasData: !!responseData, hasError: !!error, responseKeys: responseData ? Object.keys(responseData) : [], responseData });
 
       if (error) {
-        // If streaming endpoint fails, fall back to non-streaming
-        console.warn('Streaming failed, falling back to non-streaming:', error);
-        const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('advanced-contract-analysis', {
-          body: {
-            text: content,
-            analysisType: analysisType,
-            goal: analysisType === 'general' 
-              ? 'Provide a comprehensive analysis of this document'
-              : analysisType,
-            conversationHistory: conversationHistory || [],
-            ragContext: ragContext,
-            stream: false
-          }
-        });
-
-        if (fallbackError) throw fallbackError;
-        
-        const analysisContent = fallbackData?.analysis || 'Analysis completed';
-        setStreamingContent(analysisContent);
-        onProgress(analysisContent, true);
-        setIsStreaming(false);
-        setAbortController(null);
-        return { analysis: analysisContent };
+        console.error('Analysis request error:', error);
+        throw error;
       }
 
-      // Handle streaming response
-      if (responseData && typeof responseData === 'object' && 'analysis' in responseData) {
-        // Non-streaming response (fallback)
-        const analysisContent = responseData.analysis || 'Analysis completed';
-        setStreamingContent(analysisContent);
-        onProgress(analysisContent, true);
-        setIsStreaming(false);
-        setAbortController(null);
-        return { analysis: analysisContent };
-      }
+      // Handle the response - extract analysis content
+      let analysisContent = '';
 
-        // If we get here, we should have a streaming response
-        // Note: Supabase functions don't support streaming responses directly
-        // So we'll use the non-streaming approach but simulate it better
-        // Ensure session is still valid
-        const { data: sessionCheck } = await supabase.auth.getSession();
-        if (!sessionCheck?.session) {
-          const { data: refreshData } = await supabase.auth.refreshSession();
-          if (!refreshData?.session) {
-            throw new Error('Authentication required. Please sign in again.');
+      if (responseData) {
+        if (typeof responseData === 'string') {
+          analysisContent = responseData;
+        } else if (typeof responseData === 'object') {
+          // Try different possible response shapes
+          analysisContent = responseData.analysis || responseData.content || responseData.result || '';
+
+          // If still no content, check if the response is the raw data structure
+          if (!analysisContent && responseData.choices?.[0]?.message?.content) {
+            analysisContent = responseData.choices[0].message.content;
           }
         }
-        
-        const { data: nonStreamData, error: nonStreamError } = await supabase.functions.invoke('advanced-contract-analysis', {
-        body: {
-          text: content,
-          analysisType: analysisType,
-          goal: analysisType === 'general' 
-            ? 'Provide a comprehensive analysis of this document'
-            : analysisType,
-          conversationHistory: conversationHistory || [],
-          ragContext: ragContext,
-          stream: false
-        }
-      });
+      }
 
-      if (nonStreamError) throw nonStreamError;
-      
-      const analysisContent = nonStreamData?.analysis || 'Analysis completed';
-      
-      // Improved streaming simulation with better chunking
-      let currentIndex = 0;
-      const words = analysisContent.split(' ');
-      const streamInterval = setInterval(() => {
-        if (controller.signal.aborted) {
-          clearInterval(streamInterval);
-          return;
-        }
+      if (!analysisContent) {
+        console.warn('No analysis content found in response:', responseData);
+        analysisContent = 'Unable to extract analysis. Please try again.';
+      }
 
-        // Stream word by word for more natural feel
-        if (currentIndex < words.length) {
-          const wordsToShow = Math.min(currentIndex + 3, words.length); // 3 words at a time
-          const currentContent = words.slice(0, wordsToShow).join(' ');
-          setStreamingContent(currentContent);
-          onProgress(currentContent, wordsToShow >= words.length);
-          currentIndex = wordsToShow;
-        } else {
-          clearInterval(streamInterval);
-          setIsStreaming(false);
-          setAbortController(null);
-        }
-      }, 50); // Faster updates for better UX
-      
+      console.log('Extracted analysis content length:', analysisContent.length);
+
+      // Show content immediately (no streaming simulation)
+      setStreamingContent(analysisContent);
+      onProgress(analysisContent, true);
+      setIsStreaming(false);
+      setAbortController(null);
+
       return { analysis: analysisContent };
     } catch (error) {
       // Handle abort separately from other errors
       if (error instanceof DOMException && error.name === 'AbortError') {
         return { analysis: streamingContent, aborted: true };
       }
-      
+
       setIsStreaming(false);
       setAbortController(null);
-      
+
       logError('Document streaming analysis failed', error);
       toast({
         variant: 'destructive',
         title: 'Analysis Failed',
         description: error instanceof Error ? error.message : 'Failed to analyze document',
       });
-      
+
       throw error;
     }
   }, [cancelStreaming, toast, streamingContent]);

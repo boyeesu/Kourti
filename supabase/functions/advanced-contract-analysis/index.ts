@@ -5,12 +5,42 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
 
-const corsOptions = {
-  allowMethods: ['POST', 'OPTIONS'],
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:8082",
+  "http://localhost:8083",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 const DEFAULT_CHAT_MODEL = 'gpt-5.1';
 const DEFAULT_FALLBACK_MODEL = 'gpt-4o';
@@ -133,7 +163,7 @@ async function handleStreamingResponse(
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`OpenAI streaming error for model ${model}:`, response.status, errorText);
-        
+
         if ([400, 404, 422].includes(response.status)) {
           lastError = new HttpError(
             `Model ${model} unavailable: ${errorText}`,
@@ -158,7 +188,7 @@ async function handleStreamingResponse(
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       });
-      
+
       // Add CORS headers
       if (corsOptions) {
         if (corsOptions.allowOrigin) {
@@ -169,7 +199,7 @@ async function handleStreamingResponse(
         headers.set('Access-Control-Allow-Methods', corsOptions.allowMethods?.join(',') || 'POST, OPTIONS');
         headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       }
-      
+
       return new Response(response.body, { headers });
     } catch (error) {
       const normalizedError =
@@ -189,6 +219,9 @@ async function handleStreamingResponse(
 }
 
 export const advancedContractAnalysisHandler = async (req: Request) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return createEmptyResponse({ status: 204, cors: corsOptions });
@@ -303,7 +336,7 @@ When analyzing documents, always:
 Respond directly to the user's question using ONLY the document content provided. Use simple, clean text formatting without any special characters or markdown. Write each section as detailed, flowing paragraphs that naturally transition between topics.`;
 
     let userPrompt = '';
-    
+
     switch (analysisType) {
       case 'summarize':
       case 'general':
@@ -339,7 +372,7 @@ Provide specific suggestions for improvement or areas that need attention.
 
 Please ensure your response is detailed, professional, and actionable.`;
         break;
-        
+
       case 'risk':
         userPrompt = `Conduct a thorough risk analysis of this legal document:
 
@@ -370,7 +403,7 @@ Recommend specific actions to reduce identified risks.
 
 Provide a detailed risk assessment with specific recommendations.`;
         break;
-        
+
       case 'extract':
         userPrompt = `Extract and organize the key legal elements from this document:
 
@@ -410,7 +443,7 @@ Identify any compliance or regulatory obligations.
 
 Present the information in a clear, organized format.`;
         break;
-        
+
       case 'compare':
         userPrompt = `Analyze this document for comparison purposes:
 
@@ -441,7 +474,7 @@ Compare against typical industry practices where applicable.
 
 This analysis will be used for document comparison purposes.`;
         break;
-        
+
       default:
         userPrompt = goal || `Please analyze this legal document and provide insights:
 
@@ -475,7 +508,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
     // Add the current user prompt
     messages.push({ role: 'user', content: userPrompt });
 
-    console.log('Making request to OpenAI for advanced contract analysis', { 
+    console.log('Making request to OpenAI for advanced contract analysis', {
       messageCount: messages.length,
       hasHistory: conversationHistory?.length > 0,
       hasRAGContext: !!ragContext,
@@ -514,9 +547,11 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
     }
 
     let analysis = data.choices[0].message.content;
+    const rawAnalysisLength = analysis.length;
+    console.log('Raw analysis received (first 100 chars):', analysis.substring(0, 100));
 
     // Enhanced cleanup of analysis by removing ALL markdown formatting and special symbols
-    analysis = analysis
+    let cleanedAnalysis = analysis
       .replace(/^#{1,6}\s+/gm, '') // Remove markdown headers
       .replace(/^\s*[-*+•]\s+/gm, '') // Remove bullet points (including bullet symbol)
       .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
@@ -543,8 +578,17 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
       .replace(/\n\s*\n\s*\n/g, '\n\n') // Clean up excessive spacing
       .trim();
 
+    // If cleanup resulted in empty string (over-aggressive regex), revert to raw analysis
+    if (!cleanedAnalysis && rawAnalysisLength > 0) {
+      console.warn('Cleanup resulted in empty string, reverting to raw analysis');
+      cleanedAnalysis = analysis;
+    }
+
+    // Update the analysis variable to strict logic
+    analysis = cleanedAnalysis;
+
     // Log successful completion
-    console.log('Analysis completed successfully, length:', analysis.length);
+    console.log('Analysis processing completed, final length:', analysis.length);
 
     // Store analysis if documentId is provided
     if (documentId && userId && supabase) {

@@ -14,6 +14,7 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:8080",
   "http://localhost:8083",
+  "http://localhost:8082",
   "https://app.kourti.com",
   "https://kouti-legal-hub-41.lovable.app",
 ]
