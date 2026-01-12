@@ -14,7 +14,7 @@ import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useProcessDocument } from '@/hooks/useRAGSearch';
-import { logInfo, logError } from '@/lib/logger';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -359,12 +359,32 @@ export function ReamAIChatWidget({
         logInfo('Starting RAG-enhanced document analysis');
         const ragContext = await performRAGSearch(userMessage);
 
+        // Truncate document content if it's too large to prevent payload size issues
+        // Keep beginning and end for better context preservation
+        const MAX_DOC_CONTENT_LENGTH = 80000; // ~80k chars to leave room for prompt and RAG context
+        let processedDocContent = docContent;
+        let contentTruncated = false;
+        
+        if (docContent.length > MAX_DOC_CONTENT_LENGTH) {
+          const startLength = Math.floor(MAX_DOC_CONTENT_LENGTH * 0.6);
+          const endLength = Math.floor(MAX_DOC_CONTENT_LENGTH * 0.4);
+          const start = docContent.substring(0, startLength);
+          const end = docContent.substring(docContent.length - endLength);
+          processedDocContent = `${start}\n\n[... Document content truncated for size management. Showing beginning and end of document ...]\n\n${end}`;
+          contentTruncated = true;
+          logWarn('Document content truncated in chat widget', {
+            originalLength: docContent.length,
+            truncatedLength: MAX_DOC_CONTENT_LENGTH
+          });
+        }
+
         const analysisPrompt = `You are currently reviewing a document. ALL questions should be answered using information from this document.
 
 Document: ${docTitle}
+${contentTruncated ? '\n[Note: Document content has been truncated for size management. Showing beginning and end sections.]' : ''}
 
 DOCUMENT CONTENT:
-${docContent}
+${processedDocContent}
 
 USER QUESTION: ${userMessage}
 
