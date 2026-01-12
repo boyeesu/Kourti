@@ -169,17 +169,17 @@ export function ReamAIChatWidget({
           }
         }
 
-        // Process for RAG if we have content
+        // Process for RAG (non-blocking)
         if (organization?.id && extractedText && extractedText.length > 50) {
-          try {
-            await processDocument.mutateAsync({
-              documentId: uploadedDoc.id,
-              content: extractedText,
-              documentType: "document"
-            });
-          } catch (processError) {
-            console.error("RAG processing error:", processError);
-          }
+          processDocument.mutateAsync({
+            documentId: uploadedDoc.id,
+            content: extractedText,
+            documentType: "document"
+          }).then(() => {
+            console.log('Background RAG processing complete');
+          }).catch(processError => {
+            console.error("Background RAG processing error:", processError);
+          });
         }
 
         setUploadedDocument({
@@ -189,15 +189,18 @@ export function ReamAIChatWidget({
           file_path: uploadedDoc.file_path ?? undefined
         });
 
+        // Clear loading state immediately
+        setIsUploading(false);
+
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `✅ Document "${file.name}" uploaded and processed! You can now ask questions about it.`,
+          content: `✅ Document "${file.name}" uploaded! You can start asking questions right away while I process it for deep search.`,
           timestamp: new Date(),
         }]);
 
         toast({
           title: "Document Uploaded",
-          description: "The document has been saved and is ready for analysis.",
+          description: "The document is ready for chat.",
         });
       } catch (error: unknown) {
         console.error('Upload error:', error);
