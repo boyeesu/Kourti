@@ -71,7 +71,7 @@ export function ReamAIChatWidget({
   const onDrop = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length && !isUploading) {
       const file = acceptedFiles[0];
-      
+
       // Validate file before upload
       try {
         const { validateFile } = await import('@/lib/fileValidation');
@@ -93,7 +93,7 @@ export function ReamAIChatWidget({
         }]);
         return;
       }
-      
+
       setIsUploading(true);
 
       // Add upload message
@@ -116,27 +116,56 @@ export function ReamAIChatWidget({
 
         // Extract text content
         let extractedText = '';
-        if (uploadedDoc.file_path) {
+
+        // Client-side extraction for DOCX
+        if (file.name.toLowerCase().endsWith('.docx')) {
           try {
-            const { data: extractResult, error: extractError } = await supabase.functions.invoke(
+            // Dynamically import mammoth to avoid build issues if it's not tree-shaken
+            const mammoth = await import('mammoth');
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            extractedText = result.value;
+            if (result.messages && result.messages.length > 0) {
+              console.log('Mammoth messages:', result.messages);
+            }
+          } catch (e) {
+            console.error('Client-side DOCX extraction failed:', e);
+          }
+        }
+        // Client-side extraction for Text
+        else if (file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')) {
+          extractedText = await file.text();
+        }
+
+        // Server-side extraction fallback (with timeout)
+        if (!extractedText && uploadedDoc.file_path) {
+          try {
+            // Create a promise that rejects after 15 seconds
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Extraction timed out')), 15000);
+            });
+
+            const extractionPromise = supabase.functions.invoke(
               'extract-document-text',
               {
                 body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path }
               }
             );
 
+            // Race the extraction against the timeout
+            const { data: extractResult, error: extractError } = await Promise.race([
+              extractionPromise,
+              timeoutPromise
+            ]) as any;
+
             if (!extractError && extractResult?.content) {
               extractedText = extractResult.content;
+            } else if (extractError) {
+              console.error('Server-side extraction error:', extractError);
             }
           } catch (extractErr) {
-            console.error('Text extraction error:', extractErr);
-          }
-        }
-
-        // Try client-side extraction as fallback
-        if (!extractedText) {
-          if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-            extractedText = await file.text();
+            console.error('Text extraction failed or timed out:', extractErr);
+            // Don't fail the whole upload if extraction only fails
           }
         }
 
@@ -153,13 +182,13 @@ export function ReamAIChatWidget({
           }
         }
 
-        setUploadedDocument({ 
-          id: uploadedDoc.id, 
-          name: uploadedDoc.name ?? undefined, 
-          content: extractedText, 
-          file_path: uploadedDoc.file_path ?? undefined 
+        setUploadedDocument({
+          id: uploadedDoc.id,
+          name: uploadedDoc.name ?? undefined,
+          content: extractedText,
+          file_path: uploadedDoc.file_path ?? undefined
         });
-        
+
         setMessages(prev => [...prev, {
           role: 'assistant',
           content: `✅ Document "${file.name}" uploaded and processed! You can now ask questions about it.`,
@@ -208,7 +237,7 @@ export function ReamAIChatWidget({
 
     const userMessage = input.trim();
     setInput('');
-    
+
     // Add user message
     setMessages(prev => [...prev, {
       role: 'user',
@@ -487,20 +516,20 @@ CRITICAL INSTRUCTIONS:
               Drag and drop a file here, or click to browse
             </p>
           </div>
-          
+
           {/* Input section */}
           <div className="flex gap-2 p-4">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={(documentContext || uploadedDocument) 
-                ? "Ask about this document or anything..." 
+              placeholder={(documentContext || uploadedDocument)
+                ? "Ask about this document or anything..."
                 : "Ask about cases, clients, documents, or anything..."}
               disabled={isTyping || assistantLoading || isUploading}
               className="flex-1"
             />
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={isTyping || assistantLoading || !input.trim() || isUploading}
               size="icon"
             >

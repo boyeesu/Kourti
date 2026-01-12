@@ -49,82 +49,82 @@ export function useDashboard() {
 
       // Fetch all stats in parallel for better performance
       const [
-          casesResult,
-          activeCasesResult,
-          clientsResult,
-          documentsResult,
-          invoicesResult,
-          upcomingEventsResult,
-          recentCasesResult,
-          recentClientsResult,
-          upcomingCalendarEventsResult
-        ] = await Promise.all([
-          // Total cases count
-          supabase
-            .from('cases')
-            .select('*', { count: 'exact', head: true })
-            .eq('organization_id', organizationId),
+        casesResult,
+        activeCasesResult,
+        clientsResult,
+        documentsResult,
+        invoicesResult,
+        upcomingEventsResult,
+        recentCasesResult,
+        recentClientsResult,
+        upcomingCalendarEventsResult
+      ] = await Promise.all([
+        // Total cases count
+        supabase
+          .from('cases')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organizationId),
 
-          // Active cases count
-          supabase
-            .from('cases')
-            .select('*', { count: 'exact', head: true })
-            .eq('organization_id', organizationId)
-            .in('status', ['open', 'active', 'in_progress']),
+        // Active cases count
+        supabase
+          .from('cases')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organizationId)
+          .in('status', ['open', 'active', 'in_progress']),
 
-          // Total clients count
-          supabase
-            .from('clients')
-            .select('*', { count: 'exact', head: true })
-            .eq('organization_id', organizationId),
+        // Total clients count
+        supabase
+          .from('clients')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organizationId),
 
-          // Total documents count
-          supabase
-            .from('documents')
-            .select('*', { count: 'exact', head: true })
-            .eq('organization_id', organizationId),
-            
-          // Get total revenue from invoices
-          supabase
-            .from('invoices')
-            .select('total_amount')
-            .eq('organization_id', organizationId)
-            .eq('status', 'paid'),
+        // Total documents count
+        supabase
+          .from('documents')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organizationId),
 
-          // Upcoming events count (next 7 days)
-          supabase
-            .from('calendar_events')
-            .select('*', { count: 'exact', head: true })
-            .eq('organization_id', organizationId)
-            .gt('start_date', now.toISOString())
-            .lte('start_date', endOfWeek.toISOString()),
+        // Get total revenue from invoices
+        supabase
+          .from('invoices')
+          .select('total_amount')
+          .eq('organization_id', organizationId)
+          .eq('status', 'paid'),
 
-          // Recent cases (last 5)
-          supabase
-            .from('cases')
-            .select('id, title, status, created_at, client_id, client:client_id(name)')
-            .eq('organization_id', organizationId)
-            .order('created_at', { ascending: false })
-            .limit(5),
+        // Upcoming events count (next 7 days)
+        supabase
+          .from('calendar_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organizationId)
+          .gt('start_date', now.toISOString())
+          .lte('start_date', endOfWeek.toISOString()),
 
-          // Recent clients (last 5)
-          supabase
-            .from('clients')
-            .select('id, name, email, created_at, company')
-            .eq('organization_id', organizationId)
-            .order('created_at', { ascending: false })
-            .limit(5),
+        // Recent cases (last 5)
+        supabase
+          .from('cases')
+          .select('id, title, status, created_at, client_id, client:client_id(name)')
+          .eq('organization_id', organizationId)
+          .order('created_at', { ascending: false })
+          .limit(5),
 
-          // Upcoming calendar events (next 7 days, limit 5)
-          supabase
-            .from('calendar_events')
-            .select('id, title, start_date, end_date, event_type, case_id')
-            .eq('organization_id', organizationId)
-            .gt('start_date', now.toISOString())
-            .lte('start_date', endOfWeek.toISOString())
-            .order('start_date', { ascending: true })
-            .limit(5)
-        ]);
+        // Recent clients (last 5)
+        supabase
+          .from('clients')
+          .select('id, name, email, created_at, company')
+          .eq('organization_id', organizationId)
+          .order('created_at', { ascending: false })
+          .limit(5),
+
+        // Upcoming calendar events (next 7 days, limit 5)
+        supabase
+          .from('calendar_events')
+          .select('id, title, start_date, end_date, event_type, case_id')
+          .eq('organization_id', organizationId)
+          .gt('start_date', now.toISOString())
+          .lte('start_date', endOfWeek.toISOString())
+          .order('start_date', { ascending: true })
+          .limit(5)
+      ]);
 
       // Calculate total revenue from paid invoices
       const totalRevenue = invoicesResult.data?.reduce((sum, invoice: { total_amount?: number | null }) => {
@@ -132,28 +132,16 @@ export function useDashboard() {
       }, 0) || 0;
 
       // Check for errors
-      if (casesResult.error || activeCasesResult.error || clientsResult.error || 
-          documentsResult.error || upcomingEventsResult.error || 
-          upcomingCalendarEventsResult.error || recentCasesResult.error || 
-          recentClientsResult.error || invoicesResult.error) {
+      if (casesResult.error || activeCasesResult.error || clientsResult.error ||
+        documentsResult.error || upcomingEventsResult.error ||
+        upcomingCalendarEventsResult.error || recentCasesResult.error ||
+        recentClientsResult.error || invoicesResult.error) {
         // Log specific errors for debugging
         if (upcomingCalendarEventsResult.error) {
           console.error('Calendar events query error:', upcomingCalendarEventsResult.error);
         }
         throw new Error('Failed to load dashboard data. Please try again.');
       }
-
-      // Debug: Log calendar events data
-      console.log('Calendar events query result:', {
-        data: upcomingCalendarEventsResult.data,
-        count: upcomingCalendarEventsResult.data?.length || 0,
-        error: upcomingCalendarEventsResult.error,
-        dateRange: {
-          start: now.toISOString(),
-          end: endOfWeek.toISOString()
-        },
-        organizationId
-      });
 
       const result = {
         totalCases: casesResult.count || 0,
@@ -166,8 +154,6 @@ export function useDashboard() {
         recentClients: (recentClientsResult.data || []) as Partial<Client>[],
         upcomingCalendarEvents: (upcomingCalendarEventsResult.data || []) as Partial<CalendarEvent>[],
       };
-
-      console.log('Dashboard result - upcomingCalendarEvents count:', result.upcomingCalendarEvents.length, result.upcomingCalendarEvents);
 
       return result;
     },

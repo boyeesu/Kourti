@@ -66,7 +66,7 @@ export function useNotificationsDb(orgId: string, filters?: NotificationFilters)
           item.description?.toLowerCase().includes(searchLower)
         );
       }
-      
+
       // Transform database format to Notification interface
       return filteredData.map((item: any) => ({
         ...item,
@@ -126,9 +126,9 @@ export function useNotificationPreferences(orgId: string) {
         .select('*')
         .eq('user_id', userId)
         .eq('organization_id', orgId)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      if (error) {
         throw error;
       }
 
@@ -141,7 +141,7 @@ export function useNotificationPreferences(orgId: string) {
 
 export function useUpdateNotificationPreferences() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (preferences: Partial<NotificationPreferences> & { organization_id: string }) => {
       const userId = await getCurrentUserId();
@@ -178,7 +178,7 @@ export async function pushDbNotification(
   const userId = user?.id;
   if (!userId) throw new Error('Not authenticated');
 
-  await supabase.from('notifications').insert([{ 
+  await supabase.from('notifications').insert([{
     user_id: userId,
     organization_id: orgId,
     ...notif,
