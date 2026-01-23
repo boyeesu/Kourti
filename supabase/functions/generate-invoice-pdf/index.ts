@@ -132,29 +132,27 @@ serve(async (req: Request) => {
       throw new HttpError('Invoice not found', 404, 'INVOICE_NOT_FOUND');
     }
 
-    // Verify user has access to this invoice through their organization
+    // Fetch user's profile and organization in one go
     const { data: profile } = await supabase
       .from('profiles' as any)
       .select('organization_id')
       .eq('user_id', user.id)
       .single() as { data: { organization_id: string } | null; error: any };
 
-    if (!profile?.organization_id || invoice.organization_id !== profile.organization_id) {
+    if (!profile?.organization_id) {
+      throw new HttpError('User profile not found', 404, 'PROFILE_NOT_FOUND');
+    }
+
+    // Verify user has access to this invoice through their organization
+    if (invoice.organization_id !== profile.organization_id) {
       console.warn(`User ${user.id} attempted to access invoice ${invoiceId} without authorization`);
       throw new HttpError('Access denied to this invoice', 403, 'FORBIDDEN');
     }
 
-    // Fetch organization details
-    const { data: profile } = await supabase
-      .from('profiles' as any)
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .single() as { data: { organization_id: string } | null; error: any };
-
     const { data: organization } = await supabase
       .from('organizations' as any)
       .select('*')
-      .eq('id', profile?.organization_id)
+      .eq('id', profile.organization_id)
       .single() as { data: any; error: any };
 
     console.log('Generating PDF for invoice:', invoice.invoice_number);
@@ -169,6 +167,13 @@ serve(async (req: Request) => {
     console.log('PDF generated successfully');
 
     const headers = new Headers(createCorsSecurityHeaders(corsOptions));
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+
+    // Merge rate limit headers into response headers
+    Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+      headers.set(key, String(value));
+    });
+
     headers.set('Content-Type', 'application/pdf');
     headers.set('Content-Disposition', `attachment; filename="invoice-${invoice.invoice_number}.pdf"`);
 
@@ -176,15 +181,13 @@ serve(async (req: Request) => {
       headers,
     });
 
-  } catch (error: any) {
-    console.error('Error generating invoice PDF:', error);
-    return createJsonResponse(
-      {
-        error: error.message || 'PDF generation failed',
-        success: false,
-      },
-      { status: 500, cors: corsOptions },
-    );
+  } catch (error: unknown) {
+    if (error instanceof HttpError) {
+      return createErrorResponse(error, corsOptions);
+    }
+    return createSanitizedErrorResponse(error, corsOptions, {
+      function: 'generate-invoice-pdf',
+    });
   }
 });
 

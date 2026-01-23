@@ -2,12 +2,44 @@ declare const Deno: any;
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
-const corsOptions = {
-  allowMethods: ["POST", "OPTIONS"],
-  allowCredentials: true,
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:8083",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -76,11 +108,11 @@ type SsoConfigRow = {
 
 function ensureConfigured() {
   if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Supabase credentials are not configured");
+    throw new HttpError('Supabase credentials are not configured', 503, 'CONFIG_ERROR');
   }
 
   if (!ssoSecretKey) {
-    throw new Error("SSO secret key is not configured");
+    throw new HttpError('SSO secret key is not configured', 503, 'CONFIG_ERROR');
   }
 }
 
@@ -145,13 +177,16 @@ async function fetchExistingConfig(
     .single() as { data: SsoConfigRow | null; error: any };
 
   if (error || !data) {
-    throw new Error("SSO configuration not found");
+    throw new HttpError('SSO configuration not found', 404, 'SSO_NOT_FOUND');
   }
 
   return data;
 }
 
 serve(async (req: Request) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === "OPTIONS") {
     return createEmptyResponse({ status: 204, cors: corsOptions });
   }
@@ -161,7 +196,7 @@ serve(async (req: Request) => {
 
     const token = normalizeToken(req.headers.get("Authorization"));
     if (!token) {
-      return createJsonResponse({ error: "Unauthorized" }, { status: 401, cors: corsOptions });
+      throw new HttpError('Authentication required', 401, 'UNAUTHORIZED');
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -172,7 +207,36 @@ serve(async (req: Request) => {
     } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      return createJsonResponse({ error: "Unauthorized" }, { status: 401, cors: corsOptions });
+      console.error('Authentication failed:', userError?.message);
+      throw new HttpError('Invalid or expired authentication token', 401, 'UNAUTHORIZED');
+    }
+
+    console.log(`Processing SSO config management for user ${user.id}`);
+
+    // CSRF Protection - critical for SSO configuration changes
+    await requireCsrfTokenForUser(supabase, user.id, req);
+
+    // Rate limiting - prevent abuse of sensitive SSO configuration operations
+    const rateLimitId = user.id;
+    const rateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.SENSITIVE, // 3 requests per minute for sensitive operations
+      identifier: rateLimitId,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
     }
 
     // Get user's organization_id
@@ -183,7 +247,7 @@ serve(async (req: Request) => {
       .single() as { data: { organization_id: string } | null; error: any };
 
     if (profileError || !profile) {
-      return createJsonResponse({ error: "User profile not found" }, { status: 404, cors: corsOptions });
+      throw new HttpError('User profile not found', 404, 'PROFILE_NOT_FOUND');
     }
 
     // Check if user has superadmin role in user_role_assignments
@@ -195,13 +259,13 @@ serve(async (req: Request) => {
 
     if (roleError) {
       console.error("Failed to check user permissions", roleError);
-      return createJsonResponse({ error: "Failed to check user permissions" }, { status: 500, cors: corsOptions });
+      throw new HttpError('Failed to check user permissions', 500, 'PERMISSION_CHECK_FAILED');
     }
 
     const isSuperadmin = roleAssignments?.some((r: { role_name: string }) => r.role_name === "superadmin");
 
     if (!isSuperadmin) {
-      return createJsonResponse({ error: "Only superadmins can manage SSO configurations" }, { status: 403, cors: corsOptions });
+      throw new HttpError('Only superadmins can manage SSO configurations', 403, 'FORBIDDEN');
     }
 
     const request = (await req.json()) as ManageSsoConfigRequest;
@@ -210,7 +274,7 @@ serve(async (req: Request) => {
       case "create": {
         const payload = request.payload;
         if (!payload.provider || !payload.clientId) {
-          return createJsonResponse({ error: "provider and clientId are required" }, { status: 400, cors: corsOptions });
+          throw new HttpError('provider and clientId are required', 400, 'INVALID_INPUT');
         }
 
         validateRedirectUri(payload.redirectUri);
@@ -234,22 +298,23 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to create SSO config", error);
-          return createJsonResponse({ error: error.message }, { status: 400, cors: corsOptions });
+          throw new HttpError(`Failed to create SSO config: ${error.message}`, 400, 'SSO_CREATE_FAILED');
         }
 
-        return createJsonResponse({ data }, { cors: corsOptions });
+        const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+        return createJsonResponse({ data }, { cors: corsOptions, headers: rateLimitHeaders });
       }
 
       case "update": {
         const payload = request.payload;
         if (!payload.id) {
-          return createJsonResponse({ error: "id is required for updates" }, { status: 400, cors: corsOptions });
+          throw new HttpError('id is required for updates', 400, 'INVALID_INPUT');
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return createJsonResponse({ error: "SSO configuration not found in your organization" }, { status: 404, cors: corsOptions });
+          throw new HttpError('SSO configuration not found in your organization', 404, 'SSO_NOT_FOUND');
         }
 
         const redirectUri = payload.redirectUri ?? existing.redirect_uri ?? null;
@@ -277,22 +342,23 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to update SSO config", error);
-          return createJsonResponse({ error: error.message }, { status: 400, cors: corsOptions });
+          throw new HttpError(`Failed to update SSO config: ${error.message}`, 400, 'SSO_UPDATE_FAILED');
         }
 
-        return createJsonResponse({ data }, { cors: corsOptions });
+        const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+        return createJsonResponse({ data }, { cors: corsOptions, headers: rateLimitHeaders });
       }
 
       case "rotate": {
         const payload = request.payload;
         if (!payload.id || !payload.clientSecret) {
-          return createJsonResponse({ error: "id and clientSecret are required for rotation" }, { status: 400, cors: corsOptions });
+          throw new HttpError('id and clientSecret are required for rotation', 400, 'INVALID_INPUT');
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return createJsonResponse({ error: "SSO configuration not found in your organization" }, { status: 404, cors: corsOptions });
+          throw new HttpError('SSO configuration not found in your organization', 404, 'SSO_NOT_FOUND');
         }
 
         const { data, error } = await supabase
@@ -309,16 +375,17 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to rotate SSO secret", error);
-          return createJsonResponse({ error: error.message }, { status: 400, cors: corsOptions });
+          throw new HttpError(`Failed to rotate SSO secret: ${error.message}`, 400, 'SSO_ROTATE_FAILED');
         }
 
-        return createJsonResponse({ data }, { cors: corsOptions });
+        const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+        return createJsonResponse({ data }, { cors: corsOptions, headers: rateLimitHeaders });
       }
 
       case "delete": {
         const payload = request.payload;
         if (!payload.id) {
-          return createJsonResponse({ error: "id is required for deletion" }, { status: 400, cors: corsOptions });
+          throw new HttpError('id is required for deletion', 400, 'INVALID_INPUT');
         }
 
         const { error } = await supabase
@@ -329,22 +396,23 @@ serve(async (req: Request) => {
 
         if (error) {
           console.error("Failed to delete SSO config", error);
-          return createJsonResponse({ error: error.message }, { status: 400, cors: corsOptions });
+          throw new HttpError(`Failed to delete SSO config: ${error.message}`, 400, 'SSO_DELETE_FAILED');
         }
 
-        return createJsonResponse({ success: true }, { cors: corsOptions });
+        const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+        return createJsonResponse({ success: true }, { cors: corsOptions, headers: rateLimitHeaders });
       }
 
       case "test": {
         const payload = request.payload;
         if (!payload.id) {
-          return createJsonResponse({ error: "id is required for testing" }, { status: 400, cors: corsOptions });
+          throw new HttpError('id is required for testing', 400, 'INVALID_INPUT');
         }
 
         const existing = await fetchExistingConfig(supabase, payload.id);
 
         if (existing.organization_id !== profile.organization_id) {
-          return createJsonResponse({ error: "SSO configuration not found in your organization" }, { status: 404, cors: corsOptions });
+          throw new HttpError('SSO configuration not found in your organization', 404, 'SSO_NOT_FOUND');
         }
 
         // Validate configuration completeness
@@ -366,6 +434,8 @@ serve(async (req: Request) => {
           validationErrors.push("Tenant ID is required for Microsoft Entra ID");
         }
 
+        const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+
         if (validationErrors.length > 0) {
           return createJsonResponse(
             {
@@ -375,7 +445,7 @@ serve(async (req: Request) => {
                 message: "SSO configuration is incomplete",
               },
             },
-            { cors: corsOptions },
+            { cors: corsOptions, headers: rateLimitHeaders },
           );
         }
 
@@ -395,16 +465,19 @@ serve(async (req: Request) => {
               },
             },
           },
-          { cors: corsOptions },
+          { cors: corsOptions, headers: rateLimitHeaders },
         );
       }
 
       default:
-        return createJsonResponse({ error: "Unsupported action" }, { status: 400, cors: corsOptions });
+        throw new HttpError('Unsupported action', 400, 'INVALID_ACTION');
     }
-  } catch (error) {
-    console.error("manage-sso-config error", error);
-    const message = error instanceof Error ? error.message : "Unexpected error";
-    return createJsonResponse({ error: message }, { status: 500, cors: corsOptions });
+  } catch (error: unknown) {
+    if (error instanceof HttpError) {
+      return createErrorResponse(error, corsOptions);
+    }
+    return createSanitizedErrorResponse(error, corsOptions, {
+      function: 'manage-sso-config',
+    });
   }
 });

@@ -2,11 +2,44 @@ declare const Deno: any;
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
-const corsOptions = {
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:8083",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["GET", "POST", "OPTIONS"],
+  };
+}
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -183,12 +216,15 @@ function normalizeDateTime(isoString: string) {
 }
 
 serve(async (req) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === 'OPTIONS') {
     return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return createJsonResponse({ error: 'Supabase client not configured' }, { status: 500, cors: corsOptions });
+    throw new HttpError('Supabase client not configured', 503, 'CONFIG_ERROR');
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -292,19 +328,48 @@ serve(async (req) => {
     }
 
     if (req.method !== 'POST') {
-      return createJsonResponse({ error: 'Method not allowed' }, { status: 405, cors: corsOptions });
+      throw new HttpError('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
     }
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return createJsonResponse({ error: 'No authorization header' }, { status: 401, cors: corsOptions });
+      throw new HttpError('Authentication required', 401, 'UNAUTHORIZED');
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.replace('Bearer ', '').trim();
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
+      console.error('Authentication failed:', userError?.message);
+      throw new HttpError('Invalid or expired authentication token', 401, 'UNAUTHORIZED');
+    }
+
+    console.log(`Processing calendar sync for user ${user.id}`);
+
+    // CSRF Protection - important for calendar integrations
+    await requireCsrfTokenForUser(supabase, user.id, req);
+
+    // Rate limiting - different limits for different operations
+    const rateLimitId = user.id;
+    const rateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.API, // 100 requests per minute for calendar operations
+      identifier: rateLimitId,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -314,7 +379,7 @@ serve(async (req) => {
       .maybeSingle() as { data: { organization_id: string } | null; error: any };
 
     if (profileError || !profile?.organization_id) {
-      return createJsonResponse({ error: 'Organization not found' }, { status: 400, cors: corsOptions });
+      throw new HttpError('User profile not found', 404, 'PROFILE_NOT_FOUND');
     }
 
     const body = await req.json();
