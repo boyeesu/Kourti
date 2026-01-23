@@ -1,12 +1,17 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { logError } from '@/lib/logger';
+import type { Tables, TablesInsert, TablesUpdate, Json } from '@/integrations/supabase/types';
 
+// Type definitions using database types
+type Case = Tables<'cases'>;
+type CaseInsert = TablesInsert<'cases'>;
+type CaseUpdate = TablesUpdate<'cases'>;
 
 export interface CreateCaseData {
   title: string;
@@ -19,11 +24,40 @@ export interface CreateCaseData {
   next_hearing_date?: string;
   client_id?: string;
   case_type_id?: string;
-  custom_fields?: any;
+  custom_fields?: Json;
 }
 
 export interface UpdateCaseData extends Partial<CreateCaseData> {
   id: string;
+}
+
+// Extended case type with relationships
+interface CaseWithRelations extends Case {
+  client?: { id: string; name: string } | null;
+  assigned_user?: { id: string; first_name: string | null; last_name: string | null } | null;
+  case_type?: { id: string; name: string; description: string | null } | null;
+}
+
+interface CasesQueryResult {
+  cases: CaseWithRelations[];
+  count: number;
+}
+
+// Request deduplication helper
+const pendingMutations = new Map<string, Promise<unknown>>();
+
+function deduplicateMutation<T>(key: string, mutationFn: () => Promise<T>): Promise<T> {
+  const existing = pendingMutations.get(key);
+  if (existing) {
+    return existing as Promise<T>;
+  }
+
+  const promise = mutationFn().finally(() => {
+    pendingMutations.delete(key);
+  });
+
+  pendingMutations.set(key, promise);
+  return promise;
 }
 
 /**
@@ -33,14 +67,12 @@ export function useCases(page = 1, pageSize = 20) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
   const [currentPage, setCurrentPage] = useState(page);
 
-  const query = useQuery({
+  const query = useQuery<CasesQueryResult, Error>({
     queryKey: ['cases', organizationId, currentPage, pageSize],
-    queryFn: async () => {
+    queryFn: async (): Promise<CasesQueryResult> => {
       if (!organizationId) {
         return { cases: [], count: 0 };
       }
-
-      // No mock data - always fetch from database
 
       try {
         const from = (currentPage - 1) * pageSize;
@@ -50,14 +82,14 @@ export function useCases(page = 1, pageSize = 20) {
         const { data, error, count } = await supabase
           .from('cases')
           .select(`
-            id, 
-            title, 
-            description, 
-            case_number, 
-            status, 
-            priority, 
-            assigned_to, 
-            court, 
+            id,
+            title,
+            description,
+            case_number,
+            status,
+            priority,
+            assigned_to,
+            court,
             next_hearing_date,
             client_id,
             case_type_id,
@@ -66,7 +98,7 @@ export function useCases(page = 1, pageSize = 20) {
             created_by,
             organization_id,
             custom_fields,
-            client:client_id(id, name), 
+            client:client_id(id, name),
             assigned_user:assigned_to(id, first_name, last_name),
             case_type:case_types(id, name, description)
           `, { count: 'exact' })
@@ -77,8 +109,8 @@ export function useCases(page = 1, pageSize = 20) {
         if (error) {
           throw error;
         }
-        
-        return { cases: data as any[], count: count || 0 };
+
+        return { cases: (data ?? []) as CaseWithRelations[], count: count ?? 0 };
       } catch (error) {
         logError('Error fetching cases', { error });
         throw error;
@@ -101,21 +133,21 @@ export function useCases(page = 1, pageSize = 20) {
  * Hook for fetching a single case by ID
  */
 export function useCase(id: string) {
-  return useQuery({
+  return useQuery<CaseWithRelations, Error>({
     queryKey: ['case', id],
-    queryFn: async () => {
+    queryFn: async (): Promise<CaseWithRelations> => {
       // Optimize query to only select the fields we need
       const { data, error } = await supabase
         .from('cases')
         .select(`
-          id, 
-          title, 
-          description, 
-          case_number, 
-          status, 
-          priority, 
-          assigned_to, 
-          court, 
+          id,
+          title,
+          description,
+          case_number,
+          status,
+          priority,
+          assigned_to,
+          court,
           next_hearing_date,
           client_id,
           case_type_id,
@@ -124,15 +156,15 @@ export function useCase(id: string) {
           created_by,
           organization_id,
           custom_fields,
-          client:client_id(id, name), 
+          client:client_id(id, name),
           assigned_user:assigned_to(id, first_name, last_name),
           case_type:case_types(id, name, description)
         `)
-        .eq('id', id as any)
+        .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as any;
+      return data as CaseWithRelations;
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -144,38 +176,38 @@ export function useCase(id: string) {
  */
 export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
   const [currentPage, setCurrentPage] = useState(page);
-  
-  const query = useQuery({
+
+  const query = useQuery<CasesQueryResult, Error>({
     queryKey: ['cases', 'client', clientId, currentPage, pageSize],
-    queryFn: async () => {
+    queryFn: async (): Promise<CasesQueryResult> => {
       const from = (currentPage - 1) * pageSize;
       const to = currentPage * pageSize - 1;
-      
+
       // Add pagination and select only needed fields
       const { data, error, count } = await supabase
         .from('cases')
         .select(`
-          id, 
-          title, 
-          description, 
-          case_number, 
-          status, 
-          priority, 
-          assigned_to, 
+          id,
+          title,
+          description,
+          case_number,
+          status,
+          priority,
+          assigned_to,
           next_hearing_date,
           created_at,
           updated_at,
           created_by,
           organization_id
         `, { count: 'exact' })
-        .eq('client_id', clientId as any)
+        .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
-      return { 
-        cases: data as any[], 
-        count: count || 0 
+      return {
+        cases: (data ?? []) as CaseWithRelations[],
+        count: count ?? 0
       };
     },
     enabled: !!clientId,
@@ -191,54 +223,75 @@ export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
 }
 
 /**
- * Hook for creating a new case
+ * Hook for creating a new case with optimistic updates and request deduplication
  */
 export function useCreateCase() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async (caseData: CreateCaseData) => {
       const userId = await getCurrentUserId();
-      
+
       if (!userId) {
         throw new Error("User is not authenticated. Please sign in to create a matter.");
       }
-      
-      // Get organization ID from user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId as any)
-        .single();
-        
-      if (profileError) {
-        throw new Error("Could not retrieve user profile information.");
-      }
-      
-      if (!(profile as any)?.organization_id) {
-        throw new Error("No organization associated with your account. Please contact your administrator.");
-      }
 
-      const { data, error } = await supabase
-        .from('cases')
-        .insert({
+      // Use deduplication to prevent double submissions
+      const dedupeKey = `create-case-${caseData.title}-${Date.now()}`;
+
+      return deduplicateMutation(dedupeKey, async () => {
+        // Get organization ID from user profile
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('user_id', userId)
+          .single();
+
+        if (profileError) {
+          throw new Error("Could not retrieve user profile information.");
+        }
+
+        if (!profile?.organization_id) {
+          throw new Error("No organization associated with your account. Please contact your administrator.");
+        }
+
+        const insertData: CaseInsert = {
           ...caseData,
-          organization_id: (profile as any).organization_id,
+          organization_id: profile.organization_id,
           created_by: userId,
           user_id: userId,
-        } as any)
-        .select()
-        .single();
+        };
 
-      if (error) {
-        throw error;
-      }
-      
-      return data;
+        const { data, error } = await supabase
+          .from('cases')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        return data;
+      });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cases'] });
+    onSuccess: (data) => {
+      // Granular invalidation: only invalidate the current organization's cases
+      if (organizationId) {
+        queryClient.invalidateQueries({
+          queryKey: ['cases', organizationId],
+          exact: false,
+        });
+      }
+      // Also invalidate any client-specific case lists if the case has a client
+      if (data?.client_id) {
+        queryClient.invalidateQueries({
+          queryKey: ['cases', 'client', data.client_id],
+          exact: false,
+        });
+      }
       toast({
         title: "Success",
         description: "Matter created successfully.",
@@ -256,33 +309,56 @@ export function useCreateCase() {
 }
 
 /**
- * Hook for updating an existing case
+ * Hook for updating an existing case with optimistic updates
  */
 export function useUpdateCase() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async ({ id, ...updateData }: UpdateCaseData) => {
-      const { data, error } = await supabase
-        .from('cases')
-        .update(updateData as any)
-        .eq('id', id as any)
-        .select()
-        .single();
+      // Deduplication to prevent rapid double-clicks
+      const dedupeKey = `update-case-${id}`;
 
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['cases'] });
-      queryClient.invalidateQueries({ queryKey: ['case', data?.id] });
-      toast({
-        title: "Success",
-        description: "Matter updated successfully.",
+      return deduplicateMutation(dedupeKey, async () => {
+        const caseUpdate: CaseUpdate = updateData;
+
+        const { data, error } = await supabase
+          .from('cases')
+          .update(caseUpdate)
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
       });
     },
-    onError: (error: unknown) => {
+    // Optimistic update
+    onMutate: async ({ id, ...updateData }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['case', id] });
+
+      // Snapshot previous value
+      const previousCase = queryClient.getQueryData<CaseWithRelations>(['case', id]);
+
+      // Optimistically update the cache
+      if (previousCase) {
+        queryClient.setQueryData<CaseWithRelations>(['case', id], {
+          ...previousCase,
+          ...updateData,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      return { previousCase };
+    },
+    onError: (error: unknown, { id }, context) => {
+      // Rollback on error
+      if (context?.previousCase) {
+        queryClient.setQueryData(['case', id], context.previousCase);
+      }
       const errorMessage = error instanceof Error ? error.message : "Failed to update matter.";
       toast({
         variant: "destructive",
@@ -290,38 +366,97 @@ export function useUpdateCase() {
         description: errorMessage,
       });
     },
+    onSuccess: (data) => {
+      // Granular invalidation
+      if (organizationId) {
+        queryClient.invalidateQueries({
+          queryKey: ['cases', organizationId],
+          exact: false,
+        });
+      }
+      // Update the specific case in cache with server data
+      queryClient.setQueryData(['case', data?.id], data);
+      toast({
+        title: "Success",
+        description: "Matter updated successfully.",
+      });
+    },
   });
 }
 
 /**
- * Hook for deleting a case
+ * Hook for deleting a case with optimistic updates
  */
 export function useDeleteCase() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('cases')
-        .delete()
-        .eq('id', id as any);
+      // Deduplication to prevent accidental double deletes
+      const dedupeKey = `delete-case-${id}`;
 
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cases'] });
-      toast({
-        title: "Success",
-        description: "Matter deleted successfully.",
+      return deduplicateMutation(dedupeKey, async () => {
+        const { error } = await supabase
+          .from('cases')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        return id;
       });
     },
-    onError: (error: unknown) => {
+    // Optimistic update - remove from list immediately
+    onMutate: async (id) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['cases'] });
+
+      // Get snapshot of current cases for rollback
+      const previousCasesQueries = queryClient.getQueriesData<CasesQueryResult>({
+        queryKey: ['cases'],
+      });
+
+      // Optimistically remove the case from all case lists
+      queryClient.setQueriesData<CasesQueryResult>(
+        { queryKey: ['cases'] },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            cases: old.cases.filter((c) => c.id !== id),
+            count: Math.max(0, old.count - 1),
+          };
+        }
+      );
+
+      return { previousCasesQueries };
+    },
+    onError: (error: unknown, _id, context) => {
+      // Rollback all case queries on error
+      if (context?.previousCasesQueries) {
+        context.previousCasesQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       const errorMessage = error instanceof Error ? error.message : "Failed to delete matter.";
       toast({
         variant: "destructive",
         title: "Error",
         description: errorMessage,
+      });
+    },
+    onSuccess: () => {
+      // Granular invalidation
+      if (organizationId) {
+        queryClient.invalidateQueries({
+          queryKey: ['cases', organizationId],
+          exact: false,
+        });
+      }
+      toast({
+        title: "Success",
+        description: "Matter deleted successfully.",
       });
     },
   });

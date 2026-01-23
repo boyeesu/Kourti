@@ -8,9 +8,56 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
 import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 
-const corsOptions = {
-  allowMethods: ['POST', 'OPTIONS'],
+// Allowed origins for CORS validation
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:8081",
+  "http://localhost:8082",
+  "http://localhost:8083",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
+
+// Input size limits to prevent context overflow and cost abuse
+const INPUT_LIMITS = {
+  MAX_TITLE_LENGTH: 500,
+  MAX_DESCRIPTION_LENGTH: 2000,
+  MAX_TERMS_LENGTH: 50000,
+  MAX_TEMPLATE_LENGTH: 100000,
+  MAX_CLAUSE_CONTENT_LENGTH: 10000,
+  MAX_CLAUSES_COUNT: 50,
+  MAX_PARTIES_COUNT: 20,
+  MAX_PARTY_ADDRESS_LENGTH: 1000,
 };
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -19,7 +66,106 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Model configuration with fallback support
+const DEFAULT_CHAT_MODEL = 'gpt-4.1-2025-04-14';
+const FALLBACK_CHAT_MODEL = 'gpt-4o';
+
+function getChatModelCandidates(): string[] {
+  const configuredModel = Deno.env.get('OPENAI_CONTRACT_MODEL')?.trim();
+  const configuredFallback = Deno.env.get('OPENAI_CONTRACT_FALLBACK_MODEL')?.trim();
+
+  const models = [
+    configuredModel || DEFAULT_CHAT_MODEL,
+    configuredFallback || FALLBACK_CHAT_MODEL,
+    DEFAULT_CHAT_MODEL,
+    FALLBACK_CHAT_MODEL,
+  ];
+
+  // Return unique models in order of preference
+  return Array.from(new Set(models.filter(Boolean)));
+}
+
+async function requestChatCompletion(
+  messages: Array<{ role: string; content: string }>,
+  maxTokens: number
+): Promise<{ data: any; modelUsed: string }> {
+  if (!openAIApiKey) {
+    throw new HttpError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+  }
+
+  const modelCandidates = getChatModelCandidates();
+  let lastError: Error | null = null;
+
+  for (const model of modelCandidates) {
+    try {
+      console.log(`Attempting OpenAI request with model: ${model}`);
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openAIApiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_tokens: maxTokens,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Successfully received response from model: ${model}`);
+        return { data, modelUsed: model };
+      }
+
+      const errorText = await response.text();
+      console.error(`OpenAI API error for model ${model}:`, response.status, errorText);
+
+      // Model-specific errors that warrant trying the next model
+      if ([400, 404, 422].includes(response.status)) {
+        lastError = new HttpError(
+          `Model ${model} unavailable: ${errorText}`,
+          424,
+          'OPENAI_MODEL_UNAVAILABLE',
+          { status: response.status }
+        );
+        continue;
+      }
+
+      // Other errors should be thrown immediately
+      throw new HttpError(
+        `OpenAI API error: ${response.status}`,
+        502,
+        'OPENAI_UPSTREAM_ERROR',
+        { status: response.status }
+      );
+    } catch (error) {
+      if (error instanceof HttpError) {
+        lastError = error;
+        // If it's a model unavailability error, continue to next model
+        if (error.code === 'OPENAI_MODEL_UNAVAILABLE') {
+          continue;
+        }
+        throw error;
+      }
+      lastError = new HttpError(String(error), 502, 'OPENAI_UPSTREAM_ERROR');
+      console.error(`OpenAI request failed for model ${model}:`, error);
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new HttpError('Unable to reach OpenAI API', 502, 'OPENAI_UPSTREAM_ERROR');
+}
+
 serve(async (req: Request) => {
+  // Get request origin and build CORS options
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   if (req.method === 'OPTIONS') {
     return createEmptyResponse({ status: 204, cors: corsOptions });
   }
@@ -27,41 +173,184 @@ serve(async (req: Request) => {
   try {
     console.log('Contract generation request received');
 
-    if (!openAIApiKey) {
-      console.error('OPENAI_API_KEY not found');
-      throw new Error('OpenAI API key not configured');
+    // Check rate limit early (before auth to prevent enumeration attacks)
+    const rateLimitIdentifier = getRateLimitIdentifier(req);
+    const rateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.AI,
+      identifier: `contract-gen:${rateLimitIdentifier}`,
+    });
+
+    if (!rateLimitResult.allowed) {
+      console.warn('Rate limit exceeded for:', rateLimitIdentifier);
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
     }
 
-    const { 
-      basicInfo, 
-      parties, 
-      terms, 
-      clauses, 
-      template 
-    } = await req.json();
+    if (!openAIApiKey) {
+      console.error('OPENAI_API_KEY not found');
+      throw new HttpError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+    }
 
-    console.log('Request data:', { basicInfo, parties, terms, clauses, templateProvided: !!template });
+    // Parse JSON with proper error handling
+    let payload: any;
+    try {
+      payload = await req.json();
+    } catch {
+      throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
+    }
+
+    const { basicInfo, parties, terms, clauses, template } = payload;
+
+    // Validate required fields
+    if (!basicInfo) {
+      throw new HttpError('basicInfo is required', 400, 'INVALID_INPUT');
+    }
+
+    if (!basicInfo.title || typeof basicInfo.title !== 'string') {
+      throw new HttpError('basicInfo.title is required and must be a string', 400, 'INVALID_INPUT');
+    }
+
+    if (!basicInfo.type || typeof basicInfo.type !== 'string') {
+      throw new HttpError('basicInfo.type is required and must be a string', 400, 'INVALID_INPUT');
+    }
+
+    // Validate input sizes to prevent context overflow and cost abuse
+    if (basicInfo.title.length > INPUT_LIMITS.MAX_TITLE_LENGTH) {
+      throw new HttpError(
+        `Title exceeds maximum length of ${INPUT_LIMITS.MAX_TITLE_LENGTH} characters`,
+        400,
+        'INPUT_TOO_LARGE'
+      );
+    }
+
+    if (basicInfo.description && basicInfo.description.length > INPUT_LIMITS.MAX_DESCRIPTION_LENGTH) {
+      throw new HttpError(
+        `Description exceeds maximum length of ${INPUT_LIMITS.MAX_DESCRIPTION_LENGTH} characters`,
+        400,
+        'INPUT_TOO_LARGE'
+      );
+    }
+
+    if (terms && terms.length > INPUT_LIMITS.MAX_TERMS_LENGTH) {
+      throw new HttpError(
+        `Terms exceeds maximum length of ${INPUT_LIMITS.MAX_TERMS_LENGTH} characters`,
+        400,
+        'INPUT_TOO_LARGE'
+      );
+    }
+
+    if (template && template.length > INPUT_LIMITS.MAX_TEMPLATE_LENGTH) {
+      throw new HttpError(
+        `Template exceeds maximum length of ${INPUT_LIMITS.MAX_TEMPLATE_LENGTH} characters`,
+        400,
+        'INPUT_TOO_LARGE'
+      );
+    }
+
+    if (parties && Array.isArray(parties)) {
+      if (parties.length > INPUT_LIMITS.MAX_PARTIES_COUNT) {
+        throw new HttpError(
+          `Number of parties exceeds maximum of ${INPUT_LIMITS.MAX_PARTIES_COUNT}`,
+          400,
+          'INPUT_TOO_LARGE'
+        );
+      }
+
+      for (let i = 0; i < parties.length; i++) {
+        const party = parties[i];
+        if (party.address && party.address.length > INPUT_LIMITS.MAX_PARTY_ADDRESS_LENGTH) {
+          throw new HttpError(
+            `Party ${i + 1} address exceeds maximum length of ${INPUT_LIMITS.MAX_PARTY_ADDRESS_LENGTH} characters`,
+            400,
+            'INPUT_TOO_LARGE'
+          );
+        }
+      }
+    }
+
+    if (clauses && Array.isArray(clauses)) {
+      if (clauses.length > INPUT_LIMITS.MAX_CLAUSES_COUNT) {
+        throw new HttpError(
+          `Number of clauses exceeds maximum of ${INPUT_LIMITS.MAX_CLAUSES_COUNT}`,
+          400,
+          'INPUT_TOO_LARGE'
+        );
+      }
+
+      for (let i = 0; i < clauses.length; i++) {
+        const clause = clauses[i];
+        if (clause.content && clause.content.length > INPUT_LIMITS.MAX_CLAUSE_CONTENT_LENGTH) {
+          throw new HttpError(
+            `Clause ${i + 1} content exceeds maximum length of ${INPUT_LIMITS.MAX_CLAUSE_CONTENT_LENGTH} characters`,
+            400,
+            'INPUT_TOO_LARGE'
+          );
+        }
+      }
+    }
+
+    console.log('Request data:', {
+      basicInfo: { ...basicInfo, description: basicInfo.description?.substring(0, 100) },
+      partiesCount: parties?.length || 0,
+      termsLength: terms?.length || 0,
+      clausesCount: clauses?.length || 0,
+      templateProvided: !!template
+    });
 
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
 
     if (!authHeader) {
       console.warn('Missing Authorization header');
-      return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
+      throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
     const accessToken = authHeader.replace('Bearer ', '').trim();
 
     if (!accessToken) {
       console.warn('Authorization header present but token missing');
-      return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
+      throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
 
     if (authError || !user) {
       console.warn('Failed to resolve user from token', authError);
-      return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
+      throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+
+    // Now that we have the user, apply user-specific rate limiting
+    const userRateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.AI,
+      identifier: `contract-gen:user:${user.id}`,
+    });
+
+    if (!userRateLimitResult.allowed) {
+      console.warn('User rate limit exceeded for:', user.id);
+      const rateLimitHeaders = createRateLimitHeaders(userRateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -72,14 +361,15 @@ serve(async (req: Request) => {
 
     if (profileError) {
       console.error('Failed to load user profile', profileError);
-      throw new Error('Failed to load user profile');
+      throw new HttpError('Failed to load user profile', 500, 'PROFILE_LOAD_ERROR');
     }
 
     if (!profile?.organization_id) {
       console.warn('User profile missing organization');
-      return createJsonResponse(
-        { error: 'User must belong to an organization to create contracts' },
-        { status: 403, cors: corsOptions },
+      throw new HttpError(
+        'User must belong to an organization to create contracts',
+        403,
+        'ORGANIZATION_REQUIRED'
       );
     }
 
@@ -328,41 +618,54 @@ Generate the complete contract now.`;
       tags: ['contract-generation', 'legal-ai'],
     });
 
-    console.log('Sending request to OpenAI GPT-4.1');
+    console.log('Sending request to OpenAI with model fallback support');
 
-    // Call OpenAI API with GPT-4.1
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openAIApiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_completion_tokens: 8000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('Received response from OpenAI');
-
-    // Trace the OpenAI chat completion
+    // Build messages array
     const messages = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ];
+
+    // Call OpenAI API with fallback support
+    const { data, modelUsed } = await requestChatCompletion(messages, 8000);
+
+    console.log(`Received response from OpenAI using model: ${modelUsed}`);
+
+    // Validate OpenAI response structure
+    if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+      console.error('Invalid OpenAI response structure:', JSON.stringify(data).substring(0, 500));
+      throw new HttpError(
+        'Received invalid response from AI service',
+        502,
+        'OPENAI_INVALID_RESPONSE'
+      );
+    }
+
+    const choice = data.choices[0];
+    if (!choice.message || typeof choice.message.content !== 'string') {
+      console.error('Invalid OpenAI message structure:', JSON.stringify(choice).substring(0, 500));
+      throw new HttpError(
+        'Received invalid message from AI service',
+        502,
+        'OPENAI_INVALID_RESPONSE'
+      );
+    }
+
+    const generatedContract = choice.message.content;
+
+    // Validate the generated content is not empty
+    if (!generatedContract || generatedContract.trim().length < 100) {
+      console.error('Generated contract is too short or empty:', generatedContract?.length || 0);
+      throw new HttpError(
+        'AI service returned an incomplete contract. Please try again.',
+        502,
+        'OPENAI_INCOMPLETE_RESPONSE'
+      );
+    }
+
+    // Trace the OpenAI chat completion
     await traceOpenAIChatCompletion(traceId, {
-      model: 'gpt-4.1-2025-04-14',
+      model: modelUsed,
       messages,
       response: data,
       userId,
@@ -371,10 +674,9 @@ Generate the complete contract now.`;
         contractType: basicInfo.type,
         jurisdiction: basicInfo.jurisdiction || 'Nigeria',
         maxTokens: 8000,
+        responseLength: generatedContract.length,
       },
     });
-
-    const generatedContract = data.choices[0].message.content;
 
     // Create the contract in the database
     const contractData = {
@@ -401,7 +703,11 @@ Generate the complete contract now.`;
 
     if (saveError) {
       console.error('Database save error:', saveError);
-      throw new Error(`Failed to save contract: ${saveError.message}`);
+      throw new HttpError(
+        `Failed to save contract: ${saveError.message}`,
+        500,
+        'DATABASE_SAVE_ERROR'
+      );
     }
 
     console.log('Contract saved successfully:', savedContract.id);
@@ -411,12 +717,12 @@ Generate the complete contract now.`;
         success: true,
         contract: savedContract,
         generatedText: generatedContract,
+        modelUsed,
       },
       { cors: corsOptions },
     );
   } catch (error: unknown) {
     console.error('Error in ai-contract-generator:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return createJsonResponse({ error: errorMessage }, { status: 500, cors: corsOptions });
+    return createErrorResponse(error, corsOptions, 'Contract generation failed');
   }
 });

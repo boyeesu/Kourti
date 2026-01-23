@@ -169,9 +169,10 @@ export function useUserPermission(resource: Resource, action: Action) {
         if (error) throw error;
         return data as boolean;
       } catch (error) {
-        console.warn('Permission check error, defaulting to true for basic access:', error);
-        // Default to true to prevent blocking users when permission system has issues
-        return true;
+        console.error('Permission check error, denying access for security:', error);
+        // SECURITY: Fail-closed - deny access when permission system has issues
+        // RLS still enforces at the database level, but UI should also block
+        return false;
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes

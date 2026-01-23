@@ -50,7 +50,8 @@ export interface Conversation {
 }
 
 /**
- * Hook to fetch user's conversations
+ * Hook to fetch user's conversations - OPTIMIZED to use single RPC call
+ * This eliminates N+1 query issues by fetching all data in one database round-trip
  */
 export function useConversations() {
   const { user } = useAuth();
@@ -61,8 +62,44 @@ export function useConversations() {
     queryFn: async () => {
       if (!user || !organizationId) return [];
 
-      // Get conversations where user is a participant - use a simpler query
-      // First get conversation IDs where user is a participant
+      // Try using the optimized RPC function first
+      // Note: This RPC is defined in migration 20260122000002 and may not exist yet
+      const { data: optimizedData, error: rpcError } = await supabase
+        .rpc('get_user_conversations_optimized' as any);
+
+      if (!rpcError && optimizedData) {
+        // Transform RPC result to match Conversation interface
+        return (optimizedData as Array<{
+          id: string;
+          organization_id: string;
+          type: 'direct' | 'group';
+          name: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+          participants: Array<{
+            user_id: string;
+            first_name: string | null;
+            last_name: string | null;
+            email: string | null;
+          }>;
+          last_message: Message | null;
+          unread_count: number;
+        }>).map(conv => ({
+          ...conv,
+          participants: conv.participants ?? [],
+          last_message: conv.last_message ?? undefined,
+          unread_count: conv.unread_count ?? 0,
+        })) as Conversation[];
+      }
+
+      // Fallback to original query if RPC doesn't exist yet
+      // (for backwards compatibility during migration)
+      if (rpcError) {
+        console.warn('Optimized RPC not available, falling back to standard queries:', rpcError.message);
+      }
+
+      // FALLBACK: Original implementation for backwards compatibility
       const { data: participantData, error: participantError } = await supabase
         .from('conversation_participants' as any)
         .select('conversation_id, last_read_at')
@@ -70,10 +107,8 @@ export function useConversations() {
 
       if (participantError) {
         console.error('Error fetching participant data:', participantError);
-        // If it's an RLS error, return empty array instead of throwing
-        // This prevents the entire app from breaking
         if (participantError.code === 'PGRST301' || participantError.message?.includes('RLS') || participantError.message?.includes('policy')) {
-          console.warn('RLS policy error detected. Please run FIX_CHAT_RLS_NOW.sql in Supabase SQL Editor.');
+          console.warn('RLS policy error detected. Please run the chat migrations.');
           return [];
         }
         throw participantError;
@@ -85,28 +120,21 @@ export function useConversations() {
       const conversationIds = participantDataTyped.map(p => p.conversation_id);
       const lastReadMap = new Map(participantDataTyped.map(p => [p.conversation_id, p.last_read_at]));
 
-      // Get conversations with all participants
+      // Get conversations with participants
       const { data: conversations, error: conversationsError } = await supabase
         .from('conversations' as any)
         .select(`
           *,
-          conversation_participants(
-            user_id,
-            last_read_at
-          )
+          conversation_participants(user_id, last_read_at)
         `)
         .in('id', conversationIds)
         .eq('organization_id', organizationId)
         .order('updated_at', { ascending: false });
 
-      if (conversationsError) {
-        console.error('Error fetching conversations:', conversationsError);
-        throw conversationsError;
-      }
-      
+      if (conversationsError) throw conversationsError;
       if (!conversations || conversations.length === 0) return [];
 
-      // Get all unique user IDs from participants
+      // Collect all user IDs for batch profile fetch
       const allUserIds = new Set<string>();
       conversations.forEach((conv: any) => {
         (conv.conversation_participants || []).forEach((p: any) => {
@@ -114,83 +142,73 @@ export function useConversations() {
         });
       });
 
-      // Get last messages first to collect sender IDs
-      const lastMessagesData = await Promise.all(
-        conversations.map(async (conv: any) => {
-          const { data: lastMessage } = await supabase
-            .from('messages' as any)
-            .select('*')
-            .eq('conversation_id', conv.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-          return { conversationId: conv.id, lastMessage };
-        })
-      );
+      // Batch fetch: last messages for ALL conversations in one query using Promise.all
+      // This is still N queries but runs in parallel - the RPC above is the proper fix
+      const lastMessagesPromises = conversations.map(async (conv: any) => {
+        const { data: lastMessage } = await supabase
+          .from('messages' as any)
+          .select('*')
+          .eq('conversation_id', conv.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return { conversationId: conv.id, lastMessage };
+      });
+
+      const lastMessagesData = await Promise.all(lastMessagesPromises);
 
       // Collect sender IDs from last messages
       lastMessagesData.forEach(({ lastMessage }) => {
-        const message = lastMessage as any;
-        if (message?.sender_id) {
-          allUserIds.add(message.sender_id);
+        if ((lastMessage as any)?.sender_id) {
+          allUserIds.add((lastMessage as any).sender_id);
         }
       });
 
-      // Fetch profiles for all users (participants + senders) in one query
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles' as any)
+      // Single batch fetch for all profiles
+      const { data: profiles } = await supabase
+        .from('profiles')
         .select('user_id, first_name, last_name, email')
         .in('user_id', Array.from(allUserIds));
 
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        // Don't throw, just continue without profiles
-      }
+      const profilesMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
 
-      // Create a map of user_id -> profile for quick lookup
-      const profilesMap = new Map(
-        (profiles || []).map((p: any) => [p.user_id, p])
-      );
+      // Batch fetch unread counts - parallel execution
+      const unreadCountsPromises = conversations.map(async (conv: any) => {
+        const lastReadAt = lastReadMap.get(conv.id) || '1970-01-01';
+        const { count } = await supabase
+          .from('messages' as any)
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', conv.id)
+          .gt('created_at', lastReadAt)
+          .neq('sender_id', user.id);
+        return { conversationId: conv.id, count: count ?? 0 };
+      });
 
-      // Get last message for each conversation
-      const conversationsWithMessages = await Promise.all(
-        (conversations || []).map(async (conv: any) => {
-          const lastMessageData = lastMessagesData.find(
-            (lm) => lm.conversationId === conv.id
-          );
-          const lastMessage = lastMessageData?.lastMessage;
+      const unreadCounts = await Promise.all(unreadCountsPromises);
+      const unreadMap = new Map(unreadCounts.map(u => [u.conversationId, u.count]));
 
-          // Get unread count - use the last_read_at from the map
-          const lastReadAt = lastReadMap.get(conv.id) || '1970-01-01';
-          
-          const { count: unreadCount } = await supabase
-            .from('messages' as any)
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', conv.id)
-            .gt('created_at', lastReadAt)
-            .neq('sender_id', user.id);
+      // Assemble final result
+      return conversations.map((conv: any) => {
+        const lastMessageData = lastMessagesData.find(lm => lm.conversationId === conv.id);
+        const message = lastMessageData?.lastMessage as any;
 
-          const message = lastMessage as any;
-          return {
-            ...conv,
-            last_message: message ? {
-              ...message,
-              sender: profilesMap.get(message.sender_id) || null
-            } : null,
-            unread_count: unreadCount || 0,
-            participants: (conv.conversation_participants || []).map((p: any) => ({
-              user_id: p.user_id,
-              last_read_at: p.last_read_at,
-              ...(profilesMap.get(p.user_id) || {})
-            }))
-          };
-        })
-      );
-
-      return conversationsWithMessages as Conversation[];
+        return {
+          ...conv,
+          last_message: message ? {
+            ...message,
+            sender: profilesMap.get(message.sender_id) ?? null
+          } : null,
+          unread_count: unreadMap.get(conv.id) ?? 0,
+          participants: (conv.conversation_participants ?? []).map((p: any) => ({
+            user_id: p.user_id,
+            last_read_at: p.last_read_at,
+            ...(profilesMap.get(p.user_id) ?? {})
+          }))
+        };
+      }) as Conversation[];
     },
     enabled: !!user && !!organizationId,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
   });
 }
 

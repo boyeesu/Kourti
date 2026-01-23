@@ -151,7 +151,7 @@ if (rateLimitCount > 10) { // 10 requests per minute
 - [ ] `ream-ai-assistant` - Prevent AI cost abuse
 - [ ] `voice-transcription` - Prevent resource exhaustion
 - [ ] `generate-embeddings` - Prevent cost spikes
-- [ ] `ai-contract-generator` - Prevent cost spikes
+- [x] `ai-contract-generator` - Prevent cost spikes *(Implemented: dual-layer rate limiting with IP and user-based limits)*
 - [ ] Authentication endpoints - Prevent brute force
 
 ---
