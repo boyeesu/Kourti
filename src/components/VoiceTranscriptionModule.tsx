@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
@@ -13,13 +19,16 @@ import { Case } from '@/types';
 import { useCreateActivity } from '@/features/activities/api/useCreateActivity';
 import { Mic, Play, Pause, Square, Save, FileText, Loader2, List } from 'lucide-react';
 
+// Maximum file size for Whisper API (25MB)
+const MAX_RECORDING_SIZE = 25 * 1024 * 1024; // 25MB in bytes
+
 const VoiceTranscriptionModule: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: casesData } = useCases();
   const cases = casesData?.cases || [];
   const createActivity = useCreateActivity();
-  
+
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -33,12 +42,42 @@ const VoiceTranscriptionModule: React.FC = () => {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  
+  const [recordingSize, setRecordingSize] = useState<number>(0);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const startTimeRef = useRef<number>(0);
-  const pausedTimeRef = useRef<number>(0);
+  const pauseStartTimeRef = useRef<number>(0);
+  const totalPausedTimeRef = useRef<number>(0);
+  const audioUrlRef = useRef<string | null>(null);
+
+  // Cleanup on component unmount
+  React.useEffect(() => {
+    return () => {
+      // Stop and cleanup MediaRecorder
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+        const stream = mediaRecorderRef.current.stream;
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      }
+
+      // Cleanup audio playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+
+      // Revoke object URL to prevent memory leak
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+    };
+  }, []);
 
   // Check microphone permissions on component mount
   React.useEffect(() => {
@@ -58,47 +97,71 @@ const VoiceTranscriptionModule: React.FC = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      
+
       audioChunksRef.current = [];
       startTimeRef.current = Date.now();
-      pausedTimeRef.current = 0;
-      
+      pauseStartTimeRef.current = 0;
+      totalPausedTimeRef.current = 0;
+      setRecordingSize(0);
+
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+
+          // Calculate total recording size
+          const totalSize = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.size, 0);
+          setRecordingSize(totalSize);
+
+          // Check if size limit exceeded
+          if (totalSize > MAX_RECORDING_SIZE) {
+            toast({
+              title: 'Recording Size Limit Reached',
+              description: `Maximum recording size of ${(MAX_RECORDING_SIZE / (1024 * 1024)).toFixed(0)}MB reached. Recording stopped automatically.`,
+              variant: 'destructive',
+            });
+
+            // Stop recording automatically
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+              mediaRecorderRef.current.stop();
+              setIsRecording(false);
+              setIsPaused(false);
+            }
+          }
         }
       };
-      
+
       mediaRecorderRef.current.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setAudioBlob(blob);
-        setDuration(Math.round((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000));
-        
+        setDuration(
+          Math.round((Date.now() - startTimeRef.current - totalPausedTimeRef.current) / 1000)
+        );
+
         // Stop all tracks to free up the microphone
-        stream.getTracks().forEach(track => track.stop());
-        
+        stream.getTracks().forEach((track) => track.stop());
+
         // Auto-transcribe immediately after recording ends
         toast({
-          title: "Recording Complete",
-          description: "Starting transcription...",
+          title: 'Recording Complete',
+          description: 'Starting transcription...',
         });
         await autoTranscribe(blob);
       };
-      
+
       mediaRecorderRef.current.start(1000); // Collect data every second
       setIsRecording(true);
       setIsPaused(false);
-      
+
       toast({
-        title: "Recording Started",
-        description: "Recording legal proceedings...",
+        title: 'Recording Started',
+        description: 'Recording legal proceedings...',
       });
     } catch (error) {
       console.error('Error starting recording:', error);
       toast({
-        title: "Recording Error",
-        description: "Could not access microphone. Please check permissions.",
-        variant: "destructive",
+        title: 'Recording Error',
+        description: 'Could not access microphone. Please check permissions.',
+        variant: 'destructive',
       });
     }
   };
@@ -106,25 +169,26 @@ const VoiceTranscriptionModule: React.FC = () => {
   const pauseRecording = () => {
     if (mediaRecorderRef.current && isRecording && !isPaused) {
       mediaRecorderRef.current.pause();
+      pauseStartTimeRef.current = Date.now();
       setIsPaused(true);
-      pausedTimeRef.current += Date.now();
-      
+
       toast({
-        title: "Recording Paused",
-        description: "Click resume to continue recording",
+        title: 'Recording Paused',
+        description: 'Click resume to continue recording',
       });
     }
   };
 
   const resumeRecording = () => {
     if (mediaRecorderRef.current && isRecording && isPaused) {
-      pausedTimeRef.current = Date.now() - pausedTimeRef.current;
+      const pauseDuration = Date.now() - pauseStartTimeRef.current;
+      totalPausedTimeRef.current += pauseDuration;
       mediaRecorderRef.current.resume();
       setIsPaused(false);
-      
+
       toast({
-        title: "Recording Resumed",
-        description: "Recording continues...",
+        title: 'Recording Resumed',
+        description: 'Recording continues...',
       });
     }
   };
@@ -134,24 +198,53 @@ const VoiceTranscriptionModule: React.FC = () => {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsPaused(false);
-      
+
       toast({
-        title: "Recording Stopped",
-        description: "Processing recording...",
+        title: 'Recording Stopped',
+        description: 'Processing recording...',
       });
     }
   };
 
   const playRecording = () => {
     if (audioBlob && !isPlaying) {
+      // Cleanup previous audio instance if exists
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+
+      // Revoke previous URL if exists
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+      }
+
+      // Create new audio URL and instance
       const audioUrl = URL.createObjectURL(audioBlob);
+      audioUrlRef.current = audioUrl;
       audioRef.current = new Audio(audioUrl);
-      
+
       audioRef.current.onended = () => {
         setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
       };
-      
+
+      audioRef.current.onerror = () => {
+        setIsPlaying(false);
+        toast({
+          title: 'Playback Error',
+          description: 'Failed to play audio recording',
+          variant: 'destructive',
+        });
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
+      };
+
       audioRef.current.play();
       setIsPlaying(true);
     }
@@ -160,36 +253,56 @@ const VoiceTranscriptionModule: React.FC = () => {
   const pausePlayback = () => {
     if (audioRef.current && isPlaying) {
       audioRef.current.pause();
+      audioRef.current.currentTime = 0; // Reset to beginning
       setIsPlaying(false);
+
+      // Cleanup audio resources
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
     }
   };
 
   // Auto-transcribe function called immediately after recording
   const autoTranscribe = async (blob: Blob) => {
+    // Validate file size before transcription
+    if (blob.size > MAX_RECORDING_SIZE) {
+      toast({
+        title: 'File Too Large',
+        description: `Audio file (${(blob.size / (1024 * 1024)).toFixed(2)}MB) exceeds Whisper API limit of ${(MAX_RECORDING_SIZE / (1024 * 1024)).toFixed(0)}MB. Please record a shorter audio.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsTranscribing(true);
-    
+
     try {
       // Convert blob to base64
       const reader = new FileReader();
       reader.onloadend = async () => {
         try {
           const base64Audio = reader.result?.toString().split(',')[1];
-          
+
           if (!base64Audio) {
             throw new Error('Failed to process audio file');
           }
 
-          const { data, error } = await invokeFunctionWithCsrf<{ error?: string; transcript?: string }>('voice-transcription', {
+          const { data, error } = await invokeFunctionWithCsrf<{
+            error?: string;
+            transcript?: string;
+          }>('voice-transcription', {
             body: {
               audio: base64Audio,
-              action: 'transcribe'
-            }
+              action: 'transcribe',
+            },
           });
 
           if (error) {
             throw error;
           }
-          
+
           if (data?.error) {
             throw new Error(data.error);
           }
@@ -199,42 +312,46 @@ const VoiceTranscriptionModule: React.FC = () => {
           }
 
           setTranscript(data.transcript);
-          
+
           toast({
-            title: "Transcription Complete",
-            description: "Audio has been transcribed successfully",
+            title: 'Transcription Complete',
+            description: 'Audio has been transcribed successfully',
           });
         } catch (innerError: unknown) {
-          const errorMessage = innerError instanceof Error ? innerError.message : "Failed to transcribe audio automatically";
+          const errorMessage =
+            innerError instanceof Error
+              ? innerError.message
+              : 'Failed to transcribe audio automatically';
           toast({
-            title: "Transcription Failed",
+            title: 'Transcription Failed',
             description: errorMessage,
-            variant: "destructive",
+            variant: 'destructive',
           });
         } finally {
           setIsTranscribing(false);
         }
       };
-      
+
       reader.onerror = () => {
         console.error('❌ FileReader error');
         setIsTranscribing(false);
         toast({
-          title: "File Processing Error",
-          description: "Failed to process the audio file",
-          variant: "destructive",
+          title: 'File Processing Error',
+          description: 'Failed to process the audio file',
+          variant: 'destructive',
         });
       };
-      
+
       reader.readAsDataURL(blob);
     } catch (error: unknown) {
       console.error('❌ Auto-transcription setup error:', error);
       setIsTranscribing(false);
-      const errorMessage = error instanceof Error ? error.message : "Failed to set up transcription";
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to set up transcription';
       toast({
-        title: "Transcription Setup Failed",
+        title: 'Transcription Setup Failed',
         description: errorMessage,
-        variant: "destructive",
+        variant: 'destructive',
       });
     }
   };
@@ -242,34 +359,47 @@ const VoiceTranscriptionModule: React.FC = () => {
   const transcribeAudio = async () => {
     if (!audioBlob) {
       toast({
-        title: "No Recording",
-        description: "Please record audio first",
-        variant: "destructive",
+        title: 'No Recording',
+        description: 'Please record audio first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size before transcription
+    if (audioBlob.size > MAX_RECORDING_SIZE) {
+      toast({
+        title: 'File Too Large',
+        description: `Audio file (${(audioBlob.size / (1024 * 1024)).toFixed(2)}MB) exceeds Whisper API limit of ${(MAX_RECORDING_SIZE / (1024 * 1024)).toFixed(0)}MB. Please record a shorter audio.`,
+        variant: 'destructive',
       });
       return;
     }
 
     setIsTranscribing(true);
-    
+
     try {
       // Convert blob to base64
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64Audio = reader.result?.toString().split(',')[1];
-        
+
         if (!base64Audio) {
           throw new Error('Failed to process audio');
         }
 
-        const { data, error } = await invokeFunctionWithCsrf<{ error?: string; transcript?: string }>('voice-transcription', {
+        const { data, error } = await invokeFunctionWithCsrf<{
+          error?: string;
+          transcript?: string;
+        }>('voice-transcription', {
           body: {
             audio: base64Audio,
-            action: 'transcribe'
-          }
+            action: 'transcribe',
+          },
         });
 
         if (error) throw error;
-        
+
         if (data?.error) {
           throw new Error(data.error);
         }
@@ -277,21 +407,21 @@ const VoiceTranscriptionModule: React.FC = () => {
         if (data?.transcript) {
           setTranscript(data.transcript);
         }
-        
+
         toast({
-          title: "Transcription Complete",
-          description: "Audio has been transcribed successfully",
+          title: 'Transcription Complete',
+          description: 'Audio has been transcribed successfully',
         });
       };
-      
+
       reader.readAsDataURL(audioBlob);
     } catch (error: unknown) {
       console.error('Transcription error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to transcribe audio";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to transcribe audio';
       toast({
-        title: "Transcription Failed",
+        title: 'Transcription Failed',
         description: errorMessage,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setIsTranscribing(false);
@@ -301,25 +431,28 @@ const VoiceTranscriptionModule: React.FC = () => {
   const generateSummary = async () => {
     if (!transcript.trim()) {
       toast({
-        title: "No Transcript",
-        description: "Please transcribe audio first",
-        variant: "destructive",
+        title: 'No Transcript',
+        description: 'Please transcribe audio first',
+        variant: 'destructive',
       });
       return;
     }
 
     setIsSummarizing(true);
-    
+
     try {
-      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; summary?: string }>('voice-transcription', {
-        body: {
-          transcript,
-          action: 'summarize'
+      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; summary?: string }>(
+        'voice-transcription',
+        {
+          body: {
+            transcript,
+            action: 'summarize',
+          },
         }
-      });
+      );
 
       if (error) throw error;
-      
+
       if (data?.error) {
         throw new Error(data.error);
       }
@@ -327,18 +460,18 @@ const VoiceTranscriptionModule: React.FC = () => {
       if (data?.summary) {
         setSummary(data.summary);
       }
-      
+
       toast({
-        title: "Summary Generated",
-        description: "Transcript summary has been generated",
+        title: 'Summary Generated',
+        description: 'Transcript summary has been generated',
       });
     } catch (error: unknown) {
       console.error('Summary error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to generate summary";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate summary';
       toast({
-        title: "Summary Failed",
+        title: 'Summary Failed',
         description: errorMessage,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setIsSummarizing(false);
@@ -347,12 +480,12 @@ const VoiceTranscriptionModule: React.FC = () => {
 
   const saveTranscription = async (saveType: 'transcript' | 'summary') => {
     const contentToSave = saveType === 'summary' ? summary : transcript;
-    
+
     if (!title.trim() || !contentToSave.trim()) {
       toast({
-        title: "Missing Information", 
-        description: "Please provide a title and content to save",
-        variant: "destructive",
+        title: 'Missing Information',
+        description: 'Please provide a title and content to save',
+        variant: 'destructive',
       });
       return;
     }
@@ -361,8 +494,10 @@ const VoiceTranscriptionModule: React.FC = () => {
 
     try {
       // Get current user data
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -385,28 +520,28 @@ const VoiceTranscriptionModule: React.FC = () => {
         const MAX_AUDIO_SIZE = 50 * 1024 * 1024; // 50MB
         if (audioBlob.size > MAX_AUDIO_SIZE) {
           toast({
-            title: "File Too Large",
+            title: 'File Too Large',
             description: `Audio file exceeds maximum size of ${(MAX_AUDIO_SIZE / (1024 * 1024)).toFixed(0)}MB`,
-            variant: "destructive",
+            variant: 'destructive',
           });
           // Continue without audio file
         } else {
           const fileName = `audio_${Date.now()}.webm`;
           const filePath = `${user.id}/${fileName}`;
-          
+
           const { error: uploadError } = await supabase.storage
             .from('documents')
             .upload(filePath, audioBlob, {
               contentType: 'audio/webm',
-              upsert: false
+              upsert: false,
             });
 
           if (uploadError) {
             console.error('Error uploading audio:', uploadError);
             toast({
-              title: "Audio Upload Warning",
-              description: "Audio file could not be saved, but transcription will be saved.",
-              variant: "destructive",
+              title: 'Audio Upload Warning',
+              description: 'Audio file could not be saved, but transcription will be saved.',
+              variant: 'destructive',
             });
           } else {
             // Get signed URL for private bucket (1 hour expiry)
@@ -419,24 +554,22 @@ const VoiceTranscriptionModule: React.FC = () => {
       }
 
       // Save to voice_transcriptions table
-      const { error: transcriptionError } = await supabase
-        .from('voice_transcriptions')
-        .insert({
-          title,
-          transcript: saveType === 'transcript' ? transcript : '',
-          summary: saveType === 'summary' ? summary : '',
-          case_id: selectedCaseId === 'none' ? null : selectedCaseId,
-          duration_seconds: duration,
-          status: 'completed' as const,
-          organization_id: profile.organization_id,
-          created_by: user.id,
-          audio_file_url: audioFileUrl,
-          metadata: {
-            recordingDate: new Date().toISOString(),
-            fileType: 'webm',
-            source: 'voice_recorder'
-          }
-        });
+      const { error: transcriptionError } = await supabase.from('voice_transcriptions').insert({
+        title,
+        transcript: saveType === 'transcript' ? transcript : '',
+        summary: saveType === 'summary' ? summary : '',
+        case_id: selectedCaseId === 'none' ? null : selectedCaseId,
+        duration_seconds: duration,
+        status: 'completed' as const,
+        organization_id: profile.organization_id,
+        created_by: user.id,
+        audio_file_url: audioFileUrl,
+        metadata: {
+          recordingDate: new Date().toISOString(),
+          fileType: 'webm',
+          source: 'voice_recorder',
+        },
+      });
 
       if (transcriptionError) throw transcriptionError;
 
@@ -448,13 +581,13 @@ const VoiceTranscriptionModule: React.FC = () => {
             title: `Voice Recording: ${title}`,
             description: `${saveType === 'summary' ? 'Summary' : 'Transcript'} saved from voice recording`,
             activity_type: 'voice_recording',
-            status: 'completed'
-          }
+            status: 'completed',
+          },
         });
       }
 
       toast({
-        title: "Saved Successfully",
+        title: 'Saved Successfully',
         description: `${saveType === 'summary' ? 'Summary' : 'Transcript'} has been saved${selectedCaseId && selectedCaseId !== 'none' ? ' and linked to the matter' : ''}`,
       });
 
@@ -465,14 +598,13 @@ const VoiceTranscriptionModule: React.FC = () => {
       setSelectedCaseId('none');
       setAudioBlob(null);
       setDuration(null);
-      
     } catch (error: unknown) {
       console.error('Save error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to save transcription";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save transcription';
       toast({
-        title: "Save Failed",
+        title: 'Save Failed',
         description: errorMessage,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setIsSaving(false);
@@ -503,15 +635,16 @@ const VoiceTranscriptionModule: React.FC = () => {
           {hasPermission === false && (
             <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                Microphone access is required for voice recording. Please allow microphone access and refresh the page.
+                Microphone access is required for voice recording. Please allow microphone access
+                and refresh the page.
               </p>
             </div>
           )}
 
           <div className="flex items-center space-x-4">
             {!isRecording ? (
-              <Button 
-                onClick={startRecording} 
+              <Button
+                onClick={startRecording}
                 disabled={hasPermission === false}
                 className="flex items-center space-x-2"
               >
@@ -521,17 +654,29 @@ const VoiceTranscriptionModule: React.FC = () => {
             ) : (
               <div className="flex items-center space-x-2">
                 {!isPaused ? (
-                  <Button onClick={pauseRecording} variant="outline" className="flex items-center space-x-2">
+                  <Button
+                    onClick={pauseRecording}
+                    variant="outline"
+                    className="flex items-center space-x-2"
+                  >
                     <Pause className="h-4 w-4" />
                     <span>Pause</span>
                   </Button>
                 ) : (
-                  <Button onClick={resumeRecording} variant="outline" className="flex items-center space-x-2">
+                  <Button
+                    onClick={resumeRecording}
+                    variant="outline"
+                    className="flex items-center space-x-2"
+                  >
                     <Play className="h-4 w-4" />
                     <span>Resume</span>
                   </Button>
                 )}
-                <Button onClick={stopRecording} variant="destructive" className="flex items-center space-x-2">
+                <Button
+                  onClick={stopRecording}
+                  variant="destructive"
+                  className="flex items-center space-x-2"
+                >
                   <Square className="h-4 w-4" />
                   <span>Stop Recording</span>
                 </Button>
@@ -541,31 +686,59 @@ const VoiceTranscriptionModule: React.FC = () => {
             {audioBlob && (
               <div className="flex items-center space-x-2">
                 {!isPlaying ? (
-                  <Button onClick={playRecording} variant="outline" className="flex items-center space-x-2">
+                  <Button
+                    onClick={playRecording}
+                    variant="outline"
+                    className="flex items-center space-x-2"
+                  >
                     <Play className="h-4 w-4" />
                     <span>Play</span>
                   </Button>
                 ) : (
-                  <Button onClick={pausePlayback} variant="outline" className="flex items-center space-x-2">
+                  <Button
+                    onClick={pausePlayback}
+                    variant="outline"
+                    className="flex items-center space-x-2"
+                  >
                     <Pause className="h-4 w-4" />
                     <span>Pause</span>
                   </Button>
                 )}
                 {duration && (
-                  <span className="text-sm text-muted-foreground">
-                    Duration: {duration}s
-                  </span>
+                  <span className="text-sm text-muted-foreground">Duration: {duration}s</span>
                 )}
               </div>
             )}
           </div>
 
           {isRecording && (
-            <div className="flex items-center space-x-2 text-red-600">
-              <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
-              <span className="text-sm font-medium">
-                {isPaused ? 'Recording paused...' : 'Recording in progress...'}
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-red-600">
+                <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
+                <span className="text-sm font-medium">
+                  {isPaused ? 'Recording paused...' : 'Recording in progress...'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Recording size: {(recordingSize / (1024 * 1024)).toFixed(2)} MB /{' '}
+                  {(MAX_RECORDING_SIZE / (1024 * 1024)).toFixed(0)} MB
+                </span>
+                <div className="w-48 bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all ${
+                      recordingSize > MAX_RECORDING_SIZE * 0.9
+                        ? 'bg-red-600'
+                        : recordingSize > MAX_RECORDING_SIZE * 0.7
+                          ? 'bg-yellow-500'
+                          : 'bg-green-500'
+                    }`}
+                    style={{
+                      width: `${Math.min((recordingSize / MAX_RECORDING_SIZE) * 100, 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -586,8 +759,8 @@ const VoiceTranscriptionModule: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {audioBlob && !transcript && !isTranscribing && (
-              <Button 
-                onClick={transcribeAudio} 
+              <Button
+                onClick={transcribeAudio}
                 disabled={isTranscribing}
                 className="flex items-center space-x-2"
               >
@@ -600,7 +773,7 @@ const VoiceTranscriptionModule: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">Transcript</h3>
-                  <Textarea 
+                  <Textarea
                     value={transcript}
                     onChange={(e) => setTranscript(e.target.value)}
                     placeholder="Transcript will appear here..."
@@ -608,7 +781,7 @@ const VoiceTranscriptionModule: React.FC = () => {
                   />
                 </div>
 
-                <Button 
+                <Button
                   onClick={generateSummary}
                   disabled={isSummarizing}
                   variant="outline"
@@ -627,7 +800,7 @@ const VoiceTranscriptionModule: React.FC = () => {
             {summary && (
               <div className="space-y-2">
                 <h3 className="font-semibold">AI Summary</h3>
-                <Textarea 
+                <Textarea
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
                   placeholder="Summary will appear here..."
@@ -643,7 +816,9 @@ const VoiceTranscriptionModule: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle>Save Recording</CardTitle>
-            <CardDescription>Save transcript or summary and optionally link to a matter</CardDescription>
+            <CardDescription>
+              Save transcript or summary and optionally link to a matter
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input
@@ -668,7 +843,7 @@ const VoiceTranscriptionModule: React.FC = () => {
 
             <div className="flex space-x-4">
               {transcript && (
-                <Button 
+                <Button
                   onClick={() => saveTranscription('transcript')}
                   disabled={isSaving}
                   className="flex items-center space-x-2"
@@ -683,7 +858,7 @@ const VoiceTranscriptionModule: React.FC = () => {
               )}
 
               {summary && (
-                <Button 
+                <Button
                   onClick={() => saveTranscription('summary')}
                   disabled={isSaving}
                   variant="outline"

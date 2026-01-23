@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Square, Play, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useRef, useEffect } from 'react';
+import { Mic, MicOff, Square, Play, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 interface VoiceRecorderProps {
   onTranscription: (transcription: string) => void;
@@ -14,23 +14,45 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioUrlRef = useRef<string | null>(null);
 
   const { toast } = useToast();
+
   useEffect(() => {
     checkMicrophonePermission();
+  }, []);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      // Stop and cleanup MediaRecorder
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+        const stream = mediaRecorderRef.current.stream;
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      }
+
+      // Revoke object URL to prevent memory leak
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+    };
   }, []);
 
   const checkMicrophonePermission = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setHasPermission(true);
-      stream.getTracks().forEach(track => track.stop()); // Stop the stream immediately
+      stream.getTracks().forEach((track) => track.stop()); // Stop the stream immediately
     } catch (error) {
       setHasPermission(false);
-      console.error("Microphone permission denied:", error);
+      console.error('Microphone permission denied:', error);
     }
   };
 
@@ -39,7 +61,11 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
       if (!hasPermission) {
         await checkMicrophonePermission();
         if (!hasPermission) {
-          toast({ title: "Permission required", description: "Microphone permission is required for voice recording", variant: "destructive" });
+          toast({
+            title: 'Permission required',
+            description: 'Microphone permission is required for voice recording',
+            variant: 'destructive',
+          });
           return;
         }
       }
@@ -56,13 +82,20 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+        // Revoke previous URL if exists
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+        }
+
         const url = URL.createObjectURL(audioBlob);
+        audioUrlRef.current = url;
         setAudioUrl(url);
-        
+
         // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
-        
+        stream.getTracks().forEach((track) => track.stop());
+
         // Transcribe the audio
         await transcribeAudio();
       };
@@ -70,10 +103,10 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
       mediaRecorder.start();
       setIsRecording(true);
       onRecordingChange?.(true);
-      toast({ title: "Recording started" });
+      toast({ title: 'Recording started' });
     } catch (error) {
-      console.error("Error starting recording:", error);
-      toast({ title: "Failed to start recording", variant: "destructive" });
+      console.error('Error starting recording:', error);
+      toast({ title: 'Failed to start recording', variant: 'destructive' });
     }
   };
 
@@ -82,13 +115,13 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       onRecordingChange?.(false);
-      toast({ title: "Recording stopped" });
+      toast({ title: 'Recording stopped' });
     }
   };
 
   const transcribeAudio = async () => {
     setIsTranscribing(true);
-    
+
     try {
       // Check if Web Speech API is available
       // Web Speech API types
@@ -96,49 +129,52 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
         continuous: boolean;
         interimResults: boolean;
         lang: string;
-        onresult: (event: { results: { [index: number]: { [index: number]: { transcript: string } } } }) => void;
+        onresult: (event: {
+          results: { [index: number]: { [index: number]: { transcript: string } } };
+        }) => void;
         onerror: (event: { error: string }) => void;
         start: () => void;
       }
-      
-      const windowWithSpeech = window as Window & { 
-        SpeechRecognition?: new () => SpeechRecognitionAPI; 
+
+      const windowWithSpeech = window as Window & {
+        SpeechRecognition?: new () => SpeechRecognitionAPI;
         webkitSpeechRecognition?: new () => SpeechRecognitionAPI;
       };
-      
+
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         // Use Web Speech API for real-time transcription (Chrome/Edge)
-        const SpeechRecognitionClass = windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
+        const SpeechRecognitionClass =
+          windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
         if (!SpeechRecognitionClass) {
           fallbackTranscription();
           return;
         }
         const recognition = new SpeechRecognitionClass();
-        
+
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
-        
+
         // Handle recognition result
         recognition.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           onTranscription(transcript);
-          toast({ title: "Transcribed", description: "Audio transcribed successfully" });
+          toast({ title: 'Transcribed', description: 'Audio transcribed successfully' });
         };
-        
+
         recognition.onerror = (event) => {
-          console.error("Speech recognition error:", event.error);
+          console.error('Speech recognition error:', event.error);
           // Fallback to manual transcription entry
           fallbackTranscription();
         };
-        
+
         recognition.start();
       } else {
         // Fallback for browsers without Web Speech API
         fallbackTranscription();
       }
     } catch (error) {
-      console.error("Transcription error:", error);
+      console.error('Transcription error:', error);
       fallbackTranscription();
     } finally {
       setIsTranscribing(false);
@@ -148,12 +184,14 @@ export function VoiceRecorder({ onTranscription, onRecordingChange }: VoiceRecor
   const fallbackTranscription = () => {
     // For now, we'll prompt the user to manually enter transcription
     // In a production app, you'd send the audio to a transcription service
-    const transcript = prompt("Please enter the transcription manually (automatic transcription not available):");
+    const transcript = prompt(
+      'Please enter the transcription manually (automatic transcription not available):'
+    );
     if (transcript) {
       onTranscription(transcript);
-      toast({ title: "Transcription added" });
+      toast({ title: 'Transcription added' });
     } else {
-      toast({ title: "No transcription provided", variant: "destructive" });
+      toast({ title: 'No transcription provided', variant: 'destructive' });
     }
   };
 
