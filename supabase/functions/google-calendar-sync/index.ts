@@ -427,7 +427,8 @@ serve(async (req) => {
       }
 
       const authorizationUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-      return createJsonResponse({ authorization_url: authorizationUrl, redirect_uri: redirectUri }, { cors: corsOptions });
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse({ authorization_url: authorizationUrl, redirect_uri: redirectUri }, { cors: corsOptions, headers: rateLimitHeaders });
     }
 
     const { data: integration } = await supabase
@@ -967,9 +968,13 @@ serve(async (req) => {
       }, { cors: corsOptions });
     }
 
-    return createJsonResponse({ error: 'Invalid action' }, { status: 400, cors: corsOptions });
-  } catch (error) {
-    console.error('Error in google-calendar-sync:', error);
-    return createJsonResponse({ error: String(error) }, { status: 500, cors: corsOptions });
+    throw new HttpError('Invalid action', 400, 'INVALID_ACTION');
+  } catch (error: unknown) {
+    if (error instanceof HttpError) {
+      return createErrorResponse(error, corsOptions);
+    }
+    return createSanitizedErrorResponse(error, corsOptions, {
+      function: 'google-calendar-sync',
+    });
   }
 });
