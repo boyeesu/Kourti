@@ -394,13 +394,13 @@ serve(async (req) => {
       .maybeSingle() as { data: { client_id: string; client_secret: string | null; redirect_uri: string | null; domain_hint: string | null } | null; error: any };
 
     if (!config?.client_id) {
-      return createJsonResponse({ error: 'Google Calendar OAuth is not configured.' }, { status: 400, cors: corsOptions });
+      throw new HttpError('Google Calendar OAuth is not configured for your organization', 400, 'OAUTH_NOT_CONFIGURED');
     }
 
     if (action === 'authorize') {
       const redirectTo = body.redirect_to ?? Deno.env.get('APP_URL') ?? '';
       if (!redirectTo) {
-        return createJsonResponse({ error: 'Missing redirect URL' }, { status: 400, cors: corsOptions });
+        throw new HttpError('Missing redirect URL', 400, 'INVALID_INPUT');
       }
 
       const statePayload: CalendarStatePayload = {
