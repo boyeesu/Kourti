@@ -2,16 +2,52 @@ declare const Deno: any;
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createCorsSecurityHeaders, createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
+import { createCorsSecurityHeaders, createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
-const corsOptions = {
-  allowMethods: ['POST', 'OPTIONS'],
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:8083",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 serve(async (req: Request) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return createEmptyResponse({ status: 204, cors: corsOptions });
@@ -19,25 +55,62 @@ serve(async (req: Request) => {
 
   try {
     console.log('Generate invoice PDF request received');
-    
-    const { invoiceId } = await req.json();
-    
-    if (!invoiceId) {
-      throw new Error('Invoice ID is required');
-    }
 
     // Get user info from request headers
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization required');
+      throw new HttpError('Authentication required', 401, 'UNAUTHORIZED');
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.replace('Bearer ', '').trim();
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (!user) {
-      throw new Error('Invalid authorization');
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      console.error('Authentication failed:', authError?.message);
+      throw new HttpError('Invalid or expired authentication token', 401, 'UNAUTHORIZED');
+    }
+
+    console.log(`Processing invoice PDF generation for user ${user.id}`);
+
+    // CSRF Protection - critical for document generation
+    await requireCsrfTokenForUser(supabase, user.id, req);
+
+    // Rate limiting - prevent abuse of CPU-intensive PDF generation
+    const rateLimitId = user.id;
+    const rateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.SENSITIVE, // 3 requests per minute for sensitive operations
+      identifier: rateLimitId,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
+    }
+
+    // Parse request body
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
+    }
+
+    const { invoiceId } = body ?? {};
+
+    if (!invoiceId) {
+      throw new HttpError('Invoice ID is required', 400, 'INVALID_INPUT');
     }
 
     console.log('Fetching invoice data for user:', user.id);
@@ -56,7 +129,19 @@ serve(async (req: Request) => {
 
     if (invoiceError || !invoice) {
       console.error('Failed to fetch invoice:', invoiceError);
-      throw new Error('Invoice not found');
+      throw new HttpError('Invoice not found', 404, 'INVOICE_NOT_FOUND');
+    }
+
+    // Verify user has access to this invoice through their organization
+    const { data: profile } = await supabase
+      .from('profiles' as any)
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .single() as { data: { organization_id: string } | null; error: any };
+
+    if (!profile?.organization_id || invoice.organization_id !== profile.organization_id) {
+      console.warn(`User ${user.id} attempted to access invoice ${invoiceId} without authorization`);
+      throw new HttpError('Access denied to this invoice', 403, 'FORBIDDEN');
     }
 
     // Fetch organization details

@@ -184,10 +184,9 @@ export const processDocumentChunksHandler = async (req: Request) => {
       throw new HttpError('User does not belong to an organization', 403, 'FORBIDDEN');
     }
 
-    // CSRF Protection - temporarily disabled (needs proper token refresh fix)
-    // The CSRF token expires or isn't being sent correctly from the client
-    // TODO: Fix csrfClient.ts to properly refresh tokens before mutations
-    // await requireCsrfTokenForUser(supabase, user.id, req);
+    // CSRF Protection - Re-enabled after fixing token refresh in csrfClient.ts
+    // The client now proactively refreshes tokens before they expire
+    await requireCsrfTokenForUser(supabase, user.id, req);
 
     let payload: any;
 

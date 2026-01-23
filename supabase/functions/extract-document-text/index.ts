@@ -1,34 +1,150 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import JSZip from "https://esm.sh/jszip@3.10.1";
+import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
+import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
+import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
+import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  Deno.env.get("APP_URL"),
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:8081",
+  "http://localhost:8083",
+  "https://app.kourti.com",
+  "https://kouti-legal-hub-41.lovable.app",
+]
+  .flatMap((value) => (value ? value.split(",") : []))
+  .filter(Boolean)
+  .map((origin) => {
+    if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+      return `https://${origin}`;
+    }
+    return origin;
+  })
+  .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+
+  return {
+    origin,
+    requestOrigin,
+    allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
+    allowCredentials: true,
+    allowMethods: ["POST", "OPTIONS"],
+  };
+}
+
+async function authenticateRequest(req: Request) {
+  const authHeader = req.headers.get('Authorization');
+
+  if (!authHeader) {
+    throw new HttpError('Authentication required', 401, 'UNAUTHORIZED');
+  }
+
+  const token = authHeader.replace('Bearer ', '').trim();
+
+  if (!token) {
+    throw new HttpError('Invalid authentication token', 401, 'UNAUTHORIZED');
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new HttpError('Server configuration error', 503, 'CONFIG_ERROR');
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+  if (authError || !user) {
+    console.error('Authentication failed:', authError?.message);
+    throw new HttpError('Invalid or expired authentication token', 401, 'UNAUTHORIZED');
+  }
+
+  console.log(`Authenticated user: ${user.id}`);
+
+  return { user, supabase };
+}
+
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
 
 serve(async (req: Request) => {
+  const requestOrigin = req.headers.get("Origin");
+  const corsOptions = getCorsOptions(requestOrigin);
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
   try {
-    const { documentId, filePath } = await req.json();
+    // Authenticate the request
+    const { user, supabase } = await authenticateRequest(req);
+    console.log(`Processing document extraction for user ${user.id}`);
 
-    if (!documentId || !filePath) {
-      return new Response(
-        JSON.stringify({ error: 'documentId and filePath are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    // CSRF Protection
+    await requireCsrfTokenForUser(supabase, user.id, req);
+
+    // Rate limiting - prevent abuse
+    const rateLimitId = user.id;
+    const rateLimitResult = checkRateLimit({
+      ...RATE_LIMIT_PRESETS.API, // 100 requests per minute
+      identifier: rateLimitId,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
       );
     }
 
-    console.log(`Extracting text from document ${documentId}, file: ${filePath}`);
+    // Parse request body
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
+    }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { documentId, filePath } = body ?? {};
+
+    // Validate inputs
+    if (!documentId || !isValidUUID(documentId)) {
+      throw new HttpError('Valid document ID is required', 400, 'INVALID_INPUT');
+    }
+
+    if (!filePath || typeof filePath !== 'string') {
+      throw new HttpError('Valid file path is required', 400, 'INVALID_INPUT');
+    }
+
+    // Prevent path traversal
+    if (filePath.includes('..') || filePath.startsWith('/')) {
+      throw new HttpError('Invalid file path', 400, 'INVALID_INPUT');
+    }
+
+    console.log(`Extracting text from document ${documentId}, file: ${filePath}`);
 
     // Download the file from storage
     const { data: fileData, error: downloadError } = await supabase.storage
@@ -37,17 +153,11 @@ serve(async (req: Request) => {
 
     if (downloadError) {
       console.error('Error downloading file:', downloadError);
-      return new Response(
-        JSON.stringify({ error: `Failed to download file: ${downloadError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new HttpError('Failed to download file from storage', 500, 'STORAGE_ERROR');
     }
 
     if (!fileData) {
-      return new Response(
-        JSON.stringify({ error: 'No file data received' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new HttpError('No file data received', 404, 'FILE_NOT_FOUND');
     }
 
     // Determine file type and extract text
@@ -131,24 +241,29 @@ serve(async (req: Request) => {
       console.warn(`Document ${documentId} extraction did not yield valid content. Length: ${extractedText?.length || 0}, Error: ${extractionError || 'None'}`);
     }
 
-    return new Response(
-      JSON.stringify({ 
+    const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+    return createJsonResponse(
+      {
         success: hasValidContent,
         content: extractedText,
         contentLength: extractedText.length,
         documentId,
         error: extractionError || undefined,
         warning: !hasValidContent ? 'Extraction did not yield meaningful content' : undefined
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      },
+      {
+        cors: corsOptions,
+        headers: rateLimitHeaders,
+      }
     );
 
-  } catch (error) {
-    console.error('Extract document text error:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  } catch (error: unknown) {
+    if (error instanceof HttpError) {
+      return createErrorResponse(error, corsOptions);
+    }
+    return createSanitizedErrorResponse(error, corsOptions, {
+      function: 'extract-document-text',
+    });
   }
 });
 

@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+package-lock.json
+
+# Build outputs
+dist
+build
+.vercel
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Supabase
+supabase/.temp
+supabase/functions/.temp
+
+# IDE
+.vscode
+.idea
+
+# Misc
+*.log
+.DS_Store
+coverage
