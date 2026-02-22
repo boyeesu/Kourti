@@ -1,23 +1,22 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from 'react';
 import { logError, logWarn } from '@/lib/logger';
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { useDropzone } from "react-dropzone";
-import { useVectorSearch } from "@/hooks/useVectorSearch";
-import { useRAGSearch, useProcessDocument } from "@/hooks/useRAGSearch";
-import { useDocuments, useUploadDocument } from "@/hooks/useDocuments";
-import { useContracts } from "@/hooks/useContracts";
-import { useEnhancedDocumentAnalysis } from "@/hooks/useEnhancedDocumentAnalysis";
-import { useDocumentContent } from "@/hooks/useDocumentContext";
-import { useCurrentUserOrganization } from "@/hooks/useOrganization";
-import { useReamAIAssistant } from "@/hooks/useReamAIAssistant";
-import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
-import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import { invokeFunctionWithCsrf } from "@/lib/csrfClient";
-import { cn } from "@/lib/utils";
-import { useSearchParams } from "react-router-dom";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { useDropzone } from 'react-dropzone';
+import { useVectorSearch } from '@/hooks/useVectorSearch';
+import { useRAGSearch, useProcessDocument } from '@/hooks/useRAGSearch';
+import { useDocuments, useUploadDocument } from '@/hooks/useDocuments';
+import { useContracts } from '@/hooks/useContracts';
+import { useEnhancedDocumentAnalysis } from '@/hooks/useEnhancedDocumentAnalysis';
+import { useDocumentContent } from '@/hooks/useDocumentContext';
+import { useCurrentUserOrganization } from '@/hooks/useOrganization';
+import { useReamAIAssistant } from '@/hooks/useReamAIAssistant';
+import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
+import { Badge } from '@/components/ui/badge';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
+import { cn } from '@/lib/utils';
+import { useSearchParams } from 'react-router-dom';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Send,
   Loader2,
@@ -29,22 +28,18 @@ import {
   Upload,
   Bot,
   User,
-  Menu
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useAIConversations, useConversationMessages } from "@/hooks/useAIConversations";
-import { ConversationSidebar } from "@/components/ConversationSidebar";
-import { DocumentSuggestions } from "@/components/DocumentSuggestions";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { 
-  getCachedQuery,
-  setCachedQuery,
-  optimizeConversationHistory,
-} from '@/lib/ai-helpers';
+  Menu,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useAIConversations, useConversationMessages } from '@/hooks/useAIConversations';
+import { ConversationSidebar } from '@/components/ConversationSidebar';
+import { DocumentSuggestions } from '@/components/DocumentSuggestions';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { getCachedQuery, setCachedQuery, optimizeConversationHistory } from '@/lib/ai-helpers';
 
 interface Message {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string;
   isStreaming?: boolean;
   timestamp?: Date;
@@ -52,11 +47,11 @@ interface Message {
 
 // Example prompts to help users
 const EXAMPLE_PROMPTS = [
-  "What is a non-disclosure agreement?",
-  "Explain the difference between a contract and an agreement",
-  "What are common clauses in employment contracts?",
-  "How do I protect intellectual property?",
-  "What should I look for when reviewing a lease?"
+  'What is a non-disclosure agreement?',
+  'Explain the difference between a contract and an agreement',
+  'What are common clauses in employment contracts?',
+  'How do I protect intellectual property?',
+  'What should I look for when reviewing a lease?',
 ];
 
 type QuickAction = {
@@ -68,26 +63,26 @@ type QuickAction = {
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
-    label: "Summarize",
+    label: 'Summarize',
     prompt:
-      "Provide an executive summary that highlights the purpose, parties, and the three most important obligations in this document.",
+      'Provide an executive summary that highlights the purpose, parties, and the three most important obligations in this document.',
     requiresDocument: true,
-    icon: Sparkles
+    icon: Sparkles,
   },
   {
-    label: "Risk Review",
+    label: 'Risk Review',
     prompt:
-      "Identify the top risks, liabilities, or unusual clauses in this document. Explain why they matter and recommend follow-up actions.",
+      'Identify the top risks, liabilities, or unusual clauses in this document. Explain why they matter and recommend follow-up actions.',
     requiresDocument: true,
-    icon: ShieldAlert
+    icon: ShieldAlert,
   },
   {
-    label: "Key Obligations",
+    label: 'Key Obligations',
     prompt:
-      "List all material obligations, deadlines, and compliance requirements in this document with clear bullet points.",
+      'List all material obligations, deadlines, and compliance requirements in this document with clear bullet points.',
     requiresDocument: true,
-    icon: ListChecks
-  }
+    icon: ListChecks,
+  },
 ];
 
 interface ReamAIHeaderProps {
@@ -105,10 +100,10 @@ function ReamAIHeader({
   isBusy,
   onQuickAction,
   conversationTitle,
-  onToggleMobileSidebar
+  onToggleMobileSidebar,
 }: ReamAIHeaderProps) {
   const [showQuickActions, setShowQuickActions] = useState(false);
-  
+
   return (
     <div className="flex items-center justify-between border-b bg-background px-3 py-2 md:px-4 md:py-3">
       <div className="flex items-center gap-2 md:gap-3 min-w-0">
@@ -127,7 +122,7 @@ function ReamAIHeader({
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles className="h-5 w-5 text-primary shrink-0" />
           <h1 className="text-sm md:text-base font-semibold truncate">
-            {conversationTitle || "Ream AI"}
+            {conversationTitle || 'Ream AI'}
           </h1>
         </div>
         {activeDocumentLabel && (
@@ -137,7 +132,7 @@ function ReamAIHeader({
           </Badge>
         )}
       </div>
-      
+
       {hasDocumentContext && (
         <div className="relative shrink-0">
           <Button
@@ -165,10 +160,10 @@ function ReamAIHeader({
                     }}
                     disabled={disabled}
                     className={cn(
-                      "w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left",
+                      'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left',
                       disabled
-                        ? "cursor-not-allowed opacity-50 text-muted-foreground"
-                        : "hover:bg-accent text-foreground"
+                        ? 'cursor-not-allowed opacity-50 text-muted-foreground'
+                        : 'hover:bg-accent text-foreground'
                     )}
                   >
                     <action.icon className="h-4 w-4" />
@@ -195,28 +190,33 @@ export default function ReamAI() {
     updateConversation,
     deleteConversation,
   } = useAIConversations();
-  
+
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const {
-    messages: savedMessages,
-    saveMessage,
-  } = useConversationMessages(currentConversationId);
+  const { messages: savedMessages, saveMessage } = useConversationMessages(currentConversationId);
 
   // State for chat and document selection
   const [messages, setMessages] = useState<Message[]>([
     {
-      role: "system",
-      content:
-        "Welcome to Ream AI!",
-      timestamp: new Date()
-    }
+      role: 'system',
+      content: 'Welcome to Ream AI!',
+      timestamp: new Date(),
+    },
   ]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<{ id: string; name?: string; title?: string; type?: string; file_path?: string; content?: string; terms?: string; description?: string } | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    id: string;
+    name?: string;
+    title?: string;
+    type?: string;
+    file_path?: string;
+    content?: string;
+    terms?: string;
+    description?: string;
+  } | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [enableVectorSearch] = useState(true);
-  const [activeQuery, setActiveQuery] = useState("");
+  const [activeQuery, setActiveQuery] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedContent, setExtractedContent] = useState<string | null>(null);
   const [isDocSelectorOpen, setIsDocSelectorOpen] = useState(false);
@@ -249,9 +249,8 @@ export default function ReamAI() {
   const uploadDocument = useUploadDocument();
 
   // Get document analysis functionality
-  const { streamAnalysis, cancelStreaming, isStreaming } =
-    useEnhancedDocumentAnalysis();
-  
+  const { streamAnalysis, cancelStreaming, isStreaming } = useEnhancedDocumentAnalysis();
+
   // Get the same assistant used by the widget for general queries
   const { sendMessage: sendAssistantMessage } = useReamAIAssistant();
 
@@ -261,7 +260,7 @@ export default function ReamAI() {
   // Get full document content for AI context
   const { data: documentContent } = useDocumentContent(
     selectedDoc?.id || null,
-    (selectedDoc?.type as "document" | "contract" | null) || null
+    (selectedDoc?.type as 'document' | 'contract' | null) || null
   );
 
   // Use RAG search to find relevant document chunks
@@ -290,7 +289,7 @@ export default function ReamAI() {
 
   // Auto-select contract from URL params
   useEffect(() => {
-    const contractId = searchParams.get("contract");
+    const contractId = searchParams.get('contract');
     if (contractId && contracts.length > 0) {
       const contract = contracts.find((c) => c.id === contractId);
       if (contract) {
@@ -303,7 +302,7 @@ export default function ReamAI() {
   // Create initial conversation on mount if none exists
   useEffect(() => {
     if (!conversationsLoading && conversations.length === 0 && !currentConversationId) {
-      createConversation.mutate("New Chat", {
+      createConversation.mutate('New Chat', {
         onSuccess: (conv) => setCurrentConversationId(conv.id),
       });
     }
@@ -311,21 +310,23 @@ export default function ReamAI() {
   }, [conversationsLoading, conversations.length]);
 
   // Track which conversations have had their title updated
-  const [titleUpdatedConversations, setTitleUpdatedConversations] = useState<Set<string>>(new Set());
+  const [titleUpdatedConversations, setTitleUpdatedConversations] = useState<Set<string>>(
+    new Set()
+  );
 
   // Function to generate conversation title from first user message
   const generateConversationTitle = (userMessage: string): string => {
     const cleanMessage = userMessage.trim();
-    if (!cleanMessage) return "New Chat";
-    
+    if (!cleanMessage) return 'New Chat';
+
     // Truncate if too long
     if (cleanMessage.length > 50) {
-      return cleanMessage.substring(0, 47) + "...";
+      return cleanMessage.substring(0, 47) + '...';
     }
     return cleanMessage;
   };
 
-  const scrollChatToBottom = (behavior: ScrollBehavior = "smooth") => {
+  const scrollChatToBottom = (behavior: ScrollBehavior = 'smooth') => {
     const container = chatContainerRef.current;
     if (container) {
       container.scrollTo({ top: container.scrollHeight, behavior });
@@ -349,16 +350,16 @@ export default function ReamAI() {
       setMessages((msgs) => [
         ...msgs,
         {
-          role: "user",
+          role: 'user',
           content: `I've uploaded "${file.name}" for analysis.`,
-          timestamp: new Date()
+          timestamp: new Date(),
         },
         {
-          role: "assistant",
+          role: 'assistant',
           content: `Uploading "${file.name}" to your document library...`,
           timestamp: new Date(),
-          isStreaming: true
-        }
+          isStreaming: true,
+        },
       ]);
 
       try {
@@ -368,8 +369,8 @@ export default function ReamAI() {
           file: file,
           metadata: {
             uploaded_via: 'ream_ai',
-            upload_date: new Date().toISOString()
-          }
+            upload_date: new Date().toISOString(),
+          },
         });
 
         setMessages((msgs) =>
@@ -378,7 +379,7 @@ export default function ReamAI() {
               ? {
                   ...msg,
                   content: `✅ Document "${file.name}" uploaded successfully! Extracting text content...`,
-                  isStreaming: true
+                  isStreaming: true,
                 }
               : msg
           )
@@ -387,16 +388,18 @@ export default function ReamAI() {
         // Extract text content from the uploaded document
         let extractedText = '';
         let extractionError: string | null = null;
-        
+
         if (uploadedDoc.file_path) {
           try {
             // Try server-side extraction first (handles PDF, DOCX, etc.)
-            const { data: extractResult, error: extractError } = await invokeFunctionWithCsrf<{ content?: string; error?: string; warning?: string; success?: boolean }>(
-              'extract-document-text',
-              {
-                body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path }
-              }
-            );
+            const { data: extractResult, error: extractError } = await invokeFunctionWithCsrf<{
+              content?: string;
+              error?: string;
+              warning?: string;
+              success?: boolean;
+            }>('extract-document-text', {
+              body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
+            });
 
             if (!extractError && extractResult?.content) {
               // Only use extracted text if it's valid (not an error message)
@@ -404,7 +407,10 @@ export default function ReamAI() {
                 extractedText = extractResult.content;
                 console.log('Server-side extraction successful, length:', extractedText.length);
               } else {
-                extractionError = extractResult.error || extractResult.warning || 'Extraction yielded no meaningful content';
+                extractionError =
+                  extractResult.error ||
+                  extractResult.warning ||
+                  'Extraction yielded no meaningful content';
                 logWarn('Server-side extraction returned error/warning', { extractionError });
                 if (extractResult.content) {
                   extractedText = extractResult.content; // Still store it for reference
@@ -437,19 +443,20 @@ export default function ReamAI() {
         }
 
         setExtractedContent(extractedText || null);
-        
+
         // Set the uploaded document as selected
-        setSelectedDoc({ 
-          id: uploadedDoc.id, 
+        setSelectedDoc({
+          id: uploadedDoc.id,
           name: uploadedDoc.name ?? undefined,
           file_path: uploadedDoc.file_path ?? undefined,
           content: extractedText || uploadedDoc.content || undefined,
-          type: 'document' as const 
+          type: 'document' as const,
         });
         setSelectedFile(null); // Clear temporary file reference
 
         // Process document for RAG if we have organization and valid content
-        const hasValidContent = extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
+        const hasValidContent =
+          extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
         if (organization?.id && hasValidContent) {
           setMessages((msgs) =>
             msgs.map((msg, i) =>
@@ -457,7 +464,7 @@ export default function ReamAI() {
                 ? {
                     ...msg,
                     content: `🔄 Processing "${file.name}" for AI analysis (chunking and embedding)...`,
-                    isStreaming: true
+                    isStreaming: true,
                   }
                 : msg
             )
@@ -467,7 +474,7 @@ export default function ReamAI() {
             await processDocument.mutateAsync({
               documentId: uploadedDoc.id,
               content: extractedText,
-              documentType: "document"
+              documentType: 'document',
             });
 
             setMessages((msgs) =>
@@ -476,27 +483,28 @@ export default function ReamAI() {
                   ? {
                       ...msg,
                       content: `✅ Successfully processed "${file.name}"! The document has been saved to your library and is ready for analysis. You can now ask questions about it.`,
-                      isStreaming: false
+                      isStreaming: false,
                     }
                   : msg
               )
             );
           } catch (processError) {
-            console.error("RAG processing error:", processError);
+            console.error('RAG processing error:', processError);
             setMessages((msgs) =>
               msgs.map((msg, i) =>
                 i === msgs.length - 1
                   ? {
                       ...msg,
                       content: `✅ Document "${file.name}" uploaded and saved! You can now ask questions about it.`,
-                      isStreaming: false
+                      isStreaming: false,
                     }
                   : msg
               )
             );
           }
         } else {
-          const hasValidContent = extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
+          const hasValidContent =
+            extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
           setMessages((msgs) =>
             msgs.map((msg, i) =>
               i === msgs.length - 1
@@ -505,7 +513,7 @@ export default function ReamAI() {
                     content: hasValidContent
                       ? `✅ Document "${file.name}" uploaded and saved! I've extracted ${extractedText.length.toLocaleString()} characters. You can now ask questions about it.`
                       : `✅ Document "${file.name}" uploaded and saved! ${extractionError ? `Note: ${extractionError}. ` : 'Note: Text extraction was limited. '}You can still ask questions, and I'll help based on available information.`,
-                    isStreaming: false
+                    isStreaming: false,
                   }
                 : msg
             )
@@ -522,15 +530,15 @@ export default function ReamAI() {
               ? {
                   ...msg,
                   content: `⚠️ Failed to upload "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
-                  isStreaming: false
+                  isStreaming: false,
                 }
               : msg
           )
         );
         toast({
-          variant: "destructive",
-          title: "Upload Failed",
-          description: error instanceof Error ? error.message : "Failed to upload document.",
+          variant: 'destructive',
+          title: 'Upload Failed',
+          description: error instanceof Error ? error.message : 'Failed to upload document.',
         });
       }
     }
@@ -539,11 +547,10 @@ export default function ReamAI() {
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     accept: {
-      "application/pdf": [".pdf"],
-      "application/msword": [".doc"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        [".docx"],
-      "text/plain": [".txt"]
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt'],
     },
     noClick: false,
     noDrag: false,
@@ -552,8 +559,19 @@ export default function ReamAI() {
   // Dropzone is now used for file uploads
 
   // Handle document/contract selection with content extraction
-  async function handleSelectDoc(doc: { id: string; name?: string; title?: string; file_path?: string; content?: string; terms?: string; description?: string }, isContract: boolean) {
-    setSelectedDoc({ ...doc, type: isContract ? "contract" : "document" });
+  async function handleSelectDoc(
+    doc: {
+      id: string;
+      name?: string;
+      title?: string;
+      file_path?: string;
+      content?: string;
+      terms?: string;
+      description?: string;
+    },
+    isContract: boolean
+  ) {
+    setSelectedDoc({ ...doc, type: isContract ? 'contract' : 'document' });
     setSelectedFile(null); // Clear any uploaded file
     setIsDocSelectorOpen(false); // Close the popover
 
@@ -561,29 +579,27 @@ export default function ReamAI() {
     setMessages((msgs) => [
       ...msgs,
       {
-        role: "user",
+        role: 'user',
         content: `I'd like to analyze this ${
-          isContract ? "contract" : "document"
+          isContract ? 'contract' : 'document'
         }: ${doc.title || doc.name}`,
-        timestamp: new Date()
-      }
+        timestamp: new Date(),
+      },
     ]);
 
     setMessages((msgs) => [
       ...msgs,
       {
-        role: "assistant",
+        role: 'assistant',
         content: `I'm processing "${
           doc.title || doc.name
         }" for RAG analysis. This may take a moment...`,
         timestamp: new Date(),
-        isStreaming: true
-      }
+        isStreaming: true,
+      },
     ]);
 
-    let contentToProcess = isContract 
-      ? (doc.terms || doc.description || "") 
-      : (doc.content || "");
+    let contentToProcess = isContract ? doc.terms || doc.description || '' : doc.content || '';
 
     // If document has file_path but no content, extract it first
     if (!isContract && doc.file_path && !doc.content) {
@@ -596,19 +612,21 @@ export default function ReamAI() {
           )
         );
 
-        const { data: extractResult, error: extractError } = await invokeFunctionWithCsrf<{ content?: string; error?: string; warning?: string; success?: boolean }>(
-          'extract-document-text',
-          {
-            body: { documentId: doc.id, filePath: doc.file_path }
-          }
-        );
+        const { data: extractResult, error: extractError } = await invokeFunctionWithCsrf<{
+          content?: string;
+          error?: string;
+          warning?: string;
+          success?: boolean;
+        }>('extract-document-text', {
+          body: { documentId: doc.id, filePath: doc.file_path },
+        });
 
         if (extractError) {
           console.error('Content extraction error:', extractError);
           toast({
-            title: "Extraction Warning",
-            description: "Could not extract text from the file. Analysis may be limited.",
-            variant: "default"
+            title: 'Extraction Warning',
+            description: 'Could not extract text from the file. Analysis may be limited.',
+            variant: 'default',
           });
         } else if (extractResult?.content) {
           contentToProcess = extractResult.content;
@@ -626,7 +644,10 @@ export default function ReamAI() {
         setMessages((msgs) =>
           msgs.map((msg, i) =>
             i === msgs.length - 1
-              ? { ...msg, content: `🔄 Chunking and embedding "${doc.title || doc.name}" for RAG search...` }
+              ? {
+                  ...msg,
+                  content: `🔄 Chunking and embedding "${doc.title || doc.name}" for RAG search...`,
+                }
               : msg
           )
         );
@@ -635,7 +656,7 @@ export default function ReamAI() {
           documentId: !isContract ? doc.id : undefined,
           contractId: isContract ? doc.id : undefined,
           content: contentToProcess,
-          documentType: isContract ? "contract" : "document"
+          documentType: isContract ? 'contract' : 'document',
         });
 
         // Update the message to show processing is complete
@@ -647,13 +668,13 @@ export default function ReamAI() {
                   content: `✅ Successfully processed "${
                     doc.title || doc.name
                   }" for RAG analysis! The document has been chunked and embedded. You can now ask detailed questions about its content.`,
-                  isStreaming: false
+                  isStreaming: false,
                 }
               : msg
           )
         );
       } catch (error) {
-        console.error("Error processing document:", error);
+        console.error('Error processing document:', error);
         setMessages((msgs) =>
           msgs.map((msg, i) =>
             i === msgs.length - 1
@@ -662,7 +683,7 @@ export default function ReamAI() {
                   content: `⚠️ Loaded "${
                     doc.title || doc.name
                   }" but RAG processing failed. I can still analyze the document, but responses may be less contextual.`,
-                  isStreaming: false
+                  isStreaming: false,
                 }
               : msg
           )
@@ -678,7 +699,7 @@ export default function ReamAI() {
                 content: hasContent
                   ? `📄 Loaded "${doc.title || doc.name}" for analysis. What would you like to know about it?`
                   : `📄 Document "${doc.title || doc.name}" loaded, but no text content is available. The document may be an image-based PDF requiring OCR. You can still ask questions and I'll help based on available metadata.`,
-                isStreaming: false
+                isStreaming: false,
               }
             : msg
         )
@@ -692,14 +713,14 @@ export default function ReamAI() {
     if (content.length <= maxLength) {
       return content;
     }
-    
+
     // If content is too long, take the beginning and end (most relevant parts)
     const startLength = Math.floor(maxLength * 0.6); // 60% from start
     const endLength = Math.floor(maxLength * 0.4); // 40% from end
-    
+
     const start = content.substring(0, startLength);
     const end = content.substring(content.length - endLength);
-    
+
     return `${start}\n\n[... Content truncated for context window management. Showing beginning and end of document ...]\n\n${end}`;
   }
 
@@ -717,55 +738,55 @@ export default function ReamAI() {
     // Check if extraction is still in progress
     if (isExtracting) {
       toast({
-        title: "Please wait",
-        description: "Document extraction is still in progress. Please wait a moment.",
-        variant: "default"
+        title: 'Please wait',
+        description: 'Document extraction is still in progress. Please wait a moment.',
+        variant: 'default',
       });
       return;
     }
 
-    setInput("");
+    setInput('');
 
     if (userMessage) {
       setActiveQuery(userMessage);
     }
 
-      // Add user message to chat
-      if (userMessage) {
-        const newUserMessage: Message = { 
-          role: "user", 
-          content: userMessage, 
-          timestamp: new Date() 
-        };
-        const updatedMessages = [...messages, newUserMessage];
-        setMessages(updatedMessages);
-        
-        // Save user message to database
-        if (currentConversationId) {
-          saveMessage.mutate({
-            conversationId: currentConversationId,
-            role: "user",
-            content: userMessage,
-          });
-        }
+    // Add user message to chat
+    if (userMessage) {
+      const newUserMessage: Message = {
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date(),
+      };
+      const updatedMessages = [...messages, newUserMessage];
+      setMessages(updatedMessages);
 
-        // Update conversation title on first user message (if not already updated)
-        if (currentConversationId && !titleUpdatedConversations.has(currentConversationId)) {
-          const title = generateConversationTitle(userMessage);
-          if (title !== "New Chat") {
-            updateConversation.mutate({ 
-              id: currentConversationId, 
-              title: title 
-            });
-            setTitleUpdatedConversations(prev => new Set(prev).add(currentConversationId));
-          }
+      // Save user message to database
+      if (currentConversationId) {
+        saveMessage.mutate({
+          conversationId: currentConversationId,
+          role: 'user',
+          content: userMessage,
+        });
+      }
+
+      // Update conversation title on first user message (if not already updated)
+      if (currentConversationId && !titleUpdatedConversations.has(currentConversationId)) {
+        const title = generateConversationTitle(userMessage);
+        if (title !== 'New Chat') {
+          updateConversation.mutate({
+            id: currentConversationId,
+            title: title,
+          });
+          setTitleUpdatedConversations((prev) => new Set(prev).add(currentConversationId));
         }
       }
+    }
 
     // Show typing indicator
     setMessages((msgs) => [
       ...msgs,
-      { role: "assistant", content: "", isStreaming: true, timestamp: new Date() }
+      { role: 'assistant', content: '', isStreaming: true, timestamp: new Date() },
     ]);
 
     try {
@@ -774,74 +795,67 @@ export default function ReamAI() {
       if (cachedResponse) {
         setMessages((msgs) =>
           msgs.map((msg, i) =>
-            i === msgs.length - 1
-              ? { ...msg, content: cachedResponse, isStreaming: false }
-              : msg
+            i === msgs.length - 1 ? { ...msg, content: cachedResponse, isStreaming: false } : msg
           )
         );
         setIsTyping(false);
         if (currentConversationId && cachedResponse.trim()) {
           saveMessage.mutate({
             conversationId: currentConversationId,
-            role: "assistant",
+            role: 'assistant',
             content: cachedResponse,
           });
         }
         return;
       }
 
-      let content: string = "";
-      let contextInfo: string = "";
+      let content: string = '';
+      let contextInfo: string = '';
 
       // Optimize conversation history
-      optimizeConversationHistory(
-        messages.map(m => ({ role: m.role, content: m.content }))
-      );
+      optimizeConversationHistory(messages.map((m) => ({ role: m.role, content: m.content })));
 
       // Check if we have selected document or relevant documents from RAG/vector search
       if (
         selectedDoc ||
         selectedFile ||
         (ragResults && ragResults.length > 0) ||
-        (relevantDocs &&
-          (relevantDocs.documents.length > 0 ||
-            relevantDocs.contracts.length > 0))
+        (relevantDocs && (relevantDocs.documents.length > 0 || relevantDocs.contracts.length > 0))
       ) {
         if (selectedDoc && documentContent) {
           // Use the full content from the manually selected document, managing context window
-          const fullContent = documentContent.fullContent || "";
+          const fullContent = documentContent.fullContent || '';
           content = manageContextWindow(fullContent);
 
           // Also include RAG results if available for additional context
-          let additionalRAGContext = "";
+          let additionalRAGContext = '';
           if (ragResults && ragResults.length > 0) {
             const topRAGResults = ragResults.slice(0, 5);
-            additionalRAGContext = `\n\nADDITIONAL RELEVANT CONTEXT FROM KNOWLEDGE BASE:\n${topRAGResults.map((result, i) => 
-              `[SOURCE ${i + 1}] "${result.documentName}" (similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content.substring(0, 500)}${result.content.length > 500 ? "..." : ""}`
-            ).join("\n\n")}`;
+            additionalRAGContext = `\n\nADDITIONAL RELEVANT CONTEXT FROM KNOWLEDGE BASE:\n${topRAGResults
+              .map(
+                (result, i) =>
+                  `[SOURCE ${i + 1}] "${result.documentName}" (similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content.substring(0, 500)}${result.content.length > 500 ? '...' : ''}`
+              )
+              .join('\n\n')}`;
           }
 
           // Add metadata for better context
           contextInfo = `You are currently reviewing a document. ALL questions should be answered using information from this document.
 
 PRIMARY DOCUMENT FOR ANALYSIS:
-Document: ${
-            documentContent.type === "contract"
-              ? documentContent.title
-              : documentContent.name
-          }
-Type: ${documentContent.type === "contract" ? "Contract" : "Document"}
-${documentContent.contract_type ? `Contract Type: ${documentContent.contract_type}` : ""}
-${documentContent.type === "contract" && documentContent.status ? `Status: ${documentContent.status}` : ""}
-${documentContent.value ? `Value: ${documentContent.currency || "USD"} ${documentContent.value}` : ""}
-${documentContent.type === "contract" && documentContent.start_date ? `Start Date: ${documentContent.start_date}` : ""}
-${documentContent.type === "contract" && documentContent.end_date ? `End Date: ${documentContent.end_date}` : ""}
-${documentContent.type === "document" && documentContent.effective_date ? `Effective Date: ${documentContent.effective_date}` : ""}
-${documentContent.type === "document" && documentContent.termination_date ? `Termination Date: ${documentContent.termination_date}` : ""}
+Document: ${documentContent.type === 'contract' ? documentContent.title : documentContent.name}
+Type: ${documentContent.type === 'contract' ? 'Contract' : 'Document'}
+${documentContent.contract_type ? `Contract Type: ${documentContent.contract_type}` : ''}
+${documentContent.type === 'contract' && documentContent.status ? `Status: ${documentContent.status}` : ''}
+${documentContent.value ? `Value: ${documentContent.currency || 'USD'} ${documentContent.value}` : ''}
+${documentContent.type === 'contract' && documentContent.start_date ? `Start Date: ${documentContent.start_date}` : ''}
+${documentContent.type === 'contract' && documentContent.end_date ? `End Date: ${documentContent.end_date}` : ''}
+${documentContent.type === 'document' && documentContent.effective_date ? `Effective Date: ${documentContent.effective_date}` : ''}
+${documentContent.type === 'document' && documentContent.termination_date ? `Termination Date: ${documentContent.termination_date}` : ''}
 Created: ${
             documentContent.created_at
               ? new Date(documentContent.created_at).toLocaleDateString()
-              : "Unknown"
+              : 'Unknown'
           }
 
 USER QUESTION: ${userMessage}
@@ -864,9 +878,7 @@ CRITICAL INSTRUCTIONS:
           // If still no content, provide guidance
           if (!content.trim()) {
             content = `Document "${
-              documentContent.type === "contract"
-                ? documentContent.title
-                : documentContent.name
+              documentContent.type === 'contract' ? documentContent.title : documentContent.name
             }" selected but no text content available. The document may be an uploaded file without extracted text content. You can still ask me questions about this document and I'll help based on the metadata available.`;
           }
         } else if (selectedFile && extractedContent) {
@@ -875,7 +887,7 @@ CRITICAL INSTRUCTIONS:
           contextInfo = `You are currently reviewing a document. ALL questions should be answered using information from this document.
 
 Document: ${selectedFile.name}
-Type: ${selectedFile.type || "Unknown"}
+Type: ${selectedFile.type || 'Unknown'}
 Size: ${(selectedFile.size / 1024).toFixed(1)} KB
 
 USER QUESTION: ${userMessage}
@@ -893,9 +905,10 @@ CRITICAL INSTRUCTIONS:
         } else if (selectedFile && !extractedContent) {
           // File selected but no content extracted yet
           toast({
-            title: "Content not available",
-            description: "Please wait for document extraction to complete, or select a different document.",
-            variant: "default"
+            title: 'Content not available',
+            description:
+              'Please wait for document extraction to complete, or select a different document.',
+            variant: 'default',
           });
           return;
         } else if (ragResults && ragResults.length > 0) {
@@ -926,17 +939,16 @@ INSTRUCTIONS:
           content = contextInfo;
         } else if (
           relevantDocs &&
-          (relevantDocs.documents.length > 0 ||
-            relevantDocs.contracts.length > 0)
+          (relevantDocs.documents.length > 0 || relevantDocs.contracts.length > 0)
         ) {
           // Use relevant documents found through vector search
           const relevantDocuments = relevantDocs.documents.slice(0, 3);
           const relevantContracts = relevantDocs.contracts.slice(0, 3);
 
-          let contextContent = "";
+          let contextContent = '';
 
           if (relevantDocuments.length > 0) {
-            contextContent += "\n\nRELEVANT DOCUMENTS:\n";
+            contextContent += '\n\nRELEVANT DOCUMENTS:\n';
             relevantDocuments.forEach((doc, i) => {
               contextContent += `\n${i + 1}. ${doc.name}`;
               if (doc.summary) contextContent += `\n   Summary: ${doc.summary}`;
@@ -944,15 +956,13 @@ INSTRUCTIONS:
                 contextContent += `\n   Content: ${doc.content.substring(
                   0,
                   500
-                )}${doc.content.length > 500 ? "..." : ""}`;
-              contextContent += `\n   Similarity: ${(doc.similarity * 100).toFixed(
-                1
-              )}%\n`;
+                )}${doc.content.length > 500 ? '...' : ''}`;
+              contextContent += `\n   Similarity: ${(doc.similarity * 100).toFixed(1)}%\n`;
             });
           }
 
           if (relevantContracts.length > 0) {
-            contextContent += "\n\nRELEVANT CONTRACTS:\n";
+            contextContent += '\n\nRELEVANT CONTRACTS:\n';
             relevantContracts.forEach((contract, i) => {
               contextContent += `\n${i + 1}. ${contract.title}`;
               if (contract.description)
@@ -961,10 +971,8 @@ INSTRUCTIONS:
                 contextContent += `\n   Terms: ${contract.terms.substring(
                   0,
                   500
-                )}${contract.terms.length > 500 ? "..." : ""}`;
-              contextContent += `\n   Similarity: ${(contract.similarity * 100).toFixed(
-                1
-              )}%\n`;
+                )}${contract.terms.length > 500 ? '...' : ''}`;
+              contextContent += `\n   Similarity: ${(contract.similarity * 100).toFixed(1)}%\n`;
             });
           }
 
@@ -982,45 +990,46 @@ I'll answer based on the relevant information found above.`;
         }
 
         // Build RAG context if we have RAG results
-        let ragContextString = "";
+        let ragContextString = '';
         if (ragResults && ragResults.length > 0 && !selectedDoc) {
           const topRAGResults = ragResults.slice(0, 8);
-          ragContextString = topRAGResults.map((result, i) => 
-            `[SOURCE ${i + 1}] "${result.documentName}" (${result.documentType}, similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content}`
-          ).join("\n\n");
+          ragContextString = topRAGResults
+            .map(
+              (result, i) =>
+                `[SOURCE ${i + 1}] "${result.documentName}" (${result.documentType}, similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content}`
+            )
+            .join('\n\n');
         }
 
         // Build conversation history (exclude system message and current message)
         const conversationHistory = messages
-          .filter(msg => msg.role !== "system")
+          .filter((msg) => msg.role !== 'system')
           .slice(0, -1) // Exclude the current user message
-          .map(msg => ({
+          .map((msg) => ({
             role: msg.role,
-            content: msg.content
+            content: msg.content,
           }));
 
         // Stream the AI analysis with enhanced context
         await streamAnalysis({
           content: contextInfo || content,
-          analysisType: userMessage.toLowerCase().includes("risk")
-            ? "risk"
-            : userMessage.toLowerCase().includes("extract") ||
-              userMessage.toLowerCase().includes("key")
-            ? "extract"
-            : userMessage.toLowerCase().includes("compare")
-            ? "compare"
-            : userMessage.toLowerCase().includes("summary") ||
-              userMessage.toLowerCase().includes("summarize")
-            ? "summary"
-            : "general",
+          analysisType: userMessage.toLowerCase().includes('risk')
+            ? 'risk'
+            : userMessage.toLowerCase().includes('extract') ||
+                userMessage.toLowerCase().includes('key')
+              ? 'extract'
+              : userMessage.toLowerCase().includes('compare')
+                ? 'compare'
+                : userMessage.toLowerCase().includes('summary') ||
+                    userMessage.toLowerCase().includes('summarize')
+                  ? 'summary'
+                  : 'general',
           conversationHistory: conversationHistory,
           ragContext: ragContextString || undefined,
           onProgress: (aiContent, done) => {
             setMessages((msgs) =>
               msgs.map((msg, i) =>
-                i === msgs.length - 1
-                  ? { ...msg, content: aiContent, isStreaming: !done }
-                  : msg
+                i === msgs.length - 1 ? { ...msg, content: aiContent, isStreaming: !done } : msg
               )
             );
 
@@ -1034,13 +1043,12 @@ I'll answer based on the relevant information found above.`;
               if (currentConversationId && aiContent.trim()) {
                 saveMessage.mutate({
                   conversationId: currentConversationId,
-                  role: "assistant",
+                  role: 'assistant',
                   content: aiContent,
                 });
-
               }
             }
-          }
+          },
         });
       } else {
         // Handle general legal queries without specific document context
@@ -1050,11 +1058,11 @@ I'll answer based on the relevant information found above.`;
         try {
           // Build conversation history for general queries (filter out empty messages)
           const conversationHistory = messages
-            .filter(msg => msg.role !== "system" && msg.content.trim().length > 0)
+            .filter((msg) => msg.role !== 'system' && msg.content.trim().length > 0)
             .slice(0, -1)
-            .map(msg => ({
+            .map((msg) => ({
               role: msg.role,
-              content: msg.content
+              content: msg.content,
             }));
 
           // Use the same ream-ai-assistant as the widget for general queries
@@ -1063,33 +1071,36 @@ I'll answer based on the relevant information found above.`;
           // Update the message with the response
           setMessages((msgs) =>
             msgs.map((msg, i) =>
-              i === msgs.length - 1
-                ? { ...msg, content: response, isStreaming: false }
-                : msg
+              i === msgs.length - 1 ? { ...msg, content: response, isStreaming: false } : msg
             )
           );
 
           setIsTyping(false);
-          
+
           // Cache the response for future queries
           if (response.trim()) {
             setCachedQuery(userMessage, response);
           }
-          
+
           // Save assistant message to database
           if (currentConversationId && response.trim()) {
             saveMessage.mutate({
               conversationId: currentConversationId,
-              role: "assistant",
+              role: 'assistant',
               content: response,
             });
           }
         } catch (error) {
-          console.error("Error with general query:", error);
+          console.error('Error with general query:', error);
           setMessages((msgs) =>
             msgs.map((msg, i) =>
               i === msgs.length - 1
-                ? { ...msg, content: "I'm here to help with legal questions and document analysis. I can answer general legal questions or provide detailed analysis when you select a document. How can I assist you today?", isStreaming: false }
+                ? {
+                    ...msg,
+                    content:
+                      "I'm here to help with legal questions and document analysis. I can answer general legal questions or provide detailed analysis when you select a document. How can I assist you today?",
+                    isStreaming: false,
+                  }
                 : msg
             )
           );
@@ -1097,7 +1108,7 @@ I'll answer based on the relevant information found above.`;
         }
       }
     } catch (error) {
-      console.error("Error processing request:", error);
+      console.error('Error processing request:', error);
 
       // Show error message
       setMessages((msgs) =>
@@ -1105,9 +1116,8 @@ I'll answer based on the relevant information found above.`;
           i === msgs.length - 1
             ? {
                 ...msg,
-                content:
-                  "Sorry, I encountered an error processing your request. Please try again.",
-                isStreaming: false
+                content: 'Sorry, I encountered an error processing your request. Please try again.',
+                isStreaming: false,
               }
             : msg
         )
@@ -1125,27 +1135,25 @@ I'll answer based on the relevant information found above.`;
   const handleQuickAction = (action: QuickAction) => {
     if (isStreaming || isTyping) {
       toast({
-        title: "Please wait",
-        description:
-          "Allow the current analysis to finish before starting a new one."
+        title: 'Please wait',
+        description: 'Allow the current analysis to finish before starting a new one.',
       });
       return;
     }
 
     if (action.requiresDocument && !selectedDoc && !selectedFile) {
       toast({
-        title: "Document required",
-        description:
-          "This action requires a document. Please select or upload a document first."
+        title: 'Document required',
+        description: 'This action requires a document. Please select or upload a document first.',
       });
       return;
     }
 
     if (action.requiresDocument && documentContent && !documentContent.fullContent) {
       toast({
-        title: "No extracted text",
+        title: 'No extracted text',
         description:
-          "This file doesn't have extracted text yet. Try selecting a different document or ask a general question."
+          "This file doesn't have extracted text yet. Try selecting a different document or ask a general question.",
       });
       return;
     }
@@ -1154,17 +1162,17 @@ I'll answer based on the relevant information found above.`;
   };
 
   const activeDocumentLabel = selectedDoc
-    ? `${selectedDoc.type === "contract" ? "Contract" : "Document"}: ${
+    ? `${selectedDoc.type === 'contract' ? 'Contract' : 'Document'}: ${
         selectedDoc.title || selectedDoc.name
       }`
     : selectedFile
-    ? `Uploaded file: ${selectedFile.name}`
-    : null;
+      ? `Uploaded file: ${selectedFile.name}`
+      : null;
   const hasDocumentContext = Boolean(selectedDoc || selectedFile);
 
   // Handle conversation management
   const handleNewConversation = () => {
-    const title = "New Chat";
+    const title = 'New Chat';
     createConversation.mutate(title, {
       onSuccess: (conv) => {
         setCurrentConversationId(conv.id);
@@ -1258,7 +1266,7 @@ I'll answer based on the relevant information found above.`;
             hasDocumentContext={hasDocumentContext}
             isBusy={isStreaming || isTyping}
             onQuickAction={handleQuickAction}
-            conversationTitle={conversations.find(c => c.id === currentConversationId)?.title}
+            conversationTitle={conversations.find((c) => c.id === currentConversationId)?.title}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
           />
 
@@ -1269,7 +1277,9 @@ I'll answer based on the relevant information found above.`;
               <div className="border-b bg-muted/20 px-6 py-2">
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Sparkles className="h-3 w-3" />
-                  <span>Found {ragResults.length} relevant document{ragResults.length > 1 ? 's' : ''}</span>
+                  <span>
+                    Found {ragResults.length} relevant document{ragResults.length > 1 ? 's' : ''}
+                  </span>
                 </p>
               </div>
             )}
@@ -1295,7 +1305,10 @@ I'll answer based on the relevant information found above.`;
                           <p className="text-sm font-medium mb-3">Quick Actions:</p>
                           <div className="grid grid-cols-1 gap-2">
                             {QUICK_ACTIONS.map((action) => {
-                              const disabled = isStreaming || isTyping || (action.requiresDocument && !hasDocumentContext);
+                              const disabled =
+                                isStreaming ||
+                                isTyping ||
+                                (action.requiresDocument && !hasDocumentContext);
                               return (
                                 <Button
                                   key={action.label}
@@ -1339,19 +1352,19 @@ I'll answer based on the relevant information found above.`;
                 // Messages list - ChatGPT style
                 <div className="flex flex-col">
                   {messages
-                    .filter(msg => msg.role !== "system")
+                    .filter((msg) => msg.role !== 'system')
                     .map((msg, i) => (
                       <div
                         key={i}
                         className={cn(
-                          "group w-full border-b border-border/40",
-                          msg.role === "user" ? "bg-muted/30" : "bg-background"
+                          'group w-full border-b border-border/40',
+                          msg.role === 'user' ? 'bg-muted/30' : 'bg-background'
                         )}
                       >
                         <div className="mx-auto flex max-w-3xl gap-3 md:gap-4 px-3 py-4 md:px-4 md:py-6">
                           {/* Avatar */}
                           <div className="flex-shrink-0">
-                            {msg.role === "user" ? (
+                            {msg.role === 'user' ? (
                               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
                                 <User className="h-4 w-4" />
                               </div>
@@ -1361,24 +1374,27 @@ I'll answer based on the relevant information found above.`;
                               </div>
                             )}
                           </div>
-                          
+
                           {/* Message content */}
                           <div className="flex-1 min-w-0">
                             <div className="prose prose-sm dark:prose-invert max-w-none">
                               <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                {msg.content || (msg.isStreaming && (
-                                  <span className="inline-flex items-center gap-1">
-                                    <span className="animate-pulse">▋</span>
-                                    <span className="text-muted-foreground text-xs">Thinking...</span>
-                                  </span>
-                                ))}
+                                {msg.content ||
+                                  (msg.isStreaming && (
+                                    <span className="inline-flex items-center gap-1">
+                                      <span className="animate-pulse">▋</span>
+                                      <span className="text-muted-foreground text-xs">
+                                        Thinking...
+                                      </span>
+                                    </span>
+                                  ))}
                               </div>
                             </div>
                             {msg.timestamp && (
                               <div className="mt-2 text-xs text-muted-foreground">
                                 {msg.timestamp.toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit"
+                                  hour: '2-digit',
+                                  minute: '2-digit',
                                 })}
                               </div>
                             )}
@@ -1398,20 +1414,16 @@ I'll answer based on the relevant information found above.`;
                   <div className="mx-auto flex max-w-3xl items-center gap-2">
                     <Popover open={isDocSelectorOpen} onOpenChange={setIsDocSelectorOpen}>
                       <PopoverTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 text-xs"
-                        >
+                        <Button variant="ghost" size="sm" className="h-8 text-xs">
                           <FileText className="mr-1.5 h-3.5 w-3.5" />
-                          {selectedDoc || selectedFile ? "Change" : "Select Document"}
+                          {selectedDoc || selectedFile ? 'Change' : 'Select Document'}
                         </Button>
                       </PopoverTrigger>
-                        <PopoverContent 
-                          className="w-[calc(100vw-2rem)] sm:w-[500px] md:w-[600px] p-0" 
-                          align="start"
-                          side="top"
-                        >
+                      <PopoverContent
+                        className="w-[calc(100vw-2rem)] sm:w-[500px] md:w-[600px] p-0"
+                        align="start"
+                        side="top"
+                      >
                         <DocumentSuggestions
                           documents={documents}
                           contracts={contracts}
@@ -1422,10 +1434,10 @@ I'll answer based on the relevant information found above.`;
                     </Popover>
                     <div {...getRootProps()} className="flex-1">
                       <input {...getInputProps()} />
-                      <Button 
+                      <Button
                         type="button"
-                        variant="ghost" 
-                        size="sm" 
+                        variant="ghost"
+                        size="sm"
                         className="h-8 text-xs"
                         disabled={isExtracting || isStreaming || isTyping}
                       >
@@ -1451,11 +1463,11 @@ I'll answer based on the relevant information found above.`;
                 </div>
               )}
 
-                {/* Main input */}
-                <form
-                  onSubmit={(event) => sendMessage(event)}
-                  className="mx-auto max-w-3xl px-3 py-3 md:px-4 md:py-4 safe-area-bottom"
-                >
+              {/* Main input */}
+              <form
+                onSubmit={(event) => sendMessage(event)}
+                className="mx-auto max-w-3xl px-3 py-3 md:px-4 md:py-4 safe-area-bottom"
+              >
                 <div className="relative flex items-end gap-2 rounded-2xl border border-border bg-background shadow-sm transition-shadow focus-within:shadow-md">
                   <div className="flex-1 p-3">
                     <Textarea
@@ -1467,16 +1479,16 @@ I'll answer based on the relevant information found above.`;
                       className="min-h-[24px] max-h-[200px] resize-none border-0 bg-transparent text-sm focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none disabled:opacity-50"
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
-                        target.style.height = "auto";
+                        target.style.height = 'auto';
                         target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
                       }}
                     />
                   </div>
                   <div className="flex items-center gap-1 p-2">
                     {isStreaming ? (
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
+                      <Button
+                        type="button"
+                        variant="ghost"
                         size="icon"
                         className="h-8 w-8"
                         onClick={cancelStreaming}
@@ -1484,8 +1496,8 @@ I'll answer based on the relevant information found above.`;
                         <StopCircle className="h-4 w-4" />
                       </Button>
                     ) : (
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         disabled={isTyping || !input.trim()}
                         size="icon"
                         className="h-8 w-8 rounded-lg"
