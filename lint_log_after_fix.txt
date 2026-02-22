@@ -1,0 +1,143 @@
+
+> kouti-legal-hub@0.1.0 lint
+> eslint src --report-unused-disable-directives
+
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ContractSuccess.tsx
+   52:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+   85:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  104:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\DocumentViewer.tsx
+  36:6  warning  React Hook useEffect has missing dependencies: 'fileUrl' and 'loadFile'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\DocumentViewerWithEdit.tsx
+  52:18  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  79:18  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  98:18  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\VoiceRecorder.tsx
+  89:34  warning  '_audioBlob' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\calendar\EventCreateDialog.tsx
+  99:9  warning  The 'cases' conditional could make the dependencies of useEffect Hook (at line 151) change on every render. To fix this, wrap the initialization of 'cases' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\calendar\EventViewDialog.tsx
+  55:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\layout\AppSidebar.tsx
+  181:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  208:16  warning  '_ref' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\badge.tsx
+  36:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\button.tsx
+  56:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\chart.tsx
+  70:7  warning  '_' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\form.tsx
+  168:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\navigation-menu.tsx
+  119:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\notifications.tsx
+  9:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\sidebar.tsx
+  749:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\sonner.tsx
+  35:19  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\components\ui\toggle.tsx
+  43:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\context\CasesContext.tsx
+  171:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\hooks\use-search.tsx
+  17:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\hooks\use-toast.ts
+  18:7  warning  'actionTypes' is assigned a value but only used as a type  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\hooks\useAuth.tsx
+  225:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\hooks\useTasks.ts
+  174:14  warning  '_' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\hooks\useTheme.tsx
+  87:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\lib\documentChunking.ts
+  32:35  error  Unnecessary escape character: \.  no-useless-escape
+  32:42  error  Unnecessary escape character: \.  no-useless-escape
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\lib\error.ts
+  180:14  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\lib\logger.ts
+  101:14  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\main.tsx
+  120:7  warning  Fast refresh only works when a file has exports. Move your component(s) to a separate file  react-refresh/only-export-components
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\Analytics.tsx
+  44:9  warning  The 'contracts' logical expression could make the dependencies of useMemo Hook (at line 89) change on every render. To fix this, wrap the initialization of 'contracts' in its own useMemo() Hook          react-hooks/exhaustive-deps
+  44:9  warning  The 'contracts' logical expression could make the dependencies of useMemo Hook (at line 98) change on every render. To fix this, wrap the initialization of 'contracts' in its own useMemo() Hook          react-hooks/exhaustive-deps
+  65:9  warning  The 'casesArray' logical expression could make the dependencies of useMemo Hook (at line 73) change on every render. To fix this, wrap the initialization of 'casesArray' in its own useMemo() Hook        react-hooks/exhaustive-deps
+  65:9  warning  The 'casesArray' logical expression could make the dependencies of useMemo Hook (at line 92) change on every render. To fix this, wrap the initialization of 'casesArray' in its own useMemo() Hook        react-hooks/exhaustive-deps
+  66:9  warning  The 'clientsArray' logical expression could make the dependencies of useMemo Hook (at line 81) change on every render. To fix this, wrap the initialization of 'clientsArray' in its own useMemo() Hook    react-hooks/exhaustive-deps
+  66:9  warning  The 'clientsArray' logical expression could make the dependencies of useMemo Hook (at line 93) change on every render. To fix this, wrap the initialization of 'clientsArray' in its own useMemo() Hook    react-hooks/exhaustive-deps
+  67:9  warning  The 'invoicesArray' logical expression could make the dependencies of useMemo Hook (at line 89) change on every render. To fix this, wrap the initialization of 'invoicesArray' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  67:9  warning  The 'invoicesArray' logical expression could make the dependencies of useMemo Hook (at line 97) change on every render. To fix this, wrap the initialization of 'invoicesArray' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\Auth.tsx
+  183:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\Calendar.tsx
+  111:16  warning  'err' is defined but never used                                                                                           @typescript-eslint/no-unused-vars
+  126:16  warning  'err' is defined but never used                                                                                           @typescript-eslint/no-unused-vars
+  151:6   warning  React Hook useEffect has a missing dependency: 'syncExternalCalendars'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\Cases.tsx
+  147:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\ClientCreate.tsx
+  81:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\ClientEdit.tsx
+  101:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  110:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\ContractEdit.tsx
+   99:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  108:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\ContractReview.tsx
+  141:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  192:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\ContractView.tsx
+  29:14  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\Documents.tsx
+  358:34  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  369:34  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\InvoiceCreate.tsx
+  30:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\ReamAI.tsx
+  295:6  warning  React Hook useEffect has a missing dependency: 'handleSelectDoc'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Daniel.Esuga\Kouti Legal Main Repo\kouti-legal-hub-41\src\pages\Settings\PermissionsTab.tsx
+  115:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 58 problems (2 errors, 56 warnings)
+

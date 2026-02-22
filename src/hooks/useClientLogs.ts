@@ -1,0 +1,70 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { CommunicationLog } from '@/types';
+import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
+
+export function useClientLogs(clientId: string) {
+  return useQuery<CommunicationLog[], Error>({
+    queryKey: ['client-logs', clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('communication_logs')
+        .select('*')
+        .eq('client_id', clientId as any)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      
+      // Map database results to interface
+      return ((data as any[]) || []).map((item: any) => ({
+        id: item.id,
+        client_id: item.client_id,
+        user_id: item.user_id,
+        organization_id: item.organization_id,
+        type: item.type as 'note' | 'email' | 'phone' | 'call' | 'meeting' | 'other',
+        content: item.content,
+        created_at: item.created_at,
+        created_by: item.user_id,
+      } as CommunicationLog));
+    },
+    enabled: Boolean(clientId),
+  });
+}
+
+export function useCreateClientLog() {
+  const qc = useQueryClient();
+  const { data: organizationId } = useUserOrganization();
+
+  return useMutation({
+    mutationFn: async (log: { client_id: string; type: string; content: string }) => {
+      const userId = await getCurrentUserId();
+      
+      const logData = {
+        ...log,
+        user_id: userId!,
+        organization_id: organizationId!,
+      };
+
+      const { data, error } = await supabase
+        .from('communication_logs')
+        .insert([logData] as any)
+        .select()
+        .single();
+      if (error) throw error;
+      
+      return {
+        id: (data as any).id,
+        client_id: (data as any).client_id,
+        user_id: (data as any).user_id,
+        organization_id: (data as any).organization_id,
+        type: (data as any).type as 'note' | 'email' | 'phone' | 'call' | 'meeting' | 'other',
+        content: (data as any).content,
+        created_at: (data as any).created_at,
+        created_by: (data as any).user_id,
+      } as CommunicationLog;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['client-logs', vars.client_id] });
+    },
+  });
+}

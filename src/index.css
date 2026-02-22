@@ -1,0 +1,604 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Accessibility: Focus styles */
+@layer base {
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  
+  /* Skip to main content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
+  .sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+}
+
+/* Animations */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-bounce-slow {
+    animation: bounceSlow 2s ease-in-out infinite;
+  }
+
+  @keyframes bounceSlow {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.2s ease-out;
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .hover-scale {
+    transition: transform 0.2s ease;
+  }
+  
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+  
+  .hover-scale:active {
+    transform: scale(0.98);
+  }
+  
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* Touch-friendly targets */
+  @media (max-width: 768px) {
+    button, a, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* Safe area for notched devices (iPhone X+, etc.) */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  
+  .safe-area-all {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  /* Mobile viewport height fix (accounts for browser chrome) */
+  .mobile-vh {
+    height: 100dvh;
+  }
+  
+  .mobile-min-vh {
+    min-height: 100dvh;
+  }
+
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Prevent text selection on mobile (for interactive elements) */
+  .no-select {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Momentum scrolling for iOS */
+  .momentum-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* --- Compatibility fixes --- */
+html {
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+.noselect, .unselectable, [data-user-select="none"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Kourti Legal Design System - Professional legal management interface
+All colors MUST be HSL. Focus on trust, professionalism, and clarity.
+*/
+
+@layer base {
+  :root {
+    /* Main canvas */
+    --background: 214 29% 95%;
+    --foreground: 211 40% 20%;
+
+    /* Elevated layers */
+    --surface: 0 0% 100%;
+    --surface-foreground: 211 35% 20%;
+    --surface-muted: 214 24% 93%;
+    --surface-border: 214 18% 84%;
+
+    /* Card system */
+    --card: 0 0% 100%;
+    --card-foreground: 211 35% 20%;
+
+    /* Popovers */
+    --popover: 0 0% 100%;
+    --popover-foreground: 211 35% 20%;
+
+    /* Primary accent - Blue Lavender (aligned with dark mode) */
+    --primary: 217 71% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 71% 60%;
+
+    /* Secondary neutrals */
+    --secondary: 214 25% 92%;
+    --secondary-foreground: 211 35% 28%;
+
+    /* Muted support */
+    --muted: 214 22% 93%;
+    --muted-foreground: 211 12% 45%;
+
+    /* Accent - Light Blue Lavender (aligned with dark mode) */
+    --accent: 216 65% 75%;
+    --accent-foreground: 211 30% 26%;
+
+    /* Status colours - Kourti palette (aligned with dark mode) */
+    --success: 142 69% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 48 96% 50%;
+    --warning-foreground: 26 20% 18%;
+    --destructive: 0 91% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Structure */
+    --border: 214 18% 82%;
+    --input: 214 20% 80%;
+    --ring: 217 71% 50%;
+
+    /* Motion */
+    --transition-smooth: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.14s ease-out;
+
+    --radius: 0.75rem;
+
+    /* Sidebar palette */
+    --sidebar-background: 214 28% 96%;
+    --sidebar-foreground: 211 18% 24%;
+    --sidebar-primary: 217 71% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214 26% 92%;
+    --sidebar-accent-foreground: 211 25% 26%;
+    --sidebar-border: 214 20% 84%;
+    --sidebar-ring: 217 71% 50%;
+  }
+}
+
+/* Animation keyframes */
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Animation classes */
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.hover-scale {
+  transition: transform 0.2s ease-out;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.story-link {
+  position: relative;
+  display: inline-block;
+}
+
+.story-link::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  transform: scaleX(0);
+  height: 2px;
+  bottom: 0;
+  left: 0;
+  background-color: hsl(var(--primary));
+  transform-origin: bottom right;
+  transition: transform 0.3s ease-out;
+}
+
+.story-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
+}
+
+  .dark {
+    /* Kourti Brand - Official Dark Theme
+       Background: #09090B | Primary: #79A5EA | Accent: #AFC8F0
+    */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+
+    /* Elevated surfaces */
+    --surface: 240 8% 7%;
+    --surface-foreground: 0 0% 98%;
+    --surface-muted: 240 6% 10%;
+    --surface-border: 240 8% 18%;
+
+    /* Cards & Popovers */
+    --card: 240 8% 7%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 6% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Primary - Blue Lavender (#79A5EA) */
+    --primary: 217 71% 70%;
+    --primary-foreground: 240 10% 4%;
+    --primary-glow: 216 65% 82%;
+
+    /* Secondary */
+    --secondary: 240 6% 10%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Muted */
+    --muted: 240 7% 13%;
+    --muted-foreground: 240 5% 65%;
+
+    /* Accent - Light Blue Lavender (#AFC8F0) */
+    --accent: 216 65% 82%;
+    --accent-foreground: 240 10% 4%;
+
+    /* Status colours - Kourti palette */
+    --success: 142 69% 58%;
+    --success-foreground: 240 10% 4%;
+    --warning: 48 96% 53%;
+    --warning-foreground: 240 10% 4%;
+    --destructive: 0 91% 71%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Structure (#2A2A31 border) */
+    --border: 240 8% 18%;
+    --input: 240 7% 13%;
+    --ring: 217 71% 70%;
+
+    /* Sidebar */
+    --sidebar-background: 240 10% 4%;
+    --sidebar-foreground: 240 5% 65%;
+    --sidebar-primary: 217 71% 70%;
+    --sidebar-primary-foreground: 240 10% 4%;
+    --sidebar-accent: 240 6% 10%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 9% 13%;
+    --sidebar-ring: 217 71% 70%;
+  }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: hsl(var(--background));
+    min-height: 100vh;
+  }
+
+  /* Improved scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Enhanced focus styles */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Smooth transitions */
+  * {
+    transition-property: color, background-color, border-color, box-shadow, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer components {
+  .app-shell {
+    position: relative;
+    overflow: hidden;
+    background: hsl(var(--background));
+    z-index: 0;
+  }
+
+  .app-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, hsl(var(--background)), hsl(var(--background) / 0.95));
+    opacity: 0.7;
+    z-index: 0;
+  }
+
+  /* Dark mode: subtle glow effect using brand blue-lavender */
+  .dark .app-shell::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120%;
+    height: 60%;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, hsl(217 71% 70% / 0.04) 0%, transparent 70%);
+    z-index: 0;
+  }
+
+  .app-shell > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .surface-panel {
+    border-radius: 0.75rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.7);
+    box-shadow: 0 10px 24px -20px rgba(15, 23, 42, 0.25);
+  }
+
+  .dark .surface-panel {
+    box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.4);
+  }
+
+  .surface-popover {
+    border-radius: 0.7rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.65);
+    box-shadow: 0 14px 32px -24px rgba(15, 23, 42, 0.2);
+  }
+
+  .dark .surface-popover {
+    box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .surface-muted {
+    border-radius: 0.7rem;
+    background: hsl(var(--muted));
+  }
+
+  .workspace-header {
+    border-radius: 0.85rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.7);
+    box-shadow: 0 14px 28px -26px rgba(15, 23, 42, 0.2);
+  }
+
+  .dark .workspace-header {
+    box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.4);
+  }
+
+  .workspace-body {
+    border-radius: 0.85rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.7);
+    box-shadow: 0 18px 32px -28px rgba(15, 23, 42, 0.2);
+  }
+
+  .dark .workspace-body {
+    box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+  }
+
+  .workspace-body__inner {
+    margin: 0 auto;
+    min-height: 100%;
+    width: 100%;
+    max-width: 1440px;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .workspace-body__inner {
+      padding: 1.25rem 1.25rem;
+    }
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .workspace-body__inner {
+      padding: 1.25rem 1.25rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .workspace-body__inner {
+      padding: 1.5rem 1.75rem;
+    }
+  }
+
+  .workspace-sidebar {
+    border-radius: 1.15rem;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border) / 0.7);
+    box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.22);
+  }
+
+  .dark .workspace-sidebar {
+    box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Dark mode scrollbars - Kourti theme (#09090B bg, #2A2A31 border) */
+.dark ::-webkit-scrollbar-track {
+  background: hsl(240 10% 4%);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(240 8% 18%);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(217 71% 70% / 0.5);
+}
+
+/* Dark mode glow effects - Kourti blue-lavender (#79A5EA) */
+.dark .glow-primary {
+  box-shadow: 0 0 20px hsl(217 71% 70% / 0.15);
+}
+
+.dark .glow-primary:hover {
+  box-shadow: 0 0 30px hsl(217 71% 70% / 0.25);
+}
+
+.dark .glow-success {
+  box-shadow: 0 0 20px hsl(142 69% 58% / 0.15);
+}
+
+/* Signature gradient utility */
+.bg-kourti-gradient {
+  background: linear-gradient(135deg, #AFC8F0 0%, #79A5EA 100%);
+}
+
+.text-kourti-gradient {
+  background: linear-gradient(135deg, #AFC8F0 0%, #79A5EA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glow pulse animation */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(121, 165, 234, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(121, 165, 234, 0.3);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}

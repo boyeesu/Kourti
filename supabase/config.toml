@@ -1,0 +1,56 @@
+project_id = "zjbvnvydgsxqmmrrmvif"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+  "https://localhost:3000",
+  "http://localhost:3000/auth/reset-password",
+  "https://localhost:3000/auth/reset-password",
+  "http://localhost:8080",
+  "https://localhost:8080",
+  "http://localhost:8080/auth/reset-password",
+  "https://localhost:8080/auth/reset-password"
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[functions]
+
+[functions.sso-authorize]
+verify_jwt = false
+
+[functions.sso-callback]
+verify_jwt = false
+
+[functions.extract-document-text]
+verify_jwt = true
+
+[functions.send-invitation-email]
+verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = false
+
+[functions.send-password-reset-email]
+verify_jwt = false
+
+[functions.create-invited-user]
+verify_jwt = false
