@@ -7,10 +7,12 @@ import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } f
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
   Deno.env.get("SSO_ALLOWED_REDIRECT_ORIGINS"),
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "http://localhost:8080",
-  "http://localhost:8083",
+  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "http://localhost:8083",
+  ] : []),
   "https://kouti-legal-hub-41.lovable.app",
 ]
   .flatMap((value) => (value ? value.split(",") : []))

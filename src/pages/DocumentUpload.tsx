@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { logError } from '@/lib/logger';
 import { useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 import { useForm } from "react-hook-form";
@@ -149,7 +150,7 @@ export default function DocumentUpload() {
 
       navigate("/documents");
     } catch (error: unknown) {
-      console.error("Error creating document:", error);
+      logError("Error creating document", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to create document.";
       toast({
         variant: "destructive",
@@ -177,7 +178,7 @@ export default function DocumentUpload() {
             return;
           }
         } catch (error) {
-          console.error('File validation error:', error);
+          logError('File validation error', error);
           toast({
             variant: "destructive",
             title: "Validation Error",

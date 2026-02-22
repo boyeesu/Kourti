@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { logError, logWarn } from '@/lib/logger';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useDropzone } from "react-dropzone";
@@ -13,6 +14,7 @@ import { useReamAIAssistant } from "@/hooks/useReamAIAssistant";
 import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunctionWithCsrf } from "@/lib/csrfClient";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -222,15 +224,17 @@ export default function ReamAI() {
   const { toast } = useToast();
 
   // Load document from sessionStorage if passed from Documents page
+  const handleSelectDocRef = useRef(handleSelectDoc);
+  handleSelectDocRef.current = handleSelectDoc;
   useEffect(() => {
     const docData = sessionStorage.getItem('ream_ai_document');
     if (docData) {
       try {
         const doc = JSON.parse(docData);
-        handleSelectDoc(doc, false);
+        handleSelectDocRef.current(doc, false);
         sessionStorage.removeItem('ream_ai_document'); // Clear after loading
       } catch (e) {
-        console.error('Failed to load document:', e);
+        logError('Failed to load document', e);
       }
     }
   }, []);
@@ -387,7 +391,7 @@ export default function ReamAI() {
         if (uploadedDoc.file_path) {
           try {
             // Try server-side extraction first (handles PDF, DOCX, etc.)
-            const { data: extractResult, error: extractError } = await supabase.functions.invoke(
+            const { data: extractResult, error: extractError } = await invokeFunctionWithCsrf<{ content?: string; error?: string; warning?: string; success?: boolean }>(
               'extract-document-text',
               {
                 body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path }
@@ -401,19 +405,19 @@ export default function ReamAI() {
                 console.log('Server-side extraction successful, length:', extractedText.length);
               } else {
                 extractionError = extractResult.error || extractResult.warning || 'Extraction yielded no meaningful content';
-                console.warn('Server-side extraction returned error/warning:', extractionError);
+                logWarn('Server-side extraction returned error/warning', { extractionError });
                 if (extractResult.content) {
                   extractedText = extractResult.content; // Still store it for reference
                 }
               }
             } else if (extractError) {
               extractionError = extractError.message || 'Extraction failed';
-              console.error('Server-side extraction error:', extractError);
+              logError('Server-side extraction error', extractError);
             }
           } catch (extractErr) {
             const errorMsg = extractErr instanceof Error ? extractErr.message : String(extractErr);
             extractionError = errorMsg;
-            console.error('Text extraction error:', extractErr);
+            logError('Text extraction error', extractErr);
           }
         }
 
@@ -424,7 +428,7 @@ export default function ReamAI() {
               extractedText = await file.text();
               console.log('Client-side text extraction successful, length:', extractedText.length);
             } catch (e) {
-              console.error('Client-side text extraction failed:', e);
+              logError('Client-side text extraction failed', e);
               if (!extractionError) {
                 extractionError = 'Failed to extract text content';
               }
@@ -509,7 +513,7 @@ export default function ReamAI() {
         }
 
         setIsExtracting(false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Upload error:', error);
         setIsExtracting(false);
         setMessages((msgs) =>
@@ -517,7 +521,7 @@ export default function ReamAI() {
             i === msgs.length - 1
               ? {
                   ...msg,
-                  content: `⚠️ Failed to upload "${file.name}": ${error.message || 'Unknown error'}. Please try again.`,
+                  content: `⚠️ Failed to upload "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
                   isStreaming: false
                 }
               : msg
@@ -526,7 +530,7 @@ export default function ReamAI() {
         toast({
           variant: "destructive",
           title: "Upload Failed",
-          description: error.message || "Failed to upload document.",
+          description: error instanceof Error ? error.message : "Failed to upload document.",
         });
       }
     }
@@ -592,7 +596,7 @@ export default function ReamAI() {
           )
         );
 
-        const { data: extractResult, error: extractError } = await supabase.functions.invoke(
+        const { data: extractResult, error: extractError } = await invokeFunctionWithCsrf<{ content?: string; error?: string; warning?: string; success?: boolean }>(
           'extract-document-text',
           {
             body: { documentId: doc.id, filePath: doc.file_path }

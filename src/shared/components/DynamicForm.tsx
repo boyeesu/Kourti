@@ -5,6 +5,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 
+type DynamicFieldValue = string | number | boolean;
+
 export interface DynamicField {
   id: string;
   field_key: string;
@@ -16,8 +18,8 @@ export interface DynamicField {
 
 export interface DynamicFormProps {
   fields: DynamicField[];
-  initialValues?: Record<string, any>;
-  onSubmit: (values: Record<string, any>) => void;
+  initialValues?: Record<string, DynamicFieldValue>;
+  onSubmit: (values: Record<string, DynamicFieldValue>) => void;
   submitLabel?: string;
   hideSubmit?: boolean;
 }
@@ -29,11 +31,11 @@ export function DynamicForm({
   submitLabel = 'Submit',
   hideSubmit = false,
 }: DynamicFormProps) {
-  const [values, setValues] = useState<Record<string, any>>({});
+  const [values, setValues] = useState<Record<string, DynamicFieldValue>>({});
 
   useEffect(() => {
     // initialize values from initialValues or defaults
-    const init: Record<string, any> = {};
+    const init: Record<string, DynamicFieldValue> = {};
     fields.forEach((f) => {
       if (initialValues[f.field_key] !== undefined) {
         init[f.field_key] = initialValues[f.field_key];
@@ -56,7 +58,7 @@ export function DynamicForm({
     setValues(init);
   }, [fields, initialValues]);
 
-  const handleChange = (key: string, val: any) => {
+  const handleChange = (key: string, val: DynamicFieldValue) => {
     setValues((prev) => ({ ...prev, [key]: val }));
   };
 
@@ -75,7 +77,7 @@ export function DynamicForm({
           {f.data_type === 'text' && (
             <Input
               id={f.field_key}
-              value={values[f.field_key]}
+              value={values[f.field_key] as string}
               onChange={(e) => handleChange(f.field_key, e.target.value)}
               required={f.required}
             />
@@ -84,7 +86,7 @@ export function DynamicForm({
             <Input
               id={f.field_key}
               type="number"
-              value={values[f.field_key]}
+              value={values[f.field_key] as number}
               onChange={(e) => handleChange(f.field_key, Number(e.target.value))}
               required={f.required}
             />
@@ -93,14 +95,14 @@ export function DynamicForm({
             <Input
               id={f.field_key}
               type="date"
-              value={values[f.field_key]}
+              value={values[f.field_key] as string}
               onChange={(e) => handleChange(f.field_key, e.target.value)}
               required={f.required}
             />
           )}
           {f.data_type === 'select' && f.options && (
             <Select
-              value={values[f.field_key]}
+              value={values[f.field_key] as string}
               onValueChange={(v) => handleChange(f.field_key, v)}
             >
               <SelectTrigger id={f.field_key} className="w-full">
@@ -115,7 +117,7 @@ export function DynamicForm({
           )}
           {f.data_type === 'boolean' && (
             <Switch
-              checked={values[f.field_key]}
+              checked={values[f.field_key] as boolean}
               onCheckedChange={(v) => handleChange(f.field_key, v)}
             />
           )}

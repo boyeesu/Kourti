@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { logError } from '@/lib/logger';
 
 export function useInvoicePDF() {
   const { toast } = useToast();
@@ -59,7 +60,7 @@ export function useDownloadInvoicePDF() {
 
         return response.data;
       } catch (error) {
-        console.error('PDF download error:', error);
+        logError('PDF download error', error);
         throw error;
       }
     },

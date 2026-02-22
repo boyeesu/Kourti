@@ -73,7 +73,7 @@ export function useContracts(
 
       if (error) throw error;
 
-      const contracts = (data || []).map((contract: any) => ({
+      const contracts = (data || []).map((contract) => ({
         ...contract,
         client: contract.client || null,
       })) as Contract[];
@@ -328,7 +328,7 @@ export function useContractsByClient(clientId: string) {
 
       if (error) throw error;
 
-      const contracts = (data || []).map((contract: any) => ({
+      const contracts = (data || []).map((contract) => ({
         ...contract,
         client: contract.client || null,
       })) as Contract[];

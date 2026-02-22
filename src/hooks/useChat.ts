@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { useEffect } from 'react';
+import { logError, logWarn } from '@/lib/logger';
 
 export interface FileMetadata {
   file_name: string;
@@ -96,7 +97,7 @@ export function useConversations() {
       // Fallback to original query if RPC doesn't exist yet
       // (for backwards compatibility during migration)
       if (rpcError) {
-        console.warn('Optimized RPC not available, falling back to standard queries:', rpcError.message);
+        logWarn('Optimized RPC not available, falling back to standard queries', { message: rpcError.message });
       }
 
       // FALLBACK: Original implementation for backwards compatibility
@@ -106,9 +107,9 @@ export function useConversations() {
         .eq('user_id', user.id);
 
       if (participantError) {
-        console.error('Error fetching participant data:', participantError);
+        logError('Error fetching participant data', participantError);
         if (participantError.code === 'PGRST301' || participantError.message?.includes('RLS') || participantError.message?.includes('policy')) {
-          console.warn('RLS policy error detected. Please run the chat migrations.');
+          logWarn('RLS policy error detected. Please run the chat migrations.');
           return [];
         }
         throw participantError;
@@ -244,7 +245,7 @@ export function useMessages(conversationId: string | null) {
         .in('user_id', senderIds);
 
       if (profilesError) {
-        console.error('Error fetching sender profiles:', profilesError);
+        logError('Error fetching sender profiles', profilesError);
         // Don't throw, just continue without profiles
       }
 
@@ -309,7 +310,7 @@ export function useMessages(conversationId: string | null) {
               };
             }
           } catch (err) {
-            console.warn('Failed to fetch sender profile for realtime message:', err);
+            logWarn('Failed to fetch sender profile for realtime message', { error: err });
           }
 
           const newMessage: Message = {
@@ -343,7 +344,7 @@ export function useMessages(conversationId: string | null) {
         if (status === 'SUBSCRIBED') {
           console.log(`Subscribed to messages for conversation ${conversationId}`);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error(`Failed to subscribe to messages for conversation ${conversationId}`);
+          logError(`Failed to subscribe to messages for conversation ${conversationId}`);
         }
       });
 
@@ -385,7 +386,7 @@ export function useSendMessage() {
         .single();
 
       if (error) {
-        console.error('Error inserting message:', error);
+        logError('Error inserting message', error);
         throw new Error(error.message || 'Failed to send message');
       }
 
@@ -395,7 +396,7 @@ export function useSendMessage() {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId)
         .then(({ error: updateError }) => {
-          if (updateError) console.error('Error updating conversation timestamp:', updateError);
+          if (updateError) logError('Error updating conversation timestamp', updateError);
         });
 
       return data;
@@ -501,7 +502,7 @@ export function useSendFileMessage() {
         });
 
       if (uploadError) {
-        console.error('File upload error:', uploadError);
+        logError('File upload error', uploadError);
         throw new Error(`Failed to upload file: ${uploadError.message}`);
       }
 
@@ -532,7 +533,7 @@ export function useSendFileMessage() {
         .single();
 
       if (error) {
-        console.error('Error inserting file message:', error);
+        logError('Error inserting file message', error);
         // Try to clean up uploaded file on message insert failure
         await supabase.storage.from('Chat_Storage').remove([filePath]);
         throw new Error(error.message || 'Failed to send file message');
@@ -544,7 +545,7 @@ export function useSendFileMessage() {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId)
         .then(({ error: updateError }) => {
-          if (updateError) console.error('Error updating conversation timestamp:', updateError);
+          if (updateError) logError('Error updating conversation timestamp', updateError);
         });
 
       return data as unknown as Message;
@@ -648,7 +649,7 @@ export function useMarkAsRead() {
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Error marking conversation as read:', error);
+        logError('Error marking conversation as read', error);
         // Don't throw - this is a non-critical operation
         // The error is likely due to RLS policy issues
         return;

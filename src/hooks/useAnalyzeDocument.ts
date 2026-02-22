@@ -35,7 +35,7 @@ export function useAnalyzeDocument() {
         analysisResponse = fallback.data;
       }
 
-      const analysis = (analysisResponse as any)?.analysis as string;
+      const analysis = (analysisResponse as Record<string, unknown>)?.analysis as string;
       if (!analysis) {
         throw new Error('No analysis returned from AI service');
       }
@@ -46,13 +46,13 @@ export function useAnalyzeDocument() {
     onSuccess: async ({ analysis, docId }) => {
       await supabase
         .from('documents')
-        .update({ summary: analysis } as any)
-        .eq('id', docId as any);
+        .update({ summary: analysis } as never)
+        .eq('id', docId);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast({ title: 'Document summarized', description: 'Summary saved.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error summarizing document', description: error.message || 'Unknown error', variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error summarizing document', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
     }
   });
 }

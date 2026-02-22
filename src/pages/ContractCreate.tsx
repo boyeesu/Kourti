@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { logError } from '@/lib/logger';
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ export default function ContractCreate() {
   const generateContract = useAIContractGenerator();
   const [template, setTemplate] = useState<string>("");
   const [additionalTerms, setAdditionalTerms] = useState<string>("");
-  const [generatedContract, setGeneratedContract] = useState<any>(null);
+  const [generatedContract, setGeneratedContract] = useState<{ id: string; title: string; status: string; contract_type?: string; terms?: string; value?: number; currency?: string; start_date?: string; end_date?: string } | null>(null);
   const [contractData, setContractData] = useState({
     title: "",
     type: "",
@@ -284,7 +285,7 @@ export default function ContractCreate() {
         setActiveTab("success");
       }
     } catch (error) {
-      console.error("Contract generation failed:", error);
+      logError("Contract generation failed", error);
     }
   };
 
@@ -472,9 +473,7 @@ export default function ContractCreate() {
                           {profile && <SelectItem value={profile.user_id}>
                               Me ({profile.first_name || ''} {profile.last_name || ''})
                             </SelectItem>}
-                          {orgMembers.filter(({
-                          user_id
-                        }: any) => !profile || user_id !== profile.user_id).map((user: any) => <SelectItem key={user.user_id} value={user.user_id}>
+                          {orgMembers.filter((member) => !profile || member.user_id !== profile.user_id).map((user) => <SelectItem key={user.user_id} value={user.user_id}>
                                 {user.first_name} {user.last_name} ({user.email})
                               </SelectItem>)}
                         </SelectContent>
@@ -849,7 +848,7 @@ export default function ContractCreate() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Assigned To</p>
-                  <p className="font-medium">{contractData.assignedTo ? orgMembers.find(({ user_id }: any) => user_id === contractData.assignedTo)?.first_name || "Team member" : "Unassigned"}</p>
+                  <p className="font-medium">{contractData.assignedTo ? orgMembers.find((member) => member.user_id === contractData.assignedTo)?.first_name || "Team member" : "Unassigned"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Value</p>

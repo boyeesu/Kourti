@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { logError } from '@/lib/logger';
 import { useNavigate } from "react-router-dom";
 import { useSearch } from "@/hooks/use-search";
 import { useDocuments } from "@/hooks/useDocuments";
@@ -100,14 +101,14 @@ export default function Documents() {
         const url = URL.createObjectURL(data);
         const a = document.createElement('a');
         a.href = url;
-        a.download = (doc as any).metadata?.original_filename || doc.name;
+        a.download = (doc.metadata as { original_filename?: string } | undefined)?.original_filename || doc.name || 'download';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      console.error('Download failed:', err);
+      logError('Download failed', err);
     }
   };
 
@@ -250,20 +251,21 @@ export default function Documents() {
                 header: "Linked Case",
                 sortable: false,
                 minWidth: "150px",
-                cell: (doc) => (
-                  (doc as any).case ? (
+                cell: (doc) => {
+                  const docCase = (doc as unknown as { case?: { id: string; title: string } }).case;
+                  return docCase ? (
                     <Badge
                       variant="secondary"
                       className="cursor-pointer hover:bg-secondary/80 max-w-[150px] truncate"
-                      onClick={() => navigate(`/matters/${(doc as any).case.id}`)}
-                      title={(doc as any).case.title}
+                      onClick={() => navigate(`/matters/${docCase.id}`)}
+                      title={docCase.title}
                     >
-                      {(doc as any).case.title}
+                      {docCase.title}
                     </Badge>
                   ) : (
                     <span className="text-muted-foreground text-sm">No case linked</span>
-                  )
-                ),
+                  );
+                },
               },
               {
                 id: "status",
@@ -286,9 +288,12 @@ export default function Documents() {
                     <User className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <div className="text-sm">
-                        {(doc as any).profiles?.first_name && (doc as any).profiles?.last_name
-                          ? `${(doc as any).profiles.first_name} ${(doc as any).profiles.last_name}`
-                          : 'Unknown User'}
+                        {(() => {
+                          const profiles = (doc as unknown as { profiles?: { first_name?: string; last_name?: string } }).profiles;
+                          return profiles?.first_name && profiles?.last_name
+                            ? `${profiles.first_name} ${profiles.last_name}`
+                            : 'Unknown User';
+                        })()}
                       </div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
@@ -456,12 +461,12 @@ export default function Documents() {
           onOpenChange={() => setSelectedDocument(null)}
           document={{
             id: selectedDocument.id,
-            name: selectedDocument.name || (selectedDocument as any).title || 'Untitled Document',
-            file_path: (selectedDocument as any).file_path,
-            mime_type: (selectedDocument as any).mime_type,
-            file_size: (selectedDocument as any).file_size,
-            content: (selectedDocument as any).content,
-            metadata: (selectedDocument as any).metadata,
+            name: selectedDocument.name || selectedDocument.title || 'Untitled Document',
+            file_path: selectedDocument.file_path,
+            mime_type: selectedDocument.file_type,
+            file_size: selectedDocument.file_size,
+            content: selectedDocument.content,
+            metadata: selectedDocument.metadata,
           }}
         />
       )}
@@ -473,7 +478,7 @@ export default function Documents() {
           onOpenChange={() => setShareDocument(null)}
           document={{
             id: shareDocument.id,
-            name: shareDocument.name || (shareDocument as any).title || 'Untitled Document',
+            name: shareDocument.name || shareDocument.title || 'Untitled Document',
           }}
         />
       )}

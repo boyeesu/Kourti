@@ -41,22 +41,24 @@ export function useReamAIAssistant() {
         throw new Error('Authentication required');
       }
 
-      if (!organizationId) {
-        throw new Error('Organization not found');
+      const orgId = typeof organizationId === 'string' ? organizationId.trim() : '';
+      if (!orgId) {
+        throw new Error('Organization not found. Please ensure your account is linked to an organization.');
       }
 
       // Call the Ream AI Assistant edge function with CSRF protection
+      const body = {
+        message: message.trim(),
+        conversationHistory: conversationHistory.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        })),
+        userId: user.id,
+        organizationId: orgId,
+        ...(options.documentContext && { context: options.documentContext }),
+      };
       const { data, error } = await invokeFunctionWithCsrf<{ error?: string; response?: string }>('ream-ai-assistant', {
-        body: {
-          message: message.trim(),
-          conversationHistory: conversationHistory.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          userId: user.id,
-          organizationId: organizationId,
-          context: options.documentContext,
-        },
+        body,
       });
 
       if (error) {

@@ -38,7 +38,7 @@ const clientSchema = z.object({
 type ClientFormData = z.infer<typeof clientSchema>;
 
 interface ClientCreateProps {
-  onSuccess?: (client: any) => void;
+  onSuccess?: (client: { id: string; name: string }) => void;
   showHeader?: boolean;
 }
 

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { logError, logWarn } from '@/lib/logger';
 
 export interface RolePermission {
   id: string;
@@ -65,7 +66,7 @@ export function useRolePermissions(roleName?: string) {
         return (data || []) as RolePermission[];
       } catch (error) {
         // Fallback: return empty array if table doesn't exist yet
-        console.warn('Role permissions table not ready yet:', error);
+        logWarn('Role permissions table not ready yet', { error });
         return [] as RolePermission[];
       }
     },
@@ -87,7 +88,7 @@ export function useAllRolePermissions() {
         if (error) throw error;
         return (data || []) as RolePermission[];
       } catch (error) {
-        console.warn('Role permissions table not ready yet:', error);
+        logWarn('Role permissions table not ready yet', { error });
         return [] as RolePermission[];
       }
     },
@@ -129,7 +130,7 @@ export function useUpdatePermission() {
         );
         if (error) throw error;
       } catch (error) {
-        console.error('Permission update error:', error);
+        logError('Permission update error', error);
         throw error;
       }
     },
@@ -169,7 +170,7 @@ export function useUserPermission(resource: Resource, action: Action) {
         if (error) throw error;
         return data as boolean;
       } catch (error) {
-        console.error('Permission check error, denying access for security:', error);
+        logError('Permission check error, denying access for security', error);
         // SECURITY: Fail-closed - deny access when permission system has issues
         // RLS still enforces at the database level, but UI should also block
         return false;

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLogAdminAction } from './useAdminActions';
+import { logError } from '@/lib/logger';
 
 /**
  * Hook to approve a user (platform admin only)
@@ -24,7 +25,7 @@ export function useApproveUser() {
 
         return data;
       } catch (error) {
-        console.error('Error approving user:', error);
+        logError('Error approving user', error);
         throw error;
       }
     },
@@ -76,7 +77,7 @@ export function useDisableUser() {
 
         return data;
       } catch (error) {
-        console.error('Error disabling user:', error);
+        logError('Error disabling user', error);
         throw error;
       }
     },
@@ -128,7 +129,7 @@ export function useDeleteUser() {
 
         return data;
       } catch (error) {
-        console.error('Error deleting user:', error);
+        logError('Error deleting user', error);
         throw error;
       }
     },
@@ -191,7 +192,7 @@ export function useCreateOrganization() {
 
         return data;
       } catch (error) {
-        console.error('Error creating organization:', error);
+        logError('Error creating organization', error);
         throw error;
       }
     },

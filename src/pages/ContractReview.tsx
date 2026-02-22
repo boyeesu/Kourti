@@ -44,18 +44,18 @@ export default function ContractReview() {
   const { toast } = useToast();
   const createContractMutation = useCreateContract();
 
-  const normalizeResult = (raw: any): AnalysisResult => {
-    const analysis = raw?.analysis;
+  const normalizeResult = (raw: Record<string, unknown>): AnalysisResult => {
+    const analysis = raw?.analysis as string | undefined;
     if (!analysis) {
       throw new Error('No analysis returned from AI service');
     }
 
     return {
       analysis,
-      persona: raw?.persona,
-      analysisType: raw?.analysisType,
-      success: raw?.success,
-      tokensUsed: raw?.tokensUsed,
+      persona: raw?.persona as string | undefined,
+      analysisType: raw?.analysisType as string | undefined,
+      success: raw?.success as boolean | undefined,
+      tokensUsed: raw?.tokensUsed as number | undefined,
     };
   };
 
@@ -117,10 +117,10 @@ export default function ContractReview() {
         title: "Analysis Complete",
         description: "REAM AI has finished analyzing your document.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Analysis Failed",
-        description: error.message || "Failed to analyze document",
+        description: error instanceof Error ? error.message : "Failed to analyze document",
         variant: "destructive"
       });
     } finally {
@@ -288,7 +288,7 @@ export default function ContractReview() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Select value={analysisType} onValueChange={(value: any) => setAnalysisType(value)}>
+              <Select value={analysisType} onValueChange={(value: string) => setAnalysisType(value as "contract_review" | "document_review" | "key_information")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

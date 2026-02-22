@@ -11,13 +11,13 @@ export default function InvoiceCreate() {
   const createInvoice = useCreateInvoice();
 
   // Handle form submission
-  const handleSubmitInvoice = async (formData: any) => {
+  const handleSubmitInvoice = async (formData: { title: string; client_id: string; case_id?: string; vat: number; status: string; issue_date: Date; due_date: Date; notes?: string; items: Array<{ description: string; quantity: number; unit_price: number }> }) => {
     const payload = {
       title: formData.title,
       client_id: formData.client_id,
       case_id: formData.case_id,
       vat: formData.vat,
-      status: formData.status,
+      status: formData.status as 'draft' | 'sent' | 'paid' | 'overdue',
       issue_date: formData.issue_date.toISOString().split('T')[0],
       due_date: formData.due_date.toISOString().split('T')[0],
       notes: formData.notes,

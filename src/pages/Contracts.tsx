@@ -73,7 +73,7 @@ export default function Contracts() {
   const clientFilter = searchParams.get("client")?.toLowerCase() || "";
 
   // Create a memoized function to determine expiry status
-  const getExpiryStatus = (contract: any) => {
+  const getExpiryStatus = (contract: { end_date?: string }) => {
     if (!contract.end_date) return { isExpiring: false, isExpired: false };
 
     const today = new Date();
@@ -137,7 +137,7 @@ export default function Contracts() {
     const matchesClient =
       clientFilter === "" ||
       String(contract.client_id).toLowerCase() === clientFilter ||
-      (contract as any).client?.name?.toLowerCase().includes(clientFilter);
+      (contract as unknown as { client?: { name?: string } }).client?.name?.toLowerCase().includes(clientFilter);
 
     return matchesLocal && matchesGlobal && matchesClient;
   });
@@ -304,11 +304,11 @@ export default function Contracts() {
               {
                 id: "client",
                 header: "Client",
-                accessorFn: (contract) => (contract as any).client?.name || contract.client_id || 'No client',
+                accessorFn: (contract) => (contract as unknown as { client?: { name?: string } }).client?.name || contract.client_id || 'No client',
                 minWidth: "180px",
                 cell: (contract) => (
-                  <div className="truncate max-w-[180px]" title={(contract as any).client?.name || contract.client_id || 'No client'}>
-                    {(contract as any).client?.name || contract.client_id || 'No client'}
+                  <div className="truncate max-w-[180px]" title={(contract as unknown as { client?: { name?: string } }).client?.name || contract.client_id || 'No client'}>
+                    {(contract as unknown as { client?: { name?: string } }).client?.name || contract.client_id || 'No client'}
                   </div>
                 ),
               },
@@ -333,7 +333,7 @@ export default function Contracts() {
                     <User className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <div className="text-sm">
-                        {(contract as any).created_by_user?.first_name || 'User'}
+                        {(contract as unknown as { created_by_user?: { first_name?: string } }).created_by_user?.first_name || 'User'}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {new Date(contract.created_at).toLocaleDateString()}
@@ -383,7 +383,7 @@ export default function Contracts() {
                   </DropdownMenu>
                 ),
               },
-            ] as ColumnDef<any>[]}
+            ] as ColumnDef<typeof contracts[number]>[]}
             data={filteredContracts}
             emptyMessage="No contracts found matching your criteria."
             getRowKey={(row) => row.id}

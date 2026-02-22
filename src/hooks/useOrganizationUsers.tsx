@@ -6,6 +6,7 @@ import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useProfile } from '@/hooks/useProfile';
 import { env } from '@/lib/env';
 import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
+import { logWarn } from '@/lib/logger';
 
 type ProviderName = 'google' | 'microsoft';
 
@@ -177,11 +178,11 @@ export function useResendInvitation() {
               }
               ssoLinks.push({ provider, url: authorizeUrl.toString(), mode: 'supabase_managed' });
             } catch (urlError) {
-              console.warn('Failed to build supabase-managed SSO link', urlError);
+              logWarn('Failed to build supabase-managed SSO link', { error: urlError });
             }
           }
         } catch (err) {
-          console.warn('Unable to build SSO invitation link', provider, err);
+          logWarn('Unable to build SSO invitation link', { provider, error: err });
         }
       }
 

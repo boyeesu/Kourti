@@ -15,12 +15,15 @@ const openAIApiKey = Deno.env.get("OPENAI_API_KEY")!;
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "http://localhost:8080",
-  "http://localhost:8081",
-  "http://localhost:8083",
-  "http://localhost:8082",
+  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "http://localhost:8081",
+    "http://localhost:8083",
+    "http://localhost:8087",
+    "http://localhost:8082",
+  ] : []),
   "https://app.kourti.com",
   "https://kouti-legal-hub-41.lovable.app",
 ]
@@ -304,10 +307,12 @@ IMPORTANT: This question is about the document above. Extract information direct
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5.1", // Using Thinking mode for complex reasoning and execution
+        model: "gpt-5.1",
         messages,
-        temperature: 0.3, // Lower temperature for more precise, thoughtful responses
-        max_tokens: 4000, // Increased for comprehensive answers
+        // GPT-5.1 is a reasoning model: temperature/top_p/max_tokens are unsupported.
+        // Use max_completion_tokens and reasoning_effort instead.
+        max_completion_tokens: 4000,
+        reasoning_effort: "medium",
         stream: false,
       }),
     });
@@ -330,8 +335,8 @@ IMPORTANT: This question is about the document above. Extract information direct
       metadata: {
         organizationId,
         hasDocumentContext: !!context?.documentContent,
-        temperature: 0.3,
-        maxTokens: 4000,
+        reasoningEffort: 'medium',
+        maxCompletionTokens: 4000,
       },
     });
 

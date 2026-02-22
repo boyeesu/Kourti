@@ -11,71 +11,70 @@ import { PermissionGate } from "@/components/PermissionGate";
 import { Action, Resource } from "@/hooks/usePermissions";
 import OrganizationSetup from "@/components/OrganizationSetup";
 import ForcePasswordChange from "@/components/ForcePasswordChange";
-import { CasesProvider } from "@/context/CasesContext";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SearchProvider } from "@/hooks/use-search";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
-import DashboardNew from "./pages/DashboardNew";
-import Auth from "./pages/Auth";
-import AuthCallback from "./pages/AuthCallback";
-import SetPassword from "./pages/SetPassword";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Onboarding from "./pages/Onboarding";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Cases from "./pages/Cases";
-import CaseDetails from "./pages/CaseDetails";
-import CaseCreate from "./pages/CaseCreate";
-import CaseEdit from "./pages/CaseEdit";
-import ClientCreate from "./pages/ClientCreate";
-import ClientEdit from "./pages/ClientEdit";
-import CaseActivities from "./pages/CaseActivitiesNew";
-import Clients from "./pages/Clients";
-import ClientDetails from "./pages/ClientDetails";
-import Calendar from "./pages/Calendar";
-import Documents from "./pages/Documents";
-import DocumentUpload from "./pages/DocumentUpload";
-import Contracts from "./pages/Contracts";
-import ContractCreate from "./pages/ContractCreate";
-import ContractCompare from "./pages/ContractCompare";
-import ContractView from "./pages/ContractView";
-import ContractEdit from "./pages/ContractEdit";
-import ContractHistory from "./pages/ContractHistory";
-import ContractReview from "./pages/ContractReview";
-import DocumentReview from "./pages/DocumentReview";
-import UserManagement from "./pages/UserManagement";
-import Settings from "./pages/Settings";
-import ReamAI from "./pages/ReamAI";
-import VoiceRecorder from "./pages/VoiceRecorder";
-import TranscriptionView from "./pages/TranscriptionView";
-import TranscriptionsList from "./pages/TranscriptionsList";
-import BulkImport from "./pages/BulkImport";
-import LiveChatPage from "./pages/LiveChatPage";
-import NotFound from "./pages/NotFound";
-import Unauthorized from "./pages/Unauthorized";
-import ThanosDashboard from "./pages/ThanosDashboard";
+// All pages lazy-loaded for code splitting
 import { logInfo, logWarn } from "./lib/logger";
 import { FloatingChatWidget } from "@/components/ream-ai/FloatingChatWidget";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 // LiveChat overlay removed - now using LiveChatPage as a proper route
 // ThemeProvider removed - now handled in main.tsx
 
-// Lazy load pages for better performance
+// Lazy load all pages for code splitting
+const DashboardNew = lazy(() => import('./pages/DashboardNew'));
+const Auth = lazy(() => import('./pages/Auth'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const SetPassword = lazy(() => import('./pages/SetPassword'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Cases = lazy(() => import('./pages/Cases'));
+const CaseDetails = lazy(() => import('./pages/CaseDetails'));
+const CaseCreate = lazy(() => import('./pages/CaseCreate'));
+const CaseEdit = lazy(() => import('./pages/CaseEdit'));
+const ClientCreate = lazy(() => import('./pages/ClientCreate'));
+const ClientEdit = lazy(() => import('./pages/ClientEdit'));
+const CaseActivities = lazy(() => import('./pages/CaseActivitiesNew'));
+const Clients = lazy(() => import('./pages/Clients'));
+const ClientDetails = lazy(() => import('./pages/ClientDetails'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Documents = lazy(() => import('./pages/Documents'));
+const DocumentUpload = lazy(() => import('./pages/DocumentUpload'));
+const Contracts = lazy(() => import('./pages/Contracts'));
+const ContractCreate = lazy(() => import('./pages/ContractCreate'));
+const ContractCompare = lazy(() => import('./pages/ContractCompare'));
+const ContractView = lazy(() => import('./pages/ContractView'));
+const ContractEdit = lazy(() => import('./pages/ContractEdit'));
+const ContractHistory = lazy(() => import('./pages/ContractHistory'));
+const ContractReview = lazy(() => import('./pages/ContractReview'));
+const ContractUpload = lazy(() => import('./pages/ContractUpload'));
+const DocumentReview = lazy(() => import('./pages/DocumentReview'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const Settings = lazy(() => import('./pages/Settings'));
+const ReamAI = lazy(() => import('./pages/ReamAI'));
+const VoiceRecorder = lazy(() => import('./pages/VoiceRecorder'));
+const TranscriptionView = lazy(() => import('./pages/TranscriptionView'));
+const TranscriptionsList = lazy(() => import('./pages/TranscriptionsList'));
+const BulkImport = lazy(() => import('./pages/BulkImport'));
+const LiveChatPage = lazy(() => import('./pages/LiveChatPage'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const Unauthorized = lazy(() => import('./pages/Unauthorized'));
+const ThanosDashboard = lazy(() => import('./pages/ThanosDashboard'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceCreate = lazy(() => import('./pages/InvoiceCreate'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 const Changelog = lazy(() => import('./pages/Changelog'));
-const ContractUpload = lazy(() => import('./pages/ContractUpload'));
 
 type ProtectedRouteConfig = {
   path: string;
   component: React.ComponentType;
   boundaryName?: string;
-  suspense?: boolean;
   permission?: {
     resource: Resource;
     action: Action;
@@ -105,36 +104,34 @@ const protectedRoutes: ProtectedRouteConfig[] = [
   { path: '/documents/review', component: DocumentReview, boundaryName: 'Document Review', permission: { resource: 'documents', action: 'update' } },
   { path: '/contracts', component: Contracts, boundaryName: 'Contracts', permission: { resource: 'contracts', action: 'read' } },
   { path: '/contracts/create', component: ContractCreate, boundaryName: 'Contract Create', permission: { resource: 'contracts', action: 'create' } },
-  { path: '/contracts/upload', component: ContractUpload, boundaryName: 'Contract Upload', suspense: true, permission: { resource: 'contracts', action: 'create' } },
+  { path: '/contracts/upload', component: ContractUpload, boundaryName: 'Contract Upload', permission: { resource: 'contracts', action: 'create' } },
   { path: '/contracts/compare', component: ContractCompare, boundaryName: 'Contract Compare', permission: { resource: 'contracts', action: 'read' } },
   { path: '/contracts/:id', component: ContractView, boundaryName: 'Contract View', permission: { resource: 'contracts', action: 'read' } },
   { path: '/contracts/:id/edit', component: ContractEdit, boundaryName: 'Contract Edit', permission: { resource: 'contracts', action: 'update' } },
   { path: '/contracts/:id/history', component: ContractHistory, boundaryName: 'Contract History', permission: { resource: 'contracts', action: 'read' } },
   { path: '/contracts/review', component: ContractReview, boundaryName: 'Contract Review', permission: { resource: 'contracts', action: 'update' } },
-  { path: '/invoices', component: Invoices, boundaryName: 'Invoices', suspense: true, permission: { resource: 'invoices', action: 'read' } },
-  { path: '/invoices/create', component: InvoiceCreate, boundaryName: 'Invoice Create', suspense: true, permission: { resource: 'invoices', action: 'create' } },
-  { path: '/invoices/:id', component: InvoiceDetails, boundaryName: 'Invoice Details', suspense: true, permission: { resource: 'invoices', action: 'read' } },
-  { path: '/analytics', component: Analytics, boundaryName: 'Analytics', suspense: true, permission: { resource: 'cases', action: 'manage' } },
+  { path: '/invoices', component: Invoices, boundaryName: 'Invoices', permission: { resource: 'invoices', action: 'read' } },
+  { path: '/invoices/create', component: InvoiceCreate, boundaryName: 'Invoice Create', permission: { resource: 'invoices', action: 'create' } },
+  { path: '/invoices/:id', component: InvoiceDetails, boundaryName: 'Invoice Details', permission: { resource: 'invoices', action: 'read' } },
+  { path: '/analytics', component: Analytics, boundaryName: 'Analytics', permission: { resource: 'cases', action: 'manage' } },
   { path: '/ream-ai', component: ReamAI, boundaryName: 'Ream AI', permission: { resource: 'documents', action: 'read' } },
   { path: '/voice-recorder', component: VoiceRecorder, boundaryName: 'Voice Recorder', permission: { resource: 'documents', action: 'create' } },
   { path: '/transcriptions', component: TranscriptionsList, boundaryName: 'Transcriptions List', permission: { resource: 'documents', action: 'read' } },
   { path: '/transcriptions/:id', component: TranscriptionView, boundaryName: 'Transcription View', permission: { resource: 'documents', action: 'read' } },
   { path: '/bulk-import', component: BulkImport, boundaryName: 'Bulk Import', permission: { resource: 'documents', action: 'manage' } },
   { path: '/live-chat', component: LiveChatPage, boundaryName: 'Live Chat' },
-  { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center', suspense: true },
-  { path: '/changelog', component: Changelog, boundaryName: 'Changelog', suspense: true },
+  { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center' },
+  { path: '/changelog', component: Changelog, boundaryName: 'Changelog' },
   { path: '/users', component: UserManagement, boundaryName: 'User Management', permission: { resource: 'users', action: 'manage' } },
   { path: '/settings', component: Settings, boundaryName: 'Settings', permission: { resource: 'settings', action: 'manage' } },
   { path: '*', component: NotFound },
 ];
 
-function createRouteElement({ component: Component, boundaryName, suspense, permission }: ProtectedRouteConfig) {
-  const content = suspense ? (
+function createRouteElement({ component: Component, boundaryName, permission }: ProtectedRouteConfig) {
+  const content = (
     <Suspense fallback={<LoadingFallback />}>
       <Component />
     </Suspense>
-  ) : (
-    <Component />
   );
 
   const wrappedContent = boundaryName ? (
@@ -287,29 +284,33 @@ const App = () => (
         <AuthProvider>
           <InactivityHandler />
           <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/auth/set-password" element={<SetPassword />} />
-            <Route path="/auth/reset-password" element={<ResetPassword />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/auth" element={<Suspense fallback={<LoadingFallback />}><Auth /></Suspense>} />
+            <Route path="/auth/callback" element={<Suspense fallback={<LoadingFallback />}><AuthCallback /></Suspense>} />
+            <Route path="/auth/set-password" element={<Suspense fallback={<LoadingFallback />}><SetPassword /></Suspense>} />
+            <Route path="/auth/reset-password" element={<Suspense fallback={<LoadingFallback />}><ResetPassword /></Suspense>} />
+            <Route path="/forgot-password" element={<Suspense fallback={<LoadingFallback />}><ForgotPassword /></Suspense>} />
+            <Route path="/login" element={<Suspense fallback={<LoadingFallback />}><Login /></Suspense>} />
+            <Route path="/register" element={<Suspense fallback={<LoadingFallback />}><Register /></Suspense>} />
             <Route
               path="/onboarding"
               element={(
-                <ModuleErrorBoundary name="Onboarding">
-                  <Onboarding />
-                </ModuleErrorBoundary>
+                <Suspense fallback={<LoadingFallback />}>
+                  <ModuleErrorBoundary name="Onboarding">
+                    <Onboarding />
+                  </ModuleErrorBoundary>
+                </Suspense>
               )}
             />
             <Route
               path="/thanos/*"
               element={(
-                <SuperAdminRoute>
-                  <ModuleErrorBoundary name="Thanos Dashboard">
-                    <ThanosDashboard />
-                  </ModuleErrorBoundary>
-                </SuperAdminRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <SuperAdminRoute>
+                    <ModuleErrorBoundary name="Thanos Dashboard">
+                      <ThanosDashboard />
+                    </ModuleErrorBoundary>
+                  </SuperAdminRoute>
+                </Suspense>
               )}
             />
             <Route
@@ -319,20 +320,18 @@ const App = () => (
                   <OrganizationCheck>
                     <PasswordChangeCheck>
                       <SearchProvider>
-                        <CasesProvider>
-                          <AppLayout>
-                            <Routes>
-                              {protectedRoutes.map((route) => (
-                                <Route
-                                  key={route.path}
-                                  path={route.path}
-                                  element={createRouteElement(route)}
-                                />
-                              ))}
-                            </Routes>
-                            <FloatingChatWidget />
-                          </AppLayout>
-                        </CasesProvider>
+                        <AppLayout>
+                          <Routes>
+                            {protectedRoutes.map((route) => (
+                              <Route
+                                key={route.path}
+                                path={route.path}
+                                element={createRouteElement(route)}
+                              />
+                            ))}
+                          </Routes>
+                          <FloatingChatWidget />
+                        </AppLayout>
                       </SearchProvider>
                     </PasswordChangeCheck>
                   </OrganizationCheck>

@@ -90,10 +90,10 @@ const TranscriptionView: React.FC = () => {
         title: "Success",
         description: "Transcription updated successfully",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to update transcription",
+        description: error instanceof Error ? error.message : "Failed to update transcription",
         variant: "destructive",
       });
     }
@@ -110,10 +110,10 @@ const TranscriptionView: React.FC = () => {
           title: "Deleted",
           description: "Transcription deleted successfully",
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast({
           title: "Delete Failed",
-          description: error.message || "Failed to delete transcription",
+          description: error instanceof Error ? error.message : "Failed to delete transcription",
           variant: "destructive",
         });
       }
@@ -292,7 +292,7 @@ const TranscriptionView: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No case selected</SelectItem>
-                  {cases?.map((caseItem: any) => (
+                  {cases?.map((caseItem) => (
                     <SelectItem key={caseItem.id} value={caseItem.id}>
                       {caseItem.title} - {caseItem.case_number || 'No number'}
                     </SelectItem>

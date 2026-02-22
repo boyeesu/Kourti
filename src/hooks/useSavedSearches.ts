@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
 import { supabase } from "@/integrations/supabase/client";
+import { logError } from '@/lib/logger';
 
 export interface SavedSearch {
   id: string;
@@ -30,7 +31,7 @@ export function useSavedSearches() {
         if (error) throw error;
         setSavedSearches((data || []) as unknown as SavedSearch[]);
       } catch (error) {
-        console.error("Error fetching saved searches:", error);
+        logError("Error fetching saved searches", error);
       } finally {
         setIsLoading(false);
       }
@@ -65,7 +66,7 @@ export function useSavedSearches() {
       setSavedSearches((prev) => [savedSearch, ...prev]);
       return savedSearch;
     } catch (error) {
-      console.error("Error saving search:", error);
+      logError("Error saving search", error);
       throw error;
     }
   };
@@ -80,7 +81,7 @@ export function useSavedSearches() {
       if (error) throw error;
       setSavedSearches((prev) => prev.filter((s) => s.id !== id));
     } catch (error) {
-      console.error("Error deleting search:", error);
+      logError("Error deleting search", error);
       throw error;
     }
   };

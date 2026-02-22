@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
 import type { Json } from '@/integrations/supabase/types';
+import { logError } from '@/lib/logger';
 
 export interface AdminAction {
   id: string;
@@ -62,7 +63,7 @@ export function useAdminActions(filters?: AdminActionFilters) {
 
         return (data || []) as AdminAction[];
       } catch (error) {
-        console.error('Error fetching admin actions:', error);
+        logError('Error fetching admin actions', error);
         throw error;
       }
     },
@@ -108,7 +109,7 @@ export function useLogAdminAction() {
 
         return data;
       } catch (error) {
-        console.error('Error logging admin action:', error);
+        logError('Error logging admin action', error);
         throw error;
       }
     },

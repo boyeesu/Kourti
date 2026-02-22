@@ -75,11 +75,14 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<ClientsQuery
         throw error;
       }
 
-      const items = (data ?? []).map((client) => ({
-        ...client,
-        cases: (client as any).cases ?? [],
-        contracts: (client as any).contracts ?? [],
-      })) as Client[];
+      const items = (data ?? []).map((client) => {
+        const typed = client as unknown as { cases: unknown[]; contracts: unknown[]; };
+        return {
+          ...client,
+          cases: typed.cases ?? [],
+          contracts: typed.contracts ?? [],
+        };
+      }) as Client[];
 
       return { items, total: count ?? 0 };
     },

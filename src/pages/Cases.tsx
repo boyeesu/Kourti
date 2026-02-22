@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useCases as useContextCases } from "@/context/CasesContext"; // Keep context for compatibility
 import { useCases, useDeleteCase } from "@/hooks/useCases"; // Add real data hooks
 import { useSearch } from "@/hooks/use-search";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
@@ -71,12 +70,12 @@ export default function App() { // Changed to App for React component export
     setPage,
   } = useCases();
 
-  const cases = data?.cases || [];
+  const cases = useMemo(() => data?.cases || [], [data?.cases]);
   const totalCount = data?.count || 0;
   // Ensure totalPages is at least 1 to avoid division by zero or negative pages
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  const { statuses } = useContextCases(); // Keep for status options only
+  const statuses = ["Active", "Review", "Draft", "Closed"];
   const { term: globalSearch, setTerm } = useSearch(); // Destructure setTerm from useSearch
   const deleteCase = useDeleteCase();
   const [searchParams] = useSearchParams();
@@ -111,9 +110,9 @@ export default function App() { // Changed to App for React component export
     documentsCount: number;
   };
 
-  const caseRows: CaseRow[] = cases.map((c: any) => ({
+  const caseRows: CaseRow[] = cases.map((c) => ({
     id: String(c.id || c.case_number || ''),
-    name: (c.title || c.name) as string,
+    name: c.title as string,
     client: String(c.client?.name || c.client || 'Unknown Client'),
     clientId: c.client_id || c.client?.id,
     status: c.status as string,

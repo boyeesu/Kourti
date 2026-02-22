@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logError } from '@/lib/logger';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +71,7 @@ export default function ContractCompare() {
       });
 
       if (error) {
-        console.error('Comparison error:', error);
+        logError('Comparison error', error);
         toast({
           title: "Comparison Failed",
           description: error.message || "Failed to compare contracts. Please try again.",
@@ -86,7 +87,7 @@ export default function ContractCompare() {
         description: `Identified ${data.summary.totalChanges} differences between the contracts.`,
       });
     } catch (error) {
-      console.error('Comparison error:', error);
+      logError('Comparison error', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred during comparison.",
@@ -118,7 +119,7 @@ export default function ContractCompare() {
       }
       return null;
     } catch (error) {
-      console.error('Text extraction error:', error);
+      logError('Text extraction error', error);
       return null;
     }
   };

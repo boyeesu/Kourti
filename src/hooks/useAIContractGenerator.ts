@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { logError } from '@/lib/logger';
 
 interface ContractGenerationData {
   basicInfo: {
@@ -55,7 +56,7 @@ export function useAIContractGenerator() {
       return result;
     },
     onError: (error: any) => {
-      console.error('Contract generation failed:', error);
+      logError('Contract generation failed', error);
       toast({
         variant: 'destructive',
         title: 'Generation Failed',

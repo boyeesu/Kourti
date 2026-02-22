@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { logError } from '@/lib/logger';
 
 export interface ActivityType {
   value: string;
@@ -51,7 +52,7 @@ export function useActivityTypes() {
         // Return default types if no activities exist yet
         return defaultActivityTypes;
       } catch (error) {
-        console.error('Failed to fetch activity types:', error);
+        logError('Failed to fetch activity types', error);
         // Fallback to default types on error
         return defaultActivityTypes;
       }

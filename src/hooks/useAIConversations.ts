@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { logError } from '@/lib/logger';
 
 export interface AIConversation {
   id: string;
@@ -73,7 +74,7 @@ export function useAIConversations() {
         description: "Failed to create conversation",
         variant: "destructive",
       });
-      console.error("Create conversation error:", error);
+      logError("Create conversation error", error);
     },
   });
 
@@ -115,7 +116,7 @@ export function useAIConversations() {
         description: "Failed to delete conversation",
         variant: "destructive",
       });
-      console.error("Delete conversation error:", error);
+      logError("Delete conversation error", error);
     },
   });
 
@@ -183,7 +184,7 @@ export function useConversationMessages(conversationId: string | null) {
         description: "Failed to save message",
         variant: "destructive",
       });
-      console.error("Save message error:", error);
+      logError("Save message error", error);
     },
   });
 

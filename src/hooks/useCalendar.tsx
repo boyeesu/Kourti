@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { CalendarEvent } from '@/types';
+import { logWarn } from '@/lib/logger';
 
 // Assuming CalendarEvent type is defined elsewhere and matches your database schema.
 // Example:
@@ -112,7 +113,7 @@ export function useCalendarEventsByDateRange(startDate: string, endDate: string)
     queryKey: ['calendar-events', 'range', { startDate, endDate, organizationId }],
     queryFn: async () => {
       if (!organizationId) {
-        console.warn('⚠️ No organization ID found. Skipping date range calendar events fetch.');
+        logWarn('No organization ID found. Skipping date range calendar events fetch.');
         return [];
       }
 

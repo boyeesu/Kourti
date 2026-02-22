@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { logError, logWarn } from '@/lib/logger';
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -307,7 +308,7 @@ export default function Onboarding() {
       // Create account first if not already authenticated
       if (!user) {
         // Retry signup up to 3 times for timeout errors
-        let signUpError = null;
+        let signUpError: { message?: string; name?: string; constructor?: { name?: string } } | null = null;
         let retryCount = 0;
         const maxRetries = 3;
 
@@ -328,7 +329,7 @@ export default function Onboarding() {
             }
 
             signUpError = result.error;
-            console.error('Signup error on attempt', retryCount + 1, ':', signUpError);
+            logError(`Signup error on attempt ${retryCount + 1}`, signUpError);
 
             // Check if it's a retryable error (timeout, 504, network issues, or AuthRetryableFetchError)
             const errorMessage = signUpError.message || '';
@@ -358,11 +359,11 @@ export default function Onboarding() {
             // Not a retryable error, or we've exhausted retries
             break;
 
-          } catch (error: any) {
-            signUpError = error;
+          } catch (error: unknown) {
+            signUpError = error instanceof Error ? error : { message: String(error) };
             // Handle network errors and timeouts
-            const catchErrorMessage = error.message || '';
-            const catchErrorName = error.name || error.constructor?.name || '';
+            const catchErrorMessage = error instanceof Error ? error.message : '';
+            const catchErrorName = error instanceof Error ? (error.name || error.constructor?.name || '') : '';
             const isCatchRetryable =
               catchErrorMessage.includes('fetch') ||
               catchErrorMessage.includes('timeout') ||
@@ -420,7 +421,7 @@ export default function Onboarding() {
             });
           } else {
             // Log the actual error for debugging
-            console.error('Signup error details:', signUpError);
+            logError('Signup error details', signUpError);
             toast({
               variant: "destructive",
               title: "Account creation failed",
@@ -438,7 +439,7 @@ export default function Onboarding() {
         while (sessionRetries < maxSessionRetries) {
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
           if (sessionError) {
-            console.error('Session error:', sessionError);
+            logError('Session error', sessionError);
           }
           if (sessionData?.session?.user) {
             session = sessionData.session;
@@ -538,7 +539,7 @@ export default function Onboarding() {
           role_name: 'superadmin',
           organization_id: orgData.id,
           assigned_by: currentUser.id
-        } as any)
+        } as never)
         .select()
         .single();
 
@@ -572,11 +573,11 @@ export default function Onboarding() {
           });
 
         if (permError) {
-          console.warn('Failed to seed permissions:', permError);
+          logWarn('Failed to seed permissions', { permError });
           // Non-fatal - continue with onboarding
         }
       } catch (permSeedError) {
-        console.warn('Error seeding permissions:', permSeedError);
+        logWarn('Error seeding permissions', { permSeedError });
         // Non-fatal - continue with onboarding
       }
 
@@ -598,14 +599,14 @@ export default function Onboarding() {
 
           if (profileDetails) {
             inviterName = buildDisplayName(
-              (profileDetails as any)?.first_name ?? null,
-              (profileDetails as any)?.last_name ?? null,
+              (profileDetails as Record<string, unknown>)?.first_name as string ?? null,
+              (profileDetails as Record<string, unknown>)?.last_name as string ?? null,
               currentUser.email ?? undefined
             );
           }
-        } catch (profileDetailsError: any) {
+        } catch (profileDetailsError: unknown) {
           warningMessages.push(
-            profileDetailsError?.message
+            profileDetailsError instanceof Error && profileDetailsError.message
               ? `Unable to load your profile details for invitations: ${profileDetailsError.message}`
               : 'Unable to load your profile details for invitations.'
           );
@@ -614,9 +615,9 @@ export default function Onboarding() {
         let invitationUrl: string | null = null;
         try {
           invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
-        } catch (invitationUrlError: any) {
+        } catch (invitationUrlError: unknown) {
           warningMessages.push(
-            invitationUrlError?.message
+            invitationUrlError instanceof Error && invitationUrlError.message
               ? `Could not generate invitation link: ${invitationUrlError.message}`
               : 'Could not generate invitation link for team invites.'
           );
@@ -665,16 +666,16 @@ export default function Onboarding() {
                     `Invitation email to ${email} returned an error: ${(emailResult as { error?: string }).error || 'Unknown error'}`
                   );
                 }
-              } catch (emailError: any) {
+              } catch (emailError: unknown) {
                 warningMessages.push(
-                  emailError?.message
+                  emailError instanceof Error && emailError.message
                     ? `Invitation email to ${email} encountered an error: ${emailError.message}`
                     : `Invitation email to ${email} encountered an unknown error.`
                 );
               }
-            } catch (inviteError: any) {
+            } catch (inviteError: unknown) {
               warningMessages.push(
-                inviteError?.message
+                inviteError instanceof Error && inviteError.message
                   ? `Failed to invite ${email}: ${inviteError.message}`
                   : `Failed to invite ${email}.`
               );
@@ -694,7 +695,7 @@ export default function Onboarding() {
           },
         });
       } catch (stepError) {
-        console.warn('Failed to mark onboarding step complete:', stepError);
+        logWarn('Failed to mark onboarding step complete', { stepError });
       }
 
       // Track onboarding completion and send welcome notification
@@ -727,11 +728,11 @@ export default function Onboarding() {
       ]);
 
       navigate("/dashboard", { replace: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to complete onboarding. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to complete onboarding. Please try again.",
       });
     } finally {
       setIsSubmitting(false);

@@ -17,10 +17,12 @@ const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "onboarding@resend.dev";
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "http://localhost:8080",
-  "http://localhost:8083",
+  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "http://localhost:8083",
+  ] : []),
   "https://app.kourti.com",
   "https://kouti-legal-hub-41.lovable.app",
 ]

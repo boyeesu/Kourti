@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { logWarn } from '@/lib/logger';
 
 type Theme = "dark" | "light" | "system";
 
@@ -29,7 +30,7 @@ function getStoredTheme(storageKey: string, fallback: Theme): Theme {
     const stored = window.localStorage.getItem(storageKey) as Theme | null;
     return stored ?? fallback;
   } catch (error) {
-    console.warn("Unable to read theme from localStorage", error);
+    logWarn("Unable to read theme from localStorage", { error });
     return fallback;
   }
 }
@@ -70,7 +71,7 @@ export function ThemeProvider({
         try {
           window.localStorage.setItem(storageKey, nextTheme);
         } catch (error) {
-          console.warn("Unable to persist theme to localStorage", error);
+          logWarn("Unable to persist theme to localStorage", { error });
         }
       }
       setTheme(nextTheme);

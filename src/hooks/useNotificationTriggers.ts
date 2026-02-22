@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics';
 import { useNotificationPreferences } from '@/hooks/useNotificationsDb';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { logError } from '@/lib/logger';
 
 export function useNotificationTriggers() {
   const createNotification = useCreateNotification();
@@ -54,10 +55,10 @@ export function useNotificationTriggers() {
         body: params,
       });
       if (error) {
-        console.error('Failed to send email notification:', error);
+        logError('Failed to send email notification', error);
       }
     } catch (err) {
-      console.error('Email notification error:', err);
+      logError('Email notification error', err);
     }
   };
 

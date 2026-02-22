@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { logError } from '@/lib/logger';
 
 /**
  * Hook to check if the current user is a platform admin
@@ -21,13 +22,13 @@ export function usePlatformAdmin() {
         });
 
         if (error) {
-          console.error('Error checking platform admin status:', error);
+          logError('Error checking platform admin status', error);
           return false;
         }
 
         return Boolean(data);
       } catch (error) {
-        console.error('Error checking platform admin status:', error);
+        logError('Error checking platform admin status', error);
         return false;
       }
     },

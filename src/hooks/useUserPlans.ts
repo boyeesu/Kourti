@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLogAdminAction } from './useAdminActions';
 import { useAuth } from './useAuth';
+import { logError } from '@/lib/logger';
 
 export interface UserPlan {
   id: string;
@@ -69,7 +70,7 @@ export function useUserPlans() {
           features: (plan.features as string[]) || [],
         })) as UserPlan[];
       } catch (error) {
-        console.error('Error fetching user plans:', error);
+        logError('Error fetching user plans', error);
         throw error;
       }
     },
@@ -111,7 +112,7 @@ export function useCurrentUserPlan(userId?: string) {
           features: (plan.features as string[]) || [],
         };
       } catch (error) {
-        console.error('Error fetching current user plan:', error);
+        logError('Error fetching current user plan', error);
         throw error;
       }
     },
@@ -137,7 +138,7 @@ export function useAllUserPlanAssignments() {
         const assignments = data as UserPlanAssignment[] | null;
         return assignments || [];
       } catch (error) {
-        console.error('Error fetching all user plan assignments:', error);
+        logError('Error fetching all user plan assignments', error);
         throw error;
       }
     },
@@ -174,7 +175,7 @@ export function useAssignUserPlan() {
 
         return data;
       } catch (error) {
-        console.error('Error assigning user plan:', error);
+        logError('Error assigning user plan', error);
         throw error;
       }
     },
@@ -232,7 +233,7 @@ export function useRevokeUserPlan() {
 
         return data;
       } catch (error) {
-        console.error('Error revoking user plan:', error);
+        logError('Error revoking user plan', error);
         throw error;
       }
     },

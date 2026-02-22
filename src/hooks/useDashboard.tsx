@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Case, Client, CalendarEvent } from '@/types';
+import { logError } from '@/lib/logger';
 
 export interface DashboardStats {
   totalCases: number;
@@ -138,7 +139,7 @@ export function useDashboard() {
         recentClientsResult.error || invoicesResult.error) {
         // Log specific errors for debugging
         if (upcomingCalendarEventsResult.error) {
-          console.error('Calendar events query error:', upcomingCalendarEventsResult.error);
+          logError('Calendar events query error', upcomingCalendarEventsResult.error);
         }
         throw new Error('Failed to load dashboard data. Please try again.');
       }

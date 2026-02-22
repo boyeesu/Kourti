@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Organization } from './useAllOrganizations';
 import { getCurrentUserId } from './useCurrentUser';
+import { logError } from '@/lib/logger';
 
 /**
  * Hook to fetch a single organization by ID (platform admin only)
@@ -24,7 +25,7 @@ export function useOrganization(orgId: string | null) {
         const org = (data || []).find((o: any) => o.id === orgId) as Organization | undefined;
         return org || null;
       } catch (error) {
-        console.error('Error fetching organization:', error);
+        logError('Error fetching organization', error);
         throw error;
       }
     },

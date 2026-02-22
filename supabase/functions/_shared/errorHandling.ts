@@ -71,25 +71,36 @@ function sanitizeErrorMessage(error: unknown): string {
  * Determine error code from error
  */
 function getErrorCode(error: unknown, defaultCode: ErrorCode = ErrorCode.INTERNAL_ERROR): ErrorCode {
+  // HttpError instances carry an explicit status code — use it directly
+  // instead of guessing from message text (which misclassifies e.g. CSRF 403 as 401).
+  if (error && typeof error === 'object' && 'status' in error && typeof (error as any).status === 'number') {
+    const status = (error as any).status as number;
+    switch (status) {
+      case 400: return ErrorCode.BAD_REQUEST;
+      case 401: return ErrorCode.UNAUTHORIZED;
+      case 403: return ErrorCode.FORBIDDEN;
+      case 404: return ErrorCode.NOT_FOUND;
+      case 429: return ErrorCode.RATE_LIMIT_EXCEEDED;
+      case 503: return ErrorCode.CONFIG_ERROR;
+    }
+  }
+
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
 
-    if (message.includes('unauthorized') || message.includes('invalid token') || message.includes('expired')) {
+    if (message.includes('unauthorized') || message.includes('invalid token')) {
       return ErrorCode.UNAUTHORIZED;
     }
-    if (message.includes('forbidden') || message.includes('permission denied')) {
+    if (message.includes('forbidden') || message.includes('permission denied') || message.includes('csrf')) {
       return ErrorCode.FORBIDDEN;
     }
     if (message.includes('not found') || message.includes('does not exist')) {
       return ErrorCode.NOT_FOUND;
     }
-    if (message.includes('validation') || message.includes('invalid')) {
-      return ErrorCode.VALIDATION_ERROR;
-    }
     if (message.includes('rate limit')) {
       return ErrorCode.RATE_LIMIT_EXCEEDED;
     }
-    if (message.includes('bad request') || message.includes('malformed')) {
+    if (message.includes('validation') || message.includes('bad request') || message.includes('malformed')) {
       return ErrorCode.BAD_REQUEST;
     }
     if (message.includes('config') || message.includes('environment')) {

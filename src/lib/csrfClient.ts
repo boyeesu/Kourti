@@ -108,9 +108,32 @@ async function ensureValidCsrfToken(): Promise<string | null> {
 }
 
 /**
+ * Extract a clear error message from edge function invoke result.
+ * When the function returns 4xx with a JSON body like { error: "..." }, surface that message.
+ */
+async function normalizeInvokeResult<T>(result: { data: T | null; error: unknown }): Promise<{ data: T | null; error: Error | null }> {
+  const { data, error } = result;
+  if (!error) return { data, error: null };
+
+  const err = error as Error & { name?: string; context?: Response };
+  if (err.name === 'FunctionsHttpError' && err.context && typeof err.context.json === 'function') {
+    try {
+      const body = await err.context.json() as { error?: string; errorCode?: string };
+      if (body?.error) {
+        return { data: null, error: new Error(body.error) };
+      }
+    } catch {
+      // ignore json parse failure
+    }
+  }
+  return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+}
+
+/**
  * Invoke Supabase Edge Function with CSRF protection
  * Automatically includes CSRF token in headers
  * Proactively ensures token is valid before making request
+ * Explicitly sends Authorization so 401s from stale/absent JWT are avoided
  */
 export async function invokeFunctionWithCsrf<T = unknown>(
   functionName: string,
@@ -120,11 +143,28 @@ export async function invokeFunctionWithCsrf<T = unknown>(
   }
 ): Promise<{ data: T | null; error: Error | null }> {
   try {
-    // Proactively ensure we have a valid token (not expired/expiring)
-    let csrfToken = await ensureValidCsrfToken();
+    // Validate session so we never send an expired JWT (avoids 401 from edge gateway)
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !user) {
+      return {
+        data: null,
+        error: new Error('Authentication required'),
+      };
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return {
+        data: null,
+        error: new Error('Authentication required'),
+      };
+    }
 
-    // Prepare headers with CSRF token
+    // Proactively ensure we have a valid token (not expired/expiring)
+    const csrfToken = await ensureValidCsrfToken();
+
+    // Prepare headers: always send Authorization so gateway accepts the request
     const headers: Record<string, string> = {
+      Authorization: `Bearer ${session.access_token}`,
       ...options?.headers,
     };
 
@@ -138,15 +178,28 @@ export async function invokeFunctionWithCsrf<T = unknown>(
       headers,
     });
 
-    // If CSRF error, force refresh token and retry once
-    if (error && (error.message?.includes('CSRF') || error.message?.includes('csrf') || error.message?.includes('403'))) {
-      console.log('CSRF error detected, refreshing token and retrying...');
+    // Detect CSRF / auth failures by checking HTTP status code from the Response context.
+    // The old message-based check never matched because FunctionsHttpError.message is
+    // always the generic "Edge Function returned a non-2xx status code".
+    const httpStatus = (error as any)?.context?.status as number | undefined;
+    const isCsrfOrAuthFailure = error && (
+      httpStatus === 401 || httpStatus === 403 ||
+      error.message?.includes('CSRF') || error.message?.includes('csrf')
+    );
+
+    if (isCsrfOrAuthFailure) {
+      console.log('CSRF/auth error detected (HTTP', httpStatus, '), refreshing token and retrying...');
 
       // Force fetch a new token
       const newToken = await fetchCsrfToken(true);
 
       if (newToken) {
         headers['X-CSRF-Token'] = newToken;
+        // Re-fetch session for retry in case it was refreshed
+        const { data: { session: retrySession } } = await supabase.auth.getSession();
+        if (retrySession?.access_token) {
+          headers.Authorization = `Bearer ${retrySession.access_token}`;
+        }
 
         // Retry once with new token
         const retryResult = await supabase.functions.invoke(functionName, {
@@ -154,11 +207,11 @@ export async function invokeFunctionWithCsrf<T = unknown>(
           headers,
         });
 
-        return retryResult;
+        return await normalizeInvokeResult(retryResult);
       }
     }
 
-    return { data, error };
+    return await normalizeInvokeResult({ data, error });
   } catch (error) {
     return {
       data: null,

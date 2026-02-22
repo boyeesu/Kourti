@@ -1,5 +1,6 @@
 import { useRAGSearch } from './useRAGSearch';
 import { supabase } from '@/integrations/supabase/client';
+import { logError } from '@/lib/logger';
 
 /**
  * Hook for performing vector similarity search on documents
@@ -59,7 +60,7 @@ export function useGenerateEmbedding() {
 
       return data;
     } catch (error: any) {
-      console.error('Embedding generation error:', error);
+      logError('Embedding generation error', error);
       throw error;
     }
   };

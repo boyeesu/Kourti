@@ -138,6 +138,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { exportAsDocx, exportContractAsPdf } from "@/lib/documentExport";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logError } from '@/lib/logger';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -202,7 +203,7 @@ export default function ContractView() {
       // Refresh the contract data
       window.location.reload();
     } catch (err) {
-      console.error('Save failed:', err);
+      logError('Save failed', err);
       toast.error('Failed to save contract');
     } finally {
       setIsSaving(false);
@@ -237,7 +238,7 @@ export default function ContractView() {
       );
       toast.success('Contract downloaded as PDF');
     } catch (err) {
-      console.error('PDF download failed:', err);
+      logError('PDF download failed', err);
       toast.error('Failed to download PDF');
     }
   };
@@ -249,7 +250,7 @@ export default function ContractView() {
       await exportAsDocx(contract.terms || '', contract.title);
       toast.success('Contract downloaded as DOCX');
     } catch (err) {
-      console.error('DOCX download failed:', err);
+      logError('DOCX download failed', err);
       toast.error('Failed to download DOCX');
     }
   };
@@ -483,7 +484,7 @@ export default function ContractView() {
                     <p className="text-sm text-muted-foreground">Client</p>
                     <div className="flex items-center gap-2">
                       <Building className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{(contract as any).client?.name || contract.client_id}</span>
+                      <span className="font-medium">{(contract as unknown as { client?: { name?: string } }).client?.name || contract.client_id}</span>
                     </div>
                   </div>
                 )}

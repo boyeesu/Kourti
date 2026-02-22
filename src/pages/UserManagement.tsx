@@ -131,7 +131,7 @@ export default function UserManagement() {
     deleteInvitation.mutate(invitationId);
   };
 
-  const handleResendInvitation = (user: any) => {
+  const handleResendInvitation = (user: typeof users[number]) => {
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email;
     if (window.confirm(`Resend invitation email to ${fullName} (${user.email})?`)) {
       resendInvitation.mutate(user);
@@ -404,7 +404,7 @@ export default function UserManagement() {
                   header: "Actions",
                   sortable: false,
                   minWidth: "80px",
-                  cell: (user: any) => {
+                  cell: (user: typeof users[number]) => {
                     const isDisabled = user.status === 'disabled';
                     const isPendingInvitation = user.user_type === 'invitation';
 
@@ -454,8 +454,8 @@ export default function UserManagement() {
                       </DropdownMenu>
                     );
                   },
-                } as ColumnDef<any>] : []),
-              ] as ColumnDef<any>[]}
+                } as ColumnDef<typeof users[number]>] : []),
+              ] as ColumnDef<typeof users[number]>[]}
               data={users}
               emptyMessage="No users found"
               getRowKey={(row) => row.id}

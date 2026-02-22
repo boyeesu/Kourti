@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PlatformUser } from './useAllUsers';
+import { logError } from '@/lib/logger';
 
 /**
  * Hook to fetch a single user by ID (platform admin only)
@@ -23,7 +24,7 @@ export function usePlatformUser(userId: string | null) {
         const user = (data || []).find((u: any) => u.user_id === userId || u.id === userId) as PlatformUser | undefined;
         return user || null;
       } catch (error) {
-        console.error('Error fetching user:', error);
+        logError('Error fetching user', error);
         throw error;
       }
     },

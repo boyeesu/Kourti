@@ -20,11 +20,6 @@ type EnvConfig = {
   SUPABASE_PUBLISHABLE_KEY: string;
   
   /**
-   * OpenAI API key for AI features
-   */
-  OPENAI_API_KEY?: string;
-  
-  /**
    * Application URL for redirects and absolute URLs
    */
   APP_URL: string;
@@ -107,7 +102,6 @@ export const env: EnvConfig = {
   SUPABASE_URL: finalSupabaseUrl,
   SUPABASE_ANON_KEY: finalSupabaseKey,
   SUPABASE_PUBLISHABLE_KEY: finalSupabaseKey,
-  OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY,
   APP_URL: typeof window !== 'undefined' ? window.location.origin : '',
   API_TIMEOUT: 30000,
   NODE_ENV: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',

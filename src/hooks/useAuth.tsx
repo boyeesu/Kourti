@@ -36,7 +36,12 @@ interface AuthContextType {
   }>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Preserve context reference across Vite HMR to prevent
+// "useAuth must be used within an AuthProvider" errors during hot reload
+const AUTH_CONTEXT_KEY = Symbol.for('kouti-auth-context');
+const AuthContext: React.Context<AuthContextType | undefined> =
+  (globalThis as any)[AUTH_CONTEXT_KEY] ??
+  ((globalThis as any)[AUTH_CONTEXT_KEY] = createContext<AuthContextType | undefined>(undefined));
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -362,9 +367,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Safe no-op fallback used during Vite HMR tree rebuilds
+const noopAsync = async () => ({ error: null as any, success: false });
+const HMR_FALLBACK: AuthContextType = {
+  user: null,
+  session: null,
+  loading: true,
+  signUp: noopAsync,
+  signIn: noopAsync,
+  signOut: async () => {},
+  signInWithProvider: noopAsync,
+  resetPassword: noopAsync,
+};
+
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
+    // During Vite HMR, context is briefly undefined as the tree rebuilds.
+    // Return a safe loading state in dev; throw in production to catch real bugs.
+    if (import.meta.env.DEV) {
+      return HMR_FALLBACK;
+    }
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

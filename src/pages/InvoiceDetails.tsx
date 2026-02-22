@@ -119,15 +119,15 @@ export default function InvoiceDetails() {
   };
 
   // Handle form submission for edits
-  const handleSubmitEdit = async (formData: any) => {
+  const handleSubmitEdit = async (formData: { title: string; client_id: string; case_id?: string; vat: number; status: string; issue_date: Date; due_date: Date; notes?: string; items: Array<{ description: string; quantity: number; unit_price: number }> }) => {
     if (!invoice) return;
-    
+
     // Calculate totals
     const subtotal = formData.items.reduce(
-      (sum: number, item: any) => sum + (item.quantity * item.unit_price), 
+      (sum: number, item: { quantity: number; unit_price: number }) => sum + (item.quantity * item.unit_price),
       0
     );
-    
+
     const payload = {
       ...formData,
       issue_date: formData.issue_date.toISOString(),
@@ -390,7 +390,7 @@ export default function InvoiceDetails() {
                           </TableCell>
                         </TableRow>
                       ) : invoiceItems && invoiceItems.length > 0 ? (
-                        invoiceItems.map((item: any) => (
+                        invoiceItems.map((item) => (
                           <TableRow key={item.id}>
                             <TableCell>{item.description}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
@@ -557,7 +557,7 @@ export default function InvoiceDetails() {
           notes: invoice.notes || undefined,
           vat: invoice.tax_amount || 0,
           currency: invoice.currency || 'USD',
-          items: invoiceItems && invoiceItems.length > 0 ? invoiceItems.map((item: any) => ({
+          items: invoiceItems && invoiceItems.length > 0 ? invoiceItems.map((item) => ({
             description: item.description,
             quantity: item.quantity,
             unit_price: item.rate

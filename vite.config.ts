@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
   },
   preview: {
@@ -61,7 +62,15 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    include: ['react', 'react-dom'],
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+      '@radix-ui/react-select',
+      '@radix-ui/react-context',
+      '@radix-ui/react-primitive',
+      '@radix-ui/react-slot',
+    ],
     exclude: []
   }
 }));

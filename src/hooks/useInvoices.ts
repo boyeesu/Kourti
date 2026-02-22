@@ -51,7 +51,7 @@ export function useInvoices() {
       if (error) throw error;
       
       // Transform the raw data to match the Invoice type
-      return (data || []).map((item: any) => ({
+      return (data || []).map((item) => ({
         ...item,
         // Map database fields to interface fields
         vat: item?.tax_amount ?? 0,
@@ -68,16 +68,17 @@ export function useCreateInvoice() {
   return useMutation({
     mutationFn: async (data: CreateInvoiceData) => {
       const userId = await getCurrentUserId();
-      
+      if (!userId) throw new Error("User not authenticated.");
+
       // Get organization ID from user profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId as any)
+        .eq('user_id', userId)
         .single();
-        
+
       if (profileError) throw new Error("Could not retrieve user profile information.");
-      if (!(profile as any)?.organization_id) throw new Error("No organization associated with your account.");
+      if (!profile?.organization_id) throw new Error("No organization associated with your account.");
 
       // Calculate totals from items
       const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
@@ -85,7 +86,7 @@ export function useCreateInvoice() {
 
       // Generate invoice number using database function
       const { data: invoiceNumber, error: numberError } = await supabase
-        .rpc('generate_invoice_number', { org_id: (profile as any).organization_id });
+        .rpc('generate_invoice_number', { org_id: profile.organization_id });
       
       if (numberError) throw new Error("Could not generate invoice number.");
 
@@ -93,7 +94,7 @@ export function useCreateInvoice() {
   const invoiceData = {
     invoice_number: invoiceNumber,
     title: data.title || `Invoice for ${data.client_id}`,
-    organization_id: (profile as any).organization_id,
+    organization_id: profile.organization_id,
     client_id: data.client_id, // Use the correct client_id
     case_id: data.case_id,
     subtotal,
@@ -111,7 +112,7 @@ export function useCreateInvoice() {
       // Create invoice and items in a transaction
       const { data: newInvoice, error } = await supabase
         .from('invoices')
-        .insert(invoiceData as any)
+        .insert(invoiceData as never)
         .select()
         .single();
       
@@ -121,7 +122,7 @@ export function useCreateInvoice() {
       if (data.items && data.items.length > 0) {
         const itemsToInsert = data.items.map(item => ({
           invoice_id: newInvoice.id,
-          organization_id: (profile as any).organization_id,
+          organization_id: profile.organization_id,
           description: item.description,
           quantity: item.quantity,
           rate: item.unit_price,
@@ -141,8 +142,8 @@ export function useCreateInvoice() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast({ title: 'Invoice Created', description: 'Invoice was successfully created.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error Creating Invoice', variant: 'destructive', description: error.message || 'Failed to create invoice.' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error Creating Invoice', variant: 'destructive', description: error instanceof Error ? error.message : 'Failed to create invoice.' });
     },
   });
 }
@@ -153,7 +154,7 @@ export function useUpdateInvoice() {
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<CreateInvoiceData> & { id: string }) => {
       // Calculate totals from items if provided
-      let updateData: any = { ...data };
+      let updateData: Record<string, unknown> = { ...data };
       
       if (data.items && data.items.length > 0) {
         const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
@@ -172,10 +173,11 @@ export function useUpdateInvoice() {
         if (data.items) {
           // Get organization ID from user profile
           const userId = await getCurrentUserId();
+          if (!userId) throw new Error("User not authenticated.");
           const { data: profile } = await supabase
             .from('profiles')
             .select('organization_id')
-            .eq('user_id', userId as any)
+            .eq('user_id', userId)
             .single();
 
           if (profile?.organization_id) {
@@ -207,8 +209,8 @@ export function useUpdateInvoice() {
 
       const { data: updated, error } = await supabase
         .from('invoices')
-        .update(updateData as any)
-        .eq('id', id as any)
+        .update(updateData as never)
+        .eq('id', id)
         .select()
         .single();
       if (error) throw error;
@@ -218,8 +220,8 @@ export function useUpdateInvoice() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast({ title: 'Invoice Updated', description: 'Invoice was updated.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error Updating Invoice', variant: 'destructive', description: error.message || 'Failed to update invoice.' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error Updating Invoice', variant: 'destructive', description: error instanceof Error ? error.message : 'Failed to update invoice.' });
     }
   });
 }
@@ -232,7 +234,7 @@ export function useDeleteInvoice() {
       const { error } = await supabase
         .from('invoices')
         .delete()
-        .eq('id', id as any);
+        .eq('id', id);
       if (error) throw error;
       return id;
     },
@@ -240,8 +242,8 @@ export function useDeleteInvoice() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast({ title: 'Invoice Deleted', description: 'Invoice was removed.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error Deleting Invoice', variant: 'destructive', description: error.message || 'Failed to delete invoice.' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error Deleting Invoice', variant: 'destructive', description: error instanceof Error ? error.message : 'Failed to delete invoice.' });
     }
   });
 }

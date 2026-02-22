@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { logError } from '@/lib/logger';
 
 export interface PlatformUser {
   id: string;
@@ -39,7 +40,7 @@ export function useAllUsers() {
 
         return (data || []) as PlatformUser[];
       } catch (error) {
-        console.error('Error fetching all users:', error);
+        logError('Error fetching all users', error);
         throw error;
       }
     },

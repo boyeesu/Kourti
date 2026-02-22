@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { logError } from '@/lib/logger';
 
 /**
  * Hook to create a default organization for a user if they don't have one.
@@ -50,7 +51,7 @@ export function useCreateDefaultOrganization() {
         .single();
 
       if (orgError) {
-        console.error('Error creating organization:', orgError);
+        logError('Error creating organization', orgError);
         throw orgError;
       }
 
@@ -64,7 +65,7 @@ export function useCreateDefaultOrganization() {
         .eq('user_id', userId as any);
 
       if (profileError) {
-        console.error('Error updating profile:', profileError);
+        logError('Error updating profile', profileError);
         throw profileError;
       }
 
@@ -79,7 +80,7 @@ export function useCreateDefaultOrganization() {
         } as any);
 
       if (roleAssignmentError) {
-        console.error('Error assigning role:', roleAssignmentError);
+        logError('Error assigning role', roleAssignmentError);
         // We log but don't throw here to avoid failing the whole flow if the profile update worked
         // The trigger might handle it or we can fix it later
       }

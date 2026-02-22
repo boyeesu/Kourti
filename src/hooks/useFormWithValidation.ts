@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { sanitizeErrorForLogging } from '@/lib/utils';
+import { logError } from '@/lib/logger';
 
 /**
  * Enhanced form hook with built-in validation, error handling,
@@ -56,7 +57,7 @@ export function useFormWithValidation<
         });
       }
     } catch (error) {
-      console.error('Form submission error:', sanitizeErrorForLogging(error));
+      logError('Form submission error', sanitizeErrorForLogging(error));
       
       toast({
         variant: 'destructive',

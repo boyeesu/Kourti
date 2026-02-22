@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { logError } from '@/lib/logger';
 
 export interface Organization {
   id: string;
@@ -36,7 +37,7 @@ export function useAllOrganizations() {
 
         return (data || []) as Organization[];
       } catch (error) {
-        console.error('Error fetching all organizations:', error);
+        logError('Error fetching all organizations', error);
         throw error;
       }
     },

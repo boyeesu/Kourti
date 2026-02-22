@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { logWarn } from '@/lib/logger';
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -45,7 +46,7 @@ export default function AuthCallback() {
           });
         } catch (inviteError) {
           // Non-critical - log but don't block
-          console.warn('Error checking invitation:', inviteError);
+          logWarn('Error checking invitation', { inviteError });
         }
 
         const { data: profile, error: profileError } = await supabase

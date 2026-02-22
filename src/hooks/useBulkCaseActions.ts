@@ -8,13 +8,13 @@ export function useBulkCaseActions() {
   return useMutation({
     mutationFn: async ({ ids, action }: { ids: string[]; action: BulkAction }) => {
       if (action.type === "delete") {
-        const { error } = await supabase.from("cases").delete().in("id", ids as any);
+        const { error } = await supabase.from("cases").delete().in("id", ids);
         if (error) throw error;
       } else if (action.type === "setStatus") {
         const { error } = await supabase
           .from("cases")
-          .update({ status: action.status } as any)
-          .in("id", ids as any);
+          .update({ status: action.status } as Record<string, unknown>)
+          .in("id", ids);
         if (error) throw error;
       }
     },

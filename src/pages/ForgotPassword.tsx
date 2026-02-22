@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { logError } from '@/lib/logger';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +38,7 @@ export default function ForgotPassword() {
 
     const { error } = await resetPassword(normalizedEmail);
     if (error) {
-      console.error('Password reset error:', error);
+      logError('Password reset error', error);
       
       // Provide more helpful error messages
       let errorMessage = error.message || "Failed to send password reset email. Please try again.";

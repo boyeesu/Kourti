@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Contract } from '@/types';
+import { logError } from '@/lib/logger';
 
 export interface CreateContractData {
   title: string;
@@ -88,7 +89,7 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
           count: count || 0 
         };
       } catch (error) {
-        console.error('Error fetching contracts:', error);
+        logError('Error fetching contracts', error);
         throw error;
       }
     },

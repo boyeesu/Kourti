@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Case } from "@/types";
+import { Case, Document } from "@/types";
 import {
   ArrowLeft,
   Edit,
@@ -68,7 +68,7 @@ export default function ClientDetails() {
   const createLog = useCreateClientLog();
   const [logContent, setLogContent] = useState("");
   const [logType, setLogType] = useState<'email' | 'phone' | 'note'>("note");
-  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
 
   const getInitials = (name: string) =>
     name
@@ -264,7 +264,7 @@ export default function ClientDetails() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-4 gap-3 items-end">
-            <Select value={logType} onValueChange={(v) => setLogType(v as any)}>
+            <Select value={logType} onValueChange={(v) => setLogType(v as 'email' | 'phone' | 'note')}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -431,7 +431,7 @@ export default function ClientDetails() {
             </div>
           ) : (
             <div className="space-y-3">
-              {contracts.map((ct: any) => (
+              {contracts.map((ct) => (
                 <div key={ct.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
                   <div>
                     <Button variant="link" onClick={() => navigate(`/contracts/${ct.id}`)}>
@@ -458,7 +458,7 @@ export default function ClientDetails() {
         <DocumentViewer
           open={!!selectedDocument}
           onOpenChange={() => setSelectedDocument(null)}
-          document={selectedDocument}
+          document={{ ...selectedDocument, name: selectedDocument.name || selectedDocument.title || 'Untitled' }}
         />
       )}
     </div>
@@ -466,10 +466,10 @@ export default function ClientDetails() {
 }
 
 // Documents Section Component
-function DocumentsSection({ documents }: { documents: any[] }) {
-  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+function DocumentsSection({ documents }: { documents: Document[] }) {
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
 
-  const handleView = (doc: any) => {
+  const handleView = (doc: Document) => {
     setSelectedDocument(doc);
   };
 
@@ -504,7 +504,7 @@ function DocumentsSection({ documents }: { documents: any[] }) {
         <DocumentViewer
           open={!!selectedDocument}
           onOpenChange={() => setSelectedDocument(null)}
-          document={selectedDocument}
+          document={{ ...selectedDocument, name: selectedDocument.name || selectedDocument.title || 'Untitled' }}
         />
       )}
     </>

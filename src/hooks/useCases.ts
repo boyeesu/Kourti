@@ -81,13 +81,13 @@ export function useCases(
 
       if (error) throw error;
 
-      const cases = (data || []).map((caseItem: any) => ({
+      const cases = (data || []).map((caseItem) => ({
         ...caseItem,
         client: caseItem.client || null,
         assigned_user: caseItem.assigned_user || null,
         case_type: caseItem.case_type || null,
         case_issue: caseItem.case_issue || null,
-      })) as Case[];
+      })) as unknown as Case[];
 
       return { cases, count: count || 0 };
     },
@@ -163,7 +163,7 @@ export function useCreateCase() {
           organization_id: organizationId,
           created_by: user.id,
           user_id: user.id,
-        } as any)
+        } as never)
         .select()
         .single();
 
@@ -199,7 +199,7 @@ export function useUpdateCase() {
     mutationFn: async ({ id, ...updateData }: UpdateCaseData) => {
       const { data, error } = await supabase
         .from("cases")
-        .update(updateData as any)
+        .update(updateData as never)
         .eq("id", id)
         .select()
         .single();
@@ -275,7 +275,7 @@ export function useAllCases() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []) as Case[];
+      return (data || []) as unknown as Case[];
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -305,7 +305,7 @@ export function useCasesByClient(clientId: string) {
           case_type:case_type_id(id, name, description),
           case_issue:case_issue_id(id, name, description)
         `,
-          { count: "exact" } as any
+          { count: "exact" }
         )
         .eq("organization_id", organizationId)
         .eq("client_id", clientId)
@@ -313,13 +313,13 @@ export function useCasesByClient(clientId: string) {
 
       if (error) throw error;
 
-      const cases = (data || []).map((caseItem: any) => ({
+      const cases = (data || []).map((caseItem) => ({
         ...caseItem,
         client: caseItem.client || null,
         assigned_user: caseItem.assigned_user || null,
         case_type: caseItem.case_type || null,
         case_issue: caseItem.case_issue || null,
-      })) as Case[];
+      })) as unknown as Case[];
 
       return { cases, count: count || 0 };
     },

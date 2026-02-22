@@ -263,7 +263,7 @@ export function useEnhancedDocumentAnalysis() {
 
       // Log warnings if truncation occurred
       if (payload.warnings.length > 0) {
-        console.warn('Payload size warnings:', payload.warnings);
+        logWarn('Payload size warnings', { warnings: payload.warnings });
         logWarn('Payload size management applied', {
           warnings: payload.warnings,
           originalContentLength: content.length,
@@ -297,7 +297,7 @@ export function useEnhancedDocumentAnalysis() {
       console.log('Analysis response:', { hasData: !!responseData, hasError: !!error, responseKeys: responseData ? Object.keys(responseData) : [], responseData });
 
       if (error) {
-        console.error('Analysis request error:', error);
+        logError('Analysis request error', error);
         logError('Advanced contract analysis function call failed', {
           error: error.message || String(error),
           errorName: error.name,
@@ -327,7 +327,7 @@ export function useEnhancedDocumentAnalysis() {
       }
 
       if (!analysisContent) {
-        console.warn('No analysis content found in response:', responseData);
+        logWarn('No analysis content found in response', { responseData });
         analysisContent = 'Unable to extract analysis. Please try again.';
       }
 

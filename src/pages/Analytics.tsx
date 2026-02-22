@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { logError } from '@/lib/logger';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -75,14 +76,17 @@ export default function Analytics() {
   const { data: cases = [], isLoading: casesLoading, refetch: refetchCases } = useAllCases();
   const { data: contracts = [], isLoading: contractsLoading, refetch: refetchContracts } = useAllContracts();
   const { data: clientsData, isLoading: clientsLoading, refetch: refetchClients } = useClients(1, 1000);
-  const clients = clientsData?.items || [];
+  const clients = useMemo(() => clientsData?.items || [], [clientsData?.items]);
 
   const { data: documentsData, isLoading: documentsLoading, refetch: refetchDocuments } = useFetchData<Array<{ id: string; created_at?: string | null; name?: string; mime_type?: string }>>({
     table: "documents",
     queryKey: ["analytics-documents"],
     select: "id, created_at, name, mime_type",
   });
-  const documents = (Array.isArray(documentsData?.data) ? documentsData.data : []) as Array<{ created_at?: string | null }>;
+  const documents = useMemo(
+    () => (Array.isArray(documentsData?.data) ? documentsData.data : []) as Array<{ created_at?: string | null }>,
+    [documentsData?.data]
+  );
 
   // Fetch active organization
   const { data: organizationId } = useUserOrganization();
@@ -105,7 +109,7 @@ export default function Analytics() {
         .eq('cases.organization_id', organizationId);
 
       if (error) {
-        console.error("Error fetching tasks for analytics:", error);
+        logError("Error fetching tasks for analytics", error);
         return [];
       }
 

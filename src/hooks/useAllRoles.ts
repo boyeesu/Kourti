@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { logWarn } from '@/lib/logger';
 
 export interface GlobalRole {
   role: string;
@@ -55,7 +56,7 @@ export function useAllRoles() {
         // Merge for consumption
         return [...globalRoles, ...customRoles];
       } catch (error) {
-        console.warn('Error fetching roles, returning system defaults:', error);
+        logWarn('Error fetching roles, returning system defaults', { error });
         // Return system defaults if there's an error
         return [
           { id: 'superadmin', role: 'superadmin', role_name: 'superadmin', display_name: 'Super Administrator', source: 'global' as const },

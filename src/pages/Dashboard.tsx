@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +46,7 @@ import { useNavigate } from "react-router-dom";
 import { calculateCaseStatusData } from "@/lib/analyticsUtils";
 
 export default function Dashboard() {
-  const [windowDays] = useState(7);
+  const windowDays = 7;
   const navigate = useNavigate();
 
   // Get data for different dashboard sections
