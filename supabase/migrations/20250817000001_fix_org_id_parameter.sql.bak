@@ -1,4 +1,0 @@
--- Returns true if current user has admin privileges in their organization
--- This migration file appears to be incomplete or a placeholder
--- No actual SQL changes needed
-SELECT 1;

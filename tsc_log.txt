@@ -1,3 +1,0 @@
-src/pages/DashboardNew.tsx(276,10): error TS2550: Property 'toSorted' does not exist on type 'any[]'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2023' or later.
-src/pages/DashboardNew.tsx(276,20): error TS7006: Parameter 'a' implicitly has an 'any' type.
-src/pages/DashboardNew.tsx(276,23): error TS7006: Parameter 'b' implicitly has an 'any' type.

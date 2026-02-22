@@ -1,6 +1,8 @@
 # Logs
 logs
 *.log
+lint_log*.txt
+tsc_log.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -12,6 +14,9 @@ dist
 dist-ssr
 *.local
 .env
+deploy.env
+supabase/.temp/
+*.sql.bak
 
 # Editor directories and files
 .vscode/*
