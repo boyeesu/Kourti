@@ -51,7 +51,7 @@ Deno.test('advanced contract analysis falls back when the primary model fails', 
     Deno.env.set('SUPABASE_URL', 'https://example.supabase.co');
     Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
     Deno.env.set('OPENAI_CHAT_MODEL', 'bad-model');
-    Deno.env.set('OPENAI_FALLBACK_CHAT_MODEL', 'gpt-4o-mini');
+    Deno.env.set('OPENAI_FALLBACK_CHAT_MODEL', 'gpt-5.1');
 
     const response = await advancedContractAnalysisHandler(createJsonRequest({
       text: 'Agreement between Alpha and Beta',
@@ -62,8 +62,8 @@ Deno.test('advanced contract analysis falls back when the primary model fails', 
     const payload = await response.json();
     assert(payload.success);
     assertEquals(payload.analysis, 'Fallback analysis');
-    assertEquals(payload.modelUsed, 'gpt-4o-mini');
-    assertEquals(modelsTried, ['bad-model', 'gpt-4o-mini']);
+    assertEquals(payload.modelUsed, 'gpt-5.1');
+    assertEquals(modelsTried, ['bad-model', 'gpt-5.1']);
   } finally {
     globalThis.fetch = originalFetch;
     Deno.env.delete('OPENAI_API_KEY');
@@ -99,8 +99,8 @@ Deno.test('voice transcription summarization succeeds with configured model', as
 
   try {
     Deno.env.set('OPENAI_API_KEY', 'test-key');
-    Deno.env.set('OPENAI_CHAT_MODEL', 'gpt-4.1-mini');
-    Deno.env.set('OPENAI_FALLBACK_CHAT_MODEL', 'gpt-4o-mini');
+    Deno.env.set('OPENAI_CHAT_MODEL', 'gpt-5.1');
+    Deno.env.set('OPENAI_FALLBACK_CHAT_MODEL', 'gpt-5.1');
 
     const response = await voiceTranscriptionHandler(createJsonRequest({
       action: 'summarize',
@@ -111,8 +111,8 @@ Deno.test('voice transcription summarization succeeds with configured model', as
     const payload = await response.json();
     assert(payload.success);
     assertEquals(payload.summary, 'Summary of transcript');
-    assertEquals(payload.modelUsed, 'gpt-4.1-mini');
-    assertEquals(modelsTried, ['gpt-4.1-mini']);
+    assertEquals(payload.modelUsed, 'gpt-5.1');
+    assertEquals(modelsTried, ['gpt-5.1']);
   } finally {
     globalThis.fetch = originalFetch;
     Deno.env.delete('OPENAI_API_KEY');

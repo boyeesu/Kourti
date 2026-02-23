@@ -93,7 +93,7 @@ Deno.test('OpenAI API key chat completion test', async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5.1',
         messages: [
           { role: 'user', content: 'Say "test" and nothing else.' }
         ],

@@ -65,10 +65,10 @@ These variables are set in the Supabase dashboard under "Settings → Edge Funct
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `OPENAI_API_KEY` | ✅ Yes | OpenAI API key for AI features | - |
-| `OPENAI_CHAT_MODEL` | ❌ No | Primary chat model | `gpt-4.1` |
-| `OPENAI_FALLBACK_CHAT_MODEL` | ❌ No | Fallback if primary fails | `gpt-4o-mini` |
-| `OPENAI_CONTRACT_MODEL` | ❌ No | Contract generation model | `gpt-4.1` |
-| `OPENAI_CONTRACT_FALLBACK_MODEL` | ❌ No | Contract generation fallback | `gpt-4o-mini` |
+| `OPENAI_CHAT_MODEL` | ❌ No | Primary chat model | `gpt-5.1` |
+| `OPENAI_FALLBACK_CHAT_MODEL` | ❌ No | Fallback if primary fails | `gpt-5.1` |
+| `OPENAI_CONTRACT_MODEL` | ❌ No | Contract generation model | `gpt-5.1` |
+| `OPENAI_CONTRACT_FALLBACK_MODEL` | ❌ No | Contract generation fallback | `gpt-5.1` |
 
 ### Application Configuration
 

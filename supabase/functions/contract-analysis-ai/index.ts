@@ -227,7 +227,7 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-5.1",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -259,7 +259,7 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
       { role: "user", content: userPrompt },
     ];
     await traceOpenAIChatCompletion(traceId, {
-      model: "gpt-4o",
+      model: "gpt-5.1",
       messages,
       response: data,
       metadata: {

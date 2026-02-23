@@ -1,6 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import JSZip from "https://esm.sh/jszip@3.10.1";
+import { getDocument } from "https://esm.sh/pdfjs-serverless@0.6.0";
 import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
 import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
 import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
@@ -28,6 +29,11 @@ const ALLOWED_ORIGINS = [
     return origin;
   })
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
+
+// Minimum character count below which extracted PDF text is treated as a failed extraction
+const PDF_MIN_VIABLE_LENGTH = 50;
+// Maximum PDF byte size to attempt OpenAI Vision OCR (20 MB)
+const PDF_OCR_MAX_BYTES = 20 * 1024 * 1024;
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
@@ -174,19 +180,41 @@ serve(async (req: Request) => {
         extractedText = await fileData.text();
         console.log('Extracted text file content, length:', extractedText.length);
       } else if (fileName.endsWith('.pdf')) {
-        // For PDF files, we'll use a basic text extraction approach
-        // Convert blob to ArrayBuffer
         const arrayBuffer = await fileData.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
-        // Try to extract text from PDF using basic stream parsing
-        extractedText = extractTextFromPDF(uint8Array);
-        console.log('Extracted PDF content, length:', extractedText.length);
-        
-        if (!extractedText || extractedText.length < 50) {
-          // If basic extraction fails, return a message indicating OCR may be needed
+
+        // Layer 1: pdfjs-serverless (handles compressed streams, font encodings, etc.)
+        extractedText = await extractTextFromPDF(uint8Array);
+        console.log('Layer 1 (pdfjs-serverless) extracted:', extractedText.length, 'chars');
+
+        // Layer 2: naive regex parser fallback for simple uncompressed PDFs
+        if (extractedText.length < PDF_MIN_VIABLE_LENGTH) {
+          console.log('Falling back to naive PDF parser...');
+          const naiveText = extractTextFromPDFNaive(uint8Array);
+          if (naiveText.length > extractedText.length) {
+            extractedText = naiveText;
+          }
+          console.log('Layer 2 (naive) extracted:', extractedText.length, 'chars');
+        }
+
+        // Layer 3: OpenAI Vision OCR fallback for scanned/image-based PDFs
+        if (extractedText.length < PDF_MIN_VIABLE_LENGTH) {
+          const openAiApiKey = Deno.env.get('OPENAI_API_KEY');
+          if (openAiApiKey) {
+            console.log('Escalating to OpenAI Vision OCR...');
+            const ocrText = await extractTextFromPDFWithOCR(uint8Array, filePath, openAiApiKey);
+            if (ocrText.length > extractedText.length) {
+              extractedText = ocrText;
+            }
+            console.log('Layer 3 (OCR) extracted:', extractedText.length, 'chars');
+          } else {
+            console.warn('OPENAI_API_KEY not set - OCR fallback unavailable');
+          }
+        }
+
+        if (extractedText.length < PDF_MIN_VIABLE_LENGTH) {
           extractionError = 'PDF text extraction yielded limited content. This PDF may contain images or scanned content that requires OCR processing.';
-          extractedText = `[Unable to extract sufficient text from PDF document. The file may contain images or scanned content that requires OCR processing.]`;
+          extractedText = `[PDF document detected: ${filePath}. Text extraction yielded limited content. This PDF may contain images or scanned content that could not be processed.]`;
         }
       } else if (fileName.endsWith('.docx')) {
         // DOCX files are ZIP archives containing XML files
@@ -271,25 +299,70 @@ serve(async (req: Request) => {
 });
 
 /**
- * Basic PDF text extraction by parsing PDF streams
- * This is a simplified extraction that works for many PDFs with embedded text
+ * Extract text from PDF using pdfjs-serverless.
+ * Handles FlateDecode compressed streams, CIDFonts, ToUnicode CMaps,
+ * and all standard font encodings.
  */
-function extractTextFromPDF(data: Uint8Array): string {
+async function extractTextFromPDF(data: Uint8Array): Promise<string> {
+  try {
+    const loadingTask = getDocument({
+      data,
+      disableFontFace: true,
+      useSystemFonts: false,
+    });
+
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
+    console.log(`PDF loaded with pdfjs-serverless: ${numPages} pages`);
+
+    const pageTexts: string[] = [];
+
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+
+      const pageText = textContent.items
+        .filter((item: any) => 'str' in item)
+        .map((item: any) => item.str)
+        .join(' ')
+        .replace(/[ \t]+/g, ' ')
+        .trim();
+
+      if (pageText) {
+        pageTexts.push(pageText);
+      }
+
+      page.cleanup();
+    }
+
+    const fullText = pageTexts.join('\n\n').trim();
+    console.log(`pdfjs-serverless extraction complete: ${fullText.length} characters`);
+    return fullText;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('pdfjs-serverless extraction error:', msg);
+    return '';
+  }
+}
+
+/**
+ * Fallback: naive PDF text extraction by parsing raw PDF streams.
+ * Works for simple uncompressed PDFs only.
+ */
+function extractTextFromPDFNaive(data: Uint8Array): string {
   const text: string[] = [];
   const decoder = new TextDecoder('utf-8', { fatal: false });
   const content = decoder.decode(data);
-  
-  // Look for text between BT (Begin Text) and ET (End Text) markers
+
   const btPattern = /BT\s*([\s\S]*?)\s*ET/g;
   let match;
-  
+
   while ((match = btPattern.exec(content)) !== null) {
     const textBlock = match[1];
-    
-    // Extract text from Tj and TJ operators
+
     const tjPattern = /\((.*?)\)\s*Tj/g;
     const tjArrayPattern = /\[(.*?)\]\s*TJ/g;
-    
+
     let tjMatch;
     while ((tjMatch = tjPattern.exec(textBlock)) !== null) {
       const extracted = decodeEscapedText(tjMatch[1]);
@@ -297,7 +370,7 @@ function extractTextFromPDF(data: Uint8Array): string {
         text.push(extracted);
       }
     }
-    
+
     while ((tjMatch = tjArrayPattern.exec(textBlock)) !== null) {
       const arrayContent = tjMatch[1];
       const stringPattern = /\((.*?)\)/g;
@@ -310,31 +383,25 @@ function extractTextFromPDF(data: Uint8Array): string {
       }
     }
   }
-  
-  // Also try to find text in stream objects
+
   const streamPattern = /stream\s*([\s\S]*?)\s*endstream/g;
   while ((match = streamPattern.exec(content)) !== null) {
     const streamContent = match[1];
-    // Look for readable ASCII text sequences
     const readableText = streamContent.match(/[\x20-\x7E]{20,}/g);
     if (readableText) {
-      text.push(...readableText.filter(t => !t.includes('/') && !t.includes('<<')));
+      text.push(...readableText.filter(segment => !segment.includes('/') && !segment.includes('<<')));
     }
   }
-  
-  // Clean up and join the text
+
   const result = text
     .join(' ')
     .replace(/\s+/g, ' ')
     .replace(/[^\x20-\x7E\n]/g, '')
     .trim();
-    
+
   return result;
 }
 
-/**
- * Decode escaped characters in PDF text strings
- */
 function decodeEscapedText(text: string): string {
   return text
     .replace(/\\n/g, '\n')
@@ -343,6 +410,80 @@ function decodeEscapedText(text: string): string {
     .replace(/\\\\/g, '\\')
     .replace(/\\([0-7]{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
     .replace(/\\(.)/g, '$1');
+}
+
+/**
+ * Layer 3 OCR fallback using OpenAI Vision API for scanned/image-based PDFs.
+ * Only called when all text-based extraction layers yield fewer than PDF_MIN_VIABLE_LENGTH characters.
+ */
+async function extractTextFromPDFWithOCR(
+  data: Uint8Array,
+  filePath: string,
+  apiKey: string
+): Promise<string> {
+  if (data.length > PDF_OCR_MAX_BYTES) {
+    console.warn(`PDF too large for OCR (${data.length} bytes), skipping`);
+    return '';
+  }
+
+  try {
+    console.log('Attempting OpenAI Vision OCR fallback for:', filePath);
+
+    // Convert to base64 in chunks to avoid call stack overflow on large files
+    let binaryString = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.subarray(i, Math.min(i + chunkSize, data.length));
+      binaryString += String.fromCharCode(...chunk);
+    }
+    const base64Pdf = btoa(binaryString);
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Extract all text content from this PDF document. Return only the raw text, preserving paragraph structure with newlines. Do not add commentary or formatting.',
+              },
+              {
+                type: 'file',
+                file: {
+                  filename: filePath.split('/').pop() || 'document.pdf',
+                  file_data: `data:application/pdf;base64,${base64Pdf}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 4096,
+        temperature: 0,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI OCR error:', errorText);
+      return '';
+    }
+
+    const result = await response.json();
+    const extractedText = result.choices?.[0]?.message?.content || '';
+    console.log(`OCR extraction complete: ${extractedText.length} characters`);
+    return extractedText.trim();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('OCR fallback failed:', msg);
+    return '';
+  }
 }
 
 /**

@@ -44,8 +44,8 @@ function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOption
   };
 }
 
-const DEFAULT_CHAT_MODEL = 'gpt-4.1';
-const DEFAULT_FALLBACK_MODEL = 'gpt-4o-mini';
+const DEFAULT_CHAT_MODEL = 'gpt-5.1';
+const DEFAULT_FALLBACK_MODEL = 'gpt-5.1';
 
 function getChatModelCandidates() {
   const configuredModel = Deno.env.get('OPENAI_CHAT_MODEL')?.trim();

@@ -69,8 +69,8 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Model configuration with fallback support
-const DEFAULT_CHAT_MODEL = 'gpt-4.1-2025-04-14';
-const FALLBACK_CHAT_MODEL = 'gpt-4o';
+const DEFAULT_CHAT_MODEL = 'gpt-5.1';
+const FALLBACK_CHAT_MODEL = 'gpt-5.1';
 
 function getChatModelCandidates(): string[] {
   const configuredModel = Deno.env.get('OPENAI_CONTRACT_MODEL')?.trim();
