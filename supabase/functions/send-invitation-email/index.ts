@@ -98,6 +98,24 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // --- Authentication: require service-role key (server-to-server only) ---
+    const authHeader = req.headers.get('Authorization');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!authHeader || !supabaseServiceKey) {
+      return createJsonResponse(
+        { success: false, error: 'Unauthorized', errorCode: 'UNAUTHORIZED' },
+        { status: 401, cors: corsOptions }
+      );
+    }
+
+    const bearerToken = authHeader.replace('Bearer ', '').trim();
+    if (bearerToken !== supabaseServiceKey) {
+      return createJsonResponse(
+        { success: false, error: 'Forbidden: service-role access required', errorCode: 'FORBIDDEN' },
+        { status: 403, cors: corsOptions }
+      );
+    }
+
     const {
       email,
       firstName,

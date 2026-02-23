@@ -194,15 +194,12 @@ async function handleStreamingResponse(
         'Connection': 'keep-alive',
       });
 
-      // Add CORS headers
+      // Add CORS headers (use corsOptions.origin, not the non-existent corsOptions.allowOrigin)
       if (corsOptions) {
-        if (corsOptions.allowOrigin) {
-          headers.set('Access-Control-Allow-Origin', corsOptions.allowOrigin);
-        } else {
-          headers.set('Access-Control-Allow-Origin', '*');
-        }
+        headers.set('Access-Control-Allow-Origin', corsOptions.origin || 'https://app.kourti.com');
         headers.set('Access-Control-Allow-Methods', corsOptions.allowMethods?.join(',') || 'POST, OPTIONS');
         headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        headers.set('Access-Control-Allow-Credentials', 'true');
       }
 
       return new Response(response.body, { headers });
@@ -252,28 +249,36 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
       throw new HttpError('Document text is required and cannot be empty', 400, 'INVALID_INPUT');
     }
 
-    // Get user info from request headers
-    const authHeader = req.headers.get('Authorization');
-    let userId = null;
-    let supabase;
-
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '').trim();
-
-      if (!token) {
-        throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
-      }
-
-      supabase = getSupabaseClient();
-
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-
-      if (error || !user) {
-        throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
-      }
-
-      userId = user.id;
+    // Input size limits to prevent cost abuse
+    if (text.length > 200000) {
+      throw new HttpError('Document text exceeds maximum length of 200,000 characters', 400, 'INPUT_TOO_LARGE');
     }
+    if (ragContext && typeof ragContext === 'string' && ragContext.length > 100000) {
+      throw new HttpError('RAG context exceeds maximum length of 100,000 characters', 400, 'INPUT_TOO_LARGE');
+    }
+    if (Array.isArray(conversationHistory) && conversationHistory.length > 20) {
+      throw new HttpError('Conversation history exceeds maximum of 20 messages', 400, 'INPUT_TOO_LARGE');
+    }
+
+    // --- Authentication: mandatory ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new HttpError('Authorization header required', 401, 'UNAUTHORIZED');
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
+    }
+
+    const supabase = getSupabaseClient();
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+
+    const userId = user.id;
 
     console.log('Processing analysis request for user:', userId);
 

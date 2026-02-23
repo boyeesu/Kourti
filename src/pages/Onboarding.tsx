@@ -320,7 +320,7 @@ export default function Onboarding() {
               last_name: formData.account.lastName,
             });
 
-            console.log('Signup result:', result);
+            console.log('Signup completed successfully');
 
             if (!result.error) {
               // Success, break out of retry loop

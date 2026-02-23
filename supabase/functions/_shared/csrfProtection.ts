@@ -35,7 +35,18 @@ export function validateCsrfToken(requestToken: string | null, expectedToken?: s
   if (!requestToken || !expectedToken) {
     return false;
   }
-  return requestToken === expectedToken && validateCsrfTokenFormat(requestToken);
+  if (!validateCsrfTokenFormat(requestToken)) {
+    return false;
+  }
+  // Constant-time comparison to prevent timing attacks
+  if (requestToken.length !== expectedToken.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < requestToken.length; i++) {
+    result |= requestToken.charCodeAt(i) ^ expectedToken.charCodeAt(i);
+  }
+  return result === 0;
 }
 
 /**

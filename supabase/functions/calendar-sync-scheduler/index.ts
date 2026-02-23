@@ -7,8 +7,10 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+const allowedOrigin = Deno.env.get("APP_URL") || "https://app.kourti.com";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": allowedOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -25,6 +27,15 @@ const handler = async (req: Request): Promise<Response> => {
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Require service-role authentication (cron jobs only)
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || authHeader.replace('Bearer ', '').trim() !== supabaseServiceKey) {
+    return new Response(JSON.stringify({ error: 'Forbidden: service-role access required' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -132,7 +143,7 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error in calendar-sync-scheduler:", error);
     return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }

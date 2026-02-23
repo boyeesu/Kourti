@@ -47,14 +47,13 @@ export function useReamAIAssistant() {
       }
 
       // Call the Ream AI Assistant edge function with CSRF protection
+      // Note: userId and organizationId are derived from JWT on the backend
       const body = {
         message: message.trim(),
         conversationHistory: conversationHistory.map(msg => ({
           role: msg.role,
           content: msg.content
         })),
-        userId: user.id,
-        organizationId: orgId,
         ...(options.documentContext && { context: options.documentContext }),
       };
       const { data, error } = await invokeFunctionWithCsrf<{ error?: string; response?: string }>('ream-ai-assistant', {

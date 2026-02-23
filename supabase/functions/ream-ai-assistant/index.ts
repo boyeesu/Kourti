@@ -54,8 +54,8 @@ function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOption
 interface ReamAIRequest {
   message: string;
   conversationHistory?: Array<{ role: string; content: string }>;
-  userId: string;
-  organizationId: string;
+  userId?: string; // DEPRECATED: ignored, derived from JWT
+  organizationId?: string; // DEPRECATED: ignored, derived from JWT
   context?: {
     documentId?: string;
     documentContent?: string;
@@ -81,6 +81,51 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
+    // --- Authentication: derive userId from JWT, not request body ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return createJsonResponse(
+        { success: false, error: 'Authorization header required', errorCode: 'UNAUTHORIZED' },
+        { status: 401, cors: corsOptions }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      return createJsonResponse(
+        { success: false, error: 'Invalid Authorization header', errorCode: 'UNAUTHORIZED' },
+        { status: 401, cors: corsOptions }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return createJsonResponse(
+        { success: false, error: 'Unauthorized', errorCode: 'UNAUTHORIZED' },
+        { status: 401, cors: corsOptions }
+      );
+    }
+
+    // Derive userId and organizationId from JWT - never trust client-provided values
+    const userId = user.id;
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (profileError || !profile?.organization_id) {
+      return createJsonResponse(
+        { success: false, error: 'User profile or organization not found', errorCode: 'PROFILE_NOT_FOUND' },
+        { status: 403, cors: corsOptions }
+      );
+    }
+
+    const organizationId = profile.organization_id;
+
     let requestData: ReamAIRequest;
     try {
       requestData = await req.json();
@@ -91,22 +136,41 @@ serve(async (req: Request): Promise<Response> => {
       });
     }
 
-    const { message, conversationHistory = [], userId, organizationId, context } = requestData;
+    // Only extract message, conversationHistory, context - userId/organizationId are derived from JWT
+    const { message, conversationHistory = [], context } = requestData;
 
-    if (!message || !userId || !organizationId) {
+    if (!message) {
       return createJsonResponse(
         {
           success: false,
-          error: 'Missing required fields: message, userId, or organizationId',
+          error: 'Missing required field: message',
           errorCode: 'VALIDATION_ERROR'
         },
         { status: 400, cors: corsOptions }
       );
     }
 
-    console.log("Processing request for user:", userId, "org:", organizationId);
+    // Input size limits to prevent cost abuse
+    if (typeof message === 'string' && message.length > 50000) {
+      return createJsonResponse(
+        { success: false, error: 'Message exceeds maximum length of 50,000 characters', errorCode: 'INPUT_TOO_LARGE' },
+        { status: 400, cors: corsOptions }
+      );
+    }
+    if (Array.isArray(conversationHistory) && conversationHistory.length > 20) {
+      return createJsonResponse(
+        { success: false, error: 'Conversation history exceeds maximum of 20 messages', errorCode: 'INPUT_TOO_LARGE' },
+        { status: 400, cors: corsOptions }
+      );
+    }
+    if (context?.documentContent && typeof context.documentContent === 'string' && context.documentContent.length > 200000) {
+      return createJsonResponse(
+        { success: false, error: 'Document content exceeds maximum length of 200,000 characters', errorCode: 'INPUT_TOO_LARGE' },
+        { status: 400, cors: corsOptions }
+      );
+    }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log("Processing request for user:", userId, "org:", organizationId);
 
     // Rate limiting - prevent AI cost abuse
     const rateLimitId = userId || getRateLimitIdentifier(req);

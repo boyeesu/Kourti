@@ -79,9 +79,28 @@ export const generateEmbeddingsHandler = async (req: Request) => {
 
   try {
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     if (!OPENAI_API_KEY) {
       throw new HttpError('OPENAI_API_KEY not configured', 503, 'OPENAI_CONFIG_MISSING');
+    }
+
+    // --- Authentication: require valid JWT ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new HttpError('Authorization header required', 401, 'UNAUTHORIZED');
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
+    }
+
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
     let payload: any;

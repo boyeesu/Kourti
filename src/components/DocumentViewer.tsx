@@ -91,7 +91,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
         .createSignedUrl(document.file_path, 3600);
 
       if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (err) {
       console.error('External view failed:', err);

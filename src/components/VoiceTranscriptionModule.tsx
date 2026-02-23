@@ -527,7 +527,7 @@ const VoiceTranscriptionModule: React.FC = () => {
           // Continue without audio file
         } else {
           const fileName = `audio_${Date.now()}.webm`;
-          const filePath = `${user.id}/${fileName}`;
+          const filePath = `${profile.organization_id}/${user.id}/${fileName}`;
 
           const { error: uploadError } = await supabase.storage
             .from('documents')

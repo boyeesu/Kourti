@@ -159,6 +159,7 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
                   className="pl-10 pr-10"
                   required
                   autoFocus
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -201,6 +202,7 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="pl-10"
                   required
+                  autoComplete="new-password"
                 />
               </div>
               {confirmPassword && newPassword !== confirmPassword && (

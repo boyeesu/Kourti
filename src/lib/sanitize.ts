@@ -15,7 +15,7 @@ export function sanitizeHTML(dirty: string | null | undefined): string {
       'blockquote', 'mark', 'code', 'pre',
       'div', 'span', 'a', 'hr'
     ],
-    ALLOWED_ATTR: ['class', 'style', 'href', 'target', 'rel'],
+    ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
     ALLOW_DATA_ATTR: false,
     // Force all links to open safely
     ADD_ATTR: ['target', 'rel'],

@@ -381,6 +381,84 @@ serve(async (req: Request) => {
     // Extract jurisdiction from the contract data
     const jurisdiction = basicInfo.jurisdiction || 'Nigeria';
 
+    // --- RAG: Retrieve relevant context from organization's existing documents ---
+    let ragContext = '';
+    let bestPracticesContext = '';
+
+    try {
+      // Build a search query from contract metadata for embedding
+      const searchQuery = [
+        basicInfo.type,
+        'contract',
+        basicInfo.description || '',
+        jurisdiction,
+        terms ? terms.substring(0, 500) : '',
+        clauses?.map((c: any) => c.title).join(' ') || '',
+      ].filter(Boolean).join(' ').substring(0, 2000);
+
+      console.log('RAG: Generating query embedding for context retrieval');
+
+      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'text-embedding-3-small',
+          input: searchQuery,
+          encoding_format: 'float',
+        }),
+      });
+
+      if (embeddingResponse.ok) {
+        const embeddingData = await embeddingResponse.json();
+        const queryEmbedding = embeddingData.data[0].embedding;
+
+        // Retrieve relevant document chunks and best practices in parallel
+        const [chunksResult, bestPracticesResult] = await Promise.all([
+          supabase.rpc('match_document_chunks_for_org', {
+            query_embedding: queryEmbedding,
+            org_id: organizationId,
+            match_threshold: 0.65,
+            match_count: 8,
+          }),
+          supabase.rpc('match_best_practices', {
+            query: queryEmbedding,
+          }),
+        ]);
+
+        // Build RAG context from document chunks
+        if (chunksResult.data && chunksResult.data.length > 0) {
+          const chunks = chunksResult.data
+            .sort((a: any, b: any) => b.similarity - a.similarity)
+            .slice(0, 8);
+
+          ragContext = chunks
+            .map((chunk: any, i: number) =>
+              `[Reference ${i + 1} (relevance: ${(chunk.similarity * 100).toFixed(0)}%)]\n${chunk.content}`
+            )
+            .join('\n\n');
+
+          console.log(`RAG: Retrieved ${chunks.length} relevant document chunks`);
+        }
+
+        // Build best practices context
+        if (bestPracticesResult.data && bestPracticesResult.data.length > 0) {
+          bestPracticesContext = bestPracticesResult.data
+            .map((bp: any, i: number) => `[Best Practice ${i + 1}]\n${bp.clause}`)
+            .join('\n\n');
+
+          console.log(`RAG: Retrieved ${bestPracticesResult.data.length} best practice clauses`);
+        }
+      } else {
+        console.warn('RAG: Embedding generation failed, proceeding without context');
+      }
+    } catch (ragError) {
+      // Non-fatal: contract generation proceeds without RAG context
+      console.warn('RAG: Context retrieval failed, proceeding without context:', ragError);
+    }
+
     // Build the comprehensive system prompt for senior lawyer quality with jurisdiction awareness
     const systemPrompt = `You are a Senior Partner at a prestigious international law firm with over 30 years of experience drafting complex commercial contracts across multiple jurisdictions. You have practiced law in major legal centers including New York, London, Lagos, Dubai, Singapore, and Hong Kong. You are renowned for your meticulous attention to detail, comprehensive coverage of all legal contingencies, and ability to protect clients' interests while maintaining commercial practicality.
 
@@ -590,6 +668,29 @@ Use this as a structural guide:
 ${template}`;
     }
 
+    // Inject RAG context if available
+    if (ragContext) {
+      userPrompt += `
+
+ORGANIZATIONAL REFERENCE MATERIAL
+==================================
+The following excerpts are from this organization's existing contracts and documents.
+Use them to match the organization's preferred style, terminology, and clause structures:
+
+${ragContext}`;
+    }
+
+    if (bestPracticesContext) {
+      userPrompt += `
+
+BEST PRACTICE CLAUSES
+=====================
+The following are industry best-practice clauses for reference.
+Use them to improve the quality and completeness of the generated contract:
+
+${bestPracticesContext}`;
+    }
+
     userPrompt += `
 
 INSTRUCTIONS
@@ -600,7 +701,7 @@ Generate a complete, professional contract that:
 3. Uses plain text formatting suitable for PDF generation
 4. Reflects the drafting standards of a senior partner at a top ${jurisdiction} law firm
 5. Includes all schedules with substantive content
-6. Is legally enforceable under ${jurisdiction} law
+6. Is legally enforceable under ${jurisdiction} law${ragContext ? '\n7. Incorporates the organization\'s preferred language and clause style from the reference material above' : ''}
 
 Generate the complete contract now.`;
 
@@ -616,8 +717,10 @@ Generate the complete contract now.`;
         partiesCount: parties?.length || 0,
         hasTerms: !!terms,
         clausesCount: clauses?.length || 0,
+        ragChunksUsed: ragContext ? ragContext.split('[Reference').length - 1 : 0,
+        bestPracticesUsed: bestPracticesContext ? bestPracticesContext.split('[Best Practice').length - 1 : 0,
       },
-      tags: ['contract-generation', 'legal-ai'],
+      tags: ['contract-generation', 'legal-ai', ...(ragContext ? ['rag-enhanced'] : [])],
     });
 
     console.log('Sending request to OpenAI with model fallback support');
@@ -713,6 +816,87 @@ Generate the complete contract now.`;
     }
 
     console.log('Contract saved successfully:', savedContract.id);
+
+    // --- Post-save: Chunk and embed the generated contract for future RAG retrieval ---
+    try {
+      console.log('Embedding: Chunking generated contract for future retrieval');
+
+      // Simple sentence-aware chunking
+      const chunkMaxTokens = 800;
+      const sentences = generatedContract.match(/[^.!?]+[.!?]+/g) || [generatedContract];
+      const textChunks: Array<{ content: string; tokenCount: number }> = [];
+      let currentChunk = '';
+
+      for (const sentence of sentences) {
+        const tentative = currentChunk + (currentChunk ? ' ' : '') + sentence.trim();
+        const tentativeTokens = Math.ceil(tentative.length / 4);
+
+        if (tentativeTokens > chunkMaxTokens && currentChunk) {
+          textChunks.push({ content: currentChunk.trim(), tokenCount: Math.ceil(currentChunk.length / 4) });
+          currentChunk = sentence.trim();
+        } else {
+          currentChunk = tentative;
+        }
+      }
+      if (currentChunk.trim()) {
+        textChunks.push({ content: currentChunk.trim(), tokenCount: Math.ceil(currentChunk.length / 4) });
+      }
+
+      const validChunks = textChunks.filter(c => c.content.length > 20);
+
+      if (validChunks.length > 0) {
+        // Generate embeddings for all chunks in one batch
+        const chunkEmbeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'text-embedding-3-small',
+            input: validChunks.map(c => c.content),
+            encoding_format: 'float',
+          }),
+        });
+
+        if (chunkEmbeddingResponse.ok) {
+          const chunkEmbeddingData = await chunkEmbeddingResponse.json();
+          const chunkEmbeddings: number[][] = chunkEmbeddingData.data.map((d: any) => d.embedding);
+
+          const chunksToInsert = validChunks.map((chunk, idx) => ({
+            contract_id: savedContract.id,
+            organization_id: organizationId,
+            chunk_index: idx,
+            content: chunk.content,
+            token_count: chunk.tokenCount,
+            embedding: chunkEmbeddings[idx],
+            metadata: {
+              documentType: 'contract',
+              contractType: basicInfo.type,
+              jurisdiction,
+              generatedBy: 'ai-contract-generator',
+              processingDate: new Date().toISOString(),
+              embeddingModel: 'text-embedding-3-small',
+            },
+          }));
+
+          const { error: insertError } = await supabase
+            .from('document_chunks')
+            .insert(chunksToInsert);
+
+          if (insertError) {
+            console.error('Embedding: Failed to store chunks:', insertError.message);
+          } else {
+            console.log(`Embedding: Stored ${chunksToInsert.length} chunks for contract ${savedContract.id}`);
+          }
+        } else {
+          console.warn('Embedding: Chunk embedding generation failed');
+        }
+      }
+    } catch (embedError) {
+      // Non-fatal: contract was already saved successfully
+      console.warn('Embedding: Post-save embedding failed:', embedError);
+    }
 
     return createJsonResponse(
       {

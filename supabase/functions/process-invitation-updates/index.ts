@@ -16,6 +16,16 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Require service-role authentication (cron jobs only)
+  const authHeaderValue = req.headers.get('Authorization');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!authHeaderValue || !serviceKey || authHeaderValue.replace('Bearer ', '').trim() !== serviceKey) {
+    return new Response(JSON.stringify({ error: 'Forbidden: service-role access required' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     // Create Supabase client
     const supabaseClient = createClient(

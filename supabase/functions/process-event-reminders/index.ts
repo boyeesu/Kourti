@@ -42,6 +42,15 @@ const handler = async (req: Request): Promise<Response> => {
     });
   }
 
+  // Require service-role authentication (cron jobs only)
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || authHeader.replace('Bearer ', '').trim() !== supabaseServiceKey) {
+    return new Response(JSON.stringify({ error: 'Forbidden: service-role access required' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const now = new Date();
     const nowISO = now.toISOString();

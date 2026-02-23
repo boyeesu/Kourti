@@ -217,6 +217,11 @@ export const processDocumentChunksHandler = async (req: Request) => {
       throw new HttpError('Content is required', 400, 'INVALID_INPUT');
     }
 
+    // Input size limit to prevent cost abuse
+    if (typeof content === 'string' && content.length > 500000) {
+      throw new HttpError('Content exceeds maximum length of 500,000 characters', 400, 'INPUT_TOO_LARGE');
+    }
+
     if (!documentId && !contractId) {
       throw new HttpError('Document or contract ID is required', 400, 'INVALID_INPUT');
     }

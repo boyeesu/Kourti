@@ -125,7 +125,15 @@ async function verifyState(state: string): Promise<StatePayload> {
 
   const signatureBuffer = await crypto.subtle.sign("HMAC", cryptoKey, payloadBytes.buffer as ArrayBuffer);
   const expectedSignature = new Uint8Array(signatureBuffer);
-  if (expectedSignature.length !== signatureBytes.length || !expectedSignature.every((value, idx) => value === signatureBytes[idx])) {
+  if (expectedSignature.length !== signatureBytes.length) {
+    throw new Error("Invalid state signature");
+  }
+  // Constant-time comparison to prevent timing attacks
+  let hmacResult = 0;
+  for (let i = 0; i < expectedSignature.length; i++) {
+    hmacResult |= expectedSignature[i] ^ signatureBytes[i];
+  }
+  if (hmacResult !== 0) {
     throw new Error("Invalid state signature");
   }
 

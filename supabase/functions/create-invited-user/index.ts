@@ -208,7 +208,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate temporary password
     const tempPassword = generateTempPassword();
-    console.log('Generated temp password for:', email);
+    console.log('Generated temp password for invited user');
 
     // Create auth user with temp password
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({

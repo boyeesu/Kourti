@@ -142,7 +142,8 @@ serve(async (req: Request) => {
     }
 
     // Prevent path traversal
-    if (filePath.includes('..') || filePath.startsWith('/')) {
+    const SAFE_PATH_REGEX = /^[a-zA-Z0-9_\-/.]+$/;
+    if (filePath.includes('..') || filePath.startsWith('/') || !SAFE_PATH_REGEX.test(filePath)) {
       throw new HttpError('Invalid file path', 400, 'INVALID_INPUT');
     }
 
@@ -185,7 +186,7 @@ serve(async (req: Request) => {
         if (!extractedText || extractedText.length < 50) {
           // If basic extraction fails, return a message indicating OCR may be needed
           extractionError = 'PDF text extraction yielded limited content. This PDF may contain images or scanned content that requires OCR processing.';
-          extractedText = `[PDF document detected: ${filePath}. Basic text extraction yielded limited content. This PDF may contain images or scanned content that requires OCR processing.]`;
+          extractedText = `[Unable to extract sufficient text from PDF document. The file may contain images or scanned content that requires OCR processing.]`;
         }
       } else if (fileName.endsWith('.docx')) {
         // DOCX files are ZIP archives containing XML files
@@ -196,28 +197,28 @@ serve(async (req: Request) => {
           
           if (!extractedText || extractedText.length < 10) {
             extractionError = 'DOCX extraction yielded no meaningful content';
-            extractedText = `[DOCX document detected: ${filePath}. Unable to extract text content automatically.]`;
+            extractedText = `[Unable to extract text from DOCX document automatically.]`;
           }
         } catch (e) {
           const errorMsg = e instanceof Error ? e.message : String(e);
           console.error('DOCX extraction error:', errorMsg);
           extractionError = `DOCX extraction failed: ${errorMsg}`;
-          extractedText = `[DOCX document detected: ${filePath}. Unable to extract text content automatically. Error: ${errorMsg}]`;
+          extractedText = `[Unable to extract text from DOCX document automatically.]`;
         }
       } else if (fileName.endsWith('.doc')) {
         // Legacy .doc format - very difficult to parse without specialized libraries
         extractionError = 'Legacy .doc format is not supported. Please convert to .docx or .pdf';
-        extractedText = `[Legacy DOC document detected: ${filePath}. This format is not supported for automatic text extraction. Please convert to DOCX or PDF format.]`;
+        extractedText = `[Legacy DOC format is not supported for automatic text extraction. Please convert to DOCX or PDF format.]`;
       } else {
         // Unknown file type
-        extractionError = `Unsupported file type: ${filePath}`;
-        extractedText = `[File type not supported for automatic text extraction: ${filePath}]`;
+        extractionError = `Unsupported file type`;
+        extractedText = `[File type not supported for automatic text extraction.]`;
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error('General extraction error:', errorMsg);
       extractionError = `Extraction failed: ${errorMsg}`;
-      extractedText = `[Error extracting text from ${filePath}: ${errorMsg}]`;
+      extractedText = `[Unable to extract text from document automatically.]`;
     }
 
     // Update the document record with the extracted content

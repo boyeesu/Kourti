@@ -134,6 +134,7 @@ export default function Auth() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
+                  autoComplete="current-password"
                 />
                 <Button
                   type="button"

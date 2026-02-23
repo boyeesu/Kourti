@@ -27,6 +27,24 @@ export const ALLOWED_CHAT_EXTENSIONS = [
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv'
 ];
 
+// Map MIME types to expected file extensions for cross-validation
+const MIME_TO_EXTENSIONS: Record<string, string[]> = {
+  'application/pdf': ['.pdf'],
+  'application/msword': ['.doc'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'application/vnd.ms-excel': ['.xls'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  'text/plain': ['.txt'],
+  'text/csv': ['.csv'],
+  'audio/webm': ['.webm'],
+  'audio/mpeg': ['.mp3'],
+  'audio/wav': ['.wav'],
+  'image/png': ['.png'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/gif': ['.gif'],
+  'image/webp': ['.webp'],
+};
+
 interface ValidationOptions {
   maxSize?: number;
   allowedTypes?: readonly string[];
@@ -63,6 +81,16 @@ export function validateFile(
     return {
       valid: false,
       error: `File type "${file.type || 'unknown'}" is not allowed. Allowed types: ${ALLOWED_CHAT_EXTENSIONS.join(', ')}`,
+    };
+  }
+
+  // Cross-validate file extension against MIME type
+  const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+  const validExtensions = MIME_TO_EXTENSIONS[file.type];
+  if (validExtensions && fileExtension && !validExtensions.includes(fileExtension)) {
+    return {
+      valid: false,
+      error: `File extension "${fileExtension}" does not match declared type "${file.type}"`,
     };
   }
 

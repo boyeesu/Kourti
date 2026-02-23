@@ -286,7 +286,7 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
           throw new Error(error?.message || 'Failed to generate download URL');
         }
 
-        window.open(data.signedUrl, '_blank');
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       } catch (err) {
         console.error('Download error:', err);
         toast({

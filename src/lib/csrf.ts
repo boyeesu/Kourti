@@ -26,14 +26,14 @@ export const generateCSRFToken = (): string => {
 };
 
 /**
- * Set a secure, HTTP-only cookie with the CSRF token
+ * Set a secure cookie with the CSRF token
  */
 const setCsrfCookie = (token: string): void => {
   const expiryDate = new Date();
   expiryDate.setHours(expiryDate.getHours() + TOKEN_EXPIRY_HOURS);
-  
-  // Set as HTTP-only, same-site strict cookie for security
-  document.cookie = `${CSRF_COOKIE_NAME}=${token}; expires=${expiryDate.toUTCString()}; path=/; SameSite=Strict`;
+
+  // Set as SameSite strict, Secure cookie (note: httpOnly not possible via document.cookie)
+  document.cookie = `${CSRF_COOKIE_NAME}=${token}; expires=${expiryDate.toUTCString()}; path=/; SameSite=Strict; Secure`;
 };
 
 /**

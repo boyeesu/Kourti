@@ -135,7 +135,8 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
       }
 
       // Upload file to Supabase storage
-      const fileName = `${organizationId}/${Date.now()}_${uploadedFile.name}`;
+      const sanitizedName = uploadedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `${organizationId}/${Date.now()}_${sanitizedName}`;
       
       const { error: uploadError } = await supabase.storage
         .from('documents')

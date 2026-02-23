@@ -59,6 +59,37 @@ serve(async (req: Request): Promise<Response> => {
             throw new HttpError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
         }
 
+        // --- Authentication: require valid JWT ---
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader) {
+            throw new HttpError('Authorization header required', 401, 'UNAUTHORIZED');
+        }
+
+        const token = authHeader.replace('Bearer ', '').trim();
+        if (!token) {
+            throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
+        }
+
+        const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
+
+        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+        if (authError || !user) {
+            throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
+        }
+
+        // Look up user's organization for tenant-scoped search
+        const { data: profile } = await supabaseAuth
+            .from('profiles')
+            .select('organization_id')
+            .eq('user_id', user.id)
+            .single();
+
+        if (!profile?.organization_id) {
+            throw new HttpError('User organization not found', 403, 'PROFILE_NOT_FOUND');
+        }
+
+        const userOrgId = profile.organization_id;
+
         let payload: any;
         try {
             payload = await req.json();
@@ -103,27 +134,29 @@ serve(async (req: Request): Promise<Response> => {
 
         console.log('Generated query embedding, dimension:', queryEmbedding.length);
 
-        // Step 2: Perform vector search using direct SQL query (bypasses RPC issues)
+        // Step 2: Perform org-scoped vector search
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Use raw SQL query for vector similarity search
+        // Use org-scoped RPC to enforce tenant isolation
         const { data: vectorResults, error: vectorError } = await supabase
-            .rpc('match_document_chunks', {
+            .rpc('match_document_chunks_for_org', {
                 query_embedding: queryEmbedding,
+                org_id: userOrgId,
                 match_threshold: matchThreshold,
                 match_count: matchCount
             });
 
-        // If RPC fails, try direct query as fallback
+        // If RPC fails, try direct query as fallback (still org-scoped)
         let searchResults = vectorResults;
 
         if (vectorError || !vectorResults) {
             console.log('RPC failed, using direct SQL query fallback:', vectorError?.message);
 
-            // Fallback: Get chunks and we'll return them without similarity scoring
+            // Fallback: Get chunks scoped to user's organization
             const { data: fallbackResults, error: fallbackError } = await supabase
                 .from('document_chunks')
                 .select('id, document_id, contract_id, content, chunk_index, metadata')
+                .eq('organization_id', userOrgId)
                 .not('embedding', 'is', null)
                 .limit(matchCount);
 

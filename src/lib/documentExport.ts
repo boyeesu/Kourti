@@ -7,17 +7,20 @@ import jsPDF from 'jspdf';
  * Convert HTML content to plain text for export
  */
 function htmlToPlainText(html: string): string {
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
-    return temp.textContent || temp.innerText || '';
+    // Use DOMParser instead of innerHTML to avoid executing embedded event handlers
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
 }
 
 /**
  * Parse HTML content and create DOCX paragraphs
  */
 function parseHTMLToDocxParagraphs(html: string): Paragraph[] {
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
+    // Use DOMParser instead of innerHTML to avoid executing embedded event handlers
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const temp = doc.body;
     const paragraphs: Paragraph[] = [];
 
     const processNode = (node: Node): TextRun[] => {

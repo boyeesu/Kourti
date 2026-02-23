@@ -83,11 +83,13 @@ export class ErrorBoundary extends Component<Props, State> {
               Try Again
             </Button>
           </div>
-          <div className="mt-8 p-4 bg-muted/30 rounded text-left max-w-lg overflow-auto">
-            <p className="text-sm font-mono text-muted-foreground">
-              {error.name}: {error.message}
-            </p>
-          </div>
+          {import.meta.env.DEV && (
+            <div className="mt-8 p-4 bg-muted/30 rounded text-left max-w-lg overflow-auto">
+              <p className="text-sm font-mono text-muted-foreground">
+                {error.name}: {error.message}
+              </p>
+            </div>
+          )}
         </div>
       );
     }

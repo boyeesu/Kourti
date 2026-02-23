@@ -63,7 +63,7 @@ export default function ForgotPassword() {
 
     // Log success in development
     if (import.meta.env.DEV) {
-      console.log('Password reset email sent successfully to:', normalizedEmail);
+      console.log('Password reset email sent successfully');
     }
 
     setEmailSent(true);
