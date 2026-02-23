@@ -34,13 +34,13 @@ CREATE POLICY "Organization admins can update their org"
     id IN (
       SELECT organization_id FROM profiles
       WHERE user_id = auth.uid()
-        AND role IN ('admin', 'owner')
+        AND role IN ('admin', 'superadmin')
     )
   )
   WITH CHECK (
     id IN (
       SELECT organization_id FROM profiles
       WHERE user_id = auth.uid()
-        AND role IN ('admin', 'owner')
+        AND role IN ('admin', 'superadmin')
     )
   );

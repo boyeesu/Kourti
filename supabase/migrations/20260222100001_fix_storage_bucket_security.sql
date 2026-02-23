@@ -47,7 +47,8 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- RLS policies for Chat_Storage bucket
 -- Users can upload files scoped to their organization
-CREATE POLICY IF NOT EXISTS "Chat_Storage: org-scoped upload"
+DROP POLICY IF EXISTS "Chat_Storage: org-scoped upload" ON storage.objects;
+CREATE POLICY "Chat_Storage: org-scoped upload"
   ON storage.objects FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -58,7 +59,8 @@ CREATE POLICY IF NOT EXISTS "Chat_Storage: org-scoped upload"
   );
 
 -- Users can read files from their organization
-CREATE POLICY IF NOT EXISTS "Chat_Storage: org-scoped read"
+DROP POLICY IF EXISTS "Chat_Storage: org-scoped read" ON storage.objects;
+CREATE POLICY "Chat_Storage: org-scoped read"
   ON storage.objects FOR SELECT
   TO authenticated
   USING (
@@ -69,7 +71,8 @@ CREATE POLICY IF NOT EXISTS "Chat_Storage: org-scoped read"
   );
 
 -- Users can delete their own uploads
-CREATE POLICY IF NOT EXISTS "Chat_Storage: owner delete"
+DROP POLICY IF EXISTS "Chat_Storage: owner delete" ON storage.objects;
+CREATE POLICY "Chat_Storage: owner delete"
   ON storage.objects FOR DELETE
   TO authenticated
   USING (
