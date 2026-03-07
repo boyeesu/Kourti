@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   ChevronLeft,
   ChevronRight,
@@ -19,20 +19,36 @@ import {
   Search,
   X,
   CalendarDays,
-} from "lucide-react";
-import { useCalendarEvents } from "@/hooks/useCalendar";
-import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
-import { EventViewDialog } from "@/components/calendar/EventViewDialog";
-import { CalendarSyncSettings } from "@/components/calendar/CalendarSyncSettings";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { Settings as SettingsIcon } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { CalendarEvent } from "@/types";
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameMonth, startOfMonth, endOfMonth, startOfDay, isSameDay } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
-import { invokeFunctionWithCsrf } from "@/lib/csrfClient";
-import { useEnhancedToast } from "@/components/ui/enhanced-toast";
-import { env } from "@/lib/env";
+} from 'lucide-react';
+import { useCalendarEvents, useCalendarEventsByDateRange } from '@/hooks/useCalendar';
+import { EventCreateDialog } from '@/components/calendar/EventCreateDialog';
+import { EventViewDialog } from '@/components/calendar/EventViewDialog';
+import { CalendarSyncSettings } from '@/components/calendar/CalendarSyncSettings';
+import { TeamCalendars } from '@/components/calendar/TeamCalendars';
+import { CalendarDayView } from '@/components/calendar/CalendarDayView';
+import { CalendarWorkWeekView } from '@/components/calendar/CalendarWorkWeekView';
+import { FindAvailableTimeDialog } from '@/components/calendar/FindAvailableTimeDialog';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { Settings as SettingsIcon } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { CalendarEvent, CalendarEventWithOwner } from '@/types';
+import { useSharedCalendars } from '@/hooks/useCalendarSharing';
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isToday,
+  isSameMonth,
+  startOfMonth,
+  endOfMonth,
+  startOfDay,
+  isSameDay,
+} from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
+import { useEnhancedToast } from '@/components/ui/enhanced-toast';
+import { env } from '@/lib/env';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,15 +56,28 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { TableSkeleton } from "@/components/ui/loading-states";
-import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+} from '@/components/ui/dropdown-menu';
+import { TableSkeleton } from '@/components/ui/loading-states';
+import { EmptyState } from '@/components/ui/empty-state';
+import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-type CalendarView = 'month' | 'week' | 'list';
-type EventTypeFilter = 'all' | 'meeting' | 'hearing' | 'deadline' | 'deposition' | 'review' | 'consultation';
+type CalendarView = 'month' | 'week' | 'day' | 'workWeek' | 'list';
+type EventTypeFilter =
+  | 'all'
+  | 'meeting'
+  | 'hearing'
+  | 'deadline'
+  | 'deposition'
+  | 'review'
+  | 'consultation';
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -56,34 +85,82 @@ export default function Calendar() {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
   const [eventTypeFilter, setEventTypeFilter] = useState<EventTypeFilter>('all');
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const { data: events = [], isLoading } = useCalendarEvents();
   const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasSsoConfig, setHasSsoConfig] = useState(false);
   const [showSyncSettings, setShowSyncSettings] = useState(false);
+  const [showFindTimeDialog, setShowFindTimeDialog] = useState(false);
   const { success, error: showError } = useEnhancedToast();
   const calendarFeedUrl = `${env.APP_URL}/api/calendar/ics`;
-  const calendarSubscribeUrl = calendarFeedUrl.replace(/^https?:\/\//, "webcal://");
+  const calendarSubscribeUrl = calendarFeedUrl.replace(/^https?:\/\//, 'webcal://');
+
+  // Team calendar sharing state
+  const [selectedTeamCalendars, setSelectedTeamCalendars] = useState<string[]>([]);
+  const [sharedCalendarEvents, setSharedCalendarEvents] = useState<CalendarEventWithOwner[]>([]);
+  const { data: sharedCalendars } = useSharedCalendars();
+
+  // Handle calendar toggle
+  const handleCalendarToggle = async (ownerId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTeamCalendars((prev) => [...prev, ownerId]);
+
+      // Fetch events for this shared calendar
+      try {
+        const firstDay = startOfMonth(currentDate);
+        const lastDay = endOfMonth(currentDate);
+
+        const { data, error } = await supabase
+          .from('calendar_events')
+          .select('*')
+          .eq('created_by', ownerId)
+          .gte('start_date', firstDay.toISOString())
+          .lte('end_date', lastDay.toISOString())
+          .order('start_date', { ascending: true });
+
+        if (error) throw error;
+
+        // Add owner info to events
+        const ownerCalendar = sharedCalendars?.find((sc) => sc.calendar_owner_id === ownerId);
+        const eventsWithOwner = (data || []).map((event) => ({
+          ...event,
+          owner_name: ownerCalendar?.owner_name,
+          owner_email: ownerCalendar?.owner_email,
+          owner_color: ownerCalendar?.calendar_color,
+        }));
+
+        setSharedCalendarEvents((prev) => [...prev, ...eventsWithOwner]);
+      } catch (err) {
+        console.error('Error fetching shared calendar events:', err);
+      }
+    } else {
+      setSelectedTeamCalendars((prev) => prev.filter((id) => id !== ownerId));
+      setSharedCalendarEvents((prev) => prev.filter((event) => event.created_by !== ownerId));
+    }
+  };
 
   // Combine and filter events
   const allEvents = useMemo(() => {
-    const combined = [...events, ...externalEvents];
-    return combined.filter(event => {
+    const combined = [...events, ...externalEvents, ...sharedCalendarEvents];
+    return combined.filter((event) => {
       const matchesType = eventTypeFilter === 'all' || event.event_type === eventTypeFilter;
-      const matchesSearch = !searchTerm || 
+      const matchesSearch =
+        !searchTerm ||
         event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.location?.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesType && matchesSearch;
     });
-  }, [events, externalEvents, eventTypeFilter, searchTerm]);
+  }, [events, externalEvents, sharedCalendarEvents, eventTypeFilter, searchTerm]);
 
   // Check if SSO is configured
   useEffect(() => {
     const checkSsoConfig = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) return;
 
         const { data: profile } = await supabase
@@ -129,13 +206,19 @@ export default function Calendar() {
       const timeMax = lastDay.toISOString();
 
       try {
-        const { data: googleData } = await invokeFunctionWithCsrf<{ events?: CalendarEvent[] }>('google-calendar-sync', {
-          body: { action: 'list-events', timeMin, timeMax }
-        });
+        const { data: googleData } = await invokeFunctionWithCsrf<{ events?: CalendarEvent[] }>(
+          'google-calendar-sync',
+          {
+            body: { action: 'list-events', timeMin, timeMax },
+          }
+        );
 
         if (googleData?.events) {
           const events = googleData.events;
-          setExternalEvents(prev => [...prev.filter(e => e.source !== 'google_calendar'), ...events]);
+          setExternalEvents((prev) => [
+            ...prev.filter((e) => e.source !== 'google_calendar'),
+            ...events,
+          ]);
           syncedCount++;
         }
       } catch {
@@ -143,12 +226,18 @@ export default function Calendar() {
       }
 
       try {
-        const { data: teamsData } = await invokeFunctionWithCsrf<{ events?: CalendarEvent[] }>('teams-calendar-sync', {
-          body: { action: 'list-events', timeMin, timeMax }
-        });
+        const { data: teamsData } = await invokeFunctionWithCsrf<{ events?: CalendarEvent[] }>(
+          'teams-calendar-sync',
+          {
+            body: { action: 'list-events', timeMin, timeMax },
+          }
+        );
 
         if (teamsData?.events) {
-          setExternalEvents(prev => [...prev.filter(e => e.source !== 'microsoft_teams'), ...(teamsData.events || [])]);
+          setExternalEvents((prev) => [
+            ...prev.filter((e) => e.source !== 'microsoft_teams'),
+            ...(teamsData.events || []),
+          ]);
           syncedCount++;
         }
       } catch {
@@ -157,14 +246,14 @@ export default function Calendar() {
 
       if (syncedCount > 0) {
         success({
-          title: "Calendar Synced",
-          description: "External calendars have been synchronized."
+          title: 'Calendar Synced',
+          description: 'External calendars have been synchronized.',
         });
       }
     } catch {
       showError({
-        title: "Sync Failed",
-        description: "Unable to sync external calendars. Please try again."
+        title: 'Sync Failed',
+        description: 'Unable to sync external calendars. Please try again.',
       });
     } finally {
       setIsSyncing(false);
@@ -180,13 +269,20 @@ export default function Calendar() {
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
-      case "meeting": return "bg-blue-500 text-white border-blue-600";
-      case "hearing": return "bg-red-500 text-white border-red-600";
-      case "deadline": return "bg-amber-500 text-white border-amber-600";
-      case "deposition": return "bg-green-500 text-white border-green-600";
-      case "review": return "bg-purple-500 text-white border-purple-600";
-      case "consultation": return "bg-indigo-500 text-white border-indigo-600";
-      default: return "bg-gray-500 text-white border-gray-600";
+      case 'meeting':
+        return 'bg-blue-500 text-white border-blue-600';
+      case 'hearing':
+        return 'bg-red-500 text-white border-red-600';
+      case 'deadline':
+        return 'bg-amber-500 text-white border-amber-600';
+      case 'deposition':
+        return 'bg-green-500 text-white border-green-600';
+      case 'review':
+        return 'bg-purple-500 text-white border-purple-600';
+      case 'consultation':
+        return 'bg-indigo-500 text-white border-indigo-600';
+      default:
+        return 'bg-gray-500 text-white border-gray-600';
     }
   };
 
@@ -225,7 +321,7 @@ export default function Calendar() {
   };
 
   const getEventsForDate = (date: Date) => {
-    return allEvents.filter(event => {
+    return allEvents.filter((event) => {
       const startDate = startOfDay(new Date(event.start_date));
       const endDate = startOfDay(new Date(event.end_date));
       const checkDate = startOfDay(date);
@@ -238,16 +334,18 @@ export default function Calendar() {
     const firstDay = startOfMonth(currentDate);
     const lastDay = endOfMonth(currentDate);
 
-    return allEvents.filter(event => {
-      const eventStart = new Date(event.start_date);
-      const eventEnd = new Date(event.end_date);
-      return (eventStart <= lastDay && eventEnd >= firstDay);
-    }).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+    return allEvents
+      .filter((event) => {
+        const eventStart = new Date(event.start_date);
+        const eventEnd = new Date(event.end_date);
+        return eventStart <= lastDay && eventEnd >= firstDay;
+      })
+      .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   };
 
   const todayEvents = useMemo(() => {
     const today = new Date();
-    return allEvents.filter(event => {
+    return allEvents.filter((event) => {
       const eventStart = startOfDay(new Date(event.start_date));
       const eventEnd = startOfDay(new Date(event.end_date));
       const todayDate = startOfDay(today);
@@ -257,12 +355,14 @@ export default function Calendar() {
 
   const upcomingEvents = useMemo(() => {
     const today = new Date();
-    return allEvents.filter(event => {
-      const eventDate = new Date(event.start_date);
-      const diffTime = eventDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 0 && diffDays <= 7;
-    }).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+    return allEvents
+      .filter((event) => {
+        const eventDate = new Date(event.start_date);
+        const diffTime = eventDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 0 && diffDays <= 7;
+      })
+      .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   }, [allEvents]);
 
   const weekDays = getDaysInWeek(currentDate);
@@ -286,19 +386,29 @@ export default function Calendar() {
   return (
     <div className="px-4 py-6 space-y-6">
       <Breadcrumbs />
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
           <p className="text-muted-foreground">Schedule and manage your legal events</p>
         </div>
-        <EventCreateDialog>
-          <Button className="shadow-sm">
-            <Plus className="h-4 w-4 mr-2" />
-            New Event
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="shadow-sm"
+            onClick={() => setShowFindTimeDialog(true)}
+          >
+            <CalendarDays className="h-4 w-4 mr-2" />
+            Schedule Meeting
           </Button>
-        </EventCreateDialog>
+          <EventCreateDialog>
+            <Button className="shadow-sm">
+              <Plus className="h-4 w-4 mr-2" />
+              New Event
+            </Button>
+          </EventCreateDialog>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -316,13 +426,16 @@ export default function Calendar() {
               variant="ghost"
               size="icon"
               className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => setSearchTerm("")}
+              onClick={() => setSearchTerm('')}
             >
               <X className="h-3 w-3" />
             </Button>
           )}
         </div>
-        <Select value={eventTypeFilter} onValueChange={(v) => setEventTypeFilter(v as EventTypeFilter)}>
+        <Select
+          value={eventTypeFilter}
+          onValueChange={(v) => setEventTypeFilter(v as EventTypeFilter)}
+        >
           <SelectTrigger className="w-full sm:w-[180px]">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Filter by type" />
@@ -348,16 +461,19 @@ export default function Calendar() {
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="h-5 w-5 text-primary" />
                   <CardTitle>
-                    {calendarView === 'month' 
+                    {calendarView === 'month'
                       ? format(currentDate, 'MMMM yyyy')
                       : calendarView === 'week'
-                      ? `Week of ${format(weekDays[0], 'MMM d')} - ${format(weekDays[6], 'MMM d, yyyy')}`
-                      : format(currentDate, 'MMMM yyyy')}
+                        ? `Week of ${format(weekDays[0], 'MMM d')} - ${format(weekDays[6], 'MMM d, yyyy')}`
+                        : format(currentDate, 'MMMM yyyy')}
                   </CardTitle>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Tabs value={calendarView} onValueChange={(v) => setCalendarView(v as CalendarView)}>
-                    <TabsList>
+                  <Tabs
+                    value={calendarView}
+                    onValueChange={(v) => setCalendarView(v as CalendarView)}
+                  >
+                    <TabsList className="flex-wrap">
                       <TabsTrigger value="month" className="gap-2">
                         <Grid3X3 className="h-4 w-4" />
                         Month
@@ -365,6 +481,14 @@ export default function Calendar() {
                       <TabsTrigger value="week" className="gap-2">
                         <CalendarDays className="h-4 w-4" />
                         Week
+                      </TabsTrigger>
+                      <TabsTrigger value="workWeek" className="gap-2">
+                        <CalendarDays className="h-4 w-4" />
+                        Work Week
+                      </TabsTrigger>
+                      <TabsTrigger value="day" className="gap-2">
+                        <Clock className="h-4 w-4" />
+                        Day
                       </TabsTrigger>
                       <TabsTrigger value="list" className="gap-2">
                         <List className="h-4 w-4" />
@@ -408,7 +532,7 @@ export default function Calendar() {
                         disabled={isSyncing}
                         className="gap-2"
                       >
-                        <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+                        <RefreshCw className={cn('h-4 w-4', isSyncing && 'animate-spin')} />
                         Sync
                       </Button>
                       <Button
@@ -433,7 +557,12 @@ export default function Calendar() {
                       <DropdownMenuLabel>Export Calendar</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <a href={calendarFeedUrl} target="_blank" rel="noreferrer" className="cursor-pointer">
+                        <a
+                          href={calendarFeedUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="cursor-pointer"
+                        >
                           Download ICS (one-time)
                         </a>
                       </DropdownMenuItem>
@@ -452,8 +581,11 @@ export default function Calendar() {
                 <div className="space-y-2">
                   {/* Day headers */}
                   <div className="grid grid-cols-7 gap-1">
-                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-                      <div key={day} className="p-2 text-center text-sm font-semibold text-muted-foreground">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                      <div
+                        key={day}
+                        className="p-2 text-center text-sm font-semibold text-muted-foreground"
+                      >
                         {day}
                       </div>
                     ))}
@@ -469,11 +601,11 @@ export default function Calendar() {
                         <div
                           key={index}
                           className={cn(
-                            "min-h-[100px] p-2 border rounded-lg transition-all cursor-pointer",
-                            isCurrentMonth 
-                              ? "bg-card border-border hover:bg-accent/50 hover:border-primary/50" 
-                              : "bg-muted/30 border-transparent opacity-50",
-                            isTodayDate && "ring-2 ring-primary border-primary"
+                            'min-h-[100px] p-2 border rounded-lg transition-all cursor-pointer',
+                            isCurrentMonth
+                              ? 'bg-card border-border hover:bg-accent/50 hover:border-primary/50'
+                              : 'bg-muted/30 border-transparent opacity-50',
+                            isTodayDate && 'ring-2 ring-primary border-primary'
                           )}
                           onClick={() => {
                             if (isCurrentMonth) {
@@ -482,19 +614,21 @@ export default function Calendar() {
                             }
                           }}
                         >
-                          <div className={cn(
-                            "text-sm font-medium mb-1",
-                            isTodayDate && "text-primary font-bold",
-                            !isCurrentMonth && "text-muted-foreground"
-                          )}>
+                          <div
+                            className={cn(
+                              'text-sm font-medium mb-1',
+                              isTodayDate && 'text-primary font-bold',
+                              !isCurrentMonth && 'text-muted-foreground'
+                            )}
+                          >
                             {format(day, 'd')}
                           </div>
                           <div className="space-y-1">
-                            {dayEvents.slice(0, 3).map(event => (
+                            {dayEvents.slice(0, 3).map((event) => (
                               <div
                                 key={event.id}
                                 className={cn(
-                                  "text-xs p-1 rounded truncate cursor-pointer transition-all hover:opacity-80 hover:scale-[1.02]",
+                                  'text-xs p-1 rounded truncate cursor-pointer transition-all hover:opacity-80 hover:scale-[1.02]',
                                   getEventTypeColor(event.event_type || 'meeting')
                                 )}
                                 onClick={(e) => {
@@ -526,27 +660,31 @@ export default function Calendar() {
                     {weekDays.map((day, index) => {
                       const isTodayDate = isToday(day);
                       const dayEvents = getEventsForDate(day);
-                      
+
                       return (
                         <div key={index} className="text-center">
-                          <div className={cn(
-                            "text-sm font-semibold mb-2",
-                            isTodayDate && "text-primary"
-                          )}>
+                          <div
+                            className={cn(
+                              'text-sm font-semibold mb-2',
+                              isTodayDate && 'text-primary'
+                            )}
+                          >
                             {format(day, 'EEE')}
                           </div>
-                          <div className={cn(
-                            "text-lg font-bold mb-2 rounded-full w-8 h-8 flex items-center justify-center mx-auto",
-                            isTodayDate && "bg-primary text-primary-foreground"
-                          )}>
+                          <div
+                            className={cn(
+                              'text-lg font-bold mb-2 rounded-full w-8 h-8 flex items-center justify-center mx-auto',
+                              isTodayDate && 'bg-primary text-primary-foreground'
+                            )}
+                          >
                             {format(day, 'd')}
                           </div>
                           <div className="space-y-1 min-h-[200px]">
-                            {dayEvents.map(event => (
+                            {dayEvents.map((event) => (
                               <div
                                 key={event.id}
                                 className={cn(
-                                  "text-xs p-2 rounded cursor-pointer transition-all hover:opacity-80 hover:shadow-md",
+                                  'text-xs p-2 rounded cursor-pointer transition-all hover:opacity-80 hover:shadow-md',
                                   getEventTypeColor(event.event_type || 'meeting')
                                 )}
                                 onClick={() => handleEventClick(event)}
@@ -566,10 +704,28 @@ export default function Calendar() {
                 </div>
               )}
 
+              {calendarView === 'day' && (
+                <CalendarDayView
+                  date={currentDate}
+                  events={allEvents}
+                  onEventClick={handleEventClick}
+                  getEventTypeColor={getEventTypeColor}
+                />
+              )}
+
+              {calendarView === 'workWeek' && (
+                <CalendarWorkWeekView
+                  date={currentDate}
+                  events={allEvents}
+                  onEventClick={handleEventClick}
+                  getEventTypeColor={getEventTypeColor}
+                />
+              )}
+
               {calendarView === 'list' && (
                 <div className="space-y-3">
                   {getEventsForMonth().length > 0 ? (
-                    getEventsForMonth().map(event => (
+                    getEventsForMonth().map((event) => (
                       <div
                         key={event.id}
                         className="p-4 rounded-lg border bg-card cursor-pointer transition-all hover:bg-accent/50 hover:shadow-md"
@@ -594,10 +750,12 @@ export default function Calendar() {
                                 <div className="flex items-center gap-2">
                                   <Clock className="h-4 w-4 flex-shrink-0" />
                                   <span>
-                                    {format(new Date(event.start_date), 'h:mm a')} - {format(new Date(event.end_date), 'h:mm a')}
-                                    {!isSameDay(new Date(event.start_date), new Date(event.end_date)) &&
-                                      ` (${format(new Date(event.end_date), 'MMM d')})`
-                                    }
+                                    {format(new Date(event.start_date), 'h:mm a')} -{' '}
+                                    {format(new Date(event.end_date), 'h:mm a')}
+                                    {!isSameDay(
+                                      new Date(event.start_date),
+                                      new Date(event.end_date)
+                                    ) && ` (${format(new Date(event.end_date), 'MMM d')})`}
                                   </span>
                                 </div>
                                 {event.location && (
@@ -610,8 +768,9 @@ export default function Calendar() {
                                   <div className="flex items-center gap-2">
                                     <Users className="h-4 w-4 flex-shrink-0" />
                                     <span className="truncate">
-                                      {event.attendees.slice(0, 2).join(", ")}
-                                      {event.attendees.length > 2 && ` +${event.attendees.length - 2} more`}
+                                      {event.attendees.slice(0, 2).join(', ')}
+                                      {event.attendees.length > 2 &&
+                                        ` +${event.attendees.length - 2} more`}
                                     </span>
                                   </div>
                                 )}
@@ -623,7 +782,12 @@ export default function Calendar() {
                               )}
                             </div>
                           </div>
-                          <Badge className={cn("shrink-0", getEventTypeColor(event.event_type || 'meeting'))}>
+                          <Badge
+                            className={cn(
+                              'shrink-0',
+                              getEventTypeColor(event.event_type || 'meeting')
+                            )}
+                          >
                             {event.event_type || 'event'}
                           </Badge>
                         </div>
@@ -633,22 +797,32 @@ export default function Calendar() {
                     <EmptyState
                       icon={CalendarIcon}
                       title="No events found"
-                      description={searchTerm || eventTypeFilter !== 'all' 
-                        ? "Try adjusting your search or filters to find events."
-                        : `No events scheduled for ${format(currentDate, 'MMMM yyyy')}.`}
-                      action={searchTerm || eventTypeFilter !== 'all' ? {
-                        label: "Clear Filters",
-                        onClick: () => {
-                          setSearchTerm("");
-                          setEventTypeFilter('all');
-                        }
-                      } : undefined}
-                      secondaryAction={!searchTerm && eventTypeFilter === 'all' ? {
-                        label: "Create Event",
-                        onClick: () => {
-                          // The EventCreateDialog is already in the header, user can click it
-                        }
-                      } : undefined}
+                      description={
+                        searchTerm || eventTypeFilter !== 'all'
+                          ? 'Try adjusting your search or filters to find events.'
+                          : `No events scheduled for ${format(currentDate, 'MMMM yyyy')}.`
+                      }
+                      action={
+                        searchTerm || eventTypeFilter !== 'all'
+                          ? {
+                              label: 'Clear Filters',
+                              onClick: () => {
+                                setSearchTerm('');
+                                setEventTypeFilter('all');
+                              },
+                            }
+                          : undefined
+                      }
+                      secondaryAction={
+                        !searchTerm && eventTypeFilter === 'all'
+                          ? {
+                              label: 'Create Event',
+                              onClick: () => {
+                                // The EventCreateDialog is already in the header, user can click it
+                              },
+                            }
+                          : undefined
+                      }
                     />
                   )}
                 </div>
@@ -659,6 +833,12 @@ export default function Calendar() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Team Calendars */}
+          <TeamCalendars
+            selectedCalendars={selectedTeamCalendars}
+            onCalendarToggle={handleCalendarToggle}
+          />
+
           {/* Today's Events */}
           <Card className="shadow-sm">
             <CardHeader>
@@ -670,7 +850,7 @@ export default function Calendar() {
             <CardContent>
               {todayEvents.length > 0 ? (
                 <div className="space-y-3">
-                  {todayEvents.map(event => (
+                  {todayEvents.map((event) => (
                     <div
                       key={event.id}
                       className="p-3 rounded-lg border bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 hover:shadow-sm"
@@ -678,7 +858,12 @@ export default function Calendar() {
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className="font-medium text-sm flex-1">{event.title}</h4>
-                        <Badge className={cn("shrink-0 text-xs", getEventTypeColor(event.event_type || 'meeting'))}>
+                        <Badge
+                          className={cn(
+                            'shrink-0 text-xs',
+                            getEventTypeColor(event.event_type || 'meeting')
+                          )}
+                        >
                           {event.event_type || 'event'}
                         </Badge>
                       </div>
@@ -712,7 +897,7 @@ export default function Calendar() {
             <CardContent>
               {upcomingEvents.length > 0 ? (
                 <div className="space-y-3">
-                  {upcomingEvents.slice(0, 5).map(event => (
+                  {upcomingEvents.slice(0, 5).map((event) => (
                     <div
                       key={event.id}
                       className="p-3 rounded-lg border bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 hover:shadow-sm"
@@ -720,7 +905,12 @@ export default function Calendar() {
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className="font-medium text-sm flex-1">{event.title}</h4>
-                        <Badge className={cn("shrink-0 text-xs", getEventTypeColor(event.event_type || 'meeting'))}>
+                        <Badge
+                          className={cn(
+                            'shrink-0 text-xs',
+                            getEventTypeColor(event.event_type || 'meeting')
+                          )}
+                        >
                           {event.event_type || 'event'}
                         </Badge>
                       </div>
@@ -736,9 +926,9 @@ export default function Calendar() {
                     </div>
                   ))}
                   {upcomingEvents.length > 5 && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="w-full mt-2"
                       onClick={() => {
                         setCalendarView('list');
@@ -762,12 +952,19 @@ export default function Calendar() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {['meeting', 'hearing', 'deadline', 'deposition', 'review', 'consultation'].map(type => (
-                  <div key={type} className="flex items-center gap-2">
-                    <div className={cn("w-3 h-3 rounded-full", getEventTypeColor(type).split(' ')[0])} />
-                    <span className="text-sm capitalize">{type}</span>
-                  </div>
-                ))}
+                {['meeting', 'hearing', 'deadline', 'deposition', 'review', 'consultation'].map(
+                  (type) => (
+                    <div key={type} className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          'w-3 h-3 rounded-full',
+                          getEventTypeColor(type).split(' ')[0]
+                        )}
+                      />
+                      <span className="text-sm capitalize">{type}</span>
+                    </div>
+                  )
+                )}
               </div>
             </CardContent>
           </Card>
@@ -779,6 +976,8 @@ export default function Calendar() {
         open={showEventDialog}
         onOpenChange={setShowEventDialog}
       />
+
+      <FindAvailableTimeDialog open={showFindTimeDialog} onOpenChange={setShowFindTimeDialog} />
 
       {showSyncSettings && (
         <Dialog open={showSyncSettings} onOpenChange={setShowSyncSettings}>

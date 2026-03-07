@@ -110,14 +110,26 @@ interface EventCreateDialogProps {
   children?: React.ReactNode;
   defaultDate?: Date;
   defaultEventType?: string;
+  initialDate?: Date;
+  initialDuration?: number;
+  initialAttendees?: string[];
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function EventCreateDialog({
   children,
   defaultDate,
   defaultEventType = 'meeting',
+  initialDate,
+  initialDuration = 60,
+  initialAttendees = [],
+  open: controlledOpen,
+  onOpenChange,
 }: EventCreateDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   const [newAttendee, setNewAttendee] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
   const [reminders, setReminders] = useState<
@@ -128,8 +140,9 @@ export function EventCreateDialog({
   const { data: clientsData } = useClients();
 
   const getDefaultStartDate = () => {
-    if (defaultDate) {
-      return format(defaultDate, "yyyy-MM-dd'T'HH:mm");
+    const dateToUse = initialDate || defaultDate;
+    if (dateToUse) {
+      return format(dateToUse, "yyyy-MM-dd'T'HH:mm");
     }
     const now = new Date();
     now.setMinutes(0);
@@ -138,14 +151,22 @@ export function EventCreateDialog({
   };
 
   const getDefaultEndDate = () => {
-    if (defaultDate) {
-      const end = new Date(defaultDate);
-      end.setHours(end.getHours() + 1);
+    const dateToUse = initialDate || defaultDate;
+    if (dateToUse) {
+      const end = new Date(dateToUse);
+      if (initialDuration) {
+        end.setMinutes(end.getMinutes() + initialDuration);
+      } else {
+        end.setHours(end.getHours() + 1);
+      }
       return format(end, "yyyy-MM-dd'T'HH:mm");
     }
     const now = new Date();
-    now.setHours(now.getHours() + 1);
-    now.setMinutes(0);
+    if (initialDuration) {
+      now.setMinutes(now.getMinutes() + initialDuration);
+    } else {
+      now.setHours(now.getHours() + 1);
+    }
     now.setSeconds(0);
     return format(now, "yyyy-MM-dd'T'HH:mm");
   };
@@ -167,7 +188,7 @@ export function EventCreateDialog({
         | 'consultation',
       case_id: '',
       client_id: '',
-      attendees: [],
+      attendees: initialAttendees || [],
       is_recurring: false,
       recurrence_frequency: 'weekly',
       recurrence_interval: 1,
@@ -180,6 +201,36 @@ export function EventCreateDialog({
     [casesData]
   );
   const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
+
+  // Reset form when dialog opens with new initial values
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        title: '',
+        description: '',
+        start_date: getDefaultStartDate(),
+        end_date: getDefaultEndDate(),
+        location: '',
+        event_type: defaultEventType as
+          | 'meeting'
+          | 'hearing'
+          | 'deadline'
+          | 'deposition'
+          | 'review'
+          | 'consultation',
+        case_id: '',
+        client_id: '',
+        attendees: initialAttendees || [],
+        is_recurring: false,
+        recurrence_frequency: 'weekly',
+        recurrence_interval: 1,
+        reminders: [],
+      });
+      setReminders([]);
+      setIsRecurring(false);
+      setNewAttendee('');
+    }
+  }, [open, initialDate, initialDuration, initialAttendees]);
 
   const startDateValue = form.watch('start_date');
   const previousStartDateRef = useRef(startDateValue);
