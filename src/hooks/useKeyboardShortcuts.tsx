@@ -24,6 +24,7 @@ const shortcuts: Shortcut[] = [
   { keys: ['Escape'], description: 'Close dialogs/modals', category: 'Navigation' },
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useKeyboardShortcuts() {
   const [open, setOpen] = useState(false);
 
@@ -32,26 +33,31 @@ export function useKeyboardShortcuts() {
   });
 
   const formatKeys = (keys: string[]) => {
-    return keys.map(key => {
-      if (key === 'Meta') return '⌘';
-      if (key === 'Control') return 'Ctrl';
-      return key.charAt(0).toUpperCase() + key.slice(1);
-    }).join(' + ');
+    return keys
+      .map((key) => {
+        if (key === 'Meta') return '⌘';
+        if (key === 'Control') return 'Ctrl';
+        return key.charAt(0).toUpperCase() + key.slice(1);
+      })
+      .join(' + ');
   };
 
-  const groupedShortcuts = shortcuts.reduce((acc, shortcut) => {
-    if (!acc[shortcut.category]) {
-      acc[shortcut.category] = [];
-    }
-    acc[shortcut.category].push(shortcut);
-    return acc;
-  }, {} as Record<string, Shortcut[]>);
+  const groupedShortcuts = shortcuts.reduce(
+    (acc, shortcut) => {
+      if (!acc[shortcut.category]) {
+        acc[shortcut.category] = [];
+      }
+      acc[shortcut.category].push(shortcut);
+      return acc;
+    },
+    {} as Record<string, Shortcut[]>
+  );
 
   return {
     open,
     setOpen,
     shortcuts: groupedShortcuts,
-    formatKeys
+    formatKeys,
   };
 }
 
@@ -102,4 +108,3 @@ export function KeyboardShortcutsDialog() {
     </Dialog>
   );
 }
-

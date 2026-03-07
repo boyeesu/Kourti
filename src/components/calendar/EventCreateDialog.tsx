@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { format } from "date-fns";
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -18,47 +18,51 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Plus, X, Repeat, Bell } from "lucide-react";
-import { useCreateCalendarEvent } from "@/hooks/useCalendar";
-import { useCases } from "@/hooks/useCases";
-import { useClients } from "@/hooks/useClients";
-import { Case, Client } from "@/types";
-import { CreateCalendarEventData } from "@/hooks/useCalendar";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Plus, X, Repeat, Bell } from 'lucide-react';
+import { useCreateCalendarEvent } from '@/hooks/useCalendar';
+import { useCases } from '@/hooks/useCases';
+import { useClients } from '@/hooks/useClients';
+import { Case, Client } from '@/types';
+import { CreateCalendarEventData } from '@/hooks/useCalendar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
 
 const eventSchema = z
   .object({
-    title: z.string().min(1, "Title is required"),
+    title: z.string().min(1, 'Title is required'),
     description: z.string().optional(),
-    start_date: z.string().min(1, "Start date is required"),
-    end_date: z.string().min(1, "End date is required"),
+    start_date: z.string().min(1, 'Start date is required'),
+    end_date: z.string().min(1, 'End date is required'),
     location: z.string().optional(),
-    event_type: z.enum(["meeting", "hearing", "deadline", "deposition", "review", "consultation"]),
+    event_type: z.enum(['meeting', 'hearing', 'deadline', 'deposition', 'review', 'consultation']),
     case_id: z.string().optional(),
     client_id: z.string().optional(),
     attendees: z.array(z.string()).optional(),
     is_recurring: z.boolean().optional(),
-    recurrence_frequency: z.enum(["daily", "weekly", "monthly", "yearly"]).optional(),
+    recurrence_frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']).optional(),
     recurrence_interval: z.number().min(1).optional(),
     recurrence_end_date: z.string().optional(),
-    reminders: z.array(z.object({
-      minutes: z.number().min(0),
-      method: z.enum(["in_app", "email", "both"]),
-    })).optional(),
+    reminders: z
+      .array(
+        z.object({
+          minutes: z.number().min(0),
+          method: z.enum(['in_app', 'email', 'both']),
+        })
+      )
+      .optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.start_date || !data.end_date) {
@@ -75,16 +79,16 @@ const eventSchema = z
     if (end <= start) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "End date must be after the start date",
-        path: ["end_date"],
+        message: 'End date must be after the start date',
+        path: ['end_date'],
       });
     }
 
     if (data.is_recurring && !data.recurrence_frequency) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Recurrence frequency is required for recurring events",
-        path: ["recurrence_frequency"],
+        message: 'Recurrence frequency is required for recurring events',
+        path: ['recurrence_frequency'],
       });
     }
 
@@ -93,8 +97,8 @@ const eventSchema = z
       if (recurrenceEnd <= start) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Recurrence end date must be after start date",
-          path: ["recurrence_end_date"],
+          message: 'Recurrence end date must be after start date',
+          path: ['recurrence_end_date'],
         });
       }
     }
@@ -108,11 +112,17 @@ interface EventCreateDialogProps {
   defaultEventType?: string;
 }
 
-export function EventCreateDialog({ children, defaultDate, defaultEventType = "meeting" }: EventCreateDialogProps) {
+export function EventCreateDialog({
+  children,
+  defaultDate,
+  defaultEventType = 'meeting',
+}: EventCreateDialogProps) {
   const [open, setOpen] = useState(false);
-  const [newAttendee, setNewAttendee] = useState("");
+  const [newAttendee, setNewAttendee] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
-  const [reminders, setReminders] = useState<Array<{ minutes: number; method: "in_app" | "email" | "both" }>>([]);
+  const [reminders, setReminders] = useState<
+    Array<{ minutes: number; method: 'in_app' | 'email' | 'both' }>
+  >([]);
   const createEvent = useCreateCalendarEvent();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
@@ -143,26 +153,35 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
-      title: "",
-      description: "",
+      title: '',
+      description: '',
       start_date: getDefaultStartDate(),
       end_date: getDefaultEndDate(),
-      location: "",
-      event_type: defaultEventType as "meeting" | "hearing" | "deadline" | "deposition" | "review" | "consultation",
-      case_id: "",
-      client_id: "",
+      location: '',
+      event_type: defaultEventType as
+        | 'meeting'
+        | 'hearing'
+        | 'deadline'
+        | 'deposition'
+        | 'review'
+        | 'consultation',
+      case_id: '',
+      client_id: '',
       attendees: [],
       is_recurring: false,
-      recurrence_frequency: "weekly",
+      recurrence_frequency: 'weekly',
       recurrence_interval: 1,
       reminders: [],
     },
   });
 
-  const cases = Array.isArray(casesData) ? casesData : casesData?.cases || [];
+  const cases = useMemo(
+    () => (Array.isArray(casesData) ? casesData : casesData?.cases || []),
+    [casesData]
+  );
   const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
 
-  const startDateValue = form.watch("start_date");
+  const startDateValue = form.watch('start_date');
   const previousStartDateRef = useRef(startDateValue);
 
   useEffect(() => {
@@ -172,8 +191,8 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
 
     previousStartDateRef.current = startDateValue;
 
-    const startFieldState = form.getFieldState("start_date");
-    const endFieldState = form.getFieldState("end_date");
+    const startFieldState = form.getFieldState('start_date');
+    const endFieldState = form.getFieldState('end_date');
 
     if (!startFieldState.isDirty) {
       return;
@@ -181,7 +200,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
 
     if (!startDateValue) {
       if (!endFieldState.isDirty) {
-        form.setValue("end_date", "", { shouldDirty: false, shouldValidate: true });
+        form.setValue('end_date', '', { shouldDirty: false, shouldValidate: true });
       }
       return;
     }
@@ -197,25 +216,25 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
 
     const autoEnd = new Date(start.getTime() + 60 * 60 * 1000);
     const formattedEnd = format(autoEnd, "yyyy-MM-dd'T'HH:mm");
-    form.setValue("end_date", formattedEnd, { shouldDirty: false, shouldValidate: true });
+    form.setValue('end_date', formattedEnd, { shouldDirty: false, shouldValidate: true });
   }, [startDateValue, form]);
 
   // Watch for case selection changes to auto-populate client
-  const selectedCaseId = form.watch("case_id");
-  
+  const selectedCaseId = form.watch('case_id');
+
   // Auto-populate client when case is selected
   useEffect(() => {
     if (selectedCaseId && selectedCaseId !== 'none') {
       const selectedCase = cases.find((c: Case) => c.id === selectedCaseId);
       if (selectedCase?.client_id) {
-        form.setValue("client_id", selectedCase.client_id);
+        form.setValue('client_id', selectedCase.client_id);
       }
     }
   }, [selectedCaseId, cases, form]);
 
   const onSubmit = async (data: EventFormValues) => {
     // Build payload with ONLY fields that exist in calendar_events table
-    // Database fields: title, description, start_date, end_date, location, attendees, 
+    // Database fields: title, description, start_date, end_date, location, attendees,
     // event_type, case_id, client_id, is_recurring, recurrence_pattern, recurrence_end_date
     const payload: CreateCalendarEventData = {
       title: data.title,
@@ -248,12 +267,14 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
 
     try {
       const event = await createEvent.mutateAsync(payload);
-      
+
       // Create reminders if any
       if (remindersToCreate.length > 0 && event?.id) {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user?.id) return;
-        
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('organization_id')
@@ -280,10 +301,10 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
       setReminders([]);
       setOpen(false);
     } catch (error) {
-      console.error("Failed to create event:", error);
+      console.error('Failed to create event:', error);
       // The useCreateCalendarEvent hook should already show a toast with error details
       // Log additional details for debugging
-      console.error("Event creation error details:", {
+      console.error('Event creation error details:', {
         error,
         errorMessage: error instanceof Error ? error.message : String(error),
         payload,
@@ -293,15 +314,18 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
 
   const addAttendee = () => {
     if (newAttendee.trim()) {
-      const currentAttendees = form.getValues("attendees") || [];
-      form.setValue("attendees", [...currentAttendees, newAttendee.trim()]);
-      setNewAttendee("");
+      const currentAttendees = form.getValues('attendees') || [];
+      form.setValue('attendees', [...currentAttendees, newAttendee.trim()]);
+      setNewAttendee('');
     }
   };
 
   const removeAttendee = (index: number) => {
-    const currentAttendees = form.getValues("attendees") || [];
-    form.setValue("attendees", currentAttendees.filter((_, i) => i !== index));
+    const currentAttendees = form.getValues('attendees') || [];
+    form.setValue(
+      'attendees',
+      currentAttendees.filter((_, i) => i !== index)
+    );
   };
 
   return (
@@ -484,7 +508,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
                   checked={isRecurring}
                   onCheckedChange={(checked) => {
                     setIsRecurring(checked as boolean);
-                    form.setValue("is_recurring", checked as boolean);
+                    form.setValue('is_recurring', checked as boolean);
                   }}
                 />
                 <Label htmlFor="is_recurring" className="flex items-center gap-2 cursor-pointer">
@@ -562,13 +586,14 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
               </Label>
               <div className="space-y-2">
                 {[15, 30, 60, 1440].map((minutes) => {
-                  const reminder = reminders.find(r => r.minutes === minutes);
-                  const label = minutes < 60 
-                    ? `${minutes} minutes before`
-                    : minutes === 60
-                    ? '1 hour before'
-                    : '1 day before';
-                  
+                  const reminder = reminders.find((r) => r.minutes === minutes);
+                  const label =
+                    minutes < 60
+                      ? `${minutes} minutes before`
+                      : minutes === 60
+                        ? '1 hour before'
+                        : '1 day before';
+
                   return (
                     <div key={minutes} className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
@@ -578,11 +603,14 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setReminders([...reminders, { minutes, method: 'both' }]);
-                              form.setValue("reminders", [...reminders, { minutes, method: 'both' }]);
+                              form.setValue('reminders', [
+                                ...reminders,
+                                { minutes, method: 'both' },
+                              ]);
                             } else {
-                              const updated = reminders.filter(r => r.minutes !== minutes);
+                              const updated = reminders.filter((r) => r.minutes !== minutes);
                               setReminders(updated);
-                              form.setValue("reminders", updated);
+                              form.setValue('reminders', updated);
                             }
                           }}
                         />
@@ -593,12 +621,12 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
                       {reminder && (
                         <Select
                           value={reminder.method}
-                          onValueChange={(value: "in_app" | "email" | "both") => {
-                            const updated = reminders.map(r => 
+                          onValueChange={(value: 'in_app' | 'email' | 'both') => {
+                            const updated = reminders.map((r) =>
                               r.minutes === minutes ? { ...r, method: value } : r
                             );
                             setReminders(updated);
-                            form.setValue("reminders", updated);
+                            form.setValue('reminders', updated);
                           }}
                         >
                           <SelectTrigger className="w-[120px]">
@@ -632,7 +660,7 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {(form.watch("attendees") || []).map((attendee, index) => (
+                {(form.watch('attendees') || []).map((attendee, index) => (
                   <Badge key={index} variant="secondary" className="gap-1">
                     {attendee}
                     <Button
@@ -650,15 +678,11 @@ export function EventCreateDialog({ children, defaultDate, defaultEventType = "m
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={createEvent.isPending}>
-                {createEvent.isPending ? "Creating..." : "Create Event"}
+                {createEvent.isPending ? 'Creating...' : 'Create Event'}
               </Button>
             </div>
           </form>

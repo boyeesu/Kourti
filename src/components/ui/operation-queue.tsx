@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { X, CheckCircle2, AlertCircle, Loader2, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { X, CheckCircle2, AlertCircle, Loader2, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export interface Operation {
   id: string;
   name: string;
-  status: "pending" | "running" | "completed" | "error" | "cancelled";
+  status: 'pending' | 'running' | 'completed' | 'error' | 'cancelled';
   progress?: number;
   message?: string;
   error?: string;
@@ -37,10 +37,8 @@ export function OperationQueue({
     const interval = setInterval(() => {
       const times: Record<string, number> = {};
       operations.forEach((op) => {
-        if (op.startTime && op.status === "running") {
-          times[op.id] = Math.floor(
-            (Date.now() - op.startTime.getTime()) / 1000
-          );
+        if (op.startTime && op.status === 'running') {
+          times[op.id] = Math.floor((Date.now() - op.startTime.getTime()) / 1000);
         }
       });
       setElapsedTimes(times);
@@ -54,15 +52,15 @@ export function OperationQueue({
 
   if (operations.length === 0) return null;
 
-  const getStatusIcon = (status: Operation["status"]) => {
+  const getStatusIcon = (status: Operation['status']) => {
     switch (status) {
-      case "running":
+      case 'running':
         return <Loader2 className="h-4 w-4 animate-spin" />;
-      case "completed":
+      case 'completed':
         return <CheckCircle2 className="h-4 w-4 text-success" />;
-      case "error":
+      case 'error':
         return <AlertCircle className="h-4 w-4 text-destructive" />;
-      case "cancelled":
+      case 'cancelled':
         return <X className="h-4 w-4 text-muted-foreground" />;
       default:
         return <Clock className="h-4 w-4 text-muted-foreground" />;
@@ -77,7 +75,7 @@ export function OperationQueue({
   };
 
   return (
-    <Card className={cn("border", className)}>
+    <Card className={cn('border', className)}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center justify-between">
           <span>Background Operations</span>
@@ -93,10 +91,10 @@ export function OperationQueue({
           <div
             key={operation.id}
             className={cn(
-              "p-3 rounded-lg border transition-all",
-              operation.status === "running" && "bg-primary/5 border-primary/20",
-              operation.status === "error" && "bg-destructive/5 border-destructive/20",
-              operation.status === "completed" && "bg-success/5 border-success/20"
+              'p-3 rounded-lg border transition-all',
+              operation.status === 'running' && 'bg-primary/5 border-primary/20',
+              operation.status === 'error' && 'bg-destructive/5 border-destructive/20',
+              operation.status === 'completed' && 'bg-success/5 border-success/20'
             )}
           >
             <div className="flex items-start justify-between gap-2">
@@ -105,16 +103,12 @@ export function OperationQueue({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{operation.name}</p>
                   {operation.message && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {operation.message}
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{operation.message}</p>
                   )}
                   {operation.error && (
-                    <p className="text-xs text-destructive mt-1">
-                      {operation.error}
-                    </p>
+                    <p className="text-xs text-destructive mt-1">{operation.error}</p>
                   )}
-                  {operation.status === "running" && (
+                  {operation.status === 'running' && (
                     <div className="mt-2 space-y-1">
                       {operation.progress !== undefined && (
                         <Progress value={operation.progress} className="h-1.5" />
@@ -123,12 +117,10 @@ export function OperationQueue({
                         <span>
                           {elapsedTimes[operation.id]
                             ? `Elapsed: ${formatTime(elapsedTimes[operation.id])}`
-                            : "Starting..."}
+                            : 'Starting...'}
                         </span>
                         {operation.estimatedTime && (
-                          <span>
-                            Est: {formatTime(operation.estimatedTime)}
-                          </span>
+                          <span>Est: {formatTime(operation.estimatedTime)}</span>
                         )}
                       </div>
                     </div>
@@ -136,7 +128,7 @@ export function OperationQueue({
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {operation.status === "running" && onCancel && (
+                {operation.status === 'running' && onCancel && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -146,9 +138,9 @@ export function OperationQueue({
                     <X className="h-3 w-3" />
                   </Button>
                 )}
-                {(operation.status === "completed" ||
-                  operation.status === "error" ||
-                  operation.status === "cancelled") &&
+                {(operation.status === 'completed' ||
+                  operation.status === 'error' ||
+                  operation.status === 'cancelled') &&
                   onDismiss && (
                     <Button
                       variant="ghost"
@@ -169,30 +161,22 @@ export function OperationQueue({
 }
 
 // Hook to manage operations
+// eslint-disable-next-line react-refresh/only-export-components
 export function useOperationQueue() {
   const [operations, setOperations] = useState<Operation[]>([]);
 
-  const addOperation = (operation: Omit<Operation, "status" | "startTime">) => {
+  const addOperation = (operation: Omit<Operation, 'status' | 'startTime'>) => {
     const newOp: Operation = {
       ...operation,
-      status: "pending",
+      status: 'pending',
       startTime: new Date(),
     };
     setOperations((prev) => [...prev, newOp]);
     return newOp.id;
   };
 
-  const updateOperation = (
-    id: string,
-    updates: Partial<Operation>
-  ) => {
-    setOperations((prev) =>
-      prev.map((op) =>
-        op.id === id
-          ? { ...op, ...updates }
-          : op
-      )
-    );
+  const updateOperation = (id: string, updates: Partial<Operation>) => {
+    setOperations((prev) => prev.map((op) => (op.id === id ? { ...op, ...updates } : op)));
   };
 
   const removeOperation = (id: string) => {
@@ -200,19 +184,19 @@ export function useOperationQueue() {
   };
 
   const startOperation = (id: string) => {
-    updateOperation(id, { status: "running", startTime: new Date() });
+    updateOperation(id, { status: 'running', startTime: new Date() });
   };
 
   const completeOperation = (id: string, message?: string) => {
-    updateOperation(id, { status: "completed", message, progress: 100 });
+    updateOperation(id, { status: 'completed', message, progress: 100 });
   };
 
   const failOperation = (id: string, error: string) => {
-    updateOperation(id, { status: "error", error });
+    updateOperation(id, { status: 'error', error });
   };
 
   const cancelOperation = (id: string) => {
-    updateOperation(id, { status: "cancelled" });
+    updateOperation(id, { status: 'cancelled' });
   };
 
   return {
@@ -226,4 +210,3 @@ export function useOperationQueue() {
     cancelOperation,
   };
 }
-

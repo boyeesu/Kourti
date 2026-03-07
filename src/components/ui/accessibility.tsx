@@ -1,6 +1,6 @@
 // Accessibility utilities and components
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 
 // Skip to main content link
 export function SkipToMainContent() {
@@ -15,6 +15,7 @@ export function SkipToMainContent() {
 }
 
 // Focus trap hook for modals
+// eslint-disable-next-line react-refresh/only-export-components
 export function useFocusTrap(isActive: boolean) {
   const containerRef = useRef<HTMLElement>(null);
 
@@ -29,7 +30,7 @@ export function useFocusTrap(isActive: boolean) {
     const lastElement = focusableElements[focusableElements.length - 1];
 
     const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
+      if (e.key !== 'Tab') return;
 
       if (e.shiftKey) {
         if (document.activeElement === firstElement) {
@@ -44,11 +45,11 @@ export function useFocusTrap(isActive: boolean) {
       }
     };
 
-    container.addEventListener("keydown", handleTab);
+    container.addEventListener('keydown', handleTab);
     firstElement?.focus();
 
     return () => {
-      container.removeEventListener("keydown", handleTab);
+      container.removeEventListener('keydown', handleTab);
     };
   }, [isActive]);
 
@@ -56,17 +57,18 @@ export function useFocusTrap(isActive: boolean) {
 }
 
 // Announce changes to screen readers
+// eslint-disable-next-line react-refresh/only-export-components
 export function useScreenReaderAnnouncement() {
   const announceRef = useRef<HTMLDivElement>(null);
 
-  const announce = (message: string, priority: "polite" | "assertive" = "polite") => {
+  const announce = (message: string, priority: 'polite' | 'assertive' = 'polite') => {
     if (announceRef.current) {
-      announceRef.current.setAttribute("aria-live", priority);
+      announceRef.current.setAttribute('aria-live', priority);
       announceRef.current.textContent = message;
       // Clear after announcement
       setTimeout(() => {
         if (announceRef.current) {
-          announceRef.current.textContent = "";
+          announceRef.current.textContent = '';
         }
       }, 1000);
     }
@@ -75,17 +77,13 @@ export function useScreenReaderAnnouncement() {
   return {
     announce,
     AnnouncementRegion: () => (
-      <div
-        ref={announceRef}
-        className="sr-only"
-        aria-live="polite"
-        aria-atomic="true"
-      />
+      <div ref={announceRef} className="sr-only" aria-live="polite" aria-atomic="true" />
     ),
   };
 }
 
 // Keyboard navigation helper
+// eslint-disable-next-line react-refresh/only-export-components
 export function useKeyboardNavigation<T>(
   items: T[],
   onSelect: (item: T) => void,
@@ -97,24 +95,23 @@ export function useKeyboardNavigation<T>(
     if (!isActive) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
+      if (e.key === 'ArrowDown') {
         e.preventDefault();
         setFocusedIndex((prev) => (prev < items.length - 1 ? prev + 1 : prev));
-      } else if (e.key === "ArrowUp") {
+      } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setFocusedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-      } else if (e.key === "Enter" && focusedIndex >= 0) {
+      } else if (e.key === 'Enter' && focusedIndex >= 0) {
         e.preventDefault();
         onSelect(items[focusedIndex]);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [items, focusedIndex, onSelect, isActive]);
 
   return { focusedIndex, setFocusedIndex };
 }
 
-import React from "react";
-
+import React from 'react';
