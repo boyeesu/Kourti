@@ -1,6 +1,5 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
@@ -81,7 +80,8 @@ export function useCases(page = 1, pageSize = 20) {
         // Optimize query to only select the fields we actually need
         const { data, error, count } = await supabase
           .from('cases')
-          .select(`
+          .select(
+            `
             id,
             title,
             description,
@@ -101,7 +101,9 @@ export function useCases(page = 1, pageSize = 20) {
             client:client_id(id, name),
             assigned_user:assigned_to(id, first_name, last_name),
             case_type:case_types(id, name, description)
-          `, { count: 'exact' })
+          `,
+            { count: 'exact' }
+          )
           .eq('organization_id', organizationId)
           .order('created_at', { ascending: false })
           .range(from, to);
@@ -139,7 +141,8 @@ export function useCase(id: string) {
       // Optimize query to only select the fields we need
       const { data, error } = await supabase
         .from('cases')
-        .select(`
+        .select(
+          `
           id,
           title,
           description,
@@ -159,7 +162,8 @@ export function useCase(id: string) {
           client:client_id(id, name),
           assigned_user:assigned_to(id, first_name, last_name),
           case_type:case_types(id, name, description)
-        `)
+        `
+        )
         .eq('id', id)
         .single();
 
@@ -186,7 +190,8 @@ export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
       // Add pagination and select only needed fields
       const { data, error, count } = await supabase
         .from('cases')
-        .select(`
+        .select(
+          `
           id,
           title,
           description,
@@ -199,7 +204,9 @@ export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
           updated_at,
           created_by,
           organization_id
-        `, { count: 'exact' })
+        `,
+          { count: 'exact' }
+        )
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -207,7 +214,7 @@ export function useCasesByClient(clientId: string, page = 1, pageSize = 10) {
       if (error) throw error;
       return {
         cases: (data ?? []) as CaseWithRelations[],
-        count: count ?? 0
+        count: count ?? 0,
       };
     },
     enabled: !!clientId,
@@ -235,7 +242,7 @@ export function useCreateCase() {
       const userId = await getCurrentUserId();
 
       if (!userId) {
-        throw new Error("User is not authenticated. Please sign in to create a matter.");
+        throw new Error('User is not authenticated. Please sign in to create a matter.');
       }
 
       // Use deduplication to prevent double submissions
@@ -250,11 +257,13 @@ export function useCreateCase() {
           .single();
 
         if (profileError) {
-          throw new Error("Could not retrieve user profile information.");
+          throw new Error('Could not retrieve user profile information.');
         }
 
         if (!profile?.organization_id) {
-          throw new Error("No organization associated with your account. Please contact your administrator.");
+          throw new Error(
+            'No organization associated with your account. Please contact your administrator.'
+          );
         }
 
         const insertData: CaseInsert = {
@@ -264,11 +273,7 @@ export function useCreateCase() {
           user_id: userId,
         };
 
-        const { data, error } = await supabase
-          .from('cases')
-          .insert(insertData)
-          .select()
-          .single();
+        const { data, error } = await supabase.from('cases').insert(insertData).select().single();
 
         if (error) {
           throw error;
@@ -293,15 +298,15 @@ export function useCreateCase() {
         });
       }
       toast({
-        title: "Success",
-        description: "Matter created successfully.",
+        title: 'Success',
+        description: 'Matter created successfully.',
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create matter.";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create matter.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },
@@ -359,10 +364,10 @@ export function useUpdateCase() {
       if (context?.previousCase) {
         queryClient.setQueryData(['case', id], context.previousCase);
       }
-      const errorMessage = error instanceof Error ? error.message : "Failed to update matter.";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update matter.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },
@@ -377,8 +382,8 @@ export function useUpdateCase() {
       // Update the specific case in cache with server data
       queryClient.setQueryData(['case', data?.id], data);
       toast({
-        title: "Success",
-        description: "Matter updated successfully.",
+        title: 'Success',
+        description: 'Matter updated successfully.',
       });
     },
   });
@@ -398,10 +403,7 @@ export function useDeleteCase() {
       const dedupeKey = `delete-case-${id}`;
 
       return deduplicateMutation(dedupeKey, async () => {
-        const { error } = await supabase
-          .from('cases')
-          .delete()
-          .eq('id', id);
+        const { error } = await supabase.from('cases').delete().eq('id', id);
 
         if (error) throw error;
         return id;
@@ -418,17 +420,14 @@ export function useDeleteCase() {
       });
 
       // Optimistically remove the case from all case lists
-      queryClient.setQueriesData<CasesQueryResult>(
-        { queryKey: ['cases'] },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            cases: old.cases.filter((c) => c.id !== id),
-            count: Math.max(0, old.count - 1),
-          };
-        }
-      );
+      queryClient.setQueriesData<CasesQueryResult>({ queryKey: ['cases'] }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          cases: old.cases.filter((c) => c.id !== id),
+          count: Math.max(0, old.count - 1),
+        };
+      });
 
       return { previousCasesQueries };
     },
@@ -439,10 +438,10 @@ export function useDeleteCase() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete matter.";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete matter.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },
@@ -455,8 +454,8 @@ export function useDeleteCase() {
         });
       }
       toast({
-        title: "Success",
-        description: "Matter deleted successfully.",
+        title: 'Success',
+        description: 'Matter deleted successfully.',
       });
     },
   });

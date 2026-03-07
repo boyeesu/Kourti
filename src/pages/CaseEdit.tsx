@@ -1,17 +1,24 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useCase, useUpdateCase } from "@/hooks/useCases";
-import { useCaseTypes } from "@/features/cases/api/useCaseTypes";
-import { useCaseIssues } from "@/features/cases/api/useCaseIssues";
-import { useCaseFields } from "@/features/cases/api/useCaseFields";
-import { DynamicForm, DynamicField } from "@/shared/components/DynamicForm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useCase, useUpdateCase } from '@/hooks/useCases';
+import { useCaseTypes } from '@/features/cases/api/useCaseTypes';
+import { useCaseIssues } from '@/features/cases/api/useCaseIssues';
+import { useCaseFields } from '@/features/cases/api/useCaseFields';
+import { DynamicForm, DynamicField } from '@/shared/components/DynamicForm';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { ArrowLeft } from 'lucide-react';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 export default function CaseEdit() {
   const { id } = useParams();
@@ -24,17 +31,17 @@ export default function CaseEdit() {
 
   // case type, issues & fields
   const { data: caseTypes = [] } = useCaseTypes();
-  const [caseTypeId, setCaseTypeId] = useState<string>("");
+  const [caseTypeId, setCaseTypeId] = useState<string>('');
   const { data: caseIssues = [] } = useCaseIssues(caseTypeId);
-  const [caseIssueId, setCaseIssueId] = useState<string>("");
+  const [caseIssueId, setCaseIssueId] = useState<string>('');
   const { data: caseFields = [] } = useCaseFields(caseTypeId);
   const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
-  
+
   // Update case type and issue IDs when case data is loaded
   useEffect(() => {
     if (caseData) {
-      const typeId = (caseData as any)?.case_type_id || "";
-      const issueId = (caseData as any)?.case_issue_id || "";
+      const typeId = (caseData as any)?.case_type_id || '';
+      const issueId = (caseData as any)?.case_issue_id || '';
       setCaseTypeId(typeId);
       setCaseIssueId(issueId);
     }
@@ -47,8 +54,10 @@ export default function CaseEdit() {
         title: caseData.title,
         status: caseData.status,
         priority: caseData.priority,
-        description: caseData.description || "",
-        next_hearing_date: caseData.next_hearing_date ? caseData.next_hearing_date.split("T")[0] : "",
+        description: caseData.description || '',
+        next_hearing_date: caseData.next_hearing_date
+          ? caseData.next_hearing_date.split('T')[0]
+          : '',
       });
       setDynamicValues((caseData as any).custom_fields || {});
     }
@@ -56,7 +65,9 @@ export default function CaseEdit() {
 
   if (isLoading || !form) {
     return (
-      <div className="p-6"><div className="animate-spin h-8 w-8 mr-2 border-b-2 border-primary rounded-full mx-auto my-12" /></div>
+      <div className="p-6">
+        <div className="animate-spin h-8 w-8 mr-2 border-b-2 border-primary rounded-full mx-auto my-12" />
+      </div>
     );
   }
 
@@ -104,12 +115,18 @@ export default function CaseEdit() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="font-medium">Matter Title</label>
-              <Input value={form.title} onChange={(e) => handleChange("title", e.target.value)} required />
+              <Input
+                value={form.title}
+                onChange={(e) => handleChange('title', e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <label className="font-medium">Status</label>
-              <Select value={form.status} onValueChange={(val) => handleChange("status", val)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={form.status} onValueChange={(val) => handleChange('status', val)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
@@ -120,8 +137,10 @@ export default function CaseEdit() {
             </div>
             <div className="space-y-2">
               <label className="font-medium">Priority</label>
-              <Select value={form.priority} onValueChange={(val) => handleChange("priority", val)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={form.priority} onValueChange={(val) => handleChange('priority', val)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="high">High</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
@@ -131,46 +150,64 @@ export default function CaseEdit() {
             </div>
             <div className="space-y-2">
               <label className="font-medium">Next Hearing Date</label>
-              <Input type="date" value={form.next_hearing_date} onChange={(e) => handleChange("next_hearing_date", e.target.value)} />
+              <Input
+                type="date"
+                value={form.next_hearing_date}
+                onChange={(e) => handleChange('next_hearing_date', e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="font-medium">Description</label>
-              <Textarea value={form.description} onChange={(e) => handleChange("description", e.target.value)} rows={4} />
+              <Textarea
+                value={form.description}
+                onChange={(e) => handleChange('description', e.target.value)}
+                rows={4}
+              />
             </div>
-            
+
             {/* Matter Type and Issue selectors */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="font-medium">Matter Type</label>
-                <Select 
-                  value={caseTypeId} 
+                <Select
+                  value={caseTypeId}
                   onValueChange={(value) => {
                     setCaseTypeId(value);
                     // Reset case issue when type changes
                     if (value !== caseTypeId) {
-                      setCaseIssueId("");
+                      setCaseIssueId('');
                     }
                   }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select matter type" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select matter type" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {caseTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
+                    {caseTypes.map((ct) => (
+                      <SelectItem key={ct.id} value={ct.id}>
+                        {ct.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {caseTypeId && (
                 <div className="space-y-2">
                   <label className="font-medium">Matter Issue</label>
-                  <Select 
-                    value={caseIssueId} 
+                  <Select
+                    value={caseIssueId}
                     onValueChange={setCaseIssueId}
                     disabled={!caseTypeId || caseIssues.length === 0}
                   >
-                    <SelectTrigger><SelectValue placeholder="Select matter issue" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select matter issue" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {caseIssues.map(issue => (
-                        <SelectItem key={issue.id} value={issue.id}>{issue.name}</SelectItem>
+                      {caseIssues.map((issue) => (
+                        <SelectItem key={issue.id} value={issue.id}>
+                          {issue.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -181,10 +218,12 @@ export default function CaseEdit() {
             {/* Dynamic Fields */}
             {caseTypeId && caseFields.length > 0 && (
               <DynamicForm
-                fields={caseFields.map(field => ({
-                  ...field,
-                  required: field.is_required ?? false
-                })) as DynamicField[]}
+                fields={
+                  caseFields.map((field) => ({
+                    ...field,
+                    required: field.is_required ?? false,
+                  })) as DynamicField[]
+                }
                 initialValues={dynamicValues}
                 onSubmit={setDynamicValues}
                 hideSubmit
@@ -192,8 +231,16 @@ export default function CaseEdit() {
             )}
 
             <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={() => navigate(`/matters/${caseData.id}`)}>Cancel</Button>
-              <Button type="submit" disabled={submitting}>Save Changes</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate(`/matters/${caseData.id}`)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                Save Changes
+              </Button>
             </div>
           </form>
         </CardContent>

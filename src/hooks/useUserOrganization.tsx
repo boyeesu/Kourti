@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -5,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 // Optimized hook for getting user's organization ID with caching
 export function useUserOrganization() {
   const { user } = useAuth();
-  
+
   return useQuery({
     queryKey: ['user-organization', user?.id],
     queryFn: async () => {
@@ -26,7 +27,7 @@ export function useUserOrganization() {
         }
         throw error;
       }
-      
+
       return (profile as any).organization_id;
     },
     enabled: !!user?.id,

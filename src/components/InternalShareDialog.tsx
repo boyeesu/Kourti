@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
@@ -31,7 +32,7 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
   const { toast } = useToast();
   const { data: orgMembers = [] } = useOrganizationMembers();
   const [selectedRecipients, setSelectedRecipients] = React.useState<string[]>([]);
-  
+
   const {
     register,
     handleSubmit,
@@ -55,7 +56,7 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
   };
 
   const handleRemoveRecipient = (userId: string) => {
-    const newRecipients = selectedRecipients.filter(id => id !== userId);
+    const newRecipients = selectedRecipients.filter((id) => id !== userId);
     setSelectedRecipients(newRecipients);
     setValue('recipients', newRecipients);
   };
@@ -72,7 +73,8 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
           user_id: recipientId,
           type: 'document_shared',
           title: `Document shared: ${document.name}`,
-          description: data.message || `A document has been shared with you with ${data.access_level} access.`,
+          description:
+            data.message || `A document has been shared with you with ${data.access_level} access.`,
           metadata: {
             document_id: document.id,
             document_name: document.name,
@@ -82,11 +84,11 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
         });
       }
 
-      toast({ 
-        title: 'Document shared successfully', 
-        description: `Shared with ${data.recipients.length} team member(s).` 
+      toast({
+        title: 'Document shared successfully',
+        description: `Shared with ${data.recipients.length} team member(s).`,
       });
-      
+
       onOpenChange(false);
       reset();
       setSelectedRecipients([]);
@@ -100,8 +102,8 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
     }
   }
 
-  const availableMembers = orgMembers.filter((member: any) => 
-    !selectedRecipients.includes(member.user_id)
+  const availableMembers = orgMembers.filter(
+    (member: any) => !selectedRecipients.includes(member.user_id)
   );
 
   return (
@@ -110,7 +112,7 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
         <DialogHeader>
           <DialogTitle>Share Document Internally</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <Label htmlFor="document-name">Document</Label>
@@ -121,19 +123,20 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
 
           <div>
             <Label>Recipients</Label>
-            
+
             {/* Selected Recipients */}
             {selectedRecipients.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
-                {selectedRecipients.map(userId => {
+                {selectedRecipients.map((userId) => {
                   const member = getSelectedMember(userId);
                   if (!member) return null;
-                  
+
                   return (
                     <Badge key={userId} variant="secondary" className="flex items-center gap-1">
                       <Avatar className="h-4 w-4">
                         <AvatarFallback className="text-xs">
-                          {member.first_name?.[0]}{member.last_name?.[0]}
+                          {member.first_name?.[0]}
+                          {member.last_name?.[0]}
                         </AvatarFallback>
                       </Avatar>
                       <span className="text-xs">
@@ -163,16 +166,15 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
                     <div className="flex items-center gap-2">
                       <Avatar className="h-6 w-6">
                         <AvatarFallback className="text-xs">
-                          {member.first_name?.[0]}{member.last_name?.[0]}
+                          {member.first_name?.[0]}
+                          {member.last_name?.[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="font-medium">
                           {member.first_name} {member.last_name}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {member.email}
-                        </div>
+                        <div className="text-xs text-muted-foreground">{member.email}</div>
                       </div>
                     </div>
                   </SelectItem>
@@ -183,8 +185,10 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
 
           <div>
             <Label htmlFor="access_level">Access Level</Label>
-            <Select 
-              onValueChange={(value: 'view' | 'comment' | 'edit') => setValue('access_level', value)}
+            <Select
+              onValueChange={(value: 'view' | 'comment' | 'edit') =>
+                setValue('access_level', value)
+              }
               defaultValue="view"
             >
               <SelectTrigger>
@@ -213,17 +217,10 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)} 
-              type="button"
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)} type="button">
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting || selectedRecipients.length === 0}
-            >
+            <Button type="submit" disabled={isSubmitting || selectedRecipients.length === 0}>
               Share Document
             </Button>
           </div>

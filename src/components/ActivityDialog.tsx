@@ -1,9 +1,22 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useCreateActivity, useUpdateActivity } from '@/features/activities/api/useCreateActivity';
 import { useOrganizationMembers } from '@/hooks/useOrganization';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
@@ -22,22 +35,26 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
   const { data: activityTypes = [] } = useActivityTypes();
   const createActivity = useCreateActivity();
   const updateActivity = useUpdateActivity();
-  
-  const [form, setForm] = useState(() => activity ? {
-    title: activity.title,
-    description: activity.description || '',
-    activity_type: activity.activity_type,
-    due_date: activity.due_date || '',
-    assigned_to: activity.assigned_to || 'unassigned',
-    status: activity.status || 'pending',
-  } : {
-    title: '',
-    description: '',
-    activity_type: activityTypes[0]?.value || 'meeting',
-    due_date: '',
-    assigned_to: 'unassigned',
-    status: 'pending',
-  });
+
+  const [form, setForm] = useState(() =>
+    activity
+      ? {
+          title: activity.title,
+          description: activity.description || '',
+          activity_type: activity.activity_type,
+          due_date: activity.due_date || '',
+          assigned_to: activity.assigned_to || 'unassigned',
+          status: activity.status || 'pending',
+        }
+      : {
+          title: '',
+          description: '',
+          activity_type: activityTypes[0]?.value || 'meeting',
+          due_date: '',
+          assigned_to: 'unassigned',
+          status: 'pending',
+        }
+  );
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,7 +66,7 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
   ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,10 +88,10 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
             ...form,
             assigned_to: form.assigned_to === 'unassigned' ? null : form.assigned_to,
             due_date: form.due_date || null,
-          }
+          },
         });
       }
-      
+
       onOpenChange(false);
       if (!isEdit) {
         setForm({
@@ -99,7 +116,7 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4" id="activity-form">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -112,15 +129,18 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">Activity Type</label>
-              <Select value={form.activity_type} onValueChange={(value) => setForm(prev => ({ ...prev, activity_type: value }))}>
+              <Select
+                value={form.activity_type}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, activity_type: value }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select activity type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activityTypes.map(type => (
+                  {activityTypes.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
                     </SelectItem>
@@ -131,22 +151,20 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
 
             <div>
               <label className="block text-sm font-medium mb-2">Due Date</label>
-              <Input
-                name="due_date"
-                type="date"
-                value={form.due_date}
-                onChange={handleChange}
-              />
+              <Input name="due_date" type="date" value={form.due_date} onChange={handleChange} />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">Status</label>
-              <Select value={form.status} onValueChange={(value) => setForm(prev => ({ ...prev, status: value }))}>
+              <Select
+                value={form.status}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statusOptions.map(status => (
+                  {statusOptions.map((status) => (
                     <SelectItem key={status.value} value={status.value}>
                       {status.label}
                     </SelectItem>
@@ -157,7 +175,10 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-2">Assign To</label>
-              <Select value={form.assigned_to} onValueChange={(value) => setForm(prev => ({ ...prev, assigned_to: value }))}>
+              <Select
+                value={form.assigned_to}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, assigned_to: value }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
@@ -184,7 +205,7 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
             </div>
           </div>
         </form>
-        
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

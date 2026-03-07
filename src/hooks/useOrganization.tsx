@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
@@ -31,7 +32,7 @@ export function useOrganization() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId as any || '')
+        .eq('user_id', (userId as any) || '')
         .single();
 
       if (!(profile as any)?.organization_id) {
@@ -46,7 +47,7 @@ export function useOrganization() {
         .single();
 
       if (error) throw error;
-      return (data as any) as Organization;
+      return data as any as Organization;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -62,7 +63,7 @@ export function useOrganizationMembers() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', userId as any || '')
+        .eq('user_id', (userId as any) || '')
         .single();
 
       if (!(profile as any)?.organization_id) {

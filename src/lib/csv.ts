@@ -1,5 +1,6 @@
-import Papa from "papaparse";
-import { ZodSchema } from "zod";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import Papa from 'papaparse';
+import { ZodSchema } from 'zod';
 
 export interface CSVParseResult<T> {
   data: T[];
@@ -20,7 +21,7 @@ export function parseCSV<T>(csvText: string, schema: ZodSchema<T>): CSVParseResu
     if (parsed.success) {
       data.push(parsed.data);
     } else {
-      const fields = parsed.error.issues.map((e: any) => e.path.join(".")).join(", ");
+      const fields = parsed.error.issues.map((e: any) => e.path.join('.')).join(', ');
       errors.push(`Row ${index + 2}: Invalid fields: ${fields}`);
     }
   });

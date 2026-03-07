@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
@@ -18,7 +19,7 @@ export function useCreateCaseType() {
   return useMutation({
     mutationFn: async (newType: CreateCaseTypeData) => {
       const userId = await getCurrentUserId();
-      
+
       const typeData = {
         ...newType,
         organization_id: organizationId,

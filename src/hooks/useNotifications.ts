@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,7 +8,16 @@ import { useUserOrganization } from '@/hooks/useUserOrganization';
 export interface CreateNotificationData {
   title: string;
   description?: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'case' | 'client' | 'contract' | 'calendar' | 'document';
+  type:
+    | 'info'
+    | 'success'
+    | 'warning'
+    | 'error'
+    | 'case'
+    | 'client'
+    | 'contract'
+    | 'calendar'
+    | 'document';
   user_id?: string;
 }
 
@@ -23,7 +33,7 @@ export function useNotifications(userId?: string) {
   return useQuery({
     queryKey: ['notifications', userId],
     queryFn: async () => {
-      const targetUserId = userId || await getCurrentUserId();
+      const targetUserId = userId || (await getCurrentUserId());
       if (!targetUserId) throw new Error('User not authenticated');
 
       const { data, error } = await supabase
@@ -47,7 +57,7 @@ export function useUnreadNotificationsCount(userId?: string) {
   return useQuery({
     queryKey: ['notifications', 'unread-count', userId],
     queryFn: async () => {
-      const targetUserId = userId || await getCurrentUserId();
+      const targetUserId = userId || (await getCurrentUserId());
       if (!targetUserId) throw new Error('User not authenticated');
 
       const { count, error } = await supabase
@@ -98,10 +108,11 @@ export function useCreateNotification() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create notification.";
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to create notification.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },
@@ -131,10 +142,11 @@ export function useUpdateNotification() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update notification.";
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to update notification.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },
@@ -164,15 +176,16 @@ export function useMarkAllNotificationsAsRead() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast({
-        title: "Success",
-        description: "All notifications marked as read.",
+        title: 'Success',
+        description: 'All notifications marked as read.',
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to mark notifications as read.";
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to mark notifications as read.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },
@@ -198,15 +211,16 @@ export function useDeleteNotification() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast({
-        title: "Success",
-        description: "Notification deleted successfully.",
+        title: 'Success',
+        description: 'Notification deleted successfully.',
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete notification.";
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to delete notification.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },

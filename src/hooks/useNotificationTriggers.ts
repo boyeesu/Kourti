@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +17,13 @@ export function useNotificationTriggers() {
    * Now respects user preferences
    */
   const sendEmailNotification = async (params: {
-    type: 'task_assigned' | 'case_update' | 'document_shared' | 'calendar_reminder' | 'invoice_created' | 'general';
+    type:
+      | 'task_assigned'
+      | 'case_update'
+      | 'document_shared'
+      | 'calendar_reminder'
+      | 'invoice_created'
+      | 'general';
     recipientUserId: string;
     title: string;
     message: string;
@@ -62,7 +69,10 @@ export function useNotificationTriggers() {
     }
   };
 
-  const createCaseNotification = async (caseData: any, action: 'created' | 'updated' | 'deleted') => {
+  const createCaseNotification = async (
+    caseData: any,
+    action: 'created' | 'updated' | 'deleted'
+  ) => {
     const userId = await getCurrentUserId();
     if (!userId) return;
 
@@ -76,7 +86,10 @@ export function useNotificationTriggers() {
     trackEvent(AnalyticsEvents.CASE_CREATED, { action });
   };
 
-  const createClientNotification = async (clientData: any, action: 'created' | 'updated' | 'deleted') => {
+  const createClientNotification = async (
+    clientData: any,
+    action: 'created' | 'updated' | 'deleted'
+  ) => {
     const userId = await getCurrentUserId();
     if (!userId) return;
 
@@ -90,7 +103,11 @@ export function useNotificationTriggers() {
     trackEvent(AnalyticsEvents.CLIENT_CREATED, { action });
   };
 
-  const createDocumentNotification = async (documentData: any, action: 'created' | 'updated' | 'deleted', sharedWithUserId?: string) => {
+  const createDocumentNotification = async (
+    documentData: any,
+    action: 'created' | 'updated' | 'deleted',
+    sharedWithUserId?: string
+  ) => {
     const userId = await getCurrentUserId();
     if (!userId) return;
 
@@ -116,7 +133,10 @@ export function useNotificationTriggers() {
     }
   };
 
-  const createContractNotification = async (contractData: any, action: 'created' | 'updated' | 'deleted') => {
+  const createContractNotification = async (
+    contractData: any,
+    action: 'created' | 'updated' | 'deleted'
+  ) => {
     const userId = await getCurrentUserId();
     if (!userId) return;
 
@@ -130,7 +150,11 @@ export function useNotificationTriggers() {
     trackEvent(AnalyticsEvents.CONTRACT_CREATED, { action });
   };
 
-  const createCalendarNotification = async (eventData: any, action: 'created' | 'updated' | 'deleted', attendeeUserIds?: string[]) => {
+  const createCalendarNotification = async (
+    eventData: any,
+    action: 'created' | 'updated' | 'deleted',
+    attendeeUserIds?: string[]
+  ) => {
     const userId = await getCurrentUserId();
     if (!userId) return;
 
@@ -160,12 +184,16 @@ export function useNotificationTriggers() {
     }
   };
 
-  const createTaskNotification = async (taskData: any, action: 'created' | 'updated' | 'completed' | 'assigned', assignedToUserId?: string) => {
+  const createTaskNotification = async (
+    taskData: any,
+    action: 'created' | 'updated' | 'completed' | 'assigned',
+    assignedToUserId?: string
+  ) => {
     const userId = await getCurrentUserId();
     if (!userId) return;
 
     const notificationType = action === 'completed' ? 'success' : 'info';
-    
+
     createNotification.mutate({
       title: `Task ${action}`,
       description: `Task "${taskData.title}" has been ${action}`,
@@ -173,10 +201,17 @@ export function useNotificationTriggers() {
       user_id: userId,
     });
 
-    trackEvent(action === 'assigned' ? AnalyticsEvents.TASK_ASSIGNED : AnalyticsEvents.TASK_CREATED, { action });
+    trackEvent(
+      action === 'assigned' ? AnalyticsEvents.TASK_ASSIGNED : AnalyticsEvents.TASK_CREATED,
+      { action }
+    );
 
     // Send email notification when task is assigned to someone else
-    if (assignedToUserId && assignedToUserId !== userId && (action === 'assigned' || action === 'created')) {
+    if (
+      assignedToUserId &&
+      assignedToUserId !== userId &&
+      (action === 'assigned' || action === 'created')
+    ) {
       await sendEmailNotification({
         type: 'task_assigned',
         recipientUserId: assignedToUserId,
@@ -188,7 +223,11 @@ export function useNotificationTriggers() {
     }
   };
 
-  const createInvoiceNotification = async (invoiceData: any, action: 'created' | 'sent' | 'paid', clientUserId?: string) => {
+  const createInvoiceNotification = async (
+    invoiceData: any,
+    action: 'created' | 'sent' | 'paid',
+    clientUserId?: string
+  ) => {
     const userId = await getCurrentUserId();
     if (!userId) return;
 
@@ -225,7 +264,9 @@ export function useNotificationTriggers() {
       user_id: userId,
     });
 
-    trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED, { organizationName: organizationName.substring(0, 20) });
+    trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED, {
+      organizationName: organizationName.substring(0, 20),
+    });
   };
 
   return {

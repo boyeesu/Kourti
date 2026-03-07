@@ -1,5 +1,6 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 /**
  * Combines class names with Tailwind CSS optimizations
@@ -11,16 +12,19 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Format a date consistently across the application
  */
-export function formatDate(date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string {
+export function formatDate(
+  date: string | Date | null | undefined,
+  options?: Intl.DateTimeFormatOptions
+): string {
   if (!date) return 'N/A';
-  
+
   const defaultOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    ...options
+    ...options,
   };
-  
+
   return new Date(date).toLocaleDateString(undefined, defaultOptions);
 }
 
@@ -29,22 +33,25 @@ export function formatDate(date: string | Date | null | undefined, options?: Int
  */
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return 'N/A';
-  
+
   return new Date(date).toLocaleString(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }
 
 /**
  * Format currency values consistently
  */
-export function formatCurrency(amount: number | null | undefined, currency: string = 'USD'): string {
+export function formatCurrency(
+  amount: number | null | undefined,
+  currency: string = 'USD'
+): string {
   if (amount === null || amount === undefined) return 'N/A';
-  
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,
@@ -56,16 +63,16 @@ export function formatCurrency(amount: number | null | undefined, currency: stri
  */
 export function formatFileSize(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined) return 'Unknown';
-  
+
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let size = bytes;
   let unitIndex = 0;
-  
+
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
     unitIndex++;
   }
-  
+
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
@@ -74,7 +81,7 @@ export function formatFileSize(bytes: number | null | undefined): string {
  */
 export function getStatusColor(status: string | null | undefined): string {
   if (!status) return 'bg-muted text-muted-foreground';
-  
+
   switch (status.toLowerCase()) {
     case 'active':
     case 'completed':
@@ -105,7 +112,7 @@ export function getStatusColor(status: string | null | undefined): string {
  */
 export function getPriorityColor(priority: string | null | undefined): string {
   if (!priority) return 'bg-muted text-muted-foreground';
-  
+
   switch (priority.toLowerCase()) {
     case 'high':
       return 'bg-destructive text-destructive-foreground';
@@ -123,15 +130,15 @@ export function getPriorityColor(priority: string | null | undefined): string {
  */
 export function getNestedValue(obj: any, path: string, defaultValue: any = undefined): any {
   if (!obj) return defaultValue;
-  
+
   const keys = path.split('.');
   let result = obj;
-  
+
   for (const key of keys) {
     if (result === undefined || result === null) return defaultValue;
     result = result[key];
   }
-  
+
   return result === undefined ? defaultValue : result;
 }
 
@@ -141,7 +148,7 @@ export function getNestedValue(obj: any, path: string, defaultValue: any = undef
 export function truncateText(text: string, maxLength: number = 100): string {
   if (!text) return '';
   if (text.length <= maxLength) return text;
-  
+
   return `${text.substring(0, maxLength)}...`;
 }
 
@@ -150,7 +157,7 @@ export function truncateText(text: string, maxLength: number = 100): string {
  */
 export function getFileTypeIcon(fileType: string | null | undefined): string {
   if (!fileType) return 'file';
-  
+
   switch (fileType.toLowerCase()) {
     case 'pdf':
       return 'file-text';
@@ -178,10 +185,10 @@ export function getFileTypeIcon(fileType: string | null | undefined): string {
  */
 export function getInitials(name: string): string {
   if (!name) return '';
-  
+
   return name
     .split(' ')
-    .map(part => part[0])
+    .map((part) => part[0])
     .join('')
     .toUpperCase()
     .substring(0, 2);
@@ -191,7 +198,7 @@ export function getInitials(name: string): string {
  * Delay for a specified time (in ms)
  */
 export function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -202,17 +209,17 @@ export function debounce<T extends (...args: any[]) => any>(
   wait: number
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  
-  return function(...args: Parameters<T>): void {
+
+  return function (...args: Parameters<T>): void {
     const later = () => {
       timeout = null;
       func(...args);
     };
-    
+
     if (timeout !== null) {
       clearTimeout(timeout);
     }
-    
+
     timeout = setTimeout(later, wait);
   };
 }
@@ -221,9 +228,9 @@ export function debounce<T extends (...args: any[]) => any>(
  * Generate a UUID v4
  */
 export function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -233,14 +240,14 @@ export function generateUUID(): string {
  */
 export function addCSRFToken(headers: Record<string, string> = {}): Record<string, string> {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-  
+
   if (csrfToken) {
     return {
       ...headers,
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
     };
   }
-  
+
   return headers;
 }
 
@@ -249,18 +256,18 @@ export function addCSRFToken(headers: Record<string, string> = {}): Record<strin
  */
 export function sanitizeErrorForLogging(error: any): any {
   if (!error) return error;
-  
+
   // Create a copy to avoid mutating the original error
   const sanitized = { ...error };
-  
+
   // Remove sensitive fields from the error
   const sensitiveFields = ['password', 'token', 'authorization', 'auth', 'key', 'secret'];
-  
+
   for (const field of sensitiveFields) {
     if (sanitized[field]) {
       sanitized[field] = '[REDACTED]';
     }
-    
+
     // Also check headers if they exist
     if (sanitized.headers && typeof sanitized.headers === 'object') {
       for (const headerKey in sanitized.headers) {
@@ -270,6 +277,6 @@ export function sanitizeErrorForLogging(error: any): any {
       }
     }
   }
-  
+
   return sanitized;
 }

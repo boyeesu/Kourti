@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
-import { useUserOrganization } from "@/hooks/useUserOrganization";
-import { supabase } from "@/integrations/supabase/client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect } from 'react';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { supabase } from '@/integrations/supabase/client';
 import { logError } from '@/lib/logger';
 
 export interface SavedSearch {
@@ -8,7 +9,7 @@ export interface SavedSearch {
   name: string;
   query: string;
   filters: Record<string, any>;
-  resource_type: "cases" | "documents" | "clients" | "contracts";
+  resource_type: 'cases' | 'documents' | 'clients' | 'contracts';
   created_at: string;
 }
 
@@ -22,16 +23,16 @@ export function useSavedSearches() {
 
     const fetchSearches = async () => {
       try {
-        const { data, error } = await (supabase
-          .from("saved_searches" as any)
-          .select("*")
-          .eq("organization_id", organizationId)
-          .order("created_at", { ascending: false }));
+        const { data, error } = await supabase
+          .from('saved_searches' as any)
+          .select('*')
+          .eq('organization_id', organizationId)
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
         setSavedSearches((data || []) as unknown as SavedSearch[]);
       } catch (error) {
-        logError("Error fetching saved searches", error);
+        logError('Error fetching saved searches', error);
       } finally {
         setIsLoading(false);
       }
@@ -44,13 +45,13 @@ export function useSavedSearches() {
     name: string,
     query: string,
     filters: Record<string, any>,
-    resourceType: SavedSearch["resource_type"]
+    resourceType: SavedSearch['resource_type']
   ) => {
     if (!organizationId) return;
 
     try {
-      const { data, error } = await (supabase
-        .from("saved_searches" as any)
+      const { data, error } = await supabase
+        .from('saved_searches' as any)
         .insert({
           organization_id: organizationId,
           name,
@@ -59,29 +60,29 @@ export function useSavedSearches() {
           resource_type: resourceType,
         })
         .select()
-        .single());
+        .single();
 
       if (error) throw error;
       const savedSearch = data as unknown as SavedSearch;
       setSavedSearches((prev) => [savedSearch, ...prev]);
       return savedSearch;
     } catch (error) {
-      logError("Error saving search", error);
+      logError('Error saving search', error);
       throw error;
     }
   };
 
   const deleteSearch = async (id: string) => {
     try {
-      const { error } = await (supabase
-        .from("saved_searches" as any)
+      const { error } = await supabase
+        .from('saved_searches' as any)
         .delete()
-        .eq("id", id));
+        .eq('id', id);
 
       if (error) throw error;
       setSavedSearches((prev) => prev.filter((s) => s.id !== id));
     } catch (error) {
-      logError("Error deleting search", error);
+      logError('Error deleting search', error);
       throw error;
     }
   };
@@ -93,4 +94,3 @@ export function useSavedSearches() {
     deleteSearch,
   };
 }
-

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -24,13 +25,10 @@ export function useUserRoles() {
   return useQuery({
     queryKey: ['user-roles'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('*')
-        .order('role_name');
+      const { data, error } = await supabase.from('user_roles').select('*').order('role_name');
 
       if (error) throw error;
-      return (data as any) as UserRole[];
+      return data as any as UserRole[];
     },
   });
 }
@@ -70,15 +68,15 @@ export function useCreateUserRole() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles'] });
       toast({
-        title: "Role created successfully",
-        description: "The new role has been added to your organization.",
+        title: 'Role created successfully',
+        description: 'The new role has been added to your organization.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to create role",
+        title: 'Failed to create role',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     },
   });
@@ -100,15 +98,15 @@ export function useDeleteUserRole() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles'] });
       toast({
-        title: "Role deleted successfully",
-        description: "The role has been removed from your organization.",
+        title: 'Role deleted successfully',
+        description: 'The role has been removed from your organization.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to delete role",
+        title: 'Failed to delete role',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     },
   });
@@ -121,7 +119,7 @@ export function useUsersWithRoles() {
       // Get current user's organization
       const currentUserId = await getCurrentUserId();
       if (!currentUserId) throw new Error('User not authenticated');
-      
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
@@ -129,13 +127,14 @@ export function useUsersWithRoles() {
         .single();
 
       if (!profile) throw new Error('Profile not found');
-      
+
       const organizationId = (profile as any).organization_id;
 
       // Fetch profiles for this organization
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
+        .select(
+          `
           id,
           user_id,
           first_name,
@@ -145,7 +144,8 @@ export function useUsersWithRoles() {
           department,
           title,
           avatar_url
-        `)
+        `
+        )
         .eq('organization_id', organizationId)
         .order('first_name');
 
@@ -160,8 +160,10 @@ export function useUsersWithRoles() {
       // Merge the data
       return profiles.map((user: any) => ({
         ...user,
-        custom_roles: roleAssignments?.filter((assignment: any) => assignment.user_id === user.user_id)
-          .map((assignment: any) => assignment.role_name) || []
+        custom_roles:
+          roleAssignments
+            ?.filter((assignment: any) => assignment.user_id === user.user_id)
+            .map((assignment: any) => assignment.role_name) || [],
       }));
     },
   });
@@ -175,7 +177,7 @@ export function useUpdateUserRole() {
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       const currentUserId = await getCurrentUserId();
       if (!currentUserId) throw new Error('User not authenticated');
-      
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
@@ -192,29 +194,27 @@ export function useUpdateUserRole() {
         .eq('organization_id', (profile as any).organization_id);
 
       // Create new role assignment
-      const { error } = await supabase
-        .from('user_role_assignments')
-        .insert({
-          user_id: userId,
-          role_name: role,
-          organization_id: (profile as any).organization_id,
-          assigned_by: currentUserId,
-        } as any);
+      const { error } = await supabase.from('user_role_assignments').insert({
+        user_id: userId,
+        role_name: role,
+        organization_id: (profile as any).organization_id,
+        assigned_by: currentUserId,
+      } as any);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
       toast({
-        title: "User role updated",
+        title: 'User role updated',
         description: "The user's role has been updated successfully.",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to update user role",
+        title: 'Failed to update user role',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     },
   });

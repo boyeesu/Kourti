@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { Search, User } from 'lucide-react';
 import {
@@ -31,11 +32,7 @@ interface NewChatDialogProps {
   onConversationCreated: (conversationId: string, recipientName: string) => void;
 }
 
-export function NewChatDialog({
-  open,
-  onOpenChange,
-  onConversationCreated,
-}: NewChatDialogProps) {
+export function NewChatDialog({ open, onOpenChange, onConversationCreated }: NewChatDialogProps) {
   const { user } = useAuth();
   const { data: members = [], isLoading: membersLoading } = useOrganizationMembers();
   const createConversation = useGetOrCreateDirectConversation();
@@ -46,32 +43,34 @@ export function NewChatDialog({
   const availableMembers = members.filter((member: any) => {
     if (member.user_id === user?.id) return false;
     if (!searchQuery) return true;
-    
+
     const query = searchQuery.toLowerCase();
     const name = `${member.first_name || ''} ${member.last_name || ''}`.toLowerCase();
     const email = (member.email || '').toLowerCase();
     const department = (member.department || '').toLowerCase();
-    
+
     return name.includes(query) || email.includes(query) || department.includes(query);
   });
 
   const handleSelectMember = async (member: OrganizationMember) => {
     try {
       const conversationId = await createConversation.mutateAsync(member.user_id);
-      const recipientName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email || 'Unknown';
+      const recipientName =
+        `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email || 'Unknown';
       onConversationCreated(conversationId, recipientName);
       onOpenChange(false);
       setSearchQuery('');
       toast({
-        title: "Conversation started",
+        title: 'Conversation started',
         description: `Started a conversation with ${recipientName}`,
       });
     } catch (error: unknown) {
       console.error('Failed to create conversation:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to create conversation. Please try again.";
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to create conversation. Please try again.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     }
@@ -96,15 +95,13 @@ export function NewChatDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
+      <DialogContent
         className="w-[calc(100vw-2rem)] max-w-[500px] max-h-[calc(100vh-4rem)] overflow-hidden"
         {...({ highZ: true } as { highZ: boolean })}
       >
         <DialogHeader>
           <DialogTitle>New Conversation</DialogTitle>
-          <DialogDescription>
-            Select a team member to start a conversation
-          </DialogDescription>
+          <DialogDescription>Select a team member to start a conversation</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="relative">
@@ -142,10 +139,10 @@ export function NewChatDialog({
                     onClick={() => handleSelectMember(member)}
                     disabled={createConversation.isPending}
                     className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left",
-                      "hover:bg-muted border border-transparent hover:border-border",
-                      "min-h-[56px]", // Touch-friendly height
-                      createConversation.isPending && "opacity-50 cursor-not-allowed"
+                      'w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left',
+                      'hover:bg-muted border border-transparent hover:border-border',
+                      'min-h-[56px]', // Touch-friendly height
+                      createConversation.isPending && 'opacity-50 cursor-not-allowed'
                     )}
                   >
                     <Avatar className="h-10 w-10 shrink-0">
@@ -164,9 +161,7 @@ export function NewChatDialog({
                         </p>
                       )}
                       {member.email && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {member.email}
-                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                       )}
                     </div>
                   </button>

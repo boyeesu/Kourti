@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -24,7 +25,8 @@ export function useProfile() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select(`
+        .select(
+          `
           id,
           user_id,
           first_name,
@@ -36,7 +38,8 @@ export function useProfile() {
           avatar_url,
           created_at,
           updated_at
-        `)
+        `
+        )
         .eq('user_id', userId as any)
         .single();
 
@@ -68,15 +71,15 @@ export function useUpdateProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       toast({
-        title: "Profile updated successfully",
-        description: "Your profile information has been saved.",
+        title: 'Profile updated successfully',
+        description: 'Your profile information has been saved.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to update profile",
+        title: 'Failed to update profile',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     },
   });
@@ -95,15 +98,15 @@ export function useChangePassword() {
     },
     onSuccess: () => {
       toast({
-        title: "Password changed successfully",
-        description: "Your password has been updated.",
+        title: 'Password changed successfully',
+        description: 'Your password has been updated.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to change password",
+        title: 'Failed to change password',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     },
   });

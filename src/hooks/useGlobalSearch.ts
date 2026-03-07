@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -71,25 +72,13 @@ export function useGlobalSearch({
         return emptyResults;
       }
 
-      const likeClause = buildLikeClause(
-        ['title', 'description', 'case_number'],
-        term
-      );
+      const likeClause = buildLikeClause(['title', 'description', 'case_number'], term);
 
-      const clientLikeClause = buildLikeClause(
-        ['name', 'email', 'phone'],
-        term
-      );
+      const clientLikeClause = buildLikeClause(['name', 'email', 'phone'], term);
 
-      const eventLikeClause = buildLikeClause(
-        ['title', 'description', 'location'],
-        term
-      );
+      const eventLikeClause = buildLikeClause(['title', 'description', 'location'], term);
 
-      const voiceLikeClause = buildLikeClause(
-        ['title', 'summary', 'transcript'],
-        term
-      );
+      const voiceLikeClause = buildLikeClause(['title', 'summary', 'transcript'], term);
 
       const [casesResponse, clientsResponse, eventsResponse, voiceResponse] = await Promise.all([
         likeClause
@@ -115,7 +104,9 @@ export function useGlobalSearch({
         eventLikeClause
           ? supabase
               .from('calendar_events')
-              .select('id, title, description, start_date, end_date, event_type, status, organization_id')
+              .select(
+                'id, title, description, start_date, end_date, event_type, status, organization_id'
+              )
               .eq('organization_id', organizationId)
               .or(eventLikeClause)
               .order('start_date', { ascending: true })
@@ -134,63 +125,67 @@ export function useGlobalSearch({
           : Promise.resolve({ data: [], error: null }),
       ]);
 
-      const cases = !casesResponse.error && casesResponse.data
-        ? (casesResponse.data as any[]).map((item: any) => ({
-            id: item.id as string,
-            title: item.title as string,
-            subtitle: [
-              item.case_number ? `Case #${item.case_number}` : null,
-              item.client?.name ? `Client: ${item.client.name}` : null,
-            ]
-              .filter(Boolean)
-              .join(' • '),
-            url: `/cases/${item.id}`,
-            badge: item.status
-              ? {
-                  label: String(item.status),
-                  variant: getCaseStatusVariant(item.status),
-                }
-              : undefined,
-          }))
-        : [];
-
-      const clients = !clientsResponse.error && clientsResponse.data
-        ? (clientsResponse.data as any[]).map((item: any) => ({
-            id: item.id as string,
-            title: item.name as string,
-            subtitle: [item.email, item.phone].filter(Boolean).join(' • '),
-            url: `/clients/${item.id}`,
-          }))
-        : [];
-
-      const calendarEvents = !eventsResponse.error && eventsResponse.data
-        ? (eventsResponse.data as any[]).map((item: any) => {
-            const start = item.start_date ? new Date(item.start_date) : null;
-            const end = item.end_date ? new Date(item.end_date) : null;
-            const timeRange = start
-              ? `${start.toLocaleDateString()}${
-                  start && end && start.toDateString() !== end.toDateString()
-                    ? ` - ${end.toLocaleDateString()}`
-                    : ''
-                }`
-              : undefined;
-
-            return {
+      const cases =
+        !casesResponse.error && casesResponse.data
+          ? (casesResponse.data as any[]).map((item: any) => ({
               id: item.id as string,
               title: item.title as string,
-              subtitle: [timeRange, item.description].filter(Boolean).join(' • '),
-              url: `/calendar?event=${item.id}`,
-              badge: item.event_type
+              subtitle: [
+                item.case_number ? `Case #${item.case_number}` : null,
+                item.client?.name ? `Client: ${item.client.name}` : null,
+              ]
+                .filter(Boolean)
+                .join(' • '),
+              url: `/cases/${item.id}`,
+              badge: item.status
                 ? {
-                    label: String(item.event_type),
-                    variant: 'secondary' as GlobalSearchBadgeVariant,
+                    label: String(item.status),
+                    variant: getCaseStatusVariant(item.status),
                   }
                 : undefined,
-            };
-          })
-        : [];
+            }))
+          : [];
 
-      const voiceEntries = !voiceResponse.error && voiceResponse.data ? (voiceResponse.data as any[]) : [];
+      const clients =
+        !clientsResponse.error && clientsResponse.data
+          ? (clientsResponse.data as any[]).map((item: any) => ({
+              id: item.id as string,
+              title: item.name as string,
+              subtitle: [item.email, item.phone].filter(Boolean).join(' • '),
+              url: `/clients/${item.id}`,
+            }))
+          : [];
+
+      const calendarEvents =
+        !eventsResponse.error && eventsResponse.data
+          ? (eventsResponse.data as any[]).map((item: any) => {
+              const start = item.start_date ? new Date(item.start_date) : null;
+              const end = item.end_date ? new Date(item.end_date) : null;
+              const timeRange = start
+                ? `${start.toLocaleDateString()}${
+                    start && end && start.toDateString() !== end.toDateString()
+                      ? ` - ${end.toLocaleDateString()}`
+                      : ''
+                  }`
+                : undefined;
+
+              return {
+                id: item.id as string,
+                title: item.title as string,
+                subtitle: [timeRange, item.description].filter(Boolean).join(' • '),
+                url: `/calendar?event=${item.id}`,
+                badge: item.event_type
+                  ? {
+                      label: String(item.event_type),
+                      variant: 'secondary' as GlobalSearchBadgeVariant,
+                    }
+                  : undefined,
+              };
+            })
+          : [];
+
+      const voiceEntries =
+        !voiceResponse.error && voiceResponse.data ? (voiceResponse.data as any[]) : [];
       const voiceRecordings = voiceEntries
         .filter((item) => Boolean(item.audio_file_url))
         .slice(0, 5)
@@ -218,9 +213,10 @@ export function useGlobalSearch({
         .map((item: any) => ({
           id: item.id as string,
           title: item.title as string,
-          subtitle: (item.summary || item.transcript || '')
-            ? String(item.summary || item.transcript).slice(0, 120)
-            : undefined,
+          subtitle:
+            item.summary || item.transcript || ''
+              ? String(item.summary || item.transcript).slice(0, 120)
+              : undefined,
           url: `/transcriptions/${item.id}`,
           badge: item.status
             ? {

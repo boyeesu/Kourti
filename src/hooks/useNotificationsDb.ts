@@ -1,4 +1,4 @@
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,9 +61,10 @@ export function useNotificationsDb(orgId: string, filters?: NotificationFilters)
       let filteredData = data || [];
       if (filters?.search) {
         const searchLower = filters.search.toLowerCase();
-        filteredData = filteredData.filter((item: any) =>
-          item.title?.toLowerCase().includes(searchLower) ||
-          item.description?.toLowerCase().includes(searchLower)
+        filteredData = filteredData.filter(
+          (item: any) =>
+            item.title?.toLowerCase().includes(searchLower) ||
+            item.description?.toLowerCase().includes(searchLower)
         );
       }
 
@@ -90,20 +91,44 @@ export function useNotificationsDb(orgId: string, filters?: NotificationFilters)
     });
     const channel = supabase
       .channel('public:notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `organization_id=eq.${orgId}` }, (payload) => {
-        const newNotif = categorize(payload.new as Notification);
-        // Prepend to existing notifications
-        queryClient.setQueryData<Notification[]>(['notifications', orgId, filters], (old = []) => [newNotif, ...old]);
-        // Optionally show toast for high priority
-        if (newNotif.priority === 'high') {
-          // useToast outside hook scope? assume toast available
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `organization_id=eq.${orgId}`,
+        },
+        (payload) => {
+          const newNotif = categorize(payload.new as Notification);
+          // Prepend to existing notifications
+          queryClient.setQueryData<Notification[]>(
+            ['notifications', orgId, filters],
+            (old = []) => [newNotif, ...old]
+          );
+          // Optionally show toast for high priority
+          if (newNotif.priority === 'high') {
+            // useToast outside hook scope? assume toast available
+          }
         }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `organization_id=eq.${orgId}` }, (payload) => {
-        queryClient.setQueryData<Notification[]>(['notifications', orgId, filters], (old = []) => {
-          return old.map(n => n.id === payload.new.id ? { ...n, ...payload.new } : n);
-        });
-      })
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `organization_id=eq.${orgId}`,
+        },
+        (payload) => {
+          queryClient.setQueryData<Notification[]>(
+            ['notifications', orgId, filters],
+            (old = []) => {
+              return old.map((n) => (n.id === payload.new.id ? { ...n, ...payload.new } : n));
+            }
+          );
+        }
+      )
       .subscribe();
 
     return () => {
@@ -122,7 +147,8 @@ export function useNotificationPreferences(orgId: string) {
       if (!userId || !orgId) return null;
 
       // @ts-expect-error - Table not in generated types yet
-      const { data, error } = await supabase.from('notification_preferences')
+      const { data, error } = await supabase
+        .from('notification_preferences')
         .select('*')
         .eq('user_id', userId)
         .eq('organization_id', orgId)
@@ -143,21 +169,27 @@ export function useUpdateNotificationPreferences() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (preferences: Partial<NotificationPreferences> & { organization_id: string }) => {
+    mutationFn: async (
+      preferences: Partial<NotificationPreferences> & { organization_id: string }
+    ) => {
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('User not authenticated');
 
       const { organization_id, ...restPreferences } = preferences;
       // @ts-expect-error - Table not in generated types yet
-      const { data, error } = await supabase.from('notification_preferences')
-        .upsert({
-          user_id: userId,
-          organization_id: organization_id,
-          ...restPreferences,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id,organization_id'
-        })
+      const { data, error } = await supabase
+        .from('notification_preferences')
+        .upsert(
+          {
+            user_id: userId,
+            organization_id: organization_id,
+            ...restPreferences,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'user_id,organization_id',
+          }
+        )
         .select()
         .single();
 
@@ -165,7 +197,9 @@ export function useUpdateNotificationPreferences() {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['notification-preferences', variables.organization_id] });
+      queryClient.invalidateQueries({
+        queryKey: ['notification-preferences', variables.organization_id],
+      });
     },
   });
 }
@@ -174,15 +208,19 @@ export async function pushDbNotification(
   orgId: string,
   notif: Omit<Notification, 'id' | 'read' | 'created_at'>
 ) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const userId = user?.id;
   if (!userId) throw new Error('Not authenticated');
 
-  await supabase.from('notifications').insert([{
-    user_id: userId,
-    organization_id: orgId,
-    ...notif,
-  } as any]);
+  await supabase.from('notifications').insert([
+    {
+      user_id: userId,
+      organization_id: orgId,
+      ...notif,
+    } as any,
+  ]);
 }
 
 export async function archiveNotification(notificationId: string) {

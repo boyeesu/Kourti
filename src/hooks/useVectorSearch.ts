@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useRAGSearch } from './useRAGSearch';
 import { supabase } from '@/integrations/supabase/client';
 import { logError } from '@/lib/logger';
@@ -13,30 +14,32 @@ export function useVectorSearch(query: string, enabled: boolean = true) {
   return {
     ...rest,
     queryKey: ['vector-search', query],
-    data: ragResults ? {
-      documents: ragResults
-        .filter(result => result.documentType === 'document')
-        .map(result => ({
-          id: result.documentId,
-          name: result.documentName,
-          content: result.content,
-          summary: result.content.substring(0, 200) + '...',
-          similarity: result.similarity,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })),
-      contracts: ragResults
-        .filter(result => result.documentType === 'contract')
-        .map(result => ({
-          id: result.contractId,
-          title: result.documentName,
-          description: result.content.substring(0, 200) + '...',
-          terms: result.content,
-          similarity: result.similarity,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }))
-    } : { documents: [], contracts: [] }
+    data: ragResults
+      ? {
+          documents: ragResults
+            .filter((result) => result.documentType === 'document')
+            .map((result) => ({
+              id: result.documentId,
+              name: result.documentName,
+              content: result.content,
+              summary: result.content.substring(0, 200) + '...',
+              similarity: result.similarity,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })),
+          contracts: ragResults
+            .filter((result) => result.documentType === 'contract')
+            .map((result) => ({
+              id: result.contractId,
+              title: result.documentName,
+              description: result.content.substring(0, 200) + '...',
+              terms: result.content,
+              similarity: result.similarity,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })),
+        }
+      : { documents: [], contracts: [] },
   };
 }
 
@@ -50,8 +53,8 @@ export function useGenerateEmbedding() {
         body: {
           documentId,
           documentType,
-          content
-        }
+          content,
+        },
       });
 
       if (error) {

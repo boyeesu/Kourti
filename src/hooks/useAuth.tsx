@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,15 +18,25 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, userData?: UserData) => Promise<{
+  signUp: (
+    email: string,
+    password: string,
+    userData?: UserData
+  ) => Promise<{
     error: AuthError | null;
     success: boolean;
   }>;
-  signIn: (email: string, password: string) => Promise<{
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{
     error: AuthError | null;
     success: boolean;
   }>;
-  signInWithProvider: (provider: 'google' | 'microsoft', email?: string) => Promise<{
+  signInWithProvider: (
+    provider: 'google' | 'microsoft',
+    email?: string
+  ) => Promise<{
     error: AuthError | null;
     success: boolean;
   }>;
@@ -52,51 +63,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
 
     // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        logInfo('Auth state change detected', { event, hasSession: Boolean(currentSession) });
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        // Fetch CSRF token when user signs in
-        if (event === 'SIGNED_IN' && currentSession?.access_token) {
-          try {
-            const { data: csrfData, error: csrfError } = await supabase.functions.invoke('get-csrf-token', {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      logInfo('Auth state change detected', { event, hasSession: Boolean(currentSession) });
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+
+      // Fetch CSRF token when user signs in
+      if (event === 'SIGNED_IN' && currentSession?.access_token) {
+        try {
+          const { data: csrfData, error: csrfError } = await supabase.functions.invoke(
+            'get-csrf-token',
+            {
               headers: {
                 Authorization: `Bearer ${currentSession.access_token}`,
               },
-            });
-
-            if (!csrfError && csrfData?.csrfToken) {
-              sessionStorage.setItem('csrf_token', csrfData.csrfToken);
-              logInfo('CSRF token obtained after auth state change');
             }
-          } catch (csrfErr) {
-            logError('Error fetching CSRF token on auth change', { csrfErr });
+          );
+
+          if (!csrfError && csrfData?.csrfToken) {
+            sessionStorage.setItem('csrf_token', csrfData.csrfToken);
+            logInfo('CSRF token obtained after auth state change');
           }
+        } catch (csrfErr) {
+          logError('Error fetching CSRF token on auth change', { csrfErr });
         }
-
-        // Clear CSRF token on sign out
-        if (event === 'SIGNED_OUT') {
-          sessionStorage.removeItem('csrf_token');
-        }
-        
-        setLoading(false);
       }
-    );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
-      if (error) {
-        logError('Error retrieving existing session', { error });
+      // Clear CSRF token on sign out
+      if (event === 'SIGNED_OUT') {
+        sessionStorage.removeItem('csrf_token');
       }
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setLoading(false);
-    }).catch((error) => {
-      logError('Session check failed', { error });
+
       setLoading(false);
     });
+
+    // Check for existing session
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: currentSession }, error }) => {
+        if (error) {
+          logError('Error retrieving existing session', { error });
+        }
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        setLoading(false);
+      })
+      .catch((error) => {
+        logError('Session check failed', { error });
+        setLoading(false);
+      });
 
     return () => {
       // Clean up subscription when component unmounts
@@ -122,9 +139,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 first_name: userData?.first_name || '',
                 last_name: userData?.last_name || '',
                 email: email,
-                ...userData
-              }
-            }
+                ...userData,
+              },
+            },
           });
 
           if (!error) {
@@ -133,28 +150,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           // Check if it's a timeout error
-          if (error.message?.includes('timeout') || error.message?.includes('504') ||
-              error.message?.includes('Gateway') || error.message?.includes('network')) {
+          if (
+            error.message?.includes('timeout') ||
+            error.message?.includes('504') ||
+            error.message?.includes('Gateway') ||
+            error.message?.includes('network')
+          ) {
             lastError = error;
             if (attempt < 3) {
               logInfo(`Sign up attempt ${attempt} failed, retrying...`, { error: error.message });
               // Wait with exponential backoff
-              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+              await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
               continue;
             }
           }
 
           // Not a timeout error, return immediately
           return { error, success: false };
-
         } catch (fetchError: any) {
           lastError = fetchError;
-          if (fetchError.name === 'AbortError' || fetchError.message?.includes('timeout') ||
-              fetchError.message?.includes('504')) {
+          if (
+            fetchError.name === 'AbortError' ||
+            fetchError.message?.includes('timeout') ||
+            fetchError.message?.includes('504')
+          ) {
             if (attempt < 3) {
-              logInfo(`Sign up attempt ${attempt} failed with network error, retrying...`, { error: fetchError.message });
+              logInfo(`Sign up attempt ${attempt} failed with network error, retrying...`, {
+                error: fetchError.message,
+              });
               // Wait with exponential backoff
-              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+              await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
               continue;
             }
           }
@@ -166,15 +191,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // All retries exhausted
       logError('Sign up failed after retries', { error: lastError, email });
       return {
-        error: lastError || new AuthError('Sign up failed after multiple attempts. Please try again.'),
-        success: false
+        error:
+          lastError || new AuthError('Sign up failed after multiple attempts. Please try again.'),
+        success: false,
       };
-
     } catch (error) {
       logError('Sign up error', { error });
       return {
         error: new AuthError('An unexpected error occurred during sign up.'),
-        success: false
+        success: false,
       };
     }
   };
@@ -189,18 +214,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         return {
           error,
-          success: false
+          success: false,
         };
       }
 
       // After successful login, fetch CSRF token from server
       if (authData?.session?.access_token) {
         try {
-          const { data: csrfData, error: csrfError } = await supabase.functions.invoke('get-csrf-token', {
-            headers: {
-              Authorization: `Bearer ${authData.session.access_token}`,
-            },
-          });
+          const { data: csrfData, error: csrfError } = await supabase.functions.invoke(
+            'get-csrf-token',
+            {
+              headers: {
+                Authorization: `Bearer ${authData.session.access_token}`,
+              },
+            }
+          );
 
           if (!csrfError && csrfData?.csrfToken) {
             // Store CSRF token in sessionStorage
@@ -217,13 +245,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return {
         error: null,
-        success: true
+        success: true,
       };
     } catch (error) {
       logError('Sign in error', { error });
       return {
         error: new AuthError('An unexpected error occurred during sign in.'),
-        success: false
+        success: false,
       };
     }
   };
@@ -245,7 +273,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         logError('Failed to initiate SSO', { provider, error });
         return {
-          error: new AuthError('Single sign-on is not configured for this account. Please use email and password.'),
+          error: new AuthError(
+            'Single sign-on is not configured for this account. Please use email and password.'
+          ),
           success: false,
         };
       }
@@ -290,61 +320,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       const redirectUrl = getAuthRedirectUrl('/auth/reset-password', env.APP_URL);
-      
-      logInfo('Initiating password reset', { 
-        email: email.toLowerCase(), 
-        redirectUrl 
+
+      logInfo('Initiating password reset', {
+        email: email.toLowerCase(),
+        redirectUrl,
       });
 
       // Use Resend-based edge function instead of Supabase's built-in email service
       // Note: Password reset doesn't require CSRF (unauthenticated endpoint)
       // But we'll include it if available for additional security
-      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; messageId?: string }>('send-password-reset-email', {
-        body: {
-          email: email.toLowerCase(),
-          redirectUrl,
+      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; messageId?: string }>(
+        'send-password-reset-email',
+        {
+          body: {
+            email: email.toLowerCase(),
+            redirectUrl,
+          },
         }
-      });
+      );
 
       if (error) {
-        logError('Password reset error', { 
-          error, 
+        logError('Password reset error', {
+          error,
           email: email.toLowerCase(),
-          redirectUrl 
+          redirectUrl,
         });
         return {
           error: new AuthError(error.message || 'Failed to send password reset email'),
-          success: false
+          success: false,
         };
       }
 
       if (data?.error) {
-        logError('Password reset function error', { 
-          error: data.error, 
+        logError('Password reset function error', {
+          error: data.error,
           email: email.toLowerCase(),
-          redirectUrl 
+          redirectUrl,
         });
         return {
           error: new AuthError(data.error || 'Failed to send password reset email'),
-          success: false
+          success: false,
         };
       }
 
-      logInfo('Password reset email sent', { 
+      logInfo('Password reset email sent', {
         email: email.toLowerCase(),
         redirectUrl,
-        messageId: data?.messageId
+        messageId: data?.messageId,
       });
 
       return {
         error: null,
-        success: true
+        success: true,
       };
     } catch (error) {
       logError('Reset password exception', { error });
       return {
         error: new AuthError('An unexpected error occurred during password reset.'),
-        success: false
+        success: false,
       };
     }
   };
@@ -360,11 +393,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resetPassword,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 // Safe no-op fallback used during Vite HMR tree rebuilds

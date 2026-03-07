@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -20,10 +21,7 @@ export function useContractTemplates() {
   return useQuery({
     queryKey: ['contract-templates'],
     queryFn: async (): Promise<ContractTemplate[]> => {
-      const { data, error } = await supabase
-        .from('contract_templates')
-        .select('*')
-        .order('name');
+      const { data, error } = await supabase.from('contract_templates').select('*').order('name');
 
       if (error) throw error;
       return data || [];
@@ -37,9 +35,16 @@ export function useCreateContractTemplate() {
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
-    mutationFn: async (templateData: Omit<ContractTemplate, 'id' | 'created_at' | 'updated_at' | 'organization_id' | 'created_by'>) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+    mutationFn: async (
+      templateData: Omit<
+        ContractTemplate,
+        'id' | 'created_at' | 'updated_at' | 'organization_id' | 'created_by'
+      >
+    ) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       const { data, error } = await supabase
         .from('contract_templates')
         .insert({

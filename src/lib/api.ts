@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient, UseQueryOptions } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useUserOrganization } from "@/hooks/useUserOrganization";
-import { useToast } from "@/hooks/use-toast";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { useToast } from '@/hooks/use-toast';
 
 export interface FetchDataOptions {
   table: string;
@@ -23,7 +24,7 @@ export interface FetchDataResult<T> {
  */
 export function useFetchData<T = unknown>(
   options: FetchDataOptions,
-  queryOptions?: Omit<UseQueryOptions<FetchDataResult<T>, Error>, "queryKey" | "queryFn">
+  queryOptions?: Omit<UseQueryOptions<FetchDataResult<T>, Error>, 'queryKey' | 'queryFn'>
 ) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
@@ -35,8 +36,8 @@ export function useFetchData<T = unknown>(
       }
 
       let query = (supabase.from(options.table as any) as any)
-        .select(options.select || "*", { count: "exact" })
-        .eq("organization_id", organizationId);
+        .select(options.select || '*', { count: 'exact' })
+        .eq('organization_id', organizationId);
 
       // Apply additional filters
       if (options.filters) {
@@ -88,13 +89,13 @@ export function useFetchCount(
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery<number, Error>({
-    queryKey: [...queryKey, "count", organizationId],
+    queryKey: [...queryKey, 'count', organizationId],
     queryFn: async () => {
       if (!organizationId) return 0;
 
       let query = (supabase.from(table as any) as any)
-        .select("*", { count: "exact", head: true })
-        .eq("organization_id", organizationId);
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId);
 
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
@@ -127,13 +128,13 @@ export function useGetItemById<T = unknown>(options: {
     queryKey: [options.table, options.id, organizationId],
     queryFn: async () => {
       if (!organizationId || !options.id) {
-        throw new Error("Organization ID or item ID is missing");
+        throw new Error('Organization ID or item ID is missing');
       }
 
       const { data, error } = await (supabase.from(options.table as any) as any)
-        .select(options.select || "*")
-        .eq("id", options.id)
-        .eq("organization_id", organizationId)
+        .select(options.select || '*')
+        .eq('id', options.id)
+        .eq('organization_id', organizationId)
         .single();
 
       if (error) throw error;
@@ -160,7 +161,7 @@ export function useUpdateItem<T = unknown>(options: {
       const { id, ...data } = updateData;
       const { data: result, error } = await (supabase.from(options.table as any) as any)
         .update(data as any)
-        .eq("id", id)
+        .eq('id', id)
         .select()
         .single();
 
@@ -173,9 +174,9 @@ export function useUpdateItem<T = unknown>(options: {
     },
     onError: (error: Error) => {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to update item.",
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to update item.',
       });
       options.onError?.(error);
     },

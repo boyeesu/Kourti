@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +31,7 @@ export interface CreateCalendarEventData {
   title: string;
   start_date: string;
   end_date: string;
-  
+
   // Optional basic fields (from calendar_events table)
   description?: string;
   location?: string;
@@ -38,7 +39,7 @@ export interface CreateCalendarEventData {
   event_type?: string;
   case_id?: string;
   client_id?: string;
-  
+
   // Recurring event fields (from calendar_events table - added via migration)
   is_recurring?: boolean;
   recurrence_pattern?: {
@@ -46,7 +47,7 @@ export interface CreateCalendarEventData {
     interval: number;
   };
   recurrence_end_date?: string;
-  
+
   // Note: reminders are NOT in this interface as they're stored in event_reminders table
 }
 
@@ -170,7 +171,7 @@ export function useCreateCalendarEvent() {
       }
 
       const userId = await getCurrentUserId();
-      
+
       // Explicitly build insert data with only fields that exist in calendar_events table
       // This prevents errors from extra form fields (reminders, recurrence fields, etc.)
       const insertData: any = {
@@ -237,7 +238,10 @@ export function useUpdateCalendarEvent() {
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
-    mutationFn: async ({ id, ...updateData }: { id: string } & Partial<CreateCalendarEventData>) => {
+    mutationFn: async ({
+      id,
+      ...updateData
+    }: { id: string } & Partial<CreateCalendarEventData>) => {
       const { data, error } = await supabase
         .from('calendar_events')
         .update(updateData as any)

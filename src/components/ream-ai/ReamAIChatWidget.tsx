@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,14 +47,20 @@ export function ReamAIChatWidget({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hello! I\'m Ream AI, your intelligent legal assistant. I can help you with:\n\n• General legal questions and explanations\n• Information about your cases, clients, and practice data\n• Document review and analysis (upload a file first)\n\nAsk me anything!',
+      content:
+        "Hello! I'm Ream AI, your intelligent legal assistant. I can help you with:\n\n• General legal questions and explanations\n• Information about your cases, clients, and practice data\n• Document review and analysis (upload a file first)\n\nAsk me anything!",
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadedDocument, setUploadedDocument] = useState<{ id: string; name?: string; content?: string; file_path?: string } | null>(null);
+  const [uploadedDocument, setUploadedDocument] = useState<{
+    id: string;
+    name?: string;
+    content?: string;
+    file_path?: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { streamAnalysis } = useEnhancedDocumentAnalysis();
@@ -78,13 +85,16 @@ export function ReamAIChatWidget({
       logInfo('Performing RAG search for document analysis', { queryLength: query.length });
 
       // Use the dedicated rag-search edge function which bypasses PostgREST RPC issues
-      const { data: searchData, error: searchError } = await supabase.functions.invoke('rag-search', {
-        body: {
-          query: query.substring(0, 2000),
-          matchThreshold: 0.6,
-          matchCount: 8
+      const { data: searchData, error: searchError } = await supabase.functions.invoke(
+        'rag-search',
+        {
+          body: {
+            query: query.substring(0, 2000),
+            matchThreshold: 0.6,
+            matchCount: 8,
+          },
         }
-      });
+      );
 
       if (searchError) {
         logError('RAG search edge function error', { error: searchError });
@@ -97,16 +107,17 @@ export function ReamAIChatWidget({
       }
 
       // Build RAG context string from results
-      const ragContext = searchData.results.map((result: any, index: number) => {
-        const sourceName = result.documentName || 'Unknown Document';
-        const similarity = ((result.similarity || 0) * 100).toFixed(1);
+      const ragContext = searchData.results
+        .map((result: any, index: number) => {
+          const sourceName = result.documentName || 'Unknown Document';
+          const similarity = ((result.similarity || 0) * 100).toFixed(1);
 
-        return `[RELATED CONTENT ${index + 1}] From "${sourceName}" (${similarity}% match):\n${(result.content || '').substring(0, 800)}`;
-      }).join('\n\n---\n\n');
+          return `[RELATED CONTENT ${index + 1}] From "${sourceName}" (${similarity}% match):\n${(result.content || '').substring(0, 800)}`;
+        })
+        .join('\n\n---\n\n');
 
       logInfo('RAG search completed', { resultCount: searchData.results.length });
       return ragContext;
-
     } catch (error) {
       logError('RAG search error', { error });
       return '';
@@ -123,31 +134,40 @@ export function ReamAIChatWidget({
         const { validateFile } = await import('@/lib/fileValidation');
         const validation = validateFile(file);
         if (!validation.valid) {
-          setMessages(prev => [...prev, {
-            role: 'assistant',
-            content: `❌ ${validation.error || 'File validation failed'}`,
-            timestamp: new Date(),
-          }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: `❌ ${validation.error || 'File validation failed'}`,
+              timestamp: new Date(),
+            },
+          ]);
           return;
         }
       } catch (error) {
         console.error('File validation error:', error);
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: '❌ Failed to validate file',
-          timestamp: new Date(),
-        }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: '❌ Failed to validate file',
+            timestamp: new Date(),
+          },
+        ]);
         return;
       }
 
       setIsUploading(true);
 
       // Add upload message
-      setMessages(prev => [...prev, {
-        role: 'user',
-        content: `Uploading "${file.name}" for analysis...`,
-        timestamp: new Date(),
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'user',
+          content: `Uploading "${file.name}" for analysis...`,
+          timestamp: new Date(),
+        },
+      ]);
 
       try {
         // Upload document to database
@@ -156,8 +176,8 @@ export function ReamAIChatWidget({
           file: file,
           metadata: {
             uploaded_via: 'ream_ai_widget',
-            upload_date: new Date().toISOString()
-          }
+            upload_date: new Date().toISOString(),
+          },
         });
 
         // Extract text content
@@ -191,18 +211,15 @@ export function ReamAIChatWidget({
               setTimeout(() => reject(new Error('Extraction timed out')), 30000);
             });
 
-            const extractionPromise = supabase.functions.invoke(
-              'extract-document-text',
-              {
-                body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path }
-              }
-            );
+            const extractionPromise = supabase.functions.invoke('extract-document-text', {
+              body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
+            });
 
             // Race the extraction against the timeout
-            const { data: extractResult, error: extractError } = await Promise.race([
+            const { data: extractResult, error: extractError } = (await Promise.race([
               extractionPromise,
-              timeoutPromise
-            ]) as any;
+              timeoutPromise,
+            ])) as any;
 
             if (!extractError && extractResult?.content) {
               // Only use extracted text if it's valid (not an error message)
@@ -210,7 +227,10 @@ export function ReamAIChatWidget({
                 extractedText = extractResult.content;
                 console.log('Server-side extraction successful, length:', extractedText.length);
               } else {
-                console.warn('Server-side extraction returned error message:', extractResult.content);
+                console.warn(
+                  'Server-side extraction returned error message:',
+                  extractResult.content
+                );
                 if (extractResult.error) {
                   console.error('Extraction error:', extractResult.error);
                 }
@@ -230,27 +250,38 @@ export function ReamAIChatWidget({
           id: uploadedDoc.id,
           name: uploadedDoc.name ?? undefined,
           content: extractedText || undefined,
-          file_path: uploadedDoc.file_path ?? undefined
+          file_path: uploadedDoc.file_path ?? undefined,
         });
 
         // Process for RAG (non-blocking) - only if we have valid extracted text
-        if (organization?.id && extractedText && extractedText.length > 50 && !extractedText.startsWith('[')) {
+        if (
+          organization?.id &&
+          extractedText &&
+          extractedText.length > 50 &&
+          !extractedText.startsWith('[')
+        ) {
           // Process in background without blocking UI
-          processDocument.mutateAsync({
-            documentId: uploadedDoc.id,
-            content: extractedText,
-            documentType: "document"
-          }).then(() => {
-            console.log('Background RAG processing complete for document:', uploadedDoc.id);
-            logInfo('RAG processing completed', { documentId: uploadedDoc.id });
-          }).catch(processError => {
-            console.error("Background RAG processing error:", processError);
-            logError('RAG processing failed', { error: processError, documentId: uploadedDoc.id });
-          });
+          processDocument
+            .mutateAsync({
+              documentId: uploadedDoc.id,
+              content: extractedText,
+              documentType: 'document',
+            })
+            .then(() => {
+              console.log('Background RAG processing complete for document:', uploadedDoc.id);
+              logInfo('RAG processing completed', { documentId: uploadedDoc.id });
+            })
+            .catch((processError) => {
+              console.error('Background RAG processing error:', processError);
+              logError('RAG processing failed', {
+                error: processError,
+                documentId: uploadedDoc.id,
+              });
+            });
         } else if (!extractedText || extractedText.length <= 50) {
           console.warn('Skipping RAG processing - insufficient extracted text', {
             documentId: uploadedDoc.id,
-            textLength: extractedText?.length || 0
+            textLength: extractedText?.length || 0,
           });
         }
 
@@ -258,30 +289,37 @@ export function ReamAIChatWidget({
         setIsUploading(false);
 
         // Provide user feedback based on extraction success
-        const hasValidContent = extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: hasValidContent
-            ? `✅ Document "${file.name}" uploaded and processed! I've extracted ${extractedText.length.toLocaleString()} characters. You can start asking questions right away while I process it for deep search.`
-            : `✅ Document "${file.name}" uploaded! ${extractedText ? 'Note: Text extraction was limited. ' : ''}You can still ask questions, and I'll help based on available information.`,
-          timestamp: new Date(),
-        }]);
+        const hasValidContent =
+          extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: hasValidContent
+              ? `✅ Document "${file.name}" uploaded and processed! I've extracted ${extractedText.length.toLocaleString()} characters. You can start asking questions right away while I process it for deep search.`
+              : `✅ Document "${file.name}" uploaded! ${extractedText ? 'Note: Text extraction was limited. ' : ''}You can still ask questions, and I'll help based on available information.`,
+            timestamp: new Date(),
+          },
+        ]);
 
         toast({
-          title: "Document Uploaded",
-          description: "The document is ready for chat.",
+          title: 'Document Uploaded',
+          description: 'The document is ready for chat.',
         });
       } catch (error: unknown) {
         console.error('Upload error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `⚠️ Failed to upload "${file.name}": ${errorMessage}`,
-          timestamp: new Date(),
-        }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `⚠️ Failed to upload "${file.name}": ${errorMessage}`,
+            timestamp: new Date(),
+          },
+        ]);
         toast({
-          variant: "destructive",
-          title: "Upload Failed",
+          variant: 'destructive',
+          title: 'Upload Failed',
           description: errorMessage,
         });
       } finally {
@@ -293,10 +331,10 @@ export function ReamAIChatWidget({
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     accept: {
-      "application/pdf": [".pdf"],
-      "application/msword": [".doc"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-      "text/plain": [".txt"]
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt'],
     },
     noClick: false,
     noDrag: false,
@@ -311,18 +349,24 @@ export function ReamAIChatWidget({
     setInput('');
 
     // Add user message
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date(),
-    }]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date(),
+      },
+    ]);
 
     // Add typing indicator
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: '',
-      timestamp: new Date(),
-    }]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      },
+    ]);
 
     setIsTyping(true);
 
@@ -334,21 +378,51 @@ export function ReamAIChatWidget({
       // Improved query detection - more comprehensive keyword matching
       const messageLower = userMessage.toLowerCase();
       const documentKeywords = [
-        'review', 'analyze', 'document', 'contract', 'clause', 'term',
-        'parties', 'party', 'agreement', 'section', 'provision', 'article',
-        'obligation', 'liability', 'indemnity', 'termination', 'renewal',
-        'confidential', 'warranty', 'representation', 'covenant',
-        'summarize', 'summary', 'key points', 'main points',
-        'risks', 'issues', 'concerns', 'problems',
-        'this document', 'the document', 'in here', 'in this',
-        'what does it say', 'what is stated', 'according to'
+        'review',
+        'analyze',
+        'document',
+        'contract',
+        'clause',
+        'term',
+        'parties',
+        'party',
+        'agreement',
+        'section',
+        'provision',
+        'article',
+        'obligation',
+        'liability',
+        'indemnity',
+        'termination',
+        'renewal',
+        'confidential',
+        'warranty',
+        'representation',
+        'covenant',
+        'summarize',
+        'summary',
+        'key points',
+        'main points',
+        'risks',
+        'issues',
+        'concerns',
+        'problems',
+        'this document',
+        'the document',
+        'in here',
+        'in this',
+        'what does it say',
+        'what is stated',
+        'according to',
       ];
 
-      const isDocumentQuery = hasDocumentContext && (
-        documentKeywords.some(keyword => messageLower.includes(keyword)) ||
-        // If there's document context and the question is short (likely about the doc)
-        (messageLower.length < 100 && !messageLower.includes('how many') && !messageLower.includes('my client'))
-      );
+      const isDocumentQuery =
+        hasDocumentContext &&
+        (documentKeywords.some((keyword) => messageLower.includes(keyword)) ||
+          // If there's document context and the question is short (likely about the doc)
+          (messageLower.length < 100 &&
+            !messageLower.includes('how many') &&
+            !messageLower.includes('my client')));
 
       if (isDocumentQuery && hasDocumentContext) {
         // Use document analysis for document-specific queries
@@ -364,7 +438,7 @@ export function ReamAIChatWidget({
         const MAX_DOC_CONTENT_LENGTH = 80000; // ~80k chars to leave room for prompt and RAG context
         let processedDocContent = docContent;
         let contentTruncated = false;
-        
+
         if (docContent.length > MAX_DOC_CONTENT_LENGTH) {
           const startLength = Math.floor(MAX_DOC_CONTENT_LENGTH * 0.6);
           const endLength = Math.floor(MAX_DOC_CONTENT_LENGTH * 0.4);
@@ -374,7 +448,7 @@ export function ReamAIChatWidget({
           contentTruncated = true;
           logWarn('Document content truncated in chat widget', {
             originalLength: docContent.length,
-            truncatedLength: MAX_DOC_CONTENT_LENGTH
+            truncatedLength: MAX_DOC_CONTENT_LENGTH,
           });
         }
 
@@ -402,7 +476,7 @@ CRITICAL INSTRUCTIONS:
           analysisType: 'general',
           ragContext: ragContext || undefined, // Pass RAG retrieved context
           onProgress: (content, done) => {
-            setMessages(prev => {
+            setMessages((prev) => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
               if (lastMessage.role === 'assistant') {
@@ -420,21 +494,23 @@ CRITICAL INSTRUCTIONS:
         // Use system-wide assistant for general queries, database queries, and system interactions
         // Filter out empty messages (typing indicators) from conversation history
         const conversationHistory = messages
-          .filter(msg => msg.content.trim().length > 0)
-          .map(msg => ({
+          .filter((msg) => msg.content.trim().length > 0)
+          .map((msg) => ({
             role: msg.role,
             content: msg.content,
           }));
 
         const docContext = uploadedDocument?.content || documentContext?.content;
         const response = await sendAssistantMessage(userMessage, conversationHistory, {
-          documentContext: docContext ? {
-            documentId: uploadedDocument?.id || documentContext?.id,
-            documentContent: docContext,
-          } : undefined,
+          documentContext: docContext
+            ? {
+                documentId: uploadedDocument?.id || documentContext?.id,
+                documentContent: docContext,
+              }
+            : undefined,
         });
 
-        setMessages(prev => {
+        setMessages((prev) => {
           const newMessages = [...prev];
           const lastMessage = newMessages[newMessages.length - 1];
           if (lastMessage.role === 'assistant') {
@@ -448,7 +524,7 @@ CRITICAL INSTRUCTIONS:
     } catch (error) {
       console.error('Error sending message:', error);
       setIsTyping(false);
-      setMessages(prev => {
+      setMessages((prev) => {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];
         if (lastMessage.role === 'assistant') {
@@ -491,7 +567,8 @@ CRITICAL INSTRUCTIONS:
               const parent = target.parentElement;
               if (parent && !parent.querySelector('.mascot-fallback')) {
                 const fallback = document.createElement('div');
-                fallback.className = 'mascot-fallback w-full h-full flex items-center justify-center bg-primary rounded-full';
+                fallback.className =
+                  'mascot-fallback w-full h-full flex items-center justify-center bg-primary rounded-full';
                 const sparklesIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 sparklesIcon.setAttribute('class', 'h-8 w-8 text-primary-foreground');
                 sparklesIcon.setAttribute('fill', 'none');
@@ -501,7 +578,10 @@ CRITICAL INSTRUCTIONS:
                 path.setAttribute('stroke-linecap', 'round');
                 path.setAttribute('stroke-linejoin', 'round');
                 path.setAttribute('stroke-width', '2');
-                path.setAttribute('d', 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z');
+                path.setAttribute(
+                  'd',
+                  'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'
+                );
                 sparklesIcon.appendChild(path);
                 fallback.appendChild(sparklesIcon);
                 parent.appendChild(fallback);
@@ -514,16 +594,18 @@ CRITICAL INSTRUCTIONS:
   }
 
   return (
-    <Card className={cn(
-      variant === 'floating' && 'fixed z-50 shadow-2xl',
-      // Responsive dimensions for floating widget
-      variant === 'floating' && 'bottom-2 right-2 sm:bottom-4 sm:right-4',
-      variant === 'floating' && 'w-[calc(100vw-1rem)] sm:w-96',
-      variant === 'floating' && 'h-[calc(100vh-5rem)] sm:h-[600px]',
-      variant === 'floating' && 'max-h-[calc(100vh-5rem)]',
-      variant === 'embedded' && 'w-full h-full',
-      className
-    )}>
+    <Card
+      className={cn(
+        variant === 'floating' && 'fixed z-50 shadow-2xl',
+        // Responsive dimensions for floating widget
+        variant === 'floating' && 'bottom-2 right-2 sm:bottom-4 sm:right-4',
+        variant === 'floating' && 'w-[calc(100vw-1rem)] sm:w-96',
+        variant === 'floating' && 'h-[calc(100vh-5rem)] sm:h-[600px]',
+        variant === 'floating' && 'max-h-[calc(100vh-5rem)]',
+        variant === 'embedded' && 'w-full h-full',
+        className
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Sparkles className="h-5 w-5" />
@@ -539,21 +621,11 @@ CRITICAL INSTRUCTIONS:
           {variant === 'floating' && (
             <>
               {isMinimized ? (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onMaximize}
-                  className="h-8 w-8"
-                >
+                <Button size="icon" variant="ghost" onClick={onMaximize} className="h-8 w-8">
                   <Maximize2 className="h-4 w-4" />
                 </Button>
               ) : (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onMinimize}
-                  className="h-8 w-8"
-                >
+                <Button size="icon" variant="ghost" onClick={onMinimize} className="h-8 w-8">
                   <Minimize2 className="h-4 w-4" />
                 </Button>
               )}
@@ -567,25 +639,29 @@ CRITICAL INSTRUCTIONS:
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={cn(
-                  'flex',
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                )}
+                className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
               >
                 <div
                   className={cn(
                     'rounded-lg px-4 py-2 max-w-[80%]',
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                    message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   )}
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   {message.content === '' && isTyping && (
                     <div className="flex gap-1">
-                      <div className="h-2 w-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="h-2 w-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="h-2 w-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div
+                        className="h-2 w-2 bg-current rounded-full animate-bounce"
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <div
+                        className="h-2 w-2 bg-current rounded-full animate-bounce"
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <div
+                        className="h-2 w-2 bg-current rounded-full animate-bounce"
+                        style={{ animationDelay: '300ms' }}
+                      />
                     </div>
                   )}
                 </div>
@@ -595,18 +671,18 @@ CRITICAL INSTRUCTIONS:
         </ScrollArea>
         <form onSubmit={handleSend} className="border-t bg-background safe-area-bottom">
           {/* Upload section - more prominent */}
-          <div {...getRootProps()} className={cn(
-            "px-4 pt-3 pb-2 border-b",
-            isUploading && "bg-muted/50"
-          )}>
+          <div
+            {...getRootProps()}
+            className={cn('px-4 pt-3 pb-2 border-b', isUploading && 'bg-muted/50')}
+          >
             <input {...getInputProps()} />
             <Button
               type="button"
               variant="secondary"
               size="sm"
               className={cn(
-                "w-full h-9 text-sm font-medium",
-                isUploading && "opacity-75 cursor-not-allowed"
+                'w-full h-9 text-sm font-medium',
+                isUploading && 'opacity-75 cursor-not-allowed'
               )}
               disabled={isUploading || isTyping || assistantLoading}
             >
@@ -632,9 +708,11 @@ CRITICAL INSTRUCTIONS:
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={(documentContext || uploadedDocument)
-                ? "Ask about this document or anything..."
-                : "Ask about cases, clients, documents, or anything..."}
+              placeholder={
+                documentContext || uploadedDocument
+                  ? 'Ask about this document or anything...'
+                  : 'Ask about cases, clients, documents, or anything...'
+              }
               disabled={isTyping || assistantLoading || isUploading}
               className="flex-1"
             />
@@ -651,4 +729,3 @@ CRITICAL INSTRUCTIONS:
     </Card>
   );
 }
-

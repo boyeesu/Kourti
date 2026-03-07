@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -46,7 +47,8 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
         // Start building the query
         let query = supabase
           .from('contracts')
-          .select(`
+          .select(
+            `
             id,
             title,
             description,
@@ -63,7 +65,9 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
             updated_at,
             created_by,
             client:client_id(id, name)
-          `, { count: 'exact' })
+          `,
+            { count: 'exact' }
+          )
           .eq('organization_id', organizationId);
 
         // Apply filters if provided
@@ -83,10 +87,10 @@ export function useContracts(page = 1, pageSize = 10, status?: string, clientId?
         if (error) {
           throw error;
         }
-        
-        return { 
-          contracts: data as Contract[], 
-          count: count || 0 
+
+        return {
+          contracts: data as Contract[],
+          count: count || 0,
         };
       } catch (error) {
         logError('Error fetching contracts', error);
@@ -109,7 +113,8 @@ export function useContract(id: string) {
       // Optimize query to only select needed fields and include related data
       const { data, error } = await supabase
         .from('contracts')
-        .select(`
+        .select(
+          `
           id,
           title,
           description,
@@ -126,7 +131,8 @@ export function useContract(id: string) {
           updated_at,
           created_by,
           client:client_id(id, name)
-        `)
+        `
+        )
         .eq('id', id as any)
         .single();
 
@@ -155,7 +161,8 @@ export function useContractsByClient(clientId: string, page = 1, pageSize = 5) {
 
       const { data, error, count } = await supabase
         .from('contracts')
-        .select(`
+        .select(
+          `
           id,
           title,
           status,
@@ -165,16 +172,18 @@ export function useContractsByClient(clientId: string, page = 1, pageSize = 5) {
           end_date,
           terms,
           created_at
-        `, { count: 'exact' })
+        `,
+          { count: 'exact' }
+        )
         .eq('client_id', clientId as any)
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
-      
-      return { 
+
+      return {
         contracts: data as any as Contract[],
-        count: count || 0 
+        count: count || 0,
       };
     },
     enabled: !!clientId,
@@ -192,9 +201,9 @@ export function useCreateContract() {
   return useMutation({
     mutationFn: async (contractData: CreateContractData) => {
       const userId = await getCurrentUserId();
-      
+
       if (!userId) {
-        throw new Error("User is not authenticated. Please sign in to create a contract.");
+        throw new Error('User is not authenticated. Please sign in to create a contract.');
       }
 
       // Get organization ID from user profile
@@ -203,13 +212,15 @@ export function useCreateContract() {
         .select('organization_id')
         .eq('user_id', userId as any)
         .single();
-        
+
       if (profileError) {
-        throw new Error("Could not retrieve user profile information.");
+        throw new Error('Could not retrieve user profile information.');
       }
-      
+
       if (!(profile as any)?.organization_id) {
-        throw new Error("No organization associated with your account. Please contact your administrator.");
+        throw new Error(
+          'No organization associated with your account. Please contact your administrator.'
+        );
       }
 
       const { data, error } = await supabase
@@ -228,15 +239,15 @@ export function useCreateContract() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
       toast({
-        title: "Success",
-        description: "Contract created successfully.",
+        title: 'Success',
+        description: 'Contract created successfully.',
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create contract.";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create contract.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },
@@ -269,15 +280,15 @@ export function useUpdateContract() {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
       queryClient.invalidateQueries({ queryKey: ['contract', (data as any).id] });
       toast({
-        title: "Success",
-        description: "Contract updated successfully.",
+        title: 'Success',
+        description: 'Contract updated successfully.',
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update contract.";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update contract.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },
@@ -303,15 +314,15 @@ export function useDeleteContract() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
       toast({
-        title: "Success",
-        description: "Contract deleted successfully.",
+        title: 'Success',
+        description: 'Contract deleted successfully.',
       });
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete contract.";
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete contract.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     },

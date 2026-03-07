@@ -1,8 +1,9 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useUserOrganization } from "@/hooks/useUserOrganization";
-import { Case, Contract } from "@/types";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { Case, Contract } from '@/types';
 
 interface InsightsData {
   upcomingCases: Case[];
@@ -26,12 +27,12 @@ export function useInsights(windowDays: number = 7): InsightsData {
     isLoading: casesLoading,
     error: casesError,
   } = useQuery<Case[], Error>({
-    queryKey: ["insights-upcoming-cases", organizationId, windowDays],
+    queryKey: ['insights-upcoming-cases', organizationId, windowDays],
     queryFn: async () => {
       if (!organizationId) return [];
 
       const { data, error } = await supabase
-        .from("cases")
+        .from('cases')
         .select(
           `
           id,
@@ -43,10 +44,10 @@ export function useInsights(windowDays: number = 7): InsightsData {
           client:client_id(id, name)
         `
         )
-        .eq("organization_id", organizationId)
-        .gte("next_hearing_date", now.toISOString())
-        .lte("next_hearing_date", futureDate.toISOString())
-        .order("next_hearing_date", { ascending: true })
+        .eq('organization_id', organizationId)
+        .gte('next_hearing_date', now.toISOString())
+        .lte('next_hearing_date', futureDate.toISOString())
+        .order('next_hearing_date', { ascending: true })
         .limit(5);
 
       if (error) throw error;
@@ -62,12 +63,12 @@ export function useInsights(windowDays: number = 7): InsightsData {
     isLoading: contractsLoading,
     error: contractsError,
   } = useQuery<Contract[], Error>({
-    queryKey: ["insights-upcoming-contracts", organizationId, windowDays],
+    queryKey: ['insights-upcoming-contracts', organizationId, windowDays],
     queryFn: async () => {
       if (!organizationId) return [];
 
       const { data, error } = await supabase
-        .from("contracts")
+        .from('contracts')
         .select(
           `
           id,
@@ -79,11 +80,11 @@ export function useInsights(windowDays: number = 7): InsightsData {
           client:client_id(id, name)
         `
         )
-        .eq("organization_id", organizationId)
-        .eq("status", "active")
-        .gte("end_date", now.toISOString())
-        .lte("end_date", futureDate.toISOString())
-        .order("end_date", { ascending: true })
+        .eq('organization_id', organizationId)
+        .eq('status', 'active')
+        .gte('end_date', now.toISOString())
+        .lte('end_date', futureDate.toISOString())
+        .order('end_date', { ascending: true })
         .limit(5);
 
       if (error) throw error;

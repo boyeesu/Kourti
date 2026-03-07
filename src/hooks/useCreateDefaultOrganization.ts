@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +18,7 @@ export function useCreateDefaultOrganization() {
       const userId = await getCurrentUserId();
 
       if (!userId) {
-        throw new Error("User is not authenticated. Please sign in first.");
+        throw new Error('User is not authenticated. Please sign in first.');
       }
 
       // Check if user already has an organization
@@ -70,14 +71,12 @@ export function useCreateDefaultOrganization() {
       }
 
       // Also insert into user_role_assignments (new permission system)
-      const { error: roleAssignmentError } = await supabase
-        .from('user_role_assignments')
-        .insert({
-          user_id: userId,
-          role_name: 'superadmin',
-          organization_id: (newOrg as any).id,
-          assigned_by: userId
-        } as any);
+      const { error: roleAssignmentError } = await supabase.from('user_role_assignments').insert({
+        user_id: userId,
+        role_name: 'superadmin',
+        organization_id: (newOrg as any).id,
+        assigned_by: userId,
+      } as any);
 
       if (roleAssignmentError) {
         logError('Error assigning role', roleAssignmentError);
@@ -93,15 +92,15 @@ export function useCreateDefaultOrganization() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user-organization'] });
       toast({
-        title: "Organization Created",
+        title: 'Organization Created',
         description: `'${(data as any)?.name || 'Organization'}' has been created. Please sign in again to continue.`,
       });
     },
     onError: (error: any) => {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create organization.",
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to create organization.',
       });
     },
   });

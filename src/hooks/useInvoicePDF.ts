@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -9,7 +10,7 @@ export function useInvoicePDF() {
   return useMutation({
     mutationFn: async (invoiceId: string) => {
       const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
-        body: { invoiceId }
+        body: { invoiceId },
       });
 
       if (error) {
@@ -30,7 +31,7 @@ export function useInvoicePDF() {
         description: error.message || 'Failed to generate PDF',
         variant: 'destructive',
       });
-    }
+    },
   });
 }
 
@@ -43,7 +44,7 @@ export function useDownloadInvoicePDF() {
         // For now, we'll create a simple PDF download link
         // In production, this would call the PDF generation service
         const response = await supabase.functions.invoke('generate-invoice-pdf', {
-          body: { invoiceId }
+          body: { invoiceId },
         });
 
         if (response.error) {
@@ -76,6 +77,6 @@ export function useDownloadInvoicePDF() {
         description: error.message || 'Failed to download PDF',
         variant: 'destructive',
       });
-    }
+    },
   });
 }

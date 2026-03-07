@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -11,7 +12,9 @@ export function useDashboardPrefs(orgId: string) {
   return useQuery({
     queryKey: ['dashboardPrefs', orgId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       const userId = user?.id;
       if (!userId) throw new Error('Not authenticated');
 
@@ -40,7 +43,9 @@ export function useSaveDashboardPrefs(orgId: string) {
 
   return useMutation({
     mutationFn: async (prefs: DashboardPrefs) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       const userId = user?.id;
       if (!userId) throw new Error('Not authenticated');
 

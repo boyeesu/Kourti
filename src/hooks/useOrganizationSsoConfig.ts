@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
@@ -49,11 +50,11 @@ async function fetchOrganizationSsoConfigs(): Promise<OrganizationSsoConfig[]> {
   }
 
   // Using type assertion since view may not be in generated types yet
-  const { data, error } = await supabase
+  const { data, error } = (await supabase
     .from('organization_sso_configs_view' as any)
     .select('*')
     .eq('organization_id', organizationId)
-    .order('provider', { ascending: true }) as any;
+    .order('provider', { ascending: true })) as any;
 
   if (error) {
     throw error;

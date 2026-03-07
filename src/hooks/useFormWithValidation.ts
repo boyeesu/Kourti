@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useForm, UseFormProps, UseFormReturn, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,7 +13,7 @@ import { logError } from '@/lib/logger';
  */
 export function useFormWithValidation<
   TSchema extends z.ZodType<any, any, any> = z.ZodType<any, any, any>,
-  TContext = any
+  TContext = any,
 >({
   schema,
   defaultValues,
@@ -28,7 +29,10 @@ export function useFormWithValidation<
   onError?: (errors: any, event?: any) => void;
   successMessage?: string;
   errorMessage?: string;
-} & Omit<UseFormProps<z.infer<TSchema>, TContext>, 'resolver'>): UseFormReturn<z.infer<TSchema>, TContext> & {
+} & Omit<UseFormProps<z.infer<TSchema>, TContext>, 'resolver'>): UseFormReturn<
+  z.infer<TSchema>,
+  TContext
+> & {
   isSubmitting: boolean;
   submitHandler: (values: z.infer<TSchema>) => Promise<void>;
   resetWithValues: (values: z.infer<TSchema>) => void;
@@ -44,12 +48,12 @@ export function useFormWithValidation<
 
   const submitHandler = async (values: z.infer<TSchema>) => {
     if (!onSubmit) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       await onSubmit(values);
-      
+
       if (successMessage) {
         toast({
           title: 'Success',
@@ -58,13 +62,13 @@ export function useFormWithValidation<
       }
     } catch (error) {
       logError('Form submission error', sanitizeErrorForLogging(error));
-      
+
       toast({
         variant: 'destructive',
         title: 'Error',
         description: errorMessage || 'An error occurred. Please try again.',
       });
-      
+
       if (onError) {
         onError(form.formState.errors, form.formState);
       }
