@@ -1,3 +1,4 @@
+ 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -5,12 +6,13 @@ import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Document } from '@/types';
 import { logDebug, logError } from '@/lib/logger';
 import type { Profile } from '@/lib/types/database';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface CreateDocumentData {
   name: string;
   content: string;
   summary?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Json;
   effective_date?: string;
   renewal_date?: string;
   termination_date?: string;
@@ -27,7 +29,7 @@ export interface UploadDocumentData {
   name: string;
   file: File;
   case_id?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Json;
   summary?: string;
   contract_type?: string;
   effective_date?: string;
@@ -417,10 +419,10 @@ export function useUploadDocument() {
         ...(currency ? { currency } : {}),
         ...(terms ? { terms } : {}),
         metadata: {
-          ...(metadata ?? {}),
+          ...((metadata as Record<string, unknown>) ?? {}),
           ...(case_id && { case_id }),
           original_filename: file.name,
-        },
+        } as Json,
       };
 
       const { data, error } = await supabase

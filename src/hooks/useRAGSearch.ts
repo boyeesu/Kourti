@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -10,7 +11,7 @@ export interface RAGSearchResult {
   contractId?: string;
   content: string;
   similarity: number;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, any>;
   documentName?: string;
   documentType?: 'document' | 'contract';
 }
@@ -69,7 +70,7 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
           contract_id?: string;
           content: string;
           similarity?: number;
-          metadata: Record<string, unknown>;
+          metadata: Record<string, any>;
           documentName?: string;
           documentType?: 'document' | 'contract';
         }
@@ -176,7 +177,7 @@ async function performTextFallbackSearch(query: string): Promise<RAGSearchResult
         contractId: chunk.contract_id || undefined,
         content: chunk.content,
         similarity: 0.75, // Default similarity for text search
-        metadata: chunk.metadata,
+        metadata: (chunk.metadata ?? {}) as Record<string, any>,
         documentName,
         documentType,
       });

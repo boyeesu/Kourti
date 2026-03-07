@@ -146,9 +146,8 @@ export function useNotificationPreferences(orgId: string) {
       const userId = await getCurrentUserId();
       if (!userId || !orgId) return null;
 
-      // @ts-expect-error - Table not in generated types yet
       const { data, error } = await supabase
-        .from('notification_preferences')
+        .from('notification_preferences' as any)
         .select('*')
         .eq('user_id', userId)
         .eq('organization_id', orgId)
@@ -176,9 +175,8 @@ export function useUpdateNotificationPreferences() {
       if (!userId) throw new Error('User not authenticated');
 
       const { organization_id, ...restPreferences } = preferences;
-      // @ts-expect-error - Table not in generated types yet
       const { data, error } = await supabase
-        .from('notification_preferences')
+        .from('notification_preferences' as any)
         .upsert(
           {
             user_id: userId,
