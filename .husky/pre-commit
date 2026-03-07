@@ -1,1 +1,15 @@
 npx lint-staged
+
+# Block commits containing .env files with real credentials
+if git diff --cached --name-only | grep -qE '\.env$|\.env\.local$|\.env\.production$'; then
+  echo "ERROR: Attempting to commit .env file. This is blocked for security."
+  echo "If this is intentional, use --no-verify (not recommended)."
+  exit 1
+fi
+
+# Check for potential secrets in staged files
+if git diff --cached -U0 | grep -qiE '(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}|-----BEGIN (RSA |EC )?PRIVATE KEY)'; then
+  echo "ERROR: Potential secret detected in staged changes."
+  echo "Please review your changes and remove any credentials before committing."
+  exit 1
+fi

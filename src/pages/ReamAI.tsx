@@ -223,21 +223,9 @@ export default function ReamAI() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Load document from sessionStorage if passed from Documents page
+  // Load document from sessionStorage if passed from Documents page (by ID only)
   const handleSelectDocRef = useRef(handleSelectDoc);
   handleSelectDocRef.current = handleSelectDoc;
-  useEffect(() => {
-    const docData = sessionStorage.getItem('ream_ai_document');
-    if (docData) {
-      try {
-        const doc = JSON.parse(docData);
-        handleSelectDocRef.current(doc, false);
-        sessionStorage.removeItem('ream_ai_document'); // Clear after loading
-      } catch (e) {
-        logError('Failed to load document', e);
-      }
-    }
-  }, []);
 
   // Get current organization for document processing
   const { data: organization } = useCurrentUserOrganization();
@@ -247,6 +235,18 @@ export default function ReamAI() {
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
   const contracts = contractsData?.contracts || [];
   const uploadDocument = useUploadDocument();
+
+  // Load document by ID from sessionStorage (only stores ID, not full content)
+  useEffect(() => {
+    const docId = sessionStorage.getItem('ream_ai_document_id');
+    if (docId && documents.length > 0) {
+      const doc = documents.find((d) => d.id === docId);
+      if (doc) {
+        handleSelectDocRef.current(doc, false);
+      }
+      sessionStorage.removeItem('ream_ai_document_id');
+    }
+  }, [documents]);
 
   // Get document analysis functionality
   const { streamAnalysis, cancelStreaming, isStreaming } = useEnhancedDocumentAnalysis();

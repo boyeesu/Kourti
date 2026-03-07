@@ -1,24 +1,24 @@
-import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { NotificationsProvider } from "@/components/ui/notifications";
-import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
-import { AppLayout } from "@/components/layout/AppLayout";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PermissionGate } from "@/components/PermissionGate";
-import { Action, Resource } from "@/hooks/usePermissions";
-import OrganizationSetup from "@/components/OrganizationSetup";
-import ForcePasswordChange from "@/components/ForcePasswordChange";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { SearchProvider } from "@/hooks/use-search";
-import { useInactivityLogout } from "@/hooks/useInactivityLogout";
-import { useUserOrganization } from "@/hooks/useUserOrganization";
+import React, { Suspense, lazy, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
+import { Toaster as Sonner } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { NotificationsProvider } from '@/components/ui/notifications';
+import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { PermissionGate } from '@/components/PermissionGate';
+import { Action, Resource } from '@/hooks/usePermissions';
+import OrganizationSetup from '@/components/OrganizationSetup';
+import ForcePasswordChange from '@/components/ForcePasswordChange';
+import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import { SearchProvider } from '@/hooks/use-search';
+import { useInactivityLogout } from '@/hooks/useInactivityLogout';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 // All pages lazy-loaded for code splitting
-import { logInfo, logWarn } from "./lib/logger";
-import { FloatingChatWidget } from "@/components/ream-ai/FloatingChatWidget";
-import { SuperAdminRoute } from "@/components/SuperAdminRoute";
+import { logInfo, logWarn } from './lib/logger';
+import { FloatingChatWidget } from '@/components/ream-ai/FloatingChatWidget';
+import { SuperAdminRoute } from '@/components/SuperAdminRoute';
 // LiveChat overlay removed - now using LiveChatPage as a proper route
 // ThemeProvider removed - now handled in main.tsx
 
@@ -82,52 +82,251 @@ type ProtectedRouteConfig = {
 };
 
 const protectedRoutes: ProtectedRouteConfig[] = [
-  { path: '/', component: DashboardNew, boundaryName: 'Dashboard', permission: { resource: 'cases', action: 'read' } },
-  { path: '/dashboard', component: DashboardNew, boundaryName: 'Dashboard', permission: { resource: 'cases', action: 'read' } },
-  { path: '/cases', component: Cases, boundaryName: 'Cases', permission: { resource: 'cases', action: 'read' } },
-  { path: '/cases/create', component: CaseCreate, boundaryName: 'Case Create', permission: { resource: 'cases', action: 'create' } },
-  { path: '/cases/:id', component: CaseDetails, boundaryName: 'Case Details', permission: { resource: 'cases', action: 'read' } },
-  { path: '/cases/:id/edit', component: CaseEdit, boundaryName: 'Case Edit', permission: { resource: 'cases', action: 'update' } },
-  { path: '/cases/:id/activities', component: CaseActivities, boundaryName: 'Case Activities', permission: { resource: 'cases', action: 'read' } },
-  { path: '/matters', component: Cases, boundaryName: 'Matters', permission: { resource: 'cases', action: 'read' } },
-  { path: '/matters/create', component: CaseCreate, boundaryName: 'Matter Create', permission: { resource: 'cases', action: 'create' } },
-  { path: '/matters/:id', component: CaseDetails, boundaryName: 'Matter Details', permission: { resource: 'cases', action: 'read' } },
-  { path: '/matters/:id/edit', component: CaseEdit, boundaryName: 'Matter Edit', permission: { resource: 'cases', action: 'update' } },
-  { path: '/matters/:id/activities', component: CaseActivities, boundaryName: 'Matter Activities', permission: { resource: 'cases', action: 'read' } },
-  { path: '/clients', component: Clients, boundaryName: 'Clients', permission: { resource: 'clients', action: 'read' } },
-  { path: '/clients/create', component: ClientCreate, boundaryName: 'Client Create', permission: { resource: 'clients', action: 'create' } },
-  { path: '/clients/:clientId', component: ClientDetails, boundaryName: 'Client Details', permission: { resource: 'clients', action: 'read' } },
-  { path: '/clients/:clientId/edit', component: ClientEdit, boundaryName: 'Client Edit', permission: { resource: 'clients', action: 'update' } },
-  { path: '/calendar', component: Calendar, boundaryName: 'Calendar', permission: { resource: 'calendars', action: 'read' } },
-  { path: '/documents', component: Documents, boundaryName: 'Documents', permission: { resource: 'documents', action: 'read' } },
-  { path: '/documents/upload', component: DocumentUpload, boundaryName: 'Document Upload', permission: { resource: 'documents', action: 'create' } },
-  { path: '/documents/review', component: DocumentReview, boundaryName: 'Document Review', permission: { resource: 'documents', action: 'update' } },
-  { path: '/contracts', component: Contracts, boundaryName: 'Contracts', permission: { resource: 'contracts', action: 'read' } },
-  { path: '/contracts/create', component: ContractCreate, boundaryName: 'Contract Create', permission: { resource: 'contracts', action: 'create' } },
-  { path: '/contracts/upload', component: ContractUpload, boundaryName: 'Contract Upload', permission: { resource: 'contracts', action: 'create' } },
-  { path: '/contracts/compare', component: ContractCompare, boundaryName: 'Contract Compare', permission: { resource: 'contracts', action: 'read' } },
-  { path: '/contracts/:id', component: ContractView, boundaryName: 'Contract View', permission: { resource: 'contracts', action: 'read' } },
-  { path: '/contracts/:id/edit', component: ContractEdit, boundaryName: 'Contract Edit', permission: { resource: 'contracts', action: 'update' } },
-  { path: '/contracts/:id/history', component: ContractHistory, boundaryName: 'Contract History', permission: { resource: 'contracts', action: 'read' } },
-  { path: '/contracts/review', component: ContractReview, boundaryName: 'Contract Review', permission: { resource: 'contracts', action: 'update' } },
-  { path: '/invoices', component: Invoices, boundaryName: 'Invoices', permission: { resource: 'invoices', action: 'read' } },
-  { path: '/invoices/create', component: InvoiceCreate, boundaryName: 'Invoice Create', permission: { resource: 'invoices', action: 'create' } },
-  { path: '/invoices/:id', component: InvoiceDetails, boundaryName: 'Invoice Details', permission: { resource: 'invoices', action: 'read' } },
-  { path: '/analytics', component: Analytics, boundaryName: 'Analytics', permission: { resource: 'cases', action: 'manage' } },
-  { path: '/ream-ai', component: ReamAI, boundaryName: 'Ream AI', permission: { resource: 'documents', action: 'read' } },
-  { path: '/voice-recorder', component: VoiceRecorder, boundaryName: 'Voice Recorder', permission: { resource: 'documents', action: 'create' } },
-  { path: '/transcriptions', component: TranscriptionsList, boundaryName: 'Transcriptions List', permission: { resource: 'documents', action: 'read' } },
-  { path: '/transcriptions/:id', component: TranscriptionView, boundaryName: 'Transcription View', permission: { resource: 'documents', action: 'read' } },
-  { path: '/bulk-import', component: BulkImport, boundaryName: 'Bulk Import', permission: { resource: 'documents', action: 'manage' } },
+  {
+    path: '/',
+    component: DashboardNew,
+    boundaryName: 'Dashboard',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/dashboard',
+    component: DashboardNew,
+    boundaryName: 'Dashboard',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/cases',
+    component: Cases,
+    boundaryName: 'Cases',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/cases/create',
+    component: CaseCreate,
+    boundaryName: 'Case Create',
+    permission: { resource: 'cases', action: 'create' },
+  },
+  {
+    path: '/cases/:id',
+    component: CaseDetails,
+    boundaryName: 'Case Details',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/cases/:id/edit',
+    component: CaseEdit,
+    boundaryName: 'Case Edit',
+    permission: { resource: 'cases', action: 'update' },
+  },
+  {
+    path: '/cases/:id/activities',
+    component: CaseActivities,
+    boundaryName: 'Case Activities',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/matters',
+    component: Cases,
+    boundaryName: 'Matters',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/matters/create',
+    component: CaseCreate,
+    boundaryName: 'Matter Create',
+    permission: { resource: 'cases', action: 'create' },
+  },
+  {
+    path: '/matters/:id',
+    component: CaseDetails,
+    boundaryName: 'Matter Details',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/matters/:id/edit',
+    component: CaseEdit,
+    boundaryName: 'Matter Edit',
+    permission: { resource: 'cases', action: 'update' },
+  },
+  {
+    path: '/matters/:id/activities',
+    component: CaseActivities,
+    boundaryName: 'Matter Activities',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/clients',
+    component: Clients,
+    boundaryName: 'Clients',
+    permission: { resource: 'clients', action: 'read' },
+  },
+  {
+    path: '/clients/create',
+    component: ClientCreate,
+    boundaryName: 'Client Create',
+    permission: { resource: 'clients', action: 'create' },
+  },
+  {
+    path: '/clients/:clientId',
+    component: ClientDetails,
+    boundaryName: 'Client Details',
+    permission: { resource: 'clients', action: 'read' },
+  },
+  {
+    path: '/clients/:clientId/edit',
+    component: ClientEdit,
+    boundaryName: 'Client Edit',
+    permission: { resource: 'clients', action: 'update' },
+  },
+  {
+    path: '/calendar',
+    component: Calendar,
+    boundaryName: 'Calendar',
+    permission: { resource: 'calendars', action: 'read' },
+  },
+  {
+    path: '/documents',
+    component: Documents,
+    boundaryName: 'Documents',
+    permission: { resource: 'documents', action: 'read' },
+  },
+  {
+    path: '/documents/upload',
+    component: DocumentUpload,
+    boundaryName: 'Document Upload',
+    permission: { resource: 'documents', action: 'create' },
+  },
+  {
+    path: '/documents/review',
+    component: DocumentReview,
+    boundaryName: 'Document Review',
+    permission: { resource: 'documents', action: 'update' },
+  },
+  {
+    path: '/contracts',
+    component: Contracts,
+    boundaryName: 'Contracts',
+    permission: { resource: 'contracts', action: 'read' },
+  },
+  {
+    path: '/contracts/create',
+    component: ContractCreate,
+    boundaryName: 'Contract Create',
+    permission: { resource: 'contracts', action: 'create' },
+  },
+  {
+    path: '/contracts/upload',
+    component: ContractUpload,
+    boundaryName: 'Contract Upload',
+    permission: { resource: 'contracts', action: 'create' },
+  },
+  {
+    path: '/contracts/compare',
+    component: ContractCompare,
+    boundaryName: 'Contract Compare',
+    permission: { resource: 'contracts', action: 'read' },
+  },
+  {
+    path: '/contracts/:id',
+    component: ContractView,
+    boundaryName: 'Contract View',
+    permission: { resource: 'contracts', action: 'read' },
+  },
+  {
+    path: '/contracts/:id/edit',
+    component: ContractEdit,
+    boundaryName: 'Contract Edit',
+    permission: { resource: 'contracts', action: 'update' },
+  },
+  {
+    path: '/contracts/:id/history',
+    component: ContractHistory,
+    boundaryName: 'Contract History',
+    permission: { resource: 'contracts', action: 'read' },
+  },
+  {
+    path: '/contracts/review',
+    component: ContractReview,
+    boundaryName: 'Contract Review',
+    permission: { resource: 'contracts', action: 'update' },
+  },
+  {
+    path: '/invoices',
+    component: Invoices,
+    boundaryName: 'Invoices',
+    permission: { resource: 'invoices', action: 'read' },
+  },
+  {
+    path: '/invoices/create',
+    component: InvoiceCreate,
+    boundaryName: 'Invoice Create',
+    permission: { resource: 'invoices', action: 'create' },
+  },
+  {
+    path: '/invoices/:id',
+    component: InvoiceDetails,
+    boundaryName: 'Invoice Details',
+    permission: { resource: 'invoices', action: 'read' },
+  },
+  {
+    path: '/analytics',
+    component: Analytics,
+    boundaryName: 'Analytics',
+    permission: { resource: 'cases', action: 'manage' },
+  },
+  {
+    path: '/ream-ai',
+    component: ReamAI,
+    boundaryName: 'Ream AI',
+    permission: { resource: 'documents', action: 'read' },
+  },
+  {
+    path: '/voice-recorder',
+    component: VoiceRecorder,
+    boundaryName: 'Voice Recorder',
+    permission: { resource: 'documents', action: 'create' },
+  },
+  {
+    path: '/transcriptions',
+    component: TranscriptionsList,
+    boundaryName: 'Transcriptions List',
+    permission: { resource: 'documents', action: 'read' },
+  },
+  {
+    path: '/transcriptions/:id',
+    component: TranscriptionView,
+    boundaryName: 'Transcription View',
+    permission: { resource: 'documents', action: 'read' },
+  },
+  {
+    path: '/bulk-import',
+    component: BulkImport,
+    boundaryName: 'Bulk Import',
+    permission: { resource: 'documents', action: 'manage' },
+  },
   { path: '/live-chat', component: LiveChatPage, boundaryName: 'Live Chat' },
   { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center' },
   { path: '/changelog', component: Changelog, boundaryName: 'Changelog' },
-  { path: '/users', component: UserManagement, boundaryName: 'User Management', permission: { resource: 'users', action: 'manage' } },
-  { path: '/settings', component: Settings, boundaryName: 'Settings', permission: { resource: 'settings', action: 'manage' } },
+  {
+    path: '/users',
+    component: UserManagement,
+    boundaryName: 'User Management',
+    permission: { resource: 'users', action: 'manage' },
+  },
+  {
+    path: '/settings',
+    component: Settings,
+    boundaryName: 'Settings',
+    permission: { resource: 'settings', action: 'manage' },
+  },
   { path: '*', component: NotFound },
 ];
 
-function createRouteElement({ component: Component, boundaryName, permission }: ProtectedRouteConfig) {
+function createRouteElement({
+  component: Component,
+  boundaryName,
+  permission,
+}: ProtectedRouteConfig) {
   const content = (
     <Suspense fallback={<LoadingFallback />}>
       <Component />
@@ -135,10 +334,10 @@ function createRouteElement({ component: Component, boundaryName, permission }: 
   );
 
   const wrappedContent = boundaryName ? (
-    <ModuleErrorBoundary name={boundaryName}>
-      {content}
-    </ModuleErrorBoundary>
-  ) : content;
+    <ModuleErrorBoundary name={boundaryName}>{content}</ModuleErrorBoundary>
+  ) : (
+    content
+  );
 
   if (!permission) {
     return wrappedContent;
@@ -162,7 +361,7 @@ function PageViewTracker() {
   useEffect(() => {
     logInfo('Page view', {
       path: location.pathname,
-      search: location.search
+      search: location.search,
     });
   }, [location]);
 
@@ -212,12 +411,8 @@ function PasswordChangeCheck({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const { data, error } = await import('@/integrations/supabase/client').then(m => 
-          m.supabase
-            .from('profiles')
-            .select('must_change_password')
-            .eq('user_id', user.id)
-            .single()
+        const { data, error } = await import('@/integrations/supabase/client').then((m) =>
+          m.supabase.from('profiles').select('must_change_password').eq('user_id', user.id).single()
         );
 
         if (error) {
@@ -244,11 +439,7 @@ function PasswordChangeCheck({ children }: { children: React.ReactNode }) {
   }
 
   if (mustChangePassword) {
-    return (
-      <ForcePasswordChange 
-        onPasswordChanged={() => setMustChangePassword(false)} 
-      />
-    );
+    return <ForcePasswordChange onPasswordChanged={() => setMustChangePassword(false)} />;
   }
 
   return <>{children}</>;
@@ -284,26 +475,77 @@ const App = () => (
         <AuthProvider>
           <InactivityHandler />
           <Routes>
-            <Route path="/auth" element={<Suspense fallback={<LoadingFallback />}><Auth /></Suspense>} />
-            <Route path="/auth/callback" element={<Suspense fallback={<LoadingFallback />}><AuthCallback /></Suspense>} />
-            <Route path="/auth/set-password" element={<Suspense fallback={<LoadingFallback />}><SetPassword /></Suspense>} />
-            <Route path="/auth/reset-password" element={<Suspense fallback={<LoadingFallback />}><ResetPassword /></Suspense>} />
-            <Route path="/forgot-password" element={<Suspense fallback={<LoadingFallback />}><ForgotPassword /></Suspense>} />
-            <Route path="/login" element={<Suspense fallback={<LoadingFallback />}><Login /></Suspense>} />
-            <Route path="/register" element={<Suspense fallback={<LoadingFallback />}><Register /></Suspense>} />
+            <Route
+              path="/auth"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <Auth />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/auth/callback"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <AuthCallback />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/auth/set-password"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <SetPassword />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/auth/reset-password"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <ResetPassword />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <ForgotPassword />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/login"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <Login />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <Register />
+                </Suspense>
+              }
+            />
             <Route
               path="/onboarding"
-              element={(
-                <Suspense fallback={<LoadingFallback />}>
-                  <ModuleErrorBoundary name="Onboarding">
-                    <Onboarding />
-                  </ModuleErrorBoundary>
-                </Suspense>
-              )}
+              element={
+                <ProtectedRoute>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <ModuleErrorBoundary name="Onboarding">
+                      <Onboarding />
+                    </ModuleErrorBoundary>
+                  </Suspense>
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/thanos/*"
-              element={(
+              element={
                 <Suspense fallback={<LoadingFallback />}>
                   <SuperAdminRoute>
                     <ModuleErrorBoundary name="Thanos Dashboard">
@@ -311,11 +553,11 @@ const App = () => (
                     </ModuleErrorBoundary>
                   </SuperAdminRoute>
                 </Suspense>
-              )}
+              }
             />
             <Route
               path="/*"
-              element={(
+              element={
                 <ProtectedRoute>
                   <OrganizationCheck>
                     <PasswordChangeCheck>
@@ -336,7 +578,7 @@ const App = () => (
                     </PasswordChangeCheck>
                   </OrganizationCheck>
                 </ProtectedRoute>
-              )}
+              }
             />
           </Routes>
         </AuthProvider>

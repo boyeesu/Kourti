@@ -17,6 +17,9 @@ export function usePlatformAdmin() {
       }
 
       try {
+        // SECURITY: p_user_id is passed for the RPC function signature, but the server
+        // function MUST validate this against auth.uid() to prevent privilege escalation.
+        // Ideally, the server function should use auth.uid() directly and ignore this parameter.
         const { data, error } = await supabase.rpc('is_platform_admin', {
           p_user_id: user.id,
         });
@@ -42,6 +45,8 @@ export function usePlatformAdmin() {
  */
 export async function isPlatformAdmin(userId: string): Promise<boolean> {
   try {
+    // SECURITY: p_user_id is passed for the RPC function signature, but the server
+    // function MUST validate this against auth.uid() to prevent privilege escalation.
     const { data, error } = await supabase.rpc('is_platform_admin', {
       p_user_id: userId,
     });

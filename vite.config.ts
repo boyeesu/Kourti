@@ -1,25 +1,22 @@
-import { defineConfig } from "vite";
-// @ts-ignore - vite plugin types are handled by vite
-import react from "@vitejs/plugin-react";
-import path from "path";
-import { componentTagger } from "lovable-tagger";
+import { defineConfig } from 'vite';
+// @ts-expect-error - vite plugin types are handled by vite
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { componentTagger } from 'lovable-tagger';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
+    host: 'localhost',
     port: 8081,
   },
-  plugins: [
-    react(),
-    mode === 'development' && componentTagger(),
-  ].filter(Boolean),
+  plugins: [react(), mode === 'development' && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(__dirname, './src'),
     },
     dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
-    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
   },
   preview: {
     port: 3000,
@@ -27,7 +24,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: 'dist',
-    sourcemap: mode !== 'production',
+    sourcemap: mode === 'development',
     minify: 'terser' as const,
     chunkSizeWarningLimit: 2000, // Increased from 1000 to reduce warning noise for larger chunks
     rollupOptions: {
@@ -71,6 +68,6 @@ export default defineConfig(({ mode }) => ({
       '@radix-ui/react-primitive',
       '@radix-ui/react-slot',
     ],
-    exclude: []
-  }
+    exclude: [],
+  },
 }));

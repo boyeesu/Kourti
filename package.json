@@ -15,7 +15,7 @@
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",
-    "supabase:link": "npx supabase link --project-ref zjbvnvydgsxqmmrrmvif",
+    "supabase:link": "npx supabase link --project-ref $SUPABASE_PROJECT_REF",
     "supabase:deploy": "powershell -ExecutionPolicy Bypass -File ./deploy-supabase.ps1",
     "supabase:deploy:all": "powershell -ExecutionPolicy Bypass -File ./deploy-supabase.ps1 -DeployAll",
     "prepare": "husky",

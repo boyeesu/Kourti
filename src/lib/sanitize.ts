@@ -6,16 +6,36 @@ import DOMPurify from 'dompurify';
  */
 export function sanitizeHTML(dirty: string | null | undefined): string {
   if (!dirty) return '';
-  
+
   return DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'u', 's', 'strike',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'ul', 'ol', 'li',
-      'blockquote', 'mark', 'code', 'pre',
-      'div', 'span', 'a', 'hr'
+      'p',
+      'br',
+      'strong',
+      'em',
+      'u',
+      's',
+      'strike',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'ul',
+      'ol',
+      'li',
+      'blockquote',
+      'mark',
+      'code',
+      'pre',
+      'div',
+      'span',
+      'a',
+      'hr',
     ],
     ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     ALLOW_DATA_ATTR: false,
     // Force all links to open safely
     ADD_ATTR: ['target', 'rel'],

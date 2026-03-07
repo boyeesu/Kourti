@@ -1,11 +1,12 @@
-
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export function useAnalyzeDocument() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async ({ docId, content }: { docId: string; content: string }) => {
@@ -23,13 +24,13 @@ export function useAnalyzeDocument() {
       }
       const payload = { text: content, analysisType: 'summarize' as const };
       const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
-        body: payload
+        body: payload,
       });
 
       let analysisResponse = data;
       if (error) {
         const fallback = await supabase.functions.invoke('contract-analysis', {
-          body: payload
+          body: payload,
         });
         if (fallback.error) throw fallback.error;
         analysisResponse = fallback.data;
@@ -44,15 +45,21 @@ export function useAnalyzeDocument() {
       return { analysis, docId };
     },
     onSuccess: async ({ analysis, docId }) => {
+      if (!organizationId) return;
       await supabase
         .from('documents')
         .update({ summary: analysis } as never)
-        .eq('id', docId);
+        .eq('id', docId)
+        .eq('organization_id', organizationId);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast({ title: 'Document summarized', description: 'Summary saved.' });
     },
     onError: (error: unknown) => {
-      toast({ title: 'Error summarizing document', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
-    }
+      toast({
+        title: 'Error summarizing document',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    },
   });
 }

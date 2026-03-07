@@ -1,9 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { useEffect } from 'react';
 import { logError, logWarn } from '@/lib/logger';
+import {
+  validateFile,
+  MAX_CHAT_ATTACHMENT_SIZE,
+  ALLOWED_CHAT_MIME_TYPES,
+} from '@/lib/fileValidation';
 
 export interface FileMetadata {
   file_name: string;
@@ -65,28 +71,31 @@ export function useConversations() {
 
       // Try using the optimized RPC function first
       // Note: This RPC is defined in migration 20260122000002 and may not exist yet
-      const { data: optimizedData, error: rpcError } = await supabase
-        .rpc('get_user_conversations_optimized' as any);
+      const { data: optimizedData, error: rpcError } = await supabase.rpc(
+        'get_user_conversations_optimized' as any
+      );
 
       if (!rpcError && optimizedData) {
         // Transform RPC result to match Conversation interface
-        return (optimizedData as Array<{
-          id: string;
-          organization_id: string;
-          type: 'direct' | 'group';
-          name: string | null;
-          created_by: string;
-          created_at: string;
-          updated_at: string;
-          participants: Array<{
-            user_id: string;
-            first_name: string | null;
-            last_name: string | null;
-            email: string | null;
-          }>;
-          last_message: Message | null;
-          unread_count: number;
-        }>).map(conv => ({
+        return (
+          optimizedData as Array<{
+            id: string;
+            organization_id: string;
+            type: 'direct' | 'group';
+            name: string | null;
+            created_by: string;
+            created_at: string;
+            updated_at: string;
+            participants: Array<{
+              user_id: string;
+              first_name: string | null;
+              last_name: string | null;
+              email: string | null;
+            }>;
+            last_message: Message | null;
+            unread_count: number;
+          }>
+        ).map((conv) => ({
           ...conv,
           participants: conv.participants ?? [],
           last_message: conv.last_message ?? undefined,
@@ -97,7 +106,9 @@ export function useConversations() {
       // Fallback to original query if RPC doesn't exist yet
       // (for backwards compatibility during migration)
       if (rpcError) {
-        logWarn('Optimized RPC not available, falling back to standard queries', { message: rpcError.message });
+        logWarn('Optimized RPC not available, falling back to standard queries', {
+          message: rpcError.message,
+        });
       }
 
       // FALLBACK: Original implementation for backwards compatibility
@@ -108,7 +119,11 @@ export function useConversations() {
 
       if (participantError) {
         logError('Error fetching participant data', participantError);
-        if (participantError.code === 'PGRST301' || participantError.message?.includes('RLS') || participantError.message?.includes('policy')) {
+        if (
+          participantError.code === 'PGRST301' ||
+          participantError.message?.includes('RLS') ||
+          participantError.message?.includes('policy')
+        ) {
           logWarn('RLS policy error detected. Please run the chat migrations.');
           return [];
         }
@@ -117,17 +132,24 @@ export function useConversations() {
 
       if (!participantData || participantData.length === 0) return [];
 
-      const participantDataTyped = participantData as unknown as Array<{ conversation_id: string; last_read_at: string | null }>;
-      const conversationIds = participantDataTyped.map(p => p.conversation_id);
-      const lastReadMap = new Map(participantDataTyped.map(p => [p.conversation_id, p.last_read_at]));
+      const participantDataTyped = participantData as unknown as Array<{
+        conversation_id: string;
+        last_read_at: string | null;
+      }>;
+      const conversationIds = participantDataTyped.map((p) => p.conversation_id);
+      const lastReadMap = new Map(
+        participantDataTyped.map((p) => [p.conversation_id, p.last_read_at])
+      );
 
       // Get conversations with participants
       const { data: conversations, error: conversationsError } = await supabase
         .from('conversations' as any)
-        .select(`
+        .select(
+          `
           *,
           conversation_participants(user_id, last_read_at)
-        `)
+        `
+        )
         .in('id', conversationIds)
         .eq('organization_id', organizationId)
         .order('updated_at', { ascending: false });
@@ -186,25 +208,27 @@ export function useConversations() {
       });
 
       const unreadCounts = await Promise.all(unreadCountsPromises);
-      const unreadMap = new Map(unreadCounts.map(u => [u.conversationId, u.count]));
+      const unreadMap = new Map(unreadCounts.map((u) => [u.conversationId, u.count]));
 
       // Assemble final result
       return conversations.map((conv: any) => {
-        const lastMessageData = lastMessagesData.find(lm => lm.conversationId === conv.id);
+        const lastMessageData = lastMessagesData.find((lm) => lm.conversationId === conv.id);
         const message = lastMessageData?.lastMessage as any;
 
         return {
           ...conv,
-          last_message: message ? {
-            ...message,
-            sender: profilesMap.get(message.sender_id) ?? null
-          } : null,
+          last_message: message
+            ? {
+                ...message,
+                sender: profilesMap.get(message.sender_id) ?? null,
+              }
+            : null,
           unread_count: unreadMap.get(conv.id) ?? 0,
           participants: (conv.conversation_participants ?? []).map((p: any) => ({
             user_id: p.user_id,
             last_read_at: p.last_read_at,
-            ...(profilesMap.get(p.user_id) ?? {})
-          }))
+            ...(profilesMap.get(p.user_id) ?? {}),
+          })),
         };
       }) as Conversation[];
     },
@@ -250,14 +274,12 @@ export function useMessages(conversationId: string | null) {
       }
 
       // Create a map of user_id -> profile for quick lookup
-      const profilesMap = new Map(
-        (profiles || []).map((p: any) => [p.user_id, p])
-      );
+      const profilesMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
 
       // Create messages with sender info
       const messagesWithSender = (data || []).map((msg: any) => ({
         ...msg,
-        sender: profilesMap.get(msg.sender_id) || null
+        sender: profilesMap.get(msg.sender_id) || null,
       }));
 
       // Create a map of message_id -> message for reply_to lookup
@@ -266,7 +288,7 @@ export function useMessages(conversationId: string | null) {
       // Add reply_to data to messages
       return messagesWithSender.map((msg: any) => ({
         ...msg,
-        reply_to: msg.reply_to_id ? messagesMap.get(msg.reply_to_id) || null : null
+        reply_to: msg.reply_to_id ? messagesMap.get(msg.reply_to_id) || null : null,
       })) as Message[];
     },
     enabled: !!conversationId,
@@ -288,25 +310,39 @@ export function useMessages(conversationId: string | null) {
         },
         async (payload) => {
           const newMessagePayload = payload.new as any;
-          
+
           // First, immediately add the message to ensure it shows up
           // This prevents the message from being lost if profile fetch fails
-          let senderProfile: { id: string; first_name: string | null; last_name: string | null; email: string | null } | undefined;
-          
+          let senderProfile:
+            | {
+                id: string;
+                first_name: string | null;
+                last_name: string | null;
+                email: string | null;
+              }
+            | undefined;
+
           try {
             // Fetch sender profile (non-blocking for message display)
-            const { data: profile, error: profileError } = await supabase
+            const { data: profile, error: profileError } = (await supabase
               .from('profiles' as any)
               .select('first_name, last_name, email')
               .eq('user_id', newMessagePayload.sender_id)
-              .maybeSingle() as unknown as { data: { first_name: string | null; last_name: string | null; email: string | null } | null; error: any }; // Use maybeSingle instead of single to avoid errors when no profile exists
+              .maybeSingle()) as unknown as {
+              data: {
+                first_name: string | null;
+                last_name: string | null;
+                email: string | null;
+              } | null;
+              error: any;
+            }; // Use maybeSingle instead of single to avoid errors when no profile exists
 
             if (!profileError && profile) {
               senderProfile = {
                 id: newMessagePayload.sender_id,
                 first_name: profile.first_name,
                 last_name: profile.last_name,
-                email: profile.email
+                email: profile.email,
               };
             }
           } catch (err) {
@@ -315,23 +351,24 @@ export function useMessages(conversationId: string | null) {
 
           const newMessage: Message = {
             ...newMessagePayload,
-            sender: senderProfile
+            sender: senderProfile,
           };
-          
+
           queryClient.setQueryData(['messages', conversationId], (old: Message[] | undefined) => {
             const messages = old ?? [];
             // Avoid duplicates (check both real IDs and temp IDs)
-            if (messages.some(m => m.id === newMessage.id)) return messages;
+            if (messages.some((m) => m.id === newMessage.id)) return messages;
             // Also avoid adding if we already have a temp version of this message from optimistic update
             // by checking content + sender + recent timestamp
-            const recentTempMessage = messages.find(m => 
-              m.id.startsWith('temp-') && 
-              m.sender_id === newMessage.sender_id && 
-              m.content === newMessage.content
+            const recentTempMessage = messages.find(
+              (m) =>
+                m.id.startsWith('temp-') &&
+                m.sender_id === newMessage.sender_id &&
+                m.content === newMessage.content
             );
             if (recentTempMessage) {
               // Replace temp message with real one
-              return messages.map(m => m.id === recentTempMessage.id ? newMessage : m);
+              return messages.map((m) => (m.id === recentTempMessage.id ? newMessage : m));
             }
             return [...messages, newMessage];
           });
@@ -364,7 +401,15 @@ export function useSendMessage() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ conversationId, content, replyToId }: { conversationId: string; content: string; replyToId?: string | null }) => {
+    mutationFn: async ({
+      conversationId,
+      content,
+      replyToId,
+    }: {
+      conversationId: string;
+      content: string;
+      replyToId?: string | null;
+    }) => {
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -410,9 +455,7 @@ export function useSendMessage() {
       const previousMessages = queryClient.getQueryData<Message[]>(['messages', conversationId]);
 
       // Find the reply_to message if replyToId is provided
-      const replyToMessage = replyToId 
-        ? previousMessages?.find(m => m.id === replyToId) 
-        : null;
+      const replyToMessage = replyToId ? previousMessages?.find((m) => m.id === replyToId) : null;
 
       // Create optimistic message
       const optimisticMessage: Message = {
@@ -449,13 +492,13 @@ export function useSendMessage() {
     onSettled: (data, error, { conversationId }) => {
       // Always invalidate conversations to update last message
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      
+
       // If we have the real data, replace the optimistic message
       if (data && !error) {
         queryClient.setQueryData<Message[]>(['messages', conversationId], (old = []) => {
           // Remove temp messages and add real one if not already there
-          const filtered = old.filter(m => !m.id.startsWith('temp-'));
-          if (!filtered.some(m => m.id === (data as any).id)) {
+          const filtered = old.filter((m) => !m.id.startsWith('temp-'));
+          if (!filtered.some((m) => m.id === (data as any).id)) {
             return [...filtered, data as any];
           }
           return filtered;
@@ -474,11 +517,11 @@ export function useSendFileMessage() {
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
-    mutationFn: async ({ 
-      conversationId, 
-      file 
-    }: { 
-      conversationId: string; 
+    mutationFn: async ({
+      conversationId,
+      file,
+    }: {
+      conversationId: string;
       file: File;
     }): Promise<Message> => {
       if (!user) {
@@ -487,6 +530,15 @@ export function useSendFileMessage() {
 
       if (!organizationId) {
         throw new Error('Organization not found');
+      }
+
+      // Validate file before upload
+      const validation = validateFile(file, {
+        maxSize: MAX_CHAT_ATTACHMENT_SIZE,
+        allowedTypes: ALLOWED_CHAT_MIME_TYPES,
+      });
+      if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid file');
       }
 
       // Upload file to Supabase storage
@@ -592,11 +644,11 @@ export function useSendFileMessage() {
     },
     onSettled: (data, error, { conversationId }) => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      
+
       if (data && !error) {
         queryClient.setQueryData<Message[]>(['messages', conversationId], (old = []) => {
-          const filtered = old.filter(m => !m.id.startsWith('temp-file-'));
-          if (!filtered.some(m => m.id === data.id)) {
+          const filtered = old.filter((m) => !m.id.startsWith('temp-file-'));
+          if (!filtered.some((m) => m.id === data.id)) {
             return [...filtered, data];
           }
           return filtered;
@@ -618,7 +670,7 @@ export function useGetOrCreateDirectConversation() {
       if (!user) throw new Error('User not authenticated');
 
       const { data, error } = await supabase.rpc('get_or_create_direct_conversation' as any, {
-        p_other_user_id: otherUserId
+        p_other_user_id: otherUserId,
       });
 
       if (error) throw error;
@@ -665,8 +717,8 @@ export function useMarkAsRead() {
  */
 export function useTotalUnreadCount() {
   const { data: conversations = [] } = useConversations();
-  
+
   const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
-  
+
   return totalUnread;
 }

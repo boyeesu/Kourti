@@ -42,17 +42,28 @@ const supabaseConfig: SupabaseClientOptions<'public'> = {
  * Uses direct environment variables with fallback to hardcoded values
  * This ensures the app works even if env variables aren't loaded properly
  */
-export const supabase = createClient<Database>(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
-  supabaseConfig
-);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig);
 
 // Add error handling for auth state changes
 supabase.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') {
-    // Clear any cached data when user signs out
+    // Clear all cached data when user signs out
     localStorage.removeItem('app_cache');
+    localStorage.removeItem('ai-lastcall');
+    localStorage.removeItem('kourti_legal_logs');
+
+    // Clear AI summary caches (ai-summary-* keys)
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('ai-summary-')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+    // Clear sessionStorage (document content, CSRF tokens, etc.)
+    sessionStorage.clear();
   }
 });
 

@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { AppLogo } from '@/components/ui/AppLogo';
+import { validatePassword, PASSWORD_REQUIREMENTS } from '@/lib/passwordValidation';
 
 export default function ResetPassword() {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,18 +35,21 @@ export default function ResetPassword() {
 
         // If we have hash params, set the session first
         if (accessToken && type === 'recovery' && refreshToken) {
-          const { data: { session: newSession }, error } = await supabase.auth.setSession({
+          const {
+            data: { session: newSession },
+            error,
+          } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
-          
+
           if (error) {
             if (mounted) {
               setTokenValid(false);
               toast({
-                variant: "destructive",
-                title: "Invalid reset link",
-                description: error.message || "This password reset link is invalid or has expired.",
+                variant: 'destructive',
+                title: 'Invalid reset link',
+                description: error.message || 'This password reset link is invalid or has expired.',
               });
               setTimeout(() => navigate('/forgot-password'), 3000);
             }
@@ -64,8 +68,10 @@ export default function ResetPassword() {
         }
 
         // Check if there's already an active session
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         if (session?.user) {
           if (mounted) {
             setTokenValid(true);
@@ -79,22 +85,21 @@ export default function ResetPassword() {
           if (mounted) {
             setTokenValid(false);
             toast({
-              variant: "destructive",
-              title: "Invalid reset link",
-              description: "This password reset link is invalid or has expired.",
+              variant: 'destructive',
+              title: 'Invalid reset link',
+              description: 'This password reset link is invalid or has expired.',
             });
             setTimeout(() => navigate('/forgot-password'), 3000);
           }
           return;
         }
-
       } catch {
         if (mounted) {
           setTokenValid(false);
           toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to verify password reset link.",
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to verify password reset link.',
           });
           setTimeout(() => navigate('/forgot-password'), 3000);
         }
@@ -106,7 +111,9 @@ export default function ResetPassword() {
     };
 
     // Set up auth state listener to catch automatic session creation
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session?.user)) {
         if (mounted) {
           setTokenValid(true);
@@ -133,21 +140,22 @@ export default function ResetPassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
       toast({
-        variant: "destructive",
+        variant: 'destructive',
         title: "Passwords don't match",
-        description: "Please ensure both passwords are the same.",
+        description: 'Please ensure both passwords are the same.',
       });
       return;
     }
 
-    if (password.length < 8) {
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
       toast({
-        variant: "destructive",
-        title: "Password too short",
-        description: "Password must be at least 8 characters long.",
+        variant: 'destructive',
+        title: 'Password too weak',
+        description: passwordCheck.error!,
       });
       return;
     }
@@ -162,23 +170,29 @@ export default function ResetPassword() {
 
       if (error) throw error;
 
+      // Clear password from state
+      setPassword('');
+      setConfirmPassword('');
+
       // Sign out to clear the recovery session before redirecting
       // This ensures a clean state when the user logs in with their new password
       await supabase.auth.signOut();
 
       toast({
-        title: "Password reset successfully!",
-        description: "Your password has been updated. You can now sign in with your new password.",
+        title: 'Password reset successfully!',
+        description: 'Your password has been updated. You can now sign in with your new password.',
       });
 
       // Redirect to login after successful password reset
       navigate('/login');
     } catch (error: unknown) {
-      console.error('Error resetting password:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to reset password. Please try again.";
+      setPassword('');
+      setConfirmPassword('');
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to reset password. Please try again.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     } finally {
@@ -222,13 +236,11 @@ export default function ResetPassword() {
                     <li>The link has expired (reset links expire after 1 hour)</li>
                     <li>The link was clicked more than once</li>
                   </ul>
-                  <p className="text-xs">
-                    Please request a new password reset link.
-                  </p>
+                  <p className="text-xs">Please request a new password reset link.</p>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => navigate('/forgot-password')}
                 className="w-full"
               >
@@ -250,12 +262,10 @@ export default function ResetPassword() {
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">Reset Your Password</CardTitle>
-            <p className="text-muted-foreground mt-2">
-              Enter your new password below.
-            </p>
+            <p className="text-muted-foreground mt-2">Enter your new password below.</p>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -264,7 +274,7 @@ export default function ResetPassword() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your new password"
                   className="pl-10 pr-10"
                   value={password}
@@ -280,9 +290,15 @@ export default function ResetPassword() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Must be at least 8 characters long
-              </p>
+              <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                <ul className="list-disc list-inside space-y-0.5">
+                  {PASSWORD_REQUIREMENTS.map((req) => (
+                    <li key={req.label} className={req.test(password) ? 'text-green-600' : ''}>
+                      {req.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -291,7 +307,7 @@ export default function ResetPassword() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm your new password"
                   className="pl-10 pr-10"
                   value={confirmPassword}
@@ -304,7 +320,11 @@ export default function ResetPassword() {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -321,7 +341,7 @@ export default function ResetPassword() {
               className="w-full"
               disabled={loading || !password || !confirmPassword || password !== confirmPassword}
             >
-              {loading ? "Resetting password..." : "Reset Password"}
+              {loading ? 'Resetting password...' : 'Reset Password'}
             </Button>
           </form>
         </CardContent>
@@ -329,4 +349,3 @@ export default function ResetPassword() {
     </div>
   );
 }
-

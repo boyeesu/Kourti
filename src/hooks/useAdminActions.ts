@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
+import { usePlatformAdmin } from './usePlatformAdmin';
 import type { Json } from '@/integrations/supabase/types';
 import { logError } from '@/lib/logger';
 
@@ -29,8 +30,10 @@ export interface AdminActionFilters {
  * Hook to fetch admin actions with optional filters
  */
 export function useAdminActions(filters?: AdminActionFilters) {
+  const { data: isPlatformAdmin } = usePlatformAdmin();
   return useQuery({
     queryKey: ['admin-actions', filters],
+    enabled: !!isPlatformAdmin,
     queryFn: async () => {
       try {
         let query = supabase

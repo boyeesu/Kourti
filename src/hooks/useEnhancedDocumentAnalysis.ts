@@ -19,7 +19,10 @@ const MAX_CONVERSATION_HISTORY_LENGTH = 10000; // 10k characters for conversatio
  * Truncate content intelligently, keeping beginning and end
  * This preserves the most important parts (title/intro and conclusion)
  */
-function truncateContent(content: string, maxLength: number): { content: string; wasTruncated: boolean } {
+function truncateContent(
+  content: string,
+  maxLength: number
+): { content: string; wasTruncated: boolean } {
   if (content.length <= maxLength) {
     return { content, wasTruncated: false };
   }
@@ -27,13 +30,13 @@ function truncateContent(content: string, maxLength: number): { content: string;
   // Take 60% from start, 40% from end
   const startLength = Math.floor(maxLength * 0.6);
   const endLength = Math.floor(maxLength * 0.4);
-  
+
   const start = content.substring(0, startLength);
   const end = content.substring(content.length - endLength);
-  
+
   return {
     content: `${start}\n\n[... Content truncated for size management. Showing beginning and end of document ...]\n\n${end}`,
-    wasTruncated: true
+    wasTruncated: true,
   };
 }
 
@@ -43,7 +46,7 @@ function truncateContent(content: string, maxLength: number): { content: string;
 function preparePayload({
   content,
   ragContext,
-  conversationHistory
+  conversationHistory,
 }: {
   content: string;
   ragContext?: string;
@@ -59,10 +62,12 @@ function preparePayload({
   // Truncate main content if needed
   const contentResult = truncateContent(content, MAX_CONTENT_LENGTH);
   if (contentResult.wasTruncated) {
-    warnings.push(`Document content truncated from ${content.length} to ${MAX_CONTENT_LENGTH} characters`);
+    warnings.push(
+      `Document content truncated from ${content.length} to ${MAX_CONTENT_LENGTH} characters`
+    );
     logWarn('Document content truncated for payload size', {
       originalLength: content.length,
-      truncatedLength: MAX_CONTENT_LENGTH
+      truncatedLength: MAX_CONTENT_LENGTH,
     });
   }
 
@@ -71,39 +76,43 @@ function preparePayload({
   if (ragContext && ragContext.length > MAX_RAG_CONTEXT_LENGTH) {
     const ragResult = truncateContent(ragContext, MAX_RAG_CONTEXT_LENGTH);
     processedRagContext = ragResult.content;
-    warnings.push(`RAG context truncated from ${ragContext.length} to ${MAX_RAG_CONTEXT_LENGTH} characters`);
+    warnings.push(
+      `RAG context truncated from ${ragContext.length} to ${MAX_RAG_CONTEXT_LENGTH} characters`
+    );
     logWarn('RAG context truncated for payload size', {
       originalLength: ragContext.length,
-      truncatedLength: MAX_RAG_CONTEXT_LENGTH
+      truncatedLength: MAX_RAG_CONTEXT_LENGTH,
     });
   }
 
   // Truncate conversation history if needed
   let processedConversationHistory = conversationHistory;
   if (conversationHistory && conversationHistory.length > 0) {
-    const historyText = conversationHistory.map(msg => msg.content).join(' ');
+    const historyText = conversationHistory.map((msg) => msg.content).join(' ');
     if (historyText.length > MAX_CONVERSATION_HISTORY_LENGTH) {
       // Keep only the most recent messages that fit
       let totalLength = 0;
       const keptMessages: Array<{ role: string; content: string }> = [];
-      
+
       for (let i = conversationHistory.length - 1; i >= 0; i--) {
         const msg = conversationHistory[i];
         const msgLength = msg.content.length;
-        
+
         if (totalLength + msgLength > MAX_CONVERSATION_HISTORY_LENGTH) {
           break;
         }
-        
+
         keptMessages.unshift(msg);
         totalLength += msgLength;
       }
-      
+
       processedConversationHistory = keptMessages;
-      warnings.push(`Conversation history truncated from ${conversationHistory.length} to ${keptMessages.length} messages`);
+      warnings.push(
+        `Conversation history truncated from ${conversationHistory.length} to ${keptMessages.length} messages`
+      );
       logWarn('Conversation history truncated for payload size', {
         originalCount: conversationHistory.length,
-        keptCount: keptMessages.length
+        keptCount: keptMessages.length,
       });
     }
   }
@@ -112,7 +121,7 @@ function preparePayload({
     content: contentResult.content,
     ragContext: processedRagContext,
     conversationHistory: processedConversationHistory,
-    warnings
+    warnings,
   };
 }
 
@@ -130,35 +139,30 @@ export function useEnhancedDocumentAnalysis() {
   const documentAnalysis = useMutation({
     mutationFn: async ({
       content,
-      analysisType = 'general'
+      analysisType = 'general',
     }: {
       content: string;
       analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     }) => {
       try {
-        // Ensure we have an active session
-        const { data: sessionData } = await supabase.auth.getSession();
-
-        if (!sessionData?.session) {
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-
-          if (refreshError || !refreshData?.session) {
-            throw new Error('Authentication required. Please sign in again.');
-          }
+        // Validate user identity server-side first (getSession reads from localStorage and can be spoofed)
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user) {
+          throw new Error('Authentication required. Please sign in again.');
         }
 
         // Prepare payload with size checks
         const payload = preparePayload({ content });
-        
+
         if (payload.warnings.length > 0) {
           logWarn('Payload size management applied for basic analysis', {
             warnings: payload.warnings,
-            originalContentLength: content.length
+            originalContentLength: content.length,
           });
         }
 
         // Call the advanced contract analysis edge function with CSRF protection
-        const { data, error } = await invokeFunctionWithCsrf<{ 
+        const { data, error } = await invokeFunctionWithCsrf<{
           analysis?: string;
           success?: boolean;
           tokensUsed?: number;
@@ -167,10 +171,11 @@ export function useEnhancedDocumentAnalysis() {
           body: {
             text: payload.content,
             analysisType: analysisType,
-            goal: analysisType === 'general'
-              ? 'Provide a comprehensive analysis of this document'
-              : analysisType
-          }
+            goal:
+              analysisType === 'general'
+                ? 'Provide a comprehensive analysis of this document'
+                : analysisType,
+          },
         });
 
         if (error) {
@@ -196,7 +201,7 @@ export function useEnhancedDocumentAnalysis() {
         title: 'Analysis Failed',
         description: error instanceof Error ? error.message : 'Failed to analyze document',
       });
-    }
+    },
   });
 
   // Cancel any ongoing streaming
@@ -209,156 +214,165 @@ export function useEnhancedDocumentAnalysis() {
   }, [abortController]);
 
   // Streaming document analysis with real OpenAI streaming
-  const streamDocumentAnalysis = useCallback(async ({
-    content,
-    analysisType = 'general',
-    onProgress,
-    conversationHistory,
-    ragContext
-  }: {
-    content: string;
-    analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
-    onProgress: (content: string, done: boolean) => void;
-    conversationHistory?: Array<{ role: string; content: string }>;
-    ragContext?: string;
-  }) => {
-    // Cancel any existing stream
-    cancelStreaming();
+  const streamDocumentAnalysis = useCallback(
+    async ({
+      content,
+      analysisType = 'general',
+      onProgress,
+      conversationHistory,
+      ragContext,
+    }: {
+      content: string;
+      analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
+      onProgress: (content: string, done: boolean) => void;
+      conversationHistory?: Array<{ role: string; content: string }>;
+      ragContext?: string;
+    }) => {
+      // Cancel any existing stream
+      cancelStreaming();
 
-    try {
-      setIsStreaming(true);
-      setStreamingContent('');
+      try {
+        setIsStreaming(true);
+        setStreamingContent('');
 
-      // Check if content is too short for meaningful analysis
-      if (content.trim().length < 50) {
-        const shortMessage = 'Document content is too short for detailed analysis. Please provide a document with more substantial content.';
-        setStreamingContent(shortMessage);
-        onProgress(shortMessage, true);
-        setIsStreaming(false);
-        setAbortController(null);
-        return;
-      }
+        // Check if content is too short for meaningful analysis
+        if (content.trim().length < 50) {
+          const shortMessage =
+            'Document content is too short for detailed analysis. Please provide a document with more substantial content.';
+          setStreamingContent(shortMessage);
+          onProgress(shortMessage, true);
+          setIsStreaming(false);
+          setAbortController(null);
+          return;
+        }
 
-      // Create a new abort controller for this request
-      const controller = new AbortController();
-      setAbortController(controller);
+        // Create a new abort controller for this request
+        const controller = new AbortController();
+        setAbortController(controller);
 
-      // Ensure we have an active session
-      const { data: sessionData } = await supabase.auth.getSession();
-
-      if (!sessionData?.session) {
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-
-        if (refreshError || !refreshData?.session) {
+        // Validate user identity server-side first (getSession reads from localStorage and can be spoofed)
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user) {
           throw new Error('Authentication required. Please sign in again.');
         }
-      }
 
-      // Prepare payload with size checks and truncation
-      const payload = preparePayload({
-        content,
-        ragContext,
-        conversationHistory
-      });
-
-      // Log warnings if truncation occurred
-      if (payload.warnings.length > 0) {
-        logWarn('Payload size warnings', { warnings: payload.warnings });
-        logWarn('Payload size management applied', {
-          warnings: payload.warnings,
-          originalContentLength: content.length,
-          processedContentLength: payload.content.length
+        // Prepare payload with size checks and truncation
+        const payload = preparePayload({
+          content,
+          ragContext,
+          conversationHistory,
         });
-      }
 
-      // Use the advanced contract analysis edge function with CSRF protection
-      // Note: stream: false because Supabase functions.invoke doesn't handle SSE properly
-      const { data: responseData, error } = await invokeFunctionWithCsrf<{ 
-        analysis?: string; 
-        content?: string; 
-        result?: string; 
-        success?: boolean;
-        tokensUsed?: number;
-        modelUsed?: string;
-        choices?: Array<{ message?: { content?: string } }> 
-      }>('advanced-contract-analysis', {
-        body: {
-          text: payload.content,
-          analysisType: analysisType,
-          goal: analysisType === 'general'
-            ? 'Provide a comprehensive analysis of this document'
-            : analysisType,
-          conversationHistory: payload.conversationHistory || [],
-          ragContext: payload.ragContext,
-          stream: false // SSE streaming not supported by functions.invoke
+        // Log warnings if truncation occurred
+        if (payload.warnings.length > 0) {
+          logWarn('Payload size warnings', { warnings: payload.warnings });
+          logWarn('Payload size management applied', {
+            warnings: payload.warnings,
+            originalContentLength: content.length,
+            processedContentLength: payload.content.length,
+          });
         }
-      });
 
-      console.log('Analysis response:', { hasData: !!responseData, hasError: !!error, responseKeys: responseData ? Object.keys(responseData) : [], responseData });
-
-      if (error) {
-        logError('Analysis request error', error);
-        logError('Advanced contract analysis function call failed', {
-          error: error.message || String(error),
-          errorName: error.name,
-          stack: error.stack,
-          contentLength: content.length,
-          hasConversationHistory: !!conversationHistory && conversationHistory.length > 0,
-          hasRAGContext: !!ragContext,
+        // Use the advanced contract analysis edge function with CSRF protection
+        // Note: stream: false because Supabase functions.invoke doesn't handle SSE properly
+        const { data: responseData, error } = await invokeFunctionWithCsrf<{
+          analysis?: string;
+          content?: string;
+          result?: string;
+          success?: boolean;
+          tokensUsed?: number;
+          modelUsed?: string;
+          choices?: Array<{ message?: { content?: string } }>;
+        }>('advanced-contract-analysis', {
+          body: {
+            text: payload.content,
+            analysisType: analysisType,
+            goal:
+              analysisType === 'general'
+                ? 'Provide a comprehensive analysis of this document'
+                : analysisType,
+            conversationHistory: payload.conversationHistory || [],
+            ragContext: payload.ragContext,
+            stream: false, // SSE streaming not supported by functions.invoke
+          },
         });
-        throw error;
-      }
 
-      // Handle the response - extract analysis content
-      let analysisContent = '';
+        if (import.meta.env.DEV) {
+          console.log('Analysis response:', {
+            hasData: !!responseData,
+            hasError: !!error,
+            responseKeys: responseData ? Object.keys(responseData) : [],
+          });
+        }
 
-      if (responseData) {
-        if (typeof responseData === 'string') {
-          analysisContent = responseData;
-        } else if (typeof responseData === 'object') {
-          // Try different possible response shapes
-          analysisContent = responseData.analysis || responseData.content || responseData.result || '';
+        if (error) {
+          logError('Analysis request error', error);
+          logError('Advanced contract analysis function call failed', {
+            error: error.message || String(error),
+            errorName: error.name,
+            stack: error.stack,
+            contentLength: content.length,
+            hasConversationHistory: !!conversationHistory && conversationHistory.length > 0,
+            hasRAGContext: !!ragContext,
+          });
+          throw error;
+        }
 
-          // If still no content, check if the response is the raw data structure
-          if (!analysisContent && responseData.choices?.[0]?.message?.content) {
-            analysisContent = responseData.choices[0].message.content;
+        // Handle the response - extract analysis content
+        let analysisContent = '';
+
+        if (responseData) {
+          if (typeof responseData === 'string') {
+            analysisContent = responseData;
+          } else if (typeof responseData === 'object') {
+            // Try different possible response shapes
+            analysisContent =
+              responseData.analysis || responseData.content || responseData.result || '';
+
+            // If still no content, check if the response is the raw data structure
+            if (!analysisContent && responseData.choices?.[0]?.message?.content) {
+              analysisContent = responseData.choices[0].message.content;
+            }
           }
         }
+
+        if (!analysisContent) {
+          logWarn('No analysis content found in response', { responseData });
+          analysisContent = 'Unable to extract analysis. Please try again.';
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('Extracted analysis content length:', analysisContent.length);
+        }
+
+        // Show content immediately (no streaming simulation)
+        setStreamingContent(analysisContent);
+        onProgress(analysisContent, true);
+        setIsStreaming(false);
+        setAbortController(null);
+
+        return { analysis: analysisContent };
+      } catch (error) {
+        // Handle abort separately from other errors
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return { analysis: streamingContent, aborted: true };
+        }
+
+        setIsStreaming(false);
+        setAbortController(null);
+
+        logError('Document streaming analysis failed', error);
+        toast({
+          variant: 'destructive',
+          title: 'Analysis Failed',
+          description: error instanceof Error ? error.message : 'Failed to analyze document',
+        });
+
+        throw error;
       }
-
-      if (!analysisContent) {
-        logWarn('No analysis content found in response', { responseData });
-        analysisContent = 'Unable to extract analysis. Please try again.';
-      }
-
-      console.log('Extracted analysis content length:', analysisContent.length);
-
-      // Show content immediately (no streaming simulation)
-      setStreamingContent(analysisContent);
-      onProgress(analysisContent, true);
-      setIsStreaming(false);
-      setAbortController(null);
-
-      return { analysis: analysisContent };
-    } catch (error) {
-      // Handle abort separately from other errors
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        return { analysis: streamingContent, aborted: true };
-      }
-
-      setIsStreaming(false);
-      setAbortController(null);
-
-      logError('Document streaming analysis failed', error);
-      toast({
-        variant: 'destructive',
-        title: 'Analysis Failed',
-        description: error instanceof Error ? error.message : 'Failed to analyze document',
-      });
-
-      throw error;
-    }
-  }, [cancelStreaming, toast, streamingContent]);
+    },
+    [cancelStreaming, toast, streamingContent]
+  );
 
   return {
     analyzeDocument: documentAnalysis.mutateAsync,
@@ -367,6 +381,6 @@ export function useEnhancedDocumentAnalysis() {
     isLoading: documentAnalysis.isPending,
     isStreaming,
     streamingContent,
-    error: documentAnalysis.error
+    error: documentAnalysis.error,
   };
 }

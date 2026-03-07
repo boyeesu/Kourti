@@ -1,18 +1,18 @@
-import React, { useState, useRef } from "react";
-import { Upload, FileText, AlertCircle, CheckCircle, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { useCreateClient } from "@/hooks/useClients";
-import { useCreateCase } from "@/hooks/useCases";
-import { parseCSV } from "@/lib/csv";
-import * as z from "zod";
+import React, { useState, useRef } from 'react';
+import { Upload, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { useCreateClient } from '@/hooks/useClients';
+import { useCreateCase } from '@/hooks/useCases';
+import { parseCSV } from '@/lib/csv';
+import * as z from 'zod';
 
 interface BulkImportFormProps {
-  entityType: "clients" | "cases";
+  entityType: 'clients' | 'cases';
   onImportComplete?: (data: Record<string, unknown>[]) => void;
 }
 
@@ -36,9 +36,9 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
   };
@@ -50,10 +50,10 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.type === "text/csv" || file.name.endsWith(".csv")) {
+      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
         setSelectedFile(file);
       } else {
-        toast.error("Please select a CSV file");
+        toast.error('Please select a CSV file');
       }
     }
   };
@@ -61,18 +61,18 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.type === "text/csv" || file.name.endsWith(".csv")) {
+      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
         setSelectedFile(file);
       } else {
-        toast.error("Please select a CSV file");
+        toast.error('Please select a CSV file');
       }
     }
   };
 
-  const schemas: Record<BulkImportFormProps["entityType"], z.ZodSchema<Record<string, unknown>>> = {
+  const schemas: Record<BulkImportFormProps['entityType'], z.ZodSchema<Record<string, unknown>>> = {
     clients: z.object({
       name: z.string().min(1),
-      email: z.string().email().optional().or(z.literal("")),
+      email: z.string().email().optional().or(z.literal('')),
       phone: z.string().optional(),
       address: z.string().optional(),
       company: z.string().optional(),
@@ -92,13 +92,13 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
     let successful = 0;
     let failed = 0;
     const errors: string[] = [];
-    
+
     for (let i = 0; i < data.length; i++) {
       const item = data[i];
       setUploadProgress(Math.round((i / data.length) * 100));
-      
+
       try {
-        if (entityType === "clients") {
+        if (entityType === 'clients') {
           await createClient.mutateAsync({
             name: item.name as string,
             email: (item.email as string) || undefined,
@@ -106,37 +106,41 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
             address: (item.address as string) || undefined,
             company: (item.company as string) || undefined,
             notes: (item.notes as string) || undefined,
-            status: (item.status as string) || "active",
+            status: (item.status as string) || 'active',
           });
-        } else if (entityType === "cases") {
+        } else if (entityType === 'cases') {
           await createCase.mutateAsync({
             title: item.title as string,
             description: (item.description as string) || undefined,
-            status: (item.status as string) || "active",
-            priority: (item.priority as string) || "medium",
+            status: (item.status as string) || 'active',
+            priority: (item.priority as string) || 'medium',
             // Note: client_name would need to be resolved to client_id in a real implementation
           });
         }
         successful++;
       } catch (error) {
         failed++;
-        errors.push(`Row ${i + 2}: ${error instanceof Error ? error.message : "Unknown error"}`);
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        // Truncate error message to avoid exposing raw CSV field values
+        errors.push(
+          `Row ${i + 2}: ${errMsg.length > 100 ? errMsg.substring(0, 100) + '...' : errMsg}`
+        );
       }
     }
-    
+
     setUploadProgress(100);
-    
+
     return {
       total: data.length,
       successful,
       failed,
-      errors
+      errors,
     };
   };
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      toast.error("Please select a file");
+      toast.error('Please select a file');
       return;
     }
 
@@ -149,7 +153,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
       const { data: valid, errors } = parseCSV(csvText, schemas[entityType]);
 
       if (valid.length === 0) {
-        throw new Error("No valid data found in CSV file");
+        throw new Error('No valid data found in CSV file');
       }
 
       const result = await processImport(valid);
@@ -164,16 +168,15 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
       }
 
       if (errors.length > 0) {
-        toast.error("Some rows failed validation");
+        toast.error('Some rows failed validation');
       }
-
     } catch (error) {
-      toast.error("Failed to process file");
+      toast.error('Failed to process file');
       setImportResult({
         total: 0,
         successful: 0,
         failed: 1,
-        errors: [error instanceof Error ? error.message : "Unknown error"]
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
       });
     } finally {
       setIsUploading(false);
@@ -199,9 +202,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
         <CardContent>
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              dragActive
-                ? "border-primary bg-primary/5"
-                : "border-border hover:border-primary/50"
+              dragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -218,12 +219,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
                       {(selectedFile.size / 1024).toFixed(1)} KB
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={clearFile}
-                    className="ml-2"
-                  >
+                  <Button variant="ghost" size="icon" onClick={clearFile} className="ml-2">
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -246,10 +242,7 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
                   className="hidden"
                   ref={fileInputRef}
                 />
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                >
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
                   Select CSV File
                 </Button>
               </div>
@@ -258,12 +251,10 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
 
           {selectedFile && (
             <div className="mt-4 flex justify-end">
-              <Button
-                onClick={handleUpload}
-                disabled={isUploading}
-                className="hover-scale"
-              >
-                {isUploading ? "Importing..." : `Import ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}`}
+              <Button onClick={handleUpload} disabled={isUploading} className="hover-scale">
+                {isUploading
+                  ? 'Importing...'
+                  : `Import ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}`}
               </Button>
             </div>
           )}
@@ -322,7 +313,9 @@ export function BulkImportForm({ entityType, onImportComplete }: BulkImportFormP
                     <p className="font-medium">Import Errors:</p>
                     <ul className="text-sm space-y-1">
                       {importResult.errors.slice(0, 5).map((error, index) => (
-                        <li key={index} className="text-muted-foreground">• {error}</li>
+                        <li key={index} className="text-muted-foreground">
+                          • {error}
+                        </li>
                       ))}
                       {importResult.errors.length > 5 && (
                         <li className="text-muted-foreground">

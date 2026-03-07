@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -11,7 +10,7 @@ export interface CreateDocumentData {
   name: string;
   content: string;
   summary?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   effective_date?: string;
   renewal_date?: string;
   termination_date?: string;
@@ -28,7 +27,7 @@ export interface UploadDocumentData {
   name: string;
   file: File;
   case_id?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   summary?: string;
   contract_type?: string;
   effective_date?: string;
@@ -65,7 +64,8 @@ export function useDocuments() {
 
       const { data, error } = await supabase
         .from('documents')
-        .select(`
+        .select(
+          `
           *,
           clients (
             id,
@@ -75,7 +75,8 @@ export function useDocuments() {
             first_name,
             last_name
           )
-        `)
+        `
+        )
         .eq('organization_id', organizationId);
 
       if (error) throw error;
@@ -115,9 +116,20 @@ export function useDocument(id: string) {
   return useQuery({
     queryKey: ['document', id],
     queryFn: async () => {
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error('User not authenticated');
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const orgId = (profile as Profile | null)?.organization_id;
+      if (!orgId) throw new Error('Organization not found');
+
       const { data, error } = await supabase
         .from('documents')
-        .select(`
+        .select(
+          `
           *,
           clients (
             id,
@@ -127,14 +139,18 @@ export function useDocument(id: string) {
             first_name,
             last_name
           )
-        `)
+        `
+        )
         .eq('id', id)
+        .eq('organization_id', orgId)
         .single();
 
       if (error) throw error;
 
       // If document has a case_id in metadata, fetch the case info
-      const documentWithCase = { ...data } as Document & { case?: { id: string; title: string } | null };
+      const documentWithCase = { ...data } as Document & {
+        case?: { id: string; title: string } | null;
+      };
       const metadata = data.metadata as Record<string, unknown> | null;
       const caseId = metadata?.case_id;
       if (caseId && typeof caseId === 'string') {
@@ -177,7 +193,7 @@ export function useDocumentsByClient(clientId: string) {
 
       if (casesError) throw casesError;
 
-      const caseIds = cases?.map(c => c.id) || [];
+      const caseIds = cases?.map((c) => c.id) || [];
 
       // Query for documents directly associated with client OR associated with client's cases
       const queries = [];
@@ -186,7 +202,8 @@ export function useDocumentsByClient(clientId: string) {
       queries.push(
         supabase
           .from('documents')
-          .select(`
+          .select(
+            `
             *,
             clients (
               id,
@@ -196,7 +213,8 @@ export function useDocumentsByClient(clientId: string) {
               first_name,
               last_name
             )
-          `)
+          `
+          )
           .eq('client_id', clientId)
       );
 
@@ -206,7 +224,8 @@ export function useDocumentsByClient(clientId: string) {
           queries.push(
             supabase
               .from('documents')
-              .select(`
+              .select(
+                `
                 *,
                 clients (
                   id,
@@ -216,7 +235,8 @@ export function useDocumentsByClient(clientId: string) {
                   first_name,
                   last_name
                 )
-              `)
+              `
+              )
               .contains('metadata', { case_id: caseId })
           );
         }
@@ -231,9 +251,9 @@ export function useDocumentsByClient(clientId: string) {
       }
 
       // Combine all documents and remove duplicates
-      const allDocuments = results.flatMap(result => result.data || []);
-      const uniqueDocuments = allDocuments.filter((doc, index, self) =>
-        index === self.findIndex(d => d.id === doc.id)
+      const allDocuments = results.flatMap((result) => result.data || []);
+      const uniqueDocuments = allDocuments.filter(
+        (doc, index, self) => index === self.findIndex((d) => d.id === doc.id)
       );
 
       return uniqueDocuments as Document[];
@@ -247,7 +267,8 @@ export function useDocumentsByCase(caseId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
-        .select(`
+        .select(
+          `
           *,
           clients (
             id,
@@ -257,15 +278,16 @@ export function useDocumentsByCase(caseId: string) {
             first_name,
             last_name
           )
-        `)
+        `
+        )
         .contains('metadata', { case_id: caseId });
 
       if (error) throw error;
 
       // Add case information to each document
-      const documentsWithCase = (data || []).map(doc => ({
+      const documentsWithCase = (data || []).map((doc) => ({
         ...doc,
-        case: { id: caseId, title: 'Case' } // You could fetch actual case title if needed
+        case: { id: caseId, title: 'Case' }, // You could fetch actual case title if needed
       }));
 
       return documentsWithCase as Document[];
@@ -310,16 +332,16 @@ export function useCreateDocument() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast({
-        title: "Success",
-        description: "Document created successfully.",
+        title: 'Success',
+        description: 'Document created successfully.',
       });
     },
     onError: (error: Error) => {
       logError('Failed to create document', { error });
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create document.",
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to create document.',
       });
     },
   });
@@ -342,7 +364,7 @@ export function useUploadDocument() {
       termination_date,
       value,
       currency,
-      terms
+      terms,
     }: UploadDocumentData) => {
       const userId = await getCurrentUserId();
       if (!userId) {
@@ -365,8 +387,9 @@ export function useUploadDocument() {
         throw new Error(validation.error || 'File validation failed');
       }
 
-      // Generate unique filename
-      const fileExt = file.name.split('.').pop();
+      // Generate unique filename with sanitized extension
+      const fileExtRaw = file.name.split('.').pop() ?? '';
+      const fileExt = fileExtRaw.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10) || 'bin';
       const fileName = `${orgId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
       // Upload file to storage
@@ -415,16 +438,16 @@ export function useUploadDocument() {
         queryClient.invalidateQueries({ queryKey: ['documents', 'case', variables.case_id] });
       }
       toast({
-        title: "Success",
-        description: "Document uploaded successfully.",
+        title: 'Success',
+        description: 'Document uploaded successfully.',
       });
     },
     onError: (error: Error) => {
       logError('Failed to upload document', { error });
       toast({
-        variant: "destructive",
-        title: "Upload Failed",
-        description: error.message || "Failed to upload document.",
+        variant: 'destructive',
+        title: 'Upload Failed',
+        description: error.message || 'Failed to upload document.',
       });
     },
   });

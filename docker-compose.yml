@@ -10,6 +10,20 @@ services:
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
         VITE_APP_URL: ${VITE_APP_URL}
         VITE_API_TIMEOUT: ${VITE_API_TIMEOUT}
+    user: "1000:1000"
+    read_only: true
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
     ports:
       - "8080:80"
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

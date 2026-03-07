@@ -1,23 +1,53 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { AppLogo } from '@/components/ui/AppLogo';
 
 export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
+    email: '',
+    password: '',
   });
 
+  // Rate limiting state
+  const MAX_FAILED_ATTEMPTS = 5;
+  const LOCKOUT_DURATION = 30; // seconds
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const lockoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const isLockedOut = lockoutRemaining > 0;
+
+  const startLockout = useCallback(() => {
+    setLockoutRemaining(LOCKOUT_DURATION);
+    if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current);
+    lockoutTimerRef.current = setInterval(() => {
+      setLockoutRemaining((prev) => {
+        if (prev <= 1) {
+          if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current);
+          lockoutTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current);
+    };
+  }, []);
 
   const { signIn, user } = useAuth();
   const { toast } = useToast();
@@ -29,12 +59,12 @@ export default function Auth() {
   const invitedEmail = searchParams.get('email');
   const isInvited = searchParams.get('invited') === 'true';
 
-  const from = location.state?.from?.pathname || "/dashboard";
+  const from = location.state?.from?.pathname || '/dashboard';
 
   // Pre-fill email for invited users
   useEffect(() => {
     if (isInvited && invitedEmail) {
-      setFormData(prev => ({ ...prev, email: decodeURIComponent(invitedEmail) }));
+      setFormData((prev) => ({ ...prev, email: decodeURIComponent(invitedEmail) }));
     }
   }, [isInvited, invitedEmail]);
 
@@ -46,37 +76,80 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isLockedOut) {
+      toast({
+        variant: 'destructive',
+        title: 'Too many failed attempts',
+        description: `Please wait ${lockoutRemaining} seconds before trying again.`,
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       const result = await signIn(formData.email, formData.password);
-      
+
+      // Clear password from state regardless of outcome
+      setFormData((prev) => ({ ...prev, password: '' }));
+
       if (!result.error) {
+        // Reset failed attempts on successful login
+        setFailedAttempts(0);
+        setLockoutRemaining(0);
+        if (lockoutTimerRef.current) {
+          clearInterval(lockoutTimerRef.current);
+          lockoutTimerRef.current = null;
+        }
+
         toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
+          title: 'Welcome back!',
+          description: 'You have successfully signed in.',
         });
-        navigate("/dashboard", { replace: true });
+        navigate('/dashboard', { replace: true });
       } else {
-        if (result.error.message?.includes("timeout") || result.error.message?.includes("504")) {
+        const newFailedAttempts = failedAttempts + 1;
+        setFailedAttempts(newFailedAttempts);
+
+        if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
+          startLockout();
+          setFailedAttempts(0);
           toast({
-            variant: "destructive",
-            title: "Server busy",
-            description: "The server is taking too long to respond. Please try again in a moment.",
+            variant: 'destructive',
+            title: 'Too many failed attempts',
+            description: `Account temporarily locked. Please wait ${LOCKOUT_DURATION} seconds before trying again.`,
+          });
+        } else if (
+          result.error.message?.includes('timeout') ||
+          result.error.message?.includes('504')
+        ) {
+          toast({
+            variant: 'destructive',
+            title: 'Server busy',
+            description: 'The server is taking too long to respond. Please try again in a moment.',
           });
         } else {
           toast({
-            variant: "destructive",
-            title: "Authentication Error",
+            variant: 'destructive',
+            title: 'Authentication Error',
             description: result.error.message,
           });
         }
       }
     } catch {
+      const newFailedAttempts = failedAttempts + 1;
+      setFailedAttempts(newFailedAttempts);
+
+      if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
+        startLockout();
+        setFailedAttempts(0);
+      }
+
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
       });
     } finally {
       setLoading(false);
@@ -92,17 +165,16 @@ export default function Auth() {
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">
-              {isInvited ? "Accept Invitation" : "Welcome Back"}
+              {isInvited ? 'Accept Invitation' : 'Welcome Back'}
             </CardTitle>
             <p className="text-muted-foreground mt-2">
-              {isInvited 
-                ? "Set your password to complete your account setup"
-                : "Sign in to your Kourti Legal account"
-              }
+              {isInvited
+                ? 'Set your password to complete your account setup'
+                : 'Sign in to your Kourti Legal account'}
             </p>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -121,14 +193,14 @@ export default function Auth() {
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   className="pl-10 pr-10"
                   value={formData.password}
@@ -151,32 +223,33 @@ export default function Auth() {
                 </Button>
               </div>
             </div>
-            
+
             {!isInvited && (
               <div className="flex items-center justify-end">
-                <Link 
-                  to="/forgot-password" 
-                  className="text-sm text-primary hover:underline"
-                >
+                <Link to="/forgot-password" className="text-sm text-primary hover:underline">
                   Forgot password?
                 </Link>
               </div>
             )}
-            
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Loading..." : "Sign In"}
+
+            {isLockedOut && (
+              <p className="text-sm text-destructive text-center">
+                Too many failed attempts. Please wait {lockoutRemaining} second
+                {lockoutRemaining !== 1 ? 's' : ''} before trying again.
+              </p>
+            )}
+
+            <Button type="submit" className="w-full" disabled={loading || isLockedOut}>
+              {loading ? 'Loading...' : isLockedOut ? `Locked (${lockoutRemaining}s)` : 'Sign In'}
             </Button>
           </form>
-          
+
           {!isInvited && (
             <div className="mt-6">
               <Separator className="my-4" />
               <div className="text-center text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link
-                  to="/onboarding"
-                  className="text-primary hover:underline font-medium"
-                >
+                Don't have an account?{' '}
+                <Link to="/onboarding" className="text-primary hover:underline font-medium">
                   Sign up
                 </Link>
               </div>

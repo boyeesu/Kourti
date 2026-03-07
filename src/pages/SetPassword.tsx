@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { AppLogo } from '@/components/ui/AppLogo';
+import { validatePassword, PASSWORD_REQUIREMENTS } from '@/lib/passwordValidation';
 
 export default function SetPassword() {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,8 +25,10 @@ export default function SetPassword() {
     const verifyToken = async () => {
       try {
         // Check if there's already an active session (Supabase automatically creates one from invite link)
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         if (session?.user) {
           // Valid session exists, user can set password
           setTokenValid(true);
@@ -41,26 +44,29 @@ export default function SetPassword() {
         if (!accessToken || type !== 'invite') {
           setTokenValid(false);
           toast({
-            variant: "destructive",
-            title: "Invalid invitation",
-            description: "This invitation link is invalid or has expired.",
+            variant: 'destructive',
+            title: 'Invalid invitation',
+            description: 'This invitation link is invalid or has expired.',
           });
           setTimeout(() => navigate('/auth'), 3000);
           return;
         }
 
         // Try to establish session with the token
-        const { data: { session: newSession }, error } = await supabase.auth.setSession({
+        const {
+          data: { session: newSession },
+          error,
+        } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: hashParams.get('refresh_token') || '',
         });
-        
+
         if (error || !newSession) {
           setTokenValid(false);
           toast({
-            variant: "destructive",
-            title: "Invalid invitation",
-            description: "This invitation link is invalid or has expired.",
+            variant: 'destructive',
+            title: 'Invalid invitation',
+            description: 'This invitation link is invalid or has expired.',
           });
           setTimeout(() => navigate('/auth'), 3000);
           return;
@@ -71,9 +77,9 @@ export default function SetPassword() {
         console.error('Error verifying token:', error);
         setTokenValid(false);
         toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to verify invitation link.",
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to verify invitation link.',
         });
         setTimeout(() => navigate('/auth'), 3000);
       } finally {
@@ -86,21 +92,22 @@ export default function SetPassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
       toast({
-        variant: "destructive",
+        variant: 'destructive',
         title: "Passwords don't match",
-        description: "Please ensure both passwords are the same.",
+        description: 'Please ensure both passwords are the same.',
       });
       return;
     }
 
-    if (password.length < 8) {
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
       toast({
-        variant: "destructive",
-        title: "Password too short",
-        description: "Password must be at least 8 characters long.",
+        variant: 'destructive',
+        title: 'Password too weak',
+        description: passwordCheck.error!,
       });
       return;
     }
@@ -116,18 +123,25 @@ export default function SetPassword() {
       if (error) throw error;
 
       toast({
-        title: "Password set successfully!",
-        description: "Welcome to Kourti Legal!",
+        title: 'Password set successfully!',
+        description: 'Welcome to Kourti Legal!',
       });
+
+      // Clear password from state
+      setPassword('');
+      setConfirmPassword('');
 
       // Redirect to dashboard immediately after successful password set
       navigate('/dashboard');
     } catch (error: unknown) {
-      console.error('Error setting password:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to set password. Please try again.";
+      // Clear password from state on error too
+      setPassword('');
+      setConfirmPassword('');
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to set password. Please try again.';
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
     } finally {
@@ -172,18 +186,18 @@ export default function SetPassword() {
                     <li>The link was clicked more than once</li>
                   </ul>
                   <p className="mt-4 text-sm">
-                    If you've already set your password, please <Button variant="link" className="p-0 h-auto" onClick={() => navigate('/auth')}>sign in here</Button>.
+                    If you've already set your password, please{' '}
+                    <Button variant="link" className="p-0 h-auto" onClick={() => navigate('/auth')}>
+                      sign in here
+                    </Button>
+                    .
                   </p>
                   <p className="text-xs">
                     If you need a new invitation, please contact your administrator.
                   </p>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/auth')}
-                className="w-full"
-              >
+              <Button variant="outline" onClick={() => navigate('/auth')} className="w-full">
                 Go to Sign In
               </Button>
             </div>
@@ -207,7 +221,7 @@ export default function SetPassword() {
             </p>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -216,7 +230,7 @@ export default function SetPassword() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   className="pl-10 pr-10"
                   value={password}
@@ -233,9 +247,15 @@ export default function SetPassword() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Must be at least 8 characters long
-              </p>
+              <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                <ul className="list-disc list-inside space-y-0.5">
+                  {PASSWORD_REQUIREMENTS.map((req) => (
+                    <li key={req.label} className={req.test(password) ? 'text-green-600' : ''}>
+                      {req.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -244,7 +264,7 @@ export default function SetPassword() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm your password"
                   className="pl-10 pr-10"
                   value={confirmPassword}
@@ -258,7 +278,11 @@ export default function SetPassword() {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -275,7 +299,7 @@ export default function SetPassword() {
               className="w-full"
               disabled={loading || !password || !confirmPassword || password !== confirmPassword}
             >
-              {loading ? "Setting password..." : "Set Password & Continue"}
+              {loading ? 'Setting password...' : 'Set Password & Continue'}
             </Button>
           </form>
         </CardContent>

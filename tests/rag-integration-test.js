@@ -28,7 +28,10 @@ try {
 }
 
 // Load environment variables
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://zjbvnvydgsxqmmrrmvif.supabase.co';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+if (!SUPABASE_URL) {
+  throw new Error('VITE_SUPABASE_URL environment variable is required. Set it in your .env file.');
+}
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 

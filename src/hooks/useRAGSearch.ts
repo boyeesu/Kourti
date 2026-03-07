@@ -10,7 +10,7 @@ export interface RAGSearchResult {
   contractId?: string;
   content: string;
   similarity: number;
-  metadata: any;
+  metadata: Record<string, unknown>;
   documentName?: string;
   documentType?: 'document' | 'contract';
 }
@@ -27,54 +27,67 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
       }
 
       try {
-        // Ensure we have an active session
-        const { data: sessionData } = await supabase.auth.getSession();
-
-        if (!sessionData?.session) {
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-
-          if (refreshError || !refreshData?.session) {
-            logWarn('No active session for RAG search, using text fallback');
-            return performTextFallbackSearch(query);
-          }
+        // Validate user identity server-side first (getSession reads from localStorage and can be spoofed)
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user) {
+          logWarn('No verified user for RAG search, using text fallback');
+          return performTextFallbackSearch(query);
         }
 
         // Use the dedicated rag-search edge function
         logInfo('Performing RAG search via edge function');
 
-        const { data: searchResponse, error: searchError } = await supabase.functions.invoke('rag-search', {
-          body: {
-            query: query,
-            matchThreshold: 0.6,
-            matchCount: 15
+        const { data: searchResponse, error: searchError } = await supabase.functions.invoke(
+          'rag-search',
+          {
+            body: {
+              query: query,
+              matchThreshold: 0.6,
+              matchCount: 15,
+            },
           }
-        });
+        );
 
         if (searchError) {
           logError('RAG search edge function error', { error: searchError });
           return performTextFallbackSearch(query);
         }
 
-        if (!searchResponse?.success || !searchResponse?.results || searchResponse.results.length === 0) {
+        if (
+          !searchResponse?.success ||
+          !searchResponse?.results ||
+          searchResponse.results.length === 0
+        ) {
           logInfo('No RAG results found via edge function', { message: searchResponse?.message });
           return performTextFallbackSearch(query);
         }
 
         // Transform edge function results to RAGSearchResult format
-        const enrichedResults: RAGSearchResult[] = searchResponse.results.map((result: any) => ({
-          chunkId: result.id,
-          documentId: result.document_id || undefined,
-          contractId: result.contract_id || undefined,
-          content: result.content,
-          similarity: result.similarity || 0,
-          metadata: result.metadata,
-          documentName: result.documentName || 'Unknown Document',
-          documentType: result.documentType || (result.document_id ? 'document' : 'contract')
-        }));
+        interface RawRAGResult {
+          id: string;
+          document_id?: string;
+          contract_id?: string;
+          content: string;
+          similarity?: number;
+          metadata: Record<string, unknown>;
+          documentName?: string;
+          documentType?: 'document' | 'contract';
+        }
+        const enrichedResults: RAGSearchResult[] = searchResponse.results.map(
+          (result: RawRAGResult) => ({
+            chunkId: result.id,
+            documentId: result.document_id || undefined,
+            contractId: result.contract_id || undefined,
+            content: result.content,
+            similarity: result.similarity || 0,
+            metadata: result.metadata,
+            documentName: result.documentName || 'Unknown Document',
+            documentType: result.documentType || (result.document_id ? 'document' : 'contract'),
+          })
+        );
 
         logInfo('RAG search completed', { resultCount: enrichedResults.length });
         return enrichedResults;
-
       } catch (error) {
         logError('RAG search error', { error });
         return performTextFallbackSearch(query);
@@ -92,13 +105,15 @@ async function performTextFallbackSearch(query: string): Promise<RAGSearchResult
     // Search document chunks with text search
     const { data: chunkResults, error: chunkError } = await supabase
       .from('document_chunks')
-      .select(`
+      .select(
+        `
         id,
         document_id,
         contract_id,
         content,
         metadata
-      `)
+      `
+      )
       .ilike('content', `%${query}%`)
       .limit(10);
 
@@ -109,13 +124,13 @@ async function performTextFallbackSearch(query: string): Promise<RAGSearchResult
 
     // Transform to RAGSearchResult format
     const results: RAGSearchResult[] = [];
-    const documentIds = Array.from(new Set((chunkResults || [])
-      .map((chunk) => chunk.document_id)
-      .filter(Boolean))) as string[];
+    const documentIds = Array.from(
+      new Set((chunkResults || []).map((chunk) => chunk.document_id).filter(Boolean))
+    ) as string[];
 
-    const contractIds = Array.from(new Set((chunkResults || [])
-      .map((chunk) => chunk.contract_id)
-      .filter(Boolean))) as string[];
+    const contractIds = Array.from(
+      new Set((chunkResults || []).map((chunk) => chunk.contract_id).filter(Boolean))
+    ) as string[];
 
     const [documentsResponse, contractsResponse] = await Promise.all([
       documentIds.length
@@ -123,22 +138,29 @@ async function performTextFallbackSearch(query: string): Promise<RAGSearchResult
         : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
       contractIds.length
         ? supabase.from('contracts').select('id, title').in('id', contractIds)
-        : Promise.resolve({ data: [] as { id: string; title: string }[], error: null })
+        : Promise.resolve({ data: [] as { id: string; title: string }[], error: null }),
     ]);
 
     if (documentsResponse.error) {
-      logWarn('Unable to load document names for fallback search', { error: documentsResponse.error });
+      logWarn('Unable to load document names for fallback search', {
+        error: documentsResponse.error,
+      });
     }
 
     if (contractsResponse.error) {
-      logWarn('Unable to load contract names for fallback search', { error: contractsResponse.error });
+      logWarn('Unable to load contract names for fallback search', {
+        error: contractsResponse.error,
+      });
     }
 
     const documentNameMap = new Map<string, string>(
       (documentsResponse.data || []).map((doc) => [doc.id, doc.name || 'Unknown Document'])
     );
     const contractNameMap = new Map<string, string>(
-      (contractsResponse.data || []).map((contract) => [contract.id, contract.title || 'Unknown Contract'])
+      (contractsResponse.data || []).map((contract) => [
+        contract.id,
+        contract.title || 'Unknown Contract',
+      ])
     );
 
     for (const chunk of chunkResults || []) {
@@ -156,13 +178,12 @@ async function performTextFallbackSearch(query: string): Promise<RAGSearchResult
         similarity: 0.75, // Default similarity for text search
         metadata: chunk.metadata,
         documentName,
-        documentType
+        documentType,
       });
     }
 
     logInfo('Fallback text search completed', { resultCount: results.length });
     return results;
-
   } catch (error) {
     logError('Fallback search error', { error });
     return [];
@@ -180,35 +201,32 @@ export function useProcessDocument() {
       documentId,
       contractId,
       content,
-      documentType = 'document'
+      documentType = 'document',
     }: {
       documentId?: string;
       contractId?: string;
       content: string;
       documentType?: 'document' | 'contract';
     }) => {
-      // Ensure we have an active session - Supabase client should automatically include auth header
-      const { data: sessionData } = await supabase.auth.getSession();
-
-      if (!sessionData?.session) {
-        // Try to refresh the session if it's missing
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-
-        if (refreshError || !refreshData?.session) {
-          logError('No active session for document processing', { refreshError });
-          throw new Error(`Authentication required. Please sign in again.`);
-        }
+      // Validate user identity server-side first (getSession reads from localStorage and can be spoofed)
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) {
+        logError('No verified user for document processing', { userError });
+        throw new Error('Authentication required. Please sign in again.');
       }
 
       // Supabase client automatically includes Authorization header with session token
-      const { data, error } = await invokeFunctionWithCsrf<{ chunksProcessed: number }>('process-document-chunks', {
-        body: {
-          documentId,
-          contractId,
-          content,
-          documentType
+      const { data, error } = await invokeFunctionWithCsrf<{ chunksProcessed: number }>(
+        'process-document-chunks',
+        {
+          body: {
+            documentId,
+            contractId,
+            content,
+            documentType,
+          },
         }
-      });
+      );
 
       if (error) {
         logError('Failed to process document chunks', { error, documentId, contractId });
@@ -233,6 +251,6 @@ export function useProcessDocument() {
         title: 'Processing Failed',
         description: error instanceof Error ? error.message : 'Failed to process document',
       });
-    }
+    },
   });
 }

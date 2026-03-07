@@ -25,26 +25,20 @@ export interface UpdatePermissionData {
 
 export const RESOURCES = [
   'cases',
-  'clients', 
+  'clients',
   'documents',
   'contracts',
   'calendars',
   'invoices',
   'tasks',
   'settings',
-  'users'
+  'users',
 ] as const;
 
-export const ACTIONS = [
-  'create',
-  'read', 
-  'update',
-  'delete',
-  'manage'
-] as const;
+export const ACTIONS = ['create', 'read', 'update', 'delete', 'manage'] as const;
 
-export type Resource = typeof RESOURCES[number];
-export type Action = typeof ACTIONS[number];
+export type Resource = (typeof RESOURCES)[number];
+export type Action = (typeof ACTIONS)[number];
 
 export function useRolePermissions(roleName?: string) {
   return useQuery({
@@ -138,15 +132,15 @@ export function useUpdatePermission() {
       queryClient.invalidateQueries({ queryKey: ['role-permissions'] });
       queryClient.invalidateQueries({ queryKey: ['all-role-permissions'] });
       toast({
-        title: "Permission updated",
-        description: "Role permission has been updated successfully.",
+        title: 'Permission updated',
+        description: 'Role permission has been updated successfully.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to update permission", 
+        title: 'Failed to update permission',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     },
   });
@@ -161,11 +155,10 @@ export function useUserPermission(resource: Resource, action: Action) {
 
       try {
         // Use has_permission RPC which uses auth.uid() internally
-        const { data, error } = await supabase
-          .rpc('has_permission', {
-            p_resource: resource,
-            p_action: action,
-          });
+        const { data, error } = await supabase.rpc('has_permission', {
+          p_resource: resource,
+          p_action: action,
+        });
 
         if (error) throw error;
         return data as boolean;
@@ -176,7 +169,7 @@ export function useUserPermission(resource: Resource, action: Action) {
         return false;
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 60 * 1000, // 1 minute - reduced from 5 min for faster permission revocation
   });
 }
 

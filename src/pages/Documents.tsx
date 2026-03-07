@@ -1,16 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState } from 'react';
 import { logError } from '@/lib/logger';
-import { useNavigate } from "react-router-dom";
-import { useSearch } from "@/hooks/use-search";
-import { useDocuments } from "@/hooks/useDocuments";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { DataTable, ColumnDef } from "@/components/ui/data-table";
-import { TableSkeleton } from "@/components/ui/loading-states";
-import { EmptyState } from "@/components/ui/empty-state";
+import { useNavigate } from 'react-router-dom';
+import { useSearch } from '@/hooks/use-search';
+import { useDocuments } from '@/hooks/useDocuments';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { DataTable, ColumnDef } from '@/components/ui/data-table';
+import { TableSkeleton } from '@/components/ui/loading-states';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   FileText,
   Upload,
@@ -24,23 +24,23 @@ import {
   File,
   MessageSquare,
   Calendar,
-  User
-} from "lucide-react";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+  User,
+} from 'lucide-react';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Document } from "@/types";
+} from '@/components/ui/dropdown-menu';
+import { Document } from '@/types';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { InternalShareDialog } from '@/components/InternalShareDialog';
 import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
@@ -48,8 +48,8 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function Documents() {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [shareDocument, setShareDocument] = useState<Document | null>(null);
   const { term: globalSearch } = useSearch();
@@ -64,13 +64,12 @@ export default function Documents() {
 
     return documents.filter((doc: Document) => {
       const docTitle = doc.title || doc.name || '';
-      const matchesTerm = (t: string) =>
-        docTitle.toLowerCase().includes(t.toLowerCase());
+      const matchesTerm = (t: string) => docTitle.toLowerCase().includes(t.toLowerCase());
 
-      const matchesLocal = searchTerm === "" || matchesTerm(searchTerm);
-      const matchesGlobal = globalSearch === "" || matchesTerm(globalSearch);
+      const matchesLocal = searchTerm === '' || matchesTerm(searchTerm);
+      const matchesGlobal = globalSearch === '' || matchesTerm(globalSearch);
       const matchesType =
-        typeFilter === "all" || (doc.file_type && doc.file_type.toLowerCase() === typeFilter);
+        typeFilter === 'all' || (doc.file_type && doc.file_type.toLowerCase() === typeFilter);
 
       return matchesLocal && matchesGlobal && matchesType;
     });
@@ -79,13 +78,17 @@ export default function Documents() {
   // Helper functions
   const getFileIcon = (type: string) => {
     switch (type.toLowerCase()) {
-      case "pdf": return <FileText className="h-5 w-5 text-destructive" />;
-      case "docx":
-      case "doc": return <FileText className="h-5 w-5 text-primary" />;
-      case "jpg":
-      case "jpeg":
-      case "png": return <FileImage className="h-5 w-5 text-success" />;
-      default: return <File className="h-5 w-5 text-muted-foreground" />;
+      case 'pdf':
+        return <FileText className="h-5 w-5 text-destructive" />;
+      case 'docx':
+      case 'doc':
+        return <FileText className="h-5 w-5 text-primary" />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return <FileImage className="h-5 w-5 text-success" />;
+      default:
+        return <File className="h-5 w-5 text-muted-foreground" />;
     }
   };
 
@@ -93,15 +96,16 @@ export default function Documents() {
     if (!doc.file_path) return;
 
     try {
-      const { data } = await supabase.storage
-        .from('documents')
-        .download(doc.file_path);
+      const { data } = await supabase.storage.from('documents').download(doc.file_path);
 
       if (data) {
         const url = URL.createObjectURL(data);
         const a = document.createElement('a');
         a.href = url;
-        a.download = (doc.metadata as { original_filename?: string } | undefined)?.original_filename || doc.name || 'download';
+        a.download =
+          (doc.metadata as { original_filename?: string } | undefined)?.original_filename ||
+          doc.name ||
+          'download';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -139,10 +143,16 @@ export default function Documents() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Documents</h1>
-          <p className="text-muted-foreground">Manage and review legal documents with AI-powered analysis</p>
+          <p className="text-muted-foreground">
+            Manage and review legal documents with AI-powered analysis
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/documents/upload")}>
+          <Button
+            variant="outline"
+            className="shadow-sm"
+            onClick={() => navigate('/documents/upload')}
+          >
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
           </Button>
@@ -219,8 +229,6 @@ export default function Documents() {
             </SelectContent>
           </Select>
         </div>
-
-
       </div>
 
       {/* Documents Table */}
@@ -233,158 +241,191 @@ export default function Documents() {
         </CardHeader>
         <CardContent>
           <DataTable
-            columns={[
-              {
-                id: "document",
-                header: "Document",
-                accessorFn: (doc) => doc.title || doc.name,
-                minWidth: "250px",
-                cell: (doc) => (
-                  <div className="flex items-center gap-3 max-w-[250px]">
-                    {getFileIcon(doc.file_type || 'file')}
-                    <div className="font-medium truncate" title={doc.title || doc.name}>{doc.title || doc.name}</div>
-                  </div>
-                ),
-              },
-              {
-                id: "case",
-                header: "Linked Case",
-                sortable: false,
-                minWidth: "150px",
-                cell: (doc) => {
-                  const docCase = (doc as unknown as { case?: { id: string; title: string } }).case;
-                  return docCase ? (
-                    <Badge
-                      variant="secondary"
-                      className="cursor-pointer hover:bg-secondary/80 max-w-[150px] truncate"
-                      onClick={() => navigate(`/matters/${docCase.id}`)}
-                      title={docCase.title}
-                    >
-                      {docCase.title}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">No case linked</span>
-                  );
-                },
-              },
-              {
-                id: "status",
-                header: "Status",
-                accessorKey: "status",
-                minWidth: "120px",
-                cell: (doc) => (
-                  <Badge className="bg-muted text-muted-foreground" variant="secondary">
-                    {doc.status || 'Uploaded'}
-                  </Badge>
-                ),
-              },
-              {
-                id: "uploadedBy",
-                header: "Uploaded By",
-                sortable: false,
-                minWidth: "180px",
-                cell: (doc) => (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <div className="text-sm">
-                        {(() => {
-                          const profiles = (doc as unknown as { profiles?: { first_name?: string; last_name?: string } }).profiles;
-                          return profiles?.first_name && profiles?.last_name
-                            ? `${profiles.first_name} ${profiles.last_name}`
-                            : 'Unknown User';
-                        })()}
-                      </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(doc.created_at).toLocaleDateString()}
+            columns={
+              [
+                {
+                  id: 'document',
+                  header: 'Document',
+                  accessorFn: (doc) => doc.title || doc.name,
+                  minWidth: '250px',
+                  cell: (doc) => (
+                    <div className="flex items-center gap-3 max-w-[250px]">
+                      {getFileIcon(doc.file_type || 'file')}
+                      <div className="font-medium truncate" title={doc.title || doc.name}>
+                        {doc.title || doc.name}
                       </div>
                     </div>
-                  </div>
-                ),
-              },
-              {
-                id: "comments",
-                header: "Comments",
-                sortable: false,
-                minWidth: "100px",
-                cell: () => (
-                  <div className="flex items-center gap-1">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">0</span>
-                  </div>
-                ),
-              },
-              {
-                id: "lastAccessed",
-                header: "Last Accessed",
-                accessorKey: "created_at",
-                minWidth: "130px",
-                cell: (doc) => (
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(doc.created_at).toLocaleDateString()}
-                  </span>
-                ),
-              },
-              {
-                id: "actions",
-                header: "Actions",
-                sortable: false,
-                minWidth: "80px",
-                cell: (doc) => (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setSelectedDocument(doc)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Document
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        sessionStorage.setItem('ream_ai_document', JSON.stringify(doc));
-                        navigate('/ream-ai');
-                      }}>
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        AI Review
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDownload(doc)}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleShare(doc)}>
-                        <Share className="h-4 w-4 mr-2" />
-                        Share Internally
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={async () => {
-                        try {
-                          await exportAsPdf(doc.content || '', (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase(), doc.name || 'Document');
-                          toast({ title: 'Success', description: 'Document exported as PDF.' });
-                        } catch {
-                          toast({ variant: 'destructive', title: 'Error', description: 'Failed to export PDF.' });
-                        }
-                      }}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export as PDF
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={async () => {
-                        try {
-                          await exportAsDocx(doc.content || '', (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase());
-                          toast({ title: 'Success', description: 'Document exported as DOCX.' });
-                        } catch {
-                          toast({ variant: 'destructive', title: 'Error', description: 'Failed to export DOCX.' });
-                        }
-                      }}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export as DOCX
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ),
-              },
-            ] as ColumnDef<Document>[]}
+                  ),
+                },
+                {
+                  id: 'case',
+                  header: 'Linked Case',
+                  sortable: false,
+                  minWidth: '150px',
+                  cell: (doc) => {
+                    const docCase = (doc as unknown as { case?: { id: string; title: string } })
+                      .case;
+                    return docCase ? (
+                      <Badge
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-secondary/80 max-w-[150px] truncate"
+                        onClick={() => navigate(`/matters/${docCase.id}`)}
+                        title={docCase.title}
+                      >
+                        {docCase.title}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No case linked</span>
+                    );
+                  },
+                },
+                {
+                  id: 'status',
+                  header: 'Status',
+                  accessorKey: 'status',
+                  minWidth: '120px',
+                  cell: (doc) => (
+                    <Badge className="bg-muted text-muted-foreground" variant="secondary">
+                      {doc.status || 'Uploaded'}
+                    </Badge>
+                  ),
+                },
+                {
+                  id: 'uploadedBy',
+                  header: 'Uploaded By',
+                  sortable: false,
+                  minWidth: '180px',
+                  cell: (doc) => (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="text-sm">
+                          {(() => {
+                            const profiles = (
+                              doc as unknown as {
+                                profiles?: { first_name?: string; last_name?: string };
+                              }
+                            ).profiles;
+                            return profiles?.first_name && profiles?.last_name
+                              ? `${profiles.first_name} ${profiles.last_name}`
+                              : 'Unknown User';
+                          })()}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(doc.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  id: 'comments',
+                  header: 'Comments',
+                  sortable: false,
+                  minWidth: '100px',
+                  cell: () => (
+                    <div className="flex items-center gap-1">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">0</span>
+                    </div>
+                  ),
+                },
+                {
+                  id: 'lastAccessed',
+                  header: 'Last Accessed',
+                  accessorKey: 'created_at',
+                  minWidth: '130px',
+                  cell: (doc) => (
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </span>
+                  ),
+                },
+                {
+                  id: 'actions',
+                  header: 'Actions',
+                  sortable: false,
+                  minWidth: '80px',
+                  cell: (doc) => (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSelectedDocument(doc)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Document
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            sessionStorage.setItem('ream_ai_document_id', doc.id);
+                            navigate('/ream-ai');
+                          }}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          AI Review
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleShare(doc)}>
+                          <Share className="h-4 w-4 mr-2" />
+                          Share Internally
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            try {
+                              await exportAsPdf(
+                                doc.content || '',
+                                (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase(),
+                                doc.name || 'Document'
+                              );
+                              toast({ title: 'Success', description: 'Document exported as PDF.' });
+                            } catch {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Error',
+                                description: 'Failed to export PDF.',
+                              });
+                            }
+                          }}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Export as PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            try {
+                              await exportAsDocx(
+                                doc.content || '',
+                                (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase()
+                              );
+                              toast({
+                                title: 'Success',
+                                description: 'Document exported as DOCX.',
+                              });
+                            } catch {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Error',
+                                description: 'Failed to export DOCX.',
+                              });
+                            }
+                          }}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Export as DOCX
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ),
+                },
+              ] as ColumnDef<Document>[]
+            }
             data={filteredDocuments}
             emptyMessage=""
             getRowKey={(row) => row.id}
@@ -396,9 +437,9 @@ export default function Documents() {
               title="No documents yet"
               description="Upload your first document to get started with AI-powered document management and analysis."
               action={{
-                label: "Upload Document",
-                onClick: () => navigate("/documents/upload"),
-                icon: Upload
+                label: 'Upload Document',
+                onClick: () => navigate('/documents/upload'),
+                icon: Upload,
               }}
             />
           )}
@@ -408,11 +449,11 @@ export default function Documents() {
               title="No matching documents"
               description={`No documents match "${searchTerm || globalSearch}". Try adjusting your search or filters.`}
               action={{
-                label: "Clear Filters",
+                label: 'Clear Filters',
                 onClick: () => {
-                  setSearchTerm("");
-                  setTypeFilter("all");
-                }
+                  setSearchTerm('');
+                  setTypeFilter('all');
+                },
               }}
             />
           )}
@@ -435,7 +476,8 @@ export default function Documents() {
             <div className="p-4 rounded-lg border bg-muted/30">
               <h4 className="font-medium mb-2">Key Clause Detection</h4>
               <p className="text-sm text-muted-foreground">
-                Automatically identify important clauses, terms, and conditions in contracts and agreements.
+                Automatically identify important clauses, terms, and conditions in contracts and
+                agreements.
               </p>
             </div>
             <div className="p-4 rounded-lg border bg-muted/30">

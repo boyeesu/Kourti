@@ -36,7 +36,7 @@ function isTokenExpiredOrExpiring(): boolean {
 
   // Refresh if expired or will expire within buffer time
   const now = Date.now();
-  return now >= (expiry - TOKEN_REFRESH_BUFFER_MS);
+  return now >= expiry - TOKEN_REFRESH_BUFFER_MS;
 }
 
 /**
@@ -60,7 +60,9 @@ async function fetchCsrfToken(force: boolean = false): Promise<string | null> {
       }
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session?.access_token) {
       clearCsrfToken();
       return null;
@@ -73,21 +75,25 @@ async function fetchCsrfToken(force: boolean = false): Promise<string | null> {
     });
 
     if (error || !data?.csrfToken) {
-      console.warn('Failed to fetch CSRF token:', error?.message);
+      if (import.meta.env.DEV) {
+        console.warn('Failed to fetch CSRF token:', error?.message);
+      }
       return null;
     }
 
     // Store token and its expiry time (default 24 hours from now)
     const expiryTime = data.expiresAt
       ? new Date(data.expiresAt).getTime()
-      : Date.now() + (24 * 60 * 60 * 1000);
+      : Date.now() + 24 * 60 * 60 * 1000;
 
     sessionStorage.setItem(CSRF_TOKEN_KEY, data.csrfToken);
     sessionStorage.setItem(CSRF_EXPIRY_KEY, expiryTime.toString());
 
     return data.csrfToken;
   } catch (error) {
-    console.error('Error fetching CSRF token:', error);
+    if (import.meta.env.DEV) {
+      console.error('Error fetching CSRF token:', error);
+    }
     return null;
   }
 }
@@ -111,14 +117,17 @@ async function ensureValidCsrfToken(): Promise<string | null> {
  * Extract a clear error message from edge function invoke result.
  * When the function returns 4xx with a JSON body like { error: "..." }, surface that message.
  */
-async function normalizeInvokeResult<T>(result: { data: T | null; error: unknown }): Promise<{ data: T | null; error: Error | null }> {
+async function normalizeInvokeResult<T>(result: {
+  data: T | null;
+  error: unknown;
+}): Promise<{ data: T | null; error: Error | null }> {
   const { data, error } = result;
   if (!error) return { data, error: null };
 
   const err = error as Error & { name?: string; context?: Response };
   if (err.name === 'FunctionsHttpError' && err.context && typeof err.context.json === 'function') {
     try {
-      const body = await err.context.json() as { error?: string; errorCode?: string };
+      const body = (await err.context.json()) as { error?: string; errorCode?: string };
       if (body?.error) {
         return { data: null, error: new Error(body.error) };
       }
@@ -144,14 +153,19 @@ export async function invokeFunctionWithCsrf<T = unknown>(
 ): Promise<{ data: T | null; error: Error | null }> {
   try {
     // Validate session so we never send an expired JWT (avoids 401 from edge gateway)
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
     if (authErr || !user) {
       return {
         data: null,
         error: new Error('Authentication required'),
       };
     }
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session?.access_token) {
       return {
         data: null,
@@ -181,14 +195,23 @@ export async function invokeFunctionWithCsrf<T = unknown>(
     // Detect CSRF / auth failures by checking HTTP status code from the Response context.
     // The old message-based check never matched because FunctionsHttpError.message is
     // always the generic "Edge Function returned a non-2xx status code".
-    const httpStatus = (error as any)?.context?.status as number | undefined;
-    const isCsrfOrAuthFailure = error && (
-      httpStatus === 401 || httpStatus === 403 ||
-      error.message?.includes('CSRF') || error.message?.includes('csrf')
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const httpStatus = (error as Record<string, any>)?.context?.status as number | undefined;
+    const isCsrfOrAuthFailure =
+      error &&
+      (httpStatus === 401 ||
+        httpStatus === 403 ||
+        error.message?.includes('CSRF') ||
+        error.message?.includes('csrf'));
 
     if (isCsrfOrAuthFailure) {
-      console.log('CSRF/auth error detected (HTTP', httpStatus, '), refreshing token and retrying...');
+      if (import.meta.env.DEV) {
+        console.log(
+          'CSRF/auth error detected (HTTP',
+          httpStatus,
+          '), refreshing token and retrying...'
+        );
+      }
 
       // Force fetch a new token
       const newToken = await fetchCsrfToken(true);
@@ -196,7 +219,9 @@ export async function invokeFunctionWithCsrf<T = unknown>(
       if (newToken) {
         headers['X-CSRF-Token'] = newToken;
         // Re-fetch session for retry in case it was refreshed
-        const { data: { session: retrySession } } = await supabase.auth.getSession();
+        const {
+          data: { session: retrySession },
+        } = await supabase.auth.getSession();
         if (retrySession?.access_token) {
           headers.Authorization = `Bearer ${retrySession.access_token}`;
         }
@@ -226,9 +251,12 @@ export async function invokeFunctionWithCsrf<T = unknown>(
  */
 export async function addCsrfToHeaders(headers: HeadersInit = {}): Promise<HeadersInit> {
   const csrfToken = await ensureValidCsrfToken();
-  const headersObj = headers instanceof Headers
-    ? Object.fromEntries(headers.entries())
-    : (Array.isArray(headers) ? Object.fromEntries(headers) : headers);
+  const headersObj =
+    headers instanceof Headers
+      ? Object.fromEntries(headers.entries())
+      : Array.isArray(headers)
+        ? Object.fromEntries(headers)
+        : headers;
 
   if (csrfToken && !headersObj['X-CSRF-Token'] && !headersObj['x-csrf-token']) {
     return {
@@ -245,7 +273,9 @@ export async function addCsrfToHeaders(headers: HeadersInit = {}): Promise<Heade
  * Fetches initial token if user is authenticated
  */
 export async function initCsrfToken(): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (session?.access_token) {
     await fetchCsrfToken();
   }
@@ -265,7 +295,11 @@ if (typeof window !== 'undefined') {
       clearCsrfToken();
     } else if (event === 'SIGNED_IN' && session) {
       // Fetch token after sign in
-      fetchCsrfToken(true).catch(console.error);
+      fetchCsrfToken(true).catch((err) => {
+        if (import.meta.env.DEV) {
+          console.error('Failed to fetch CSRF token after sign-in:', err);
+        }
+      });
     }
   });
 }

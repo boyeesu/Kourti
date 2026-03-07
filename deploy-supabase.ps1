@@ -2,7 +2,7 @@
 # This script links to your Supabase project and deploys all Edge Functions
 
 param(
-    [string]$ProjectRef = "zjbvnvydgsxqmmrrmvif",
+    [string]$ProjectRef = $env:SUPABASE_PROJECT_REF,
     [switch]$DeployAll = $false,
     [string[]]$Functions = @()
 )
@@ -10,6 +10,12 @@ param(
 # Change to the project directory
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $scriptPath
+
+if (-not $ProjectRef) {
+    Write-Host "❌ SUPABASE_PROJECT_REF environment variable is not set." -ForegroundColor Red
+    Write-Host "   Set it with: `$env:SUPABASE_PROJECT_REF = 'your-project-ref'" -ForegroundColor Yellow
+    exit 1
+}
 
 Write-Host "🚀 Starting Supabase Deployment..." -ForegroundColor Cyan
 Write-Host ""

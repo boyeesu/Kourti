@@ -13,11 +13,16 @@ function initializeListener() {
 
   listenerInitialized = true;
 
-  supabase.auth.getSession().then(({ data }) => {
-    currentUser = data.session?.user ?? null;
-  }).catch(() => {
-    currentUser = null;
-  });
+  // Use getUser() instead of getSession() to verify the user server-side
+  // getSession() reads from localStorage and can be spoofed
+  supabase.auth
+    .getUser()
+    .then(({ data }) => {
+      currentUser = data.user ?? null;
+    })
+    .catch(() => {
+      currentUser = null;
+    });
 
   supabase.auth.onAuthStateChange((_event, session) => {
     currentUser = session?.user ?? null;
@@ -36,15 +41,20 @@ async function fetchCurrentUser(refresh = false): Promise<User | null> {
   }
 
   if (!fetchPromise) {
-    fetchPromise = supabase.auth.getSession().then(({ data }) => {
-      currentUser = data.session?.user ?? null;
-      return currentUser;
-    }).catch(() => {
-      currentUser = null;
-      return null;
-    }).finally(() => {
-      fetchPromise = null;
-    });
+    // Use getUser() for server-verified user identity instead of getSession()
+    fetchPromise = supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        currentUser = data.user ?? null;
+        return currentUser;
+      })
+      .catch(() => {
+        currentUser = null;
+        return null;
+      })
+      .finally(() => {
+        fetchPromise = null;
+      });
   }
 
   return fetchPromise;

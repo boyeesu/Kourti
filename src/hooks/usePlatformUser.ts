@@ -5,6 +5,10 @@ import { logError } from '@/lib/logger';
 
 /**
  * Hook to fetch a single user by ID (platform admin only)
+ *
+ * TODO: Create a dedicated `get_user_by_id` RPC function server-side to avoid
+ * fetching all users. Current implementation transmits the full user list over
+ * the network even when only one user is needed, which is a data minimization concern.
  */
 export function usePlatformUser(userId: string | null) {
   return useQuery({
@@ -21,7 +25,9 @@ export function usePlatformUser(userId: string | null) {
           throw error;
         }
 
-        const user = (data || []).find((u: any) => u.user_id === userId || u.id === userId) as PlatformUser | undefined;
+        const user = (data || []).find(
+          (u: { user_id?: string; id?: string }) => u.user_id === userId || u.id === userId
+        ) as PlatformUser | undefined;
         return user || null;
       } catch (error) {
         logError('Error fetching user', error);

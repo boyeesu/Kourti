@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { logError } from '@/lib/logger';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
-import { AppLogo } from "@/components/ui/AppLogo";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { AppLogo } from '@/components/ui/AppLogo';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const { resetPassword } = useAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -25,12 +25,12 @@ export default function ForgotPassword() {
 
     // Normalize email to lowercase
     const normalizedEmail = email.trim().toLowerCase();
-    
+
     if (!normalizedEmail) {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please enter a valid email address.",
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please enter a valid email address.',
       });
       setLoading(false);
       return;
@@ -39,22 +39,26 @@ export default function ForgotPassword() {
     const { error } = await resetPassword(normalizedEmail);
     if (error) {
       logError('Password reset error', error);
-      
+
       // Provide more helpful error messages
-      let errorMessage = error.message || "Failed to send password reset email. Please try again.";
-      
-      // Check for specific error types
-      if (error.message?.includes('504') || error.message?.includes('timeout') || error.message?.includes('Gateway')) {
-        errorMessage = "The email service timed out. This usually means the email service isn't configured in Supabase. Please check: Settings → Auth → Email Templates, or configure SMTP settings. If configured, try again in a moment.";
+      let errorMessage = error.message || 'Failed to send password reset email. Please try again.';
+
+      // Check for specific error types - use generic messages to avoid leaking internal details
+      if (
+        error.message?.includes('504') ||
+        error.message?.includes('timeout') ||
+        error.message?.includes('Gateway')
+      ) {
+        errorMessage = 'The request timed out. Please try again in a moment.';
       } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
-        errorMessage = "Password reset is not available. Please contact your administrator.";
+        errorMessage = 'Password reset is not available. Please contact your administrator.';
       } else if (error.message?.includes('redirect') || error.message?.includes('URL')) {
-        errorMessage = "Configuration error: The redirect URL is not properly configured. Please add 'http://localhost:8080/auth/reset-password' to Supabase Authentication → URL Configuration → Redirect URLs.";
+        errorMessage = 'Unable to process your request. Please contact your administrator.';
       }
-      
+
       toast({
-        variant: "destructive",
-        title: "Error",
+        variant: 'destructive',
+        title: 'Error',
         description: errorMessage,
       });
       setLoading(false);
@@ -93,13 +97,13 @@ export default function ForgotPassword() {
               </div>
               <div className="text-center space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Click the link in the email to reset your password. The link will expire in 1 hour.
+                  Click the link in the email to reset your password. The link will expire in 1
+                  hour.
                 </p>
-                <p>
-                  If you don't see the email, check your spam folder.
-                </p>
+                <p>If you don't see the email, check your spam folder.</p>
                 <p className="text-xs text-muted-foreground/80">
-                  Note: If the email doesn't arrive, the email address may not be registered, or email delivery may be delayed.
+                  Note: If the email doesn't arrive, the email address may not be registered, or
+                  email delivery may be delayed.
                 </p>
               </div>
             </div>
@@ -112,16 +116,12 @@ export default function ForgotPassword() {
                 className="w-full"
                 onClick={() => {
                   setEmailSent(false);
-                  setEmail("");
+                  setEmail('');
                 }}
               >
                 Send Another Email
               </Button>
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => navigate("/login")}
-              >
+              <Button variant="ghost" className="w-full" onClick={() => navigate('/login')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Sign In
               </Button>
@@ -168,18 +168,14 @@ export default function ForgotPassword() {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : "Send Reset Link"}
+              {loading ? 'Sending...' : 'Send Reset Link'}
             </Button>
           </form>
 
           <div className="mt-6">
             <Separator className="my-4" />
             <div className="text-center">
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => navigate("/login")}
-              >
+              <Button variant="ghost" className="w-full" onClick={() => navigate('/login')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Sign In
               </Button>
@@ -190,4 +186,3 @@ export default function ForgotPassword() {
     </div>
   );
 }
-

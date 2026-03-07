@@ -7,9 +7,9 @@ export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 export interface LogEntry {
   level: LogLevel;
   message: string;
-  error?: any;
+  error?: unknown;
   timestamp: string;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
   sessionId?: string;
   userId?: string;
   organizationId?: string;
@@ -20,7 +20,7 @@ export interface LogEntry {
 // Constants for logger configuration
 const MAX_LOGS = 200; // Reduced to prevent excessive localStorage usage
 const LOG_STORAGE_KEY = 'kourti_legal_logs';
-const SHOULD_PERSIST_TO_LOCAL = true;
+const SHOULD_PERSIST_TO_LOCAL = import.meta.env.MODE !== 'production';
 const SHOULD_SEND_TO_SERVER = true;
 const SERVER_LOG_ENDPOINT = import.meta.env.VITE_LOG_API_ENDPOINT || null;
 const LOG_BATCH_SIZE = 20; // Number of logs to collect before sending to server
@@ -37,8 +37,8 @@ async function getSupabaseClient(): Promise<SupabaseClient | null> {
 
   if (!supabaseClientPromise) {
     supabaseClientPromise = import('@/integrations/supabase/client')
-      .then(module => module.supabase as SupabaseClient)
-      .catch(err => {
+      .then((module) => module.supabase as SupabaseClient)
+      .catch((err) => {
         console.warn('Failed to load Supabase client for logging', err);
         return null;
       });
@@ -48,20 +48,20 @@ async function getSupabaseClient(): Promise<SupabaseClient | null> {
 }
 function getSessionId(): string {
   if (_sessionId) return _sessionId;
-  
+
   if (typeof window === 'undefined') {
     _sessionId = 'server-session';
     return _sessionId;
   }
-  
+
   const storedId = localStorage.getItem('kourti_session_id');
   if (storedId) {
     _sessionId = storedId;
     return _sessionId;
   }
-  
-  const newId = Math.random().toString(36).substring(2, 15) + 
-               Math.random().toString(36).substring(2, 15);
+
+  const newId =
+    Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   localStorage.setItem('kourti_session_id', newId);
   _sessionId = newId;
   return _sessionId;
@@ -122,28 +122,28 @@ function addEntry(entry: LogEntry) {
     url: typeof window !== 'undefined' ? window.location.href : undefined,
     userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
   };
-  
+
   // Add to in-memory logs
   logs.push(enhancedEntry);
   if (logs.length > MAX_LOGS) {
     logs.splice(0, logs.length - MAX_LOGS);
   }
-  
+
   // Persist to localStorage if enabled
   if (SHOULD_PERSIST_TO_LOCAL) {
     persistToLocalStorage();
   }
-  
+
   // Add to server queue if enabled
   if (SHOULD_SEND_TO_SERVER && SERVER_LOG_ENDPOINT) {
     pendingServerLogs.push(enhancedEntry);
-    
+
     // Send logs if we've collected enough
     if (pendingServerLogs.length >= LOG_BATCH_SIZE) {
       sendPendingLogsToServer();
     }
   }
-  
+
   // Output to console if enabled (except in production)
   if (ENABLE_CONSOLE_LOGS) {
     switch (entry.level) {
@@ -168,18 +168,20 @@ function addEntry(entry: LogEntry) {
  */
 async function sendPendingLogsToServer() {
   if (!pendingServerLogs.length || !SERVER_LOG_ENDPOINT) return;
-  
+
   // Clone and clear pending logs
   const logsToSend = [...pendingServerLogs];
   pendingServerLogs = [];
-  
+
   try {
     const supabase = await getSupabaseClient();
     let userId: string | undefined;
 
     if (supabase) {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         userId = user?.id;
       } catch (err) {
         console.warn('Failed to fetch user for logging', err);
@@ -187,11 +189,11 @@ async function sendPendingLogsToServer() {
     }
 
     if (userId) {
-      logsToSend.forEach(log => {
+      logsToSend.forEach((log) => {
         log.userId = userId;
       });
     }
-    
+
     // Send logs to server with CSRF protection
     const csrfProtectedRequest = addCSRFToRequest({
       headers: {
@@ -205,10 +207,7 @@ async function sendPendingLogsToServer() {
         headers.get('Content-Type') === 'application/json',
         'Logger request headers missing Content-Type'
       );
-      console.assert(
-        headers.has('X-CSRF-Token'),
-        'Logger request headers missing X-CSRF-Token'
-      );
+      console.assert(headers.has('X-CSRF-Token'), 'Logger request headers missing X-CSRF-Token');
     }
 
     await fetch(SERVER_LOG_ENDPOINT, {
@@ -218,15 +217,15 @@ async function sendPendingLogsToServer() {
       body: JSON.stringify({
         logs: logsToSend,
         timestamp: new Date().toISOString(),
-        sessionId: getSessionId()
+        sessionId: getSessionId(),
       }),
     });
   } catch (err) {
     console.warn('Failed to send logs to server', err);
-    
+
     // Put logs back in the queue
     pendingServerLogs = [...logsToSend, ...pendingServerLogs];
-    
+
     // Cap the queue size to prevent memory issues
     if (pendingServerLogs.length > MAX_LOGS) {
       pendingServerLogs = pendingServerLogs.slice(-MAX_LOGS);
@@ -237,12 +236,12 @@ async function sendPendingLogsToServer() {
 /**
  * Log an info message
  */
-export function logInfo(message: string, meta?: Record<string, any>) {
+export function logInfo(message: string, meta?: Record<string, unknown>) {
   const entry: LogEntry = {
     level: 'info',
     message,
     timestamp: new Date().toISOString(),
-    meta
+    meta,
   };
   addEntry(entry);
 }
@@ -250,12 +249,12 @@ export function logInfo(message: string, meta?: Record<string, any>) {
 /**
  * Log a warning message
  */
-export function logWarn(message: string, meta?: Record<string, any>) {
+export function logWarn(message: string, meta?: Record<string, unknown>) {
   const entry: LogEntry = {
     level: 'warn',
     message,
     timestamp: new Date().toISOString(),
-    meta
+    meta,
   };
   addEntry(entry);
 }
@@ -263,10 +262,10 @@ export function logWarn(message: string, meta?: Record<string, any>) {
 /**
  * Log an error with sanitized error information
  */
-export function logError(message: string, errorDetails?: any) {
+export function logError(message: string, errorDetails?: unknown) {
   // Sanitize error to remove sensitive information
   const sanitizedError = errorDetails ? sanitizeErrorForLogging(errorDetails) : undefined;
-  
+
   const entry: LogEntry = {
     level: 'error',
     message,
@@ -279,14 +278,14 @@ export function logError(message: string, errorDetails?: any) {
 /**
  * Log a debug message (only appears in development)
  */
-export function logDebug(message: string, meta?: Record<string, any>) {
+export function logDebug(message: string, meta?: Record<string, unknown>) {
   if (import.meta.env.MODE === 'production') return;
-  
+
   const entry: LogEntry = {
     level: 'debug',
     message,
     timestamp: new Date().toISOString(),
-    meta
+    meta,
   };
   addEntry(entry);
 }
@@ -315,16 +314,16 @@ export async function sendLogsToServer() {
   if (pendingServerLogs.length > 0 || logs.length > 0) {
     // Add all logs to pending
     pendingServerLogs = [...pendingServerLogs, ...logs];
-    
+
     // Remove duplicates
     const uniqueLogs: Record<string, LogEntry> = {};
-    pendingServerLogs.forEach(log => {
+    pendingServerLogs.forEach((log) => {
       const key = `${log.timestamp}-${log.level}-${log.message}`;
       uniqueLogs[key] = log;
     });
-    
+
     pendingServerLogs = Object.values(uniqueLogs);
-    
+
     // Send logs
     await sendPendingLogsToServer();
     return true;
@@ -339,7 +338,7 @@ if (typeof window !== 'undefined' && SHOULD_SEND_TO_SERVER && SERVER_LOG_ENDPOIN
       sendPendingLogsToServer();
     }
   }, 30000); // Every 30 seconds
-  
+
   // Send logs before page unload
   window.addEventListener('beforeunload', () => {
     if (pendingServerLogs.length > 0) {
@@ -348,7 +347,7 @@ if (typeof window !== 'undefined' && SHOULD_SEND_TO_SERVER && SERVER_LOG_ENDPOIN
         JSON.stringify({
           logs: pendingServerLogs,
           timestamp: new Date().toISOString(),
-          sessionId: getSessionId()
+          sessionId: getSessionId(),
         })
       );
     }
@@ -360,9 +359,9 @@ persistToLocalStorage();
 
 // Expose logs for debugging in non-production environments
 if (typeof window !== 'undefined' && import.meta.env.MODE !== 'production') {
-  (window as any).__KOURTI_LOGS__ = {
+  (window as unknown as Record<string, unknown>).__KOURTI_LOGS__ = {
     getLogs,
     clearLogs,
-    sendLogsToServer
+    sendLogsToServer,
   };
 }

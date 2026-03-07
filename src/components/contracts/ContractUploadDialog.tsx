@@ -4,7 +4,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, FileText, X, Loader2 } from 'lucide-react';
@@ -38,7 +44,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
   const { data: organizationId } = useUserOrganization();
-  
+
   const cases = Array.isArray(casesData) ? casesData : casesData?.cases || [];
   const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
 
@@ -52,7 +58,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
     'Licensing Agreement',
     'Consulting Agreement',
     'Supply Agreement',
-    'Distribution Agreement'
+    'Distribution Agreement',
   ];
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -61,12 +67,12 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
         const file = acceptedFiles[0];
         setUploadedFile(file);
         if (!contractData.title) {
-          setContractData(prev => ({
+          setContractData((prev) => ({
             ...prev,
-            title: file.name.replace(/\.(pdf|doc|docx)$/i, '')
+            title: file.name.replace(/\.(pdf|doc|docx)$/i, ''),
           }));
         }
-        
+
         // Extract text content from file for analysis
         extractTextFromFile(file);
       }
@@ -75,9 +81,9 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
       'application/pdf': ['.pdf'],
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'text/plain': ['.txt']
+      'text/plain': ['.txt'],
     },
-    maxFiles: 1
+    maxFiles: 1,
   });
 
   const extractTextFromFile = async (file: File) => {
@@ -96,7 +102,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!uploadedFile) {
       toast({
         title: 'Error',
@@ -137,23 +143,17 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
       // Upload file to Supabase storage
       const sanitizedName = uploadedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const fileName = `${organizationId}/${Date.now()}_${sanitizedName}`;
-      
+
       const { error: uploadError } = await supabase.storage
         .from('documents')
         .upload(fileName, uploadedFile, {
           contentType: uploadedFile.type,
-          upsert: false
+          upsert: false,
         });
 
       if (uploadError) {
         throw new Error(`File upload failed: ${uploadError.message}`);
       }
-
-      // Get signed URL for private bucket (1 hour expiry)
-      const { data: signedUrlData } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(fileName, 3600);
-      const fileUrl = signedUrlData?.signedUrl || '';
 
       // Extract text content for searchability
       let extractedText = '';
@@ -171,11 +171,13 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
         value: contractData.value ? parseFloat(contractData.value) : undefined,
         currency: contractData.currency,
         status: 'draft',
-        terms: extractedText || `Contract document uploaded: ${uploadedFile.name}\n\nFile: ${fileUrl}`,
+        terms:
+          extractedText ||
+          `Contract document uploaded: ${uploadedFile.name}\n\nFile path: ${fileName}`,
       };
 
       await createContract.mutateAsync(contractPayload);
-      
+
       toast({
         title: 'Success',
         description: 'Contract uploaded successfully',
@@ -192,7 +194,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
         value: '',
         currency: 'USD',
       });
-      
+
       onOpenChange(false);
     } catch (error) {
       console.error('Upload error:', error);
@@ -225,8 +227,8 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
               <div
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                  isDragActive 
-                    ? 'border-primary bg-primary/10' 
+                  isDragActive
+                    ? 'border-primary bg-primary/10'
                     : 'border-muted-foreground/25 hover:border-primary/50'
                 }`}
               >
@@ -254,12 +256,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
                         </p>
                       </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={removeFile}
-                    >
+                    <Button type="button" variant="ghost" size="sm" onClick={removeFile}>
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
@@ -283,9 +280,11 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
 
             <div className="space-y-2">
               <Label>Contract Type *</Label>
-              <Select 
-                value={contractData.contract_type} 
-                onValueChange={(value) => setContractData({ ...contractData, contract_type: value })}
+              <Select
+                value={contractData.contract_type}
+                onValueChange={(value) =>
+                  setContractData({ ...contractData, contract_type: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select contract type" />
@@ -315,8 +314,8 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Client (Optional)</Label>
-              <Select 
-                value={contractData.client_id} 
+              <Select
+                value={contractData.client_id}
                 onValueChange={(value) => setContractData({ ...contractData, client_id: value })}
               >
                 <SelectTrigger>
@@ -335,8 +334,8 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
 
             <div className="space-y-2">
               <Label>Related Case (Optional)</Label>
-              <Select 
-                value={contractData.case_id} 
+              <Select
+                value={contractData.case_id}
                 onValueChange={(value) => setContractData({ ...contractData, case_id: value })}
               >
                 <SelectTrigger>
@@ -369,8 +368,8 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
 
             <div className="space-y-2">
               <Label>Currency</Label>
-              <Select 
-                value={contractData.currency} 
+              <Select
+                value={contractData.currency}
                 onValueChange={(value) => setContractData({ ...contractData, currency: value })}
               >
                 <SelectTrigger>
