@@ -40,28 +40,56 @@ as $$
 $$;
 
 -- Policies: admins of an org can manage their org's invitations
-create policy if not exists "Admins can view org invitations"
+drop policy if exists "Admins can view org invitations" on public.invitations;
+create policy "Admins can view org invitations"
   on public.invitations for select
   using (
     public.current_user_is_org_admin() and
     organization_id = (select organization_id from public.profiles where user_id = auth.uid())
   );
 
-create policy if not exists "Admins can insert org invitations"
+drop policy if exists "Admins can insert org invitations" on public.invitations;
+create policy "Admins can insert org invitations"
   on public.invitations for insert
   with check (
     public.current_user_is_org_admin() and
     organization_id = (select organization_id from public.profiles where user_id = auth.uid())
   );
 
-create policy if not exists "Admins can update org invitations"
+drop policy if exists "Admins can update org invitations" on public.invitations;
+create policy "Admins can update org invitations"
   on public.invitations for update
   using (
     public.current_user_is_org_admin() and
     organization_id = (select organization_id from public.profiles where user_id = auth.uid())
   );
 
-create policy if not exists "Admins can delete org invitations"
+drop policy if exists "Admins can delete org invitations" on public.invitations;
+create policy "Admins can delete org invitations"
+  on public.invitations for delete
+  using (
+    public.current_user_is_org_admin() and
+    organization_id = (select organization_id from public.profiles where user_id = auth.uid())
+  );
+
+drop policy if exists "Admins can insert org invitations" on public.invitations;
+create policy "Admins can insert org invitations"
+  on public.invitations for insert
+  with check (
+    public.current_user_is_org_admin() and
+    organization_id = (select organization_id from public.profiles where user_id = auth.uid())
+  );
+
+drop policy if exists "Admins can update org invitations" on public.invitations;
+create policy "Admins can update org invitations"
+  on public.invitations for update
+  using (
+    public.current_user_is_org_admin() and
+    organization_id = (select organization_id from public.profiles where user_id = auth.uid())
+  );
+
+drop policy if exists "Admins can delete org invitations" on public.invitations;
+create policy "Admins can delete org invitations"
   on public.invitations for delete
   using (
     public.current_user_is_org_admin() and
@@ -79,7 +107,8 @@ begin
 end;
 $$;
 
-create trigger if not exists trg_invitations_set_updated
+drop trigger if exists trg_invitations_set_updated on public.invitations;
+create trigger trg_invitations_set_updated
 before update on public.invitations
 for each row execute function public.set_updated_at();
 

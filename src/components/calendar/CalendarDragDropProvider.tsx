@@ -12,25 +12,15 @@ import {
 } from '@dnd-kit/core';
 import { CalendarEventWithOwner } from '@/types/calendar-sharing';
 import { useUpdateCalendarEvent } from '@/hooks/useCalendar';
-import { DraggableCalendarEvent } from './DraggableCalendarEvent';
 import { format, parseISO, setHours, setMinutes, differenceInMinutes } from 'date-fns';
-import { cn } from '@/lib/utils';
 
 interface CalendarDragDropProviderProps {
   children: React.ReactNode;
-  getEventTypeColor: (type: string) => string;
-  onEventClick: (event: CalendarEventWithOwner) => void;
   currentDate: Date;
 }
 
-export function CalendarDragDropProvider({
-  children,
-  getEventTypeColor,
-  onEventClick,
-  currentDate,
-}: CalendarDragDropProviderProps) {
+export function CalendarDragDropProvider({ children, currentDate }: CalendarDragDropProviderProps) {
   const [activeEvent, setActiveEvent] = useState<CalendarEventWithOwner | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const updateEvent = useUpdateCalendarEvent();
 
   const sensors = useSensors(

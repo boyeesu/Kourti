@@ -2,14 +2,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { Users, Share2, Eye, Pencil, User } from 'lucide-react';
-import {
-  useSharedCalendars,
-  useOrganizationMembersForSharing,
-  useShareCalendar,
-} from '@/hooks/useCalendarSharing';
-import { cn } from '@/lib/utils';
+import { useSharedCalendars } from '@/hooks/useCalendarSharing';
 import { ShareCalendarDialog } from './ShareCalendarDialog';
 import { ManageCalendarSharesDialog } from './ManageCalendarSharesDialog';
 

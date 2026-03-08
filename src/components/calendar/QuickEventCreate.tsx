@@ -49,7 +49,7 @@ export function QuickEventCreate({
       });
 
       onSuccess();
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error',

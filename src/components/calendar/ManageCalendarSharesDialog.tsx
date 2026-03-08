@@ -21,7 +21,7 @@ import {
   useUpdateCalendarShare,
   useRevokeCalendarShare,
 } from '@/hooks/useCalendarSharing';
-import { cn } from '@/lib/utils';
+
 import { EmptyState } from '@/components/ui/empty-state';
 
 interface ManageCalendarSharesDialogProps {
@@ -34,8 +34,8 @@ export function ManageCalendarSharesDialog({
   onOpenChange,
 }: ManageCalendarSharesDialogProps) {
   const { data: viewers, isLoading } = useCalendarViewers();
-  const { mutate: updateShare, isPending: isUpdating } = useUpdateCalendarShare();
-  const { mutate: revokeShare, isPending: isRevoking } = useRevokeCalendarShare();
+  const { mutate: updateShare } = useUpdateCalendarShare();
+  const { mutate: revokeShare } = useRevokeCalendarShare();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const handlePermissionChange = (viewerId: string, newLevel: 'view' | 'edit') => {

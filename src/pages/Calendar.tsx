@@ -20,7 +20,7 @@ import {
   X,
   CalendarDays,
 } from 'lucide-react';
-import { useCalendarEvents, useCalendarEventsByDateRange } from '@/hooks/useCalendar';
+import { useCalendarEvents } from '@/hooks/useCalendar';
 import { EventCreateDialog } from '@/components/calendar/EventCreateDialog';
 import { EventViewDialog } from '@/components/calendar/EventViewDialog';
 import { CalendarSyncSettings } from '@/components/calendar/CalendarSyncSettings';

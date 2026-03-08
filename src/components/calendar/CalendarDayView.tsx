@@ -1,8 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
 import { CalendarEventWithOwner } from '@/types/calendar-sharing';
 import { format, isToday, startOfDay, parseISO, isSameDay, differenceInMinutes } from 'date-fns';
-import { Clock } from 'lucide-react';
 import { DroppableTimeSlot } from './DroppableSlots';
 import { DraggableCalendarEvent } from './DraggableCalendarEvent';
 import { QuickEventCreate } from './QuickEventCreate';

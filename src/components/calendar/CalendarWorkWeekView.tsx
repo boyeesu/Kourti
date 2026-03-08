@@ -10,7 +10,6 @@ import {
   isSameDay,
   differenceInMinutes,
 } from 'date-fns';
-import { Clock } from 'lucide-react';
 import { DroppableWorkWeekSlot } from './DroppableSlots';
 import { DraggableCalendarEvent } from './DraggableCalendarEvent';
 import { QuickEventCreate } from './QuickEventCreate';

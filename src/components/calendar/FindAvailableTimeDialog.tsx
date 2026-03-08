@@ -14,16 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CalendarDays, Clock, Users, Search, Loader2, Check, X } from 'lucide-react';
-import {
-  format,
-  addDays,
-  startOfDay,
-  endOfDay,
-  eachHourOfInterval,
-  isWithinInterval,
-  parseISO,
-} from 'date-fns';
+import { CalendarDays, Clock, Users, Search, Check, X } from 'lucide-react';
+import { format, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import { useOrganizationMembersForSharing } from '@/hooks/useCalendarSharing';
 import { useCalendarEventsByDateRange } from '@/hooks/useCalendar';
 import { cn } from '@/lib/utils';

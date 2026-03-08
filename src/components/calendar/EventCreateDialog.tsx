@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -139,7 +139,7 @@ export function EventCreateDialog({
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
 
-  const getDefaultStartDate = () => {
+  const getDefaultStartDate = useCallback(() => {
     const dateToUse = initialDate || defaultDate;
     if (dateToUse) {
       return format(dateToUse, "yyyy-MM-dd'T'HH:mm");
@@ -148,9 +148,9 @@ export function EventCreateDialog({
     now.setMinutes(0);
     now.setSeconds(0);
     return format(now, "yyyy-MM-dd'T'HH:mm");
-  };
+  }, [initialDate, defaultDate]);
 
-  const getDefaultEndDate = () => {
+  const getDefaultEndDate = useCallback(() => {
     const dateToUse = initialDate || defaultDate;
     if (dateToUse) {
       const end = new Date(dateToUse);
@@ -169,7 +169,7 @@ export function EventCreateDialog({
     }
     now.setSeconds(0);
     return format(now, "yyyy-MM-dd'T'HH:mm");
-  };
+  }, [initialDate, defaultDate, initialDuration]);
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
@@ -230,7 +230,16 @@ export function EventCreateDialog({
       setIsRecurring(false);
       setNewAttendee('');
     }
-  }, [open, initialDate, initialDuration, initialAttendees]);
+  }, [
+    open,
+    initialDate,
+    initialDuration,
+    initialAttendees,
+    defaultEventType,
+    form,
+    getDefaultEndDate,
+    getDefaultStartDate,
+  ]);
 
   const startDateValue = form.watch('start_date');
   const previousStartDateRef = useRef(startDateValue);

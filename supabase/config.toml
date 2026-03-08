@@ -1,4 +1,4 @@
-project_id = ""
+project_id = "zjbvnvydgsxqmmrrmvif"
 
 [api]
 enabled = true
@@ -53,4 +53,19 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.create-invited-user]
+verify_jwt = false
+
+[functions.process-multi-channel-reminders]
+verify_jwt = false
+
+[functions.send-calendar-digest]
+verify_jwt = false
+
+[functions.deliver-webhooks]
+verify_jwt = false
+
+[functions.calendar-api]
+verify_jwt = false
+
+[functions.check-twilio-config]
 verify_jwt = false
