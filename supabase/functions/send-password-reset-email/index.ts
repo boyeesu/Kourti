@@ -1,32 +1,43 @@
-// @ts-ignore: Deno module
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-// @ts-ignore: Deno module
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-// @ts-ignore: Deno module
-import { Resend } from "https://esm.sh/resend@2.0.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { createErrorResponse } from "../_shared/errorHandling.ts";
+// @ts-expect-error: Deno module
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+// @ts-expect-error: Deno module
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+// @ts-expect-error: Deno module
+import { Resend } from 'https://esm.sh/resend@2.0.0';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { createErrorResponse } from '../_shared/errorHandling.ts';
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "onboarding@resend.dev";
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+const fromEmail = Deno.env.get('SMTP_FROM_EMAIL') || 'onboarding@resend.dev';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:8080',
+  'http://localhost:8081',
+  'http://localhost:8082',
+  'http://localhost:8083',
+  'http://localhost:8087',
+  'https://app.kourti.com',
+  'https://kourti.com',
+  'https://kouti-legal-hub-41.lovable.app',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -37,16 +48,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -57,9 +69,9 @@ interface PasswordResetEmailRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  console.log("send-password-reset-email function invoked");
+  console.log('send-password-reset-email function invoked');
 
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   // Handle CORS preflight
@@ -104,7 +116,7 @@ const handler = async (req: Request): Promise<Response> => {
     const {
       email,
       redirectUrl,
-      organizationName = "Kourti Legal",
+      organizationName = 'Kourti Legal',
     }: PasswordResetEmailRequest = await req.json();
 
     console.log('Processing password reset email for:', email);
@@ -144,7 +156,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailSubject = `Reset Your ${organizationName} Password`;
 
-    console.log("Sending password reset email via Resend:", { to: email, subject: emailSubject });
+    console.log('Sending password reset email via Resend:', { to: email, subject: emailSubject });
 
     const { data, error } = await resend.emails.send({
       from: `${organizationName} <${fromEmail}>`,
@@ -154,11 +166,11 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (error) {
-      console.error("Resend error:", error);
+      console.error('Resend error:', error);
       throw new Error(error.message);
     }
 
-    console.log("Password reset email sent successfully:", data?.id);
+    console.log('Password reset email sent successfully:', data?.id);
 
     const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
     return createJsonResponse(
@@ -173,7 +185,6 @@ const handler = async (req: Request): Promise<Response> => {
         headers: rateLimitHeaders,
       }
     );
-
   } catch (error: unknown) {
     return createErrorResponse(error, corsOptions, {
       function: 'send-password-reset-email',
@@ -189,7 +200,7 @@ interface PasswordResetEmailHtmlParams {
 
 function buildPasswordResetEmailHtml(params: PasswordResetEmailHtmlParams): string {
   const { fullName, resetLink, organizationName } = params;
-  
+
   return `
 <!DOCTYPE html>
 <html>
@@ -263,4 +274,3 @@ function buildPasswordResetEmailHtml(params: PasswordResetEmailHtmlParams): stri
 }
 
 serve(handler);
-
