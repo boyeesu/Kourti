@@ -57,6 +57,7 @@ CREATE TRIGGER trg_calendar_event_instances_updated_at
 ALTER TABLE calendar_event_instances ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can view instances of events they have access to
+DROP POLICY IF EXISTS calendar_event_instances_select_policy ON calendar_event_instances;
 CREATE POLICY calendar_event_instances_select_policy ON calendar_event_instances
     FOR SELECT
     USING (
@@ -68,6 +69,7 @@ CREATE POLICY calendar_event_instances_select_policy ON calendar_event_instances
     );
 
 -- Policy: Only event owners or editors can modify instances
+DROP POLICY IF EXISTS calendar_event_instances_insert_policy ON calendar_event_instances;
 CREATE POLICY calendar_event_instances_insert_policy ON calendar_event_instances
     FOR INSERT
     WITH CHECK (
@@ -78,6 +80,7 @@ CREATE POLICY calendar_event_instances_insert_policy ON calendar_event_instances
         )
     );
 
+DROP POLICY IF EXISTS calendar_event_instances_update_policy ON calendar_event_instances;
 CREATE POLICY calendar_event_instances_update_policy ON calendar_event_instances
     FOR UPDATE
     USING (
@@ -88,6 +91,7 @@ CREATE POLICY calendar_event_instances_update_policy ON calendar_event_instances
         )
     );
 
+DROP POLICY IF EXISTS calendar_event_instances_delete_policy ON calendar_event_instances;
 CREATE POLICY calendar_event_instances_delete_policy ON calendar_event_instances
     FOR DELETE
     USING (

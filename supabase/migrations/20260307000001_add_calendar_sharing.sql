@@ -55,6 +55,7 @@ CREATE TRIGGER trg_calendar_shares_updated_at
 ALTER TABLE calendar_shares ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can view shares where they are the owner or recipient
+DROP POLICY IF EXISTS calendar_shares_select_policy ON calendar_shares;
 CREATE POLICY calendar_shares_select_policy ON calendar_shares
     FOR SELECT
     USING (
@@ -69,6 +70,7 @@ CREATE POLICY calendar_shares_select_policy ON calendar_shares
     );
 
 -- Policy: Only owners can create shares
+DROP POLICY IF EXISTS calendar_shares_insert_policy ON calendar_shares;
 CREATE POLICY calendar_shares_insert_policy ON calendar_shares
     FOR INSERT
     WITH CHECK (
@@ -81,6 +83,7 @@ CREATE POLICY calendar_shares_insert_policy ON calendar_shares
     );
 
 -- Policy: Only owners can update their shares
+DROP POLICY IF EXISTS calendar_shares_update_policy ON calendar_shares;
 CREATE POLICY calendar_shares_update_policy ON calendar_shares
     FOR UPDATE
     USING (auth.uid() = calendar_owner_id)
@@ -94,6 +97,7 @@ CREATE POLICY calendar_shares_update_policy ON calendar_shares
     );
 
 -- Policy: Only owners can delete shares
+DROP POLICY IF EXISTS calendar_shares_delete_policy ON calendar_shares;
 CREATE POLICY calendar_shares_delete_policy ON calendar_shares
     FOR DELETE
     USING (
@@ -114,9 +118,18 @@ ALTER TABLE profiles
 ADD COLUMN IF NOT EXISTS calendar_color TEXT DEFAULT '#3b82f6';
 
 -- Validate color format (hex colors)
-ALTER TABLE profiles
-ADD CONSTRAINT valid_calendar_color 
-CHECK (calendar_color ~ '^#[0-9A-Fa-f]{6}$');
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'valid_calendar_color'
+    ) THEN
+        ALTER TABLE profiles
+        ADD CONSTRAINT valid_calendar_color
+        CHECK (calendar_color ~ '^#[0-9A-Fa-f]{6}$');
+    END IF;
+END $$;
 
 -- ============================================
 -- 4. UPDATE CALENDAR EVENTS RLS FOR SHARING

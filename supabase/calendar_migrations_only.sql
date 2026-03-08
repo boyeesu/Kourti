@@ -55,6 +55,7 @@ CREATE TRIGGER trg_calendar_shares_updated_at
 ALTER TABLE calendar_shares ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can view shares where they are the owner or recipient
+DROP POLICY IF EXISTS calendar_shares_select_policy ON calendar_shares;
 CREATE POLICY calendar_shares_select_policy ON calendar_shares
     FOR SELECT
     USING (
@@ -69,6 +70,7 @@ CREATE POLICY calendar_shares_select_policy ON calendar_shares
     );
 
 -- Policy: Only owners can create shares
+DROP POLICY IF EXISTS calendar_shares_insert_policy ON calendar_shares;
 CREATE POLICY calendar_shares_insert_policy ON calendar_shares
     FOR INSERT
     WITH CHECK (
@@ -81,6 +83,7 @@ CREATE POLICY calendar_shares_insert_policy ON calendar_shares
     );
 
 -- Policy: Only owners can update their shares
+DROP POLICY IF EXISTS calendar_shares_update_policy ON calendar_shares;
 CREATE POLICY calendar_shares_update_policy ON calendar_shares
     FOR UPDATE
     USING (auth.uid() = calendar_owner_id)
@@ -94,6 +97,7 @@ CREATE POLICY calendar_shares_update_policy ON calendar_shares
     );
 
 -- Policy: Only owners can delete shares
+DROP POLICY IF EXISTS calendar_shares_delete_policy ON calendar_shares;
 CREATE POLICY calendar_shares_delete_policy ON calendar_shares
     FOR DELETE
     USING (
@@ -114,9 +118,18 @@ ALTER TABLE profiles
 ADD COLUMN IF NOT EXISTS calendar_color TEXT DEFAULT '#3b82f6';
 
 -- Validate color format (hex colors)
-ALTER TABLE profiles
-ADD CONSTRAINT valid_calendar_color 
-CHECK (calendar_color ~ '^#[0-9A-Fa-f]{6}$');
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'valid_calendar_color'
+    ) THEN
+        ALTER TABLE profiles
+        ADD CONSTRAINT valid_calendar_color
+        CHECK (calendar_color ~ '^#[0-9A-Fa-f]{6}$');
+    END IF;
+END $$;
 
 -- ============================================
 -- 4. UPDATE CALENDAR EVENTS RLS FOR SHARING
@@ -407,6 +420,7 @@ CREATE TRIGGER trg_calendar_event_instances_updated_at
 ALTER TABLE calendar_event_instances ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can view instances of events they have access to
+DROP POLICY IF EXISTS calendar_event_instances_select_policy ON calendar_event_instances;
 CREATE POLICY calendar_event_instances_select_policy ON calendar_event_instances
     FOR SELECT
     USING (
@@ -418,6 +432,7 @@ CREATE POLICY calendar_event_instances_select_policy ON calendar_event_instances
     );
 
 -- Policy: Only event owners or editors can modify instances
+DROP POLICY IF EXISTS calendar_event_instances_insert_policy ON calendar_event_instances;
 CREATE POLICY calendar_event_instances_insert_policy ON calendar_event_instances
     FOR INSERT
     WITH CHECK (
@@ -428,6 +443,7 @@ CREATE POLICY calendar_event_instances_insert_policy ON calendar_event_instances
         )
     );
 
+DROP POLICY IF EXISTS calendar_event_instances_update_policy ON calendar_event_instances;
 CREATE POLICY calendar_event_instances_update_policy ON calendar_event_instances
     FOR UPDATE
     USING (
@@ -438,6 +454,7 @@ CREATE POLICY calendar_event_instances_update_policy ON calendar_event_instances
         )
     );
 
+DROP POLICY IF EXISTS calendar_event_instances_delete_policy ON calendar_event_instances;
 CREATE POLICY calendar_event_instances_delete_policy ON calendar_event_instances
     FOR DELETE
     USING (
@@ -871,6 +888,7 @@ CREATE TRIGGER trg_event_invitations_updated_at
 ALTER TABLE event_invitations ENABLE ROW LEVEL SECURITY;
 
 -- Select: Event creator, invitee, or org admin
+DROP POLICY IF EXISTS event_invitations_select_policy ON event_invitations;
 CREATE POLICY event_invitations_select_policy ON event_invitations
     FOR SELECT
     USING (
@@ -886,6 +904,7 @@ CREATE POLICY event_invitations_select_policy ON event_invitations
     );
 
 -- Insert: Event creator only
+DROP POLICY IF EXISTS event_invitations_insert_policy ON event_invitations;
 CREATE POLICY event_invitations_insert_policy ON event_invitations
     FOR INSERT
     WITH CHECK (
@@ -898,6 +917,7 @@ CREATE POLICY event_invitations_insert_policy ON event_invitations
     );
 
 -- Update: Event creator or invitee (for RSVP)
+DROP POLICY IF EXISTS event_invitations_update_policy ON event_invitations;
 CREATE POLICY event_invitations_update_policy ON event_invitations
     FOR UPDATE
     USING (
@@ -907,6 +927,7 @@ CREATE POLICY event_invitations_update_policy ON event_invitations
     );
 
 -- Delete: Event creator only
+DROP POLICY IF EXISTS event_invitations_delete_policy ON event_invitations;
 CREATE POLICY event_invitations_delete_policy ON event_invitations
     FOR DELETE
     USING (
@@ -1010,3 +1031,1040 @@ GRANT SELECT ON event_invitations_with_details TO authenticated;
 -- ============================================
 -- END OF MIGRATION
 -- ============================================
+-- Migration: Enhanced Multi-Channel Reminders (FIXED)
+-- Created: 2026-03-07
+
+-- 1. UPDATE EVENT_REMINDERS TABLE
+ALTER TABLE IF EXISTS event_reminders 
+ADD COLUMN IF NOT EXISTS notification_channels TEXT[] DEFAULT ARRAY['in_app'],
+ADD COLUMN IF NOT EXISTS slack_webhook_url TEXT,
+ADD COLUMN IF NOT EXISTS phone_number TEXT,
+ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS last_error TEXT,
+ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
+
+-- 2. USER NOTIFICATION PREFERENCES TABLE
+CREATE TABLE IF NOT EXISTS user_notification_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    enable_email_notifications BOOLEAN NOT NULL DEFAULT true,
+    enable_sms_notifications BOOLEAN NOT NULL DEFAULT false,
+    enable_slack_notifications BOOLEAN NOT NULL DEFAULT false,
+    enable_push_notifications BOOLEAN NOT NULL DEFAULT true,
+    phone_number TEXT,
+    slack_webhook_url TEXT,
+    slack_user_id TEXT,
+    default_reminder_minutes INTEGER[] DEFAULT ARRAY[15, 60],
+    digest_email_frequency TEXT DEFAULT 'daily' CHECK (digest_email_frequency IN ('daily', 'weekly', 'never')),
+    digest_email_time TIME DEFAULT '08:00:00',
+    quiet_hours_start TIME,
+    quiet_hours_end TIME,
+    quiet_hours_timezone TEXT DEFAULT 'America/New_York',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, organization_id)
+);
+
+-- 3. RLS POLICIES (FIXED SYNTAX)
+ALTER TABLE IF EXISTS user_notification_preferences ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS user_notification_prefs_select_policy ON user_notification_preferences;
+CREATE POLICY user_notification_prefs_select_policy ON user_notification_preferences
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS user_notification_prefs_insert_policy ON user_notification_preferences;
+CREATE POLICY user_notification_prefs_insert_policy ON user_notification_preferences
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS user_notification_prefs_update_policy ON user_notification_preferences;
+CREATE POLICY user_notification_prefs_update_policy ON user_notification_preferences
+    FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS user_notification_prefs_delete_policy ON user_notification_preferences;
+CREATE POLICY user_notification_prefs_delete_policy ON user_notification_preferences
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- 4. REMINDER TEMPLATES TABLE
+CREATE TABLE IF NOT EXISTS reminder_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    event_type TEXT NOT NULL CHECK (event_type IN ('meeting', 'hearing', 'deadline', 'deposition', 'review', 'consultation', 'all')),
+    reminder_minutes INTEGER NOT NULL,
+    notification_channels TEXT[] NOT NULL DEFAULT ARRAY['in_app'],
+    subject_template TEXT,
+    body_template TEXT,
+    sms_template TEXT,
+    is_default BOOLEAN NOT NULL DEFAULT false,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_by UUID NOT NULL REFERENCES auth.users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 5. REMINDER QUEUE TABLE
+CREATE TABLE IF NOT EXISTS reminder_queue (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reminder_id UUID NOT NULL REFERENCES event_reminders(id) ON DELETE CASCADE,
+    channel TEXT NOT NULL CHECK (channel IN ('email', 'sms', 'slack', 'push')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed', 'retrying')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    next_retry_at TIMESTAMPTZ,
+    error_message TEXT,
+    sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 6. INDEXES
+CREATE INDEX IF NOT EXISTS idx_reminder_queue_status ON reminder_queue(status);
+CREATE INDEX IF NOT EXISTS idx_reminder_queue_reminder ON reminder_queue(reminder_id);
+CREATE INDEX IF NOT EXISTS idx_reminder_queue_retry ON reminder_queue(next_retry_at) WHERE status IN ('pending', 'retrying');
+
+-- 7. TRIGGER FUNCTION
+CREATE OR REPLACE FUNCTION create_reminder_queue_entries()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_channel TEXT;
+BEGIN
+    FOREACH v_channel IN ARRAY NEW.notification_channels
+    LOOP
+        INSERT INTO reminder_queue (reminder_id, channel, status)
+        VALUES (NEW.id, v_channel, 'pending')
+        ON CONFLICT DO NOTHING;
+    END LOOP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_create_reminder_queue ON event_reminders;
+CREATE TRIGGER trg_create_reminder_queue
+    AFTER INSERT ON event_reminders
+    FOR EACH ROW
+    WHEN (NEW.sent = false)
+    EXECUTE FUNCTION create_reminder_queue_entries();
+-- Migration: Calendar Digest Emails (FIXED)
+-- Created: 2026-03-07
+
+-- 1. DIGEST LOGS TABLE
+CREATE TABLE IF NOT EXISTS calendar_digest_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    digest_type TEXT NOT NULL CHECK (digest_type IN ('daily', 'weekly')),
+    period_start_date DATE NOT NULL,
+    period_end_date DATE NOT NULL,
+    email_sent BOOLEAN NOT NULL DEFAULT false,
+    email_sent_at TIMESTAMPTZ,
+    email_error TEXT,
+    events_included INTEGER NOT NULL DEFAULT 0,
+    events_json JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_digest_logs_user ON calendar_digest_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_digest_logs_date ON calendar_digest_logs(period_start_date);
+CREATE INDEX IF NOT EXISTS idx_digest_logs_sent ON calendar_digest_logs(email_sent) WHERE email_sent = false;
+
+-- 2. FUNCTIONS
+CREATE OR REPLACE FUNCTION get_users_for_digest(p_digest_type TEXT, p_current_time TIME DEFAULT CURRENT_TIME)
+RETURNS TABLE (user_id UUID, email TEXT, organization_id UUID, digest_time TIME, timezone TEXT) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        unp.user_id,
+        u.email,
+        unp.organization_id,
+        unp.digest_email_time,
+        unp.quiet_hours_timezone
+    FROM user_notification_preferences unp
+    JOIN auth.users u ON u.id = unp.user_id
+    WHERE unp.digest_email_frequency = p_digest_type
+    AND unp.enable_email_notifications = true
+    AND (
+        (p_digest_type = 'daily' AND unp.digest_email_time <= p_current_time AND unp.digest_email_time > (p_current_time - INTERVAL '1 hour'))
+        OR 
+        (p_digest_type = 'weekly' AND EXTRACT(DOW FROM CURRENT_DATE) = 0 AND unp.digest_email_time <= p_current_time AND unp.digest_email_time > (p_current_time - INTERVAL '1 hour'))
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION get_upcoming_events_for_digest(p_user_id UUID, p_organization_id UUID, p_start_date DATE, p_end_date DATE)
+RETURNS TABLE (event_id UUID, title TEXT, description TEXT, start_date TIMESTAMPTZ, end_date TIMESTAMPTZ, location TEXT, event_type TEXT, is_recurring BOOLEAN, created_by_name TEXT) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ce.id as event_id,
+        ce.title,
+        ce.description,
+        ce.start_date,
+        ce.end_date,
+        ce.location,
+        ce.event_type,
+        ce.is_recurring,
+        COALESCE(p.first_name || ' ' || p.last_name, u.email) as created_by_name
+    FROM calendar_events ce
+    LEFT JOIN profiles p ON p.user_id = ce.created_by
+    LEFT JOIN auth.users u ON u.id = ce.created_by
+    WHERE ce.organization_id = p_organization_id
+    AND ce.start_date >= p_start_date::timestamptz
+    AND ce.start_date < (p_end_date + INTERVAL '1 day')::timestamptz
+    AND (
+        ce.created_by = p_user_id
+        OR ce.attendees @> ARRAY[(SELECT email FROM auth.users WHERE id = p_user_id)]
+        OR EXISTS (
+            SELECT 1 FROM calendar_shares cs
+            WHERE cs.calendar_owner_id = ce.created_by
+            AND cs.shared_with_user_id = p_user_id
+            AND cs.is_active = true
+        )
+    )
+    AND NOT ce.is_recurring
+    ORDER BY ce.start_date ASC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. RLS POLICIES (FIXED)
+ALTER TABLE IF EXISTS calendar_digest_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS calendar_digest_logs_select_policy ON calendar_digest_logs;
+CREATE POLICY calendar_digest_logs_select_policy ON calendar_digest_logs
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS calendar_digest_logs_insert_policy ON calendar_digest_logs;
+CREATE POLICY calendar_digest_logs_insert_policy ON calendar_digest_logs
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE TABLE IF NOT EXISTS public.webhook_endpoints (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  name text NOT NULL,
+  target_url text NOT NULL,
+  secret text,
+  is_active boolean NOT NULL DEFAULT true,
+  subscribed_events text[] NOT NULL DEFAULT '{}'::text[],
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  last_triggered_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS public.webhook_deliveries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  endpoint_id uuid NOT NULL REFERENCES public.webhook_endpoints(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  payload jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  attempt_count integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 5,
+  next_retry_at timestamptz NOT NULL DEFAULT now(),
+  delivered_at timestamptz,
+  response_status integer,
+  response_body text,
+  error_message text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT webhook_deliveries_status_check CHECK (status IN ('pending', 'processing', 'delivered', 'failed', 'dead_letter'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_endpoints_org ON public.webhook_endpoints(organization_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_endpoints_active ON public.webhook_endpoints(is_active);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_pending ON public.webhook_deliveries(status, next_retry_at);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_endpoint_id ON public.webhook_deliveries(endpoint_id);
+
+ALTER TABLE public.webhook_endpoints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.webhook_deliveries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS webhook_endpoints_admin_select ON public.webhook_endpoints;
+CREATE POLICY webhook_endpoints_admin_select
+ON public.webhook_endpoints
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS webhook_endpoints_org_select ON public.webhook_endpoints;
+CREATE POLICY webhook_endpoints_org_select
+ON public.webhook_endpoints
+FOR SELECT
+TO authenticated
+USING (
+  organization_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.organization_id = webhook_endpoints.organization_id
+  )
+);
+
+DROP POLICY IF EXISTS webhook_endpoints_admin_insert ON public.webhook_endpoints;
+CREATE POLICY webhook_endpoints_admin_insert
+ON public.webhook_endpoints
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS webhook_endpoints_admin_update ON public.webhook_endpoints;
+CREATE POLICY webhook_endpoints_admin_update
+ON public.webhook_endpoints
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS webhook_endpoints_admin_delete ON public.webhook_endpoints;
+CREATE POLICY webhook_endpoints_admin_delete
+ON public.webhook_endpoints
+FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS webhook_deliveries_admin_select ON public.webhook_deliveries;
+CREATE POLICY webhook_deliveries_admin_select
+ON public.webhook_deliveries
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS webhook_deliveries_org_select ON public.webhook_deliveries;
+CREATE POLICY webhook_deliveries_org_select
+ON public.webhook_deliveries
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.webhook_endpoints we
+    JOIN public.profiles p
+      ON p.organization_id = we.organization_id
+    WHERE we.id = webhook_deliveries.endpoint_id
+      AND p.user_id = auth.uid()
+  )
+);
+
+DROP POLICY IF EXISTS webhook_deliveries_admin_insert ON public.webhook_deliveries;
+CREATE POLICY webhook_deliveries_admin_insert
+ON public.webhook_deliveries
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS webhook_deliveries_admin_update ON public.webhook_deliveries;
+CREATE POLICY webhook_deliveries_admin_update
+ON public.webhook_deliveries
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.get_pending_webhook_deliveries(p_batch_size integer DEFAULT 50)
+RETURNS TABLE (
+  delivery_id uuid,
+  endpoint_id uuid,
+  target_url text,
+  secret text,
+  event_type text,
+  payload jsonb,
+  attempt_count integer,
+  max_attempts integer
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    wd.id AS delivery_id,
+    wd.endpoint_id,
+    we.target_url,
+    we.secret,
+    wd.event_type,
+    wd.payload,
+    wd.attempt_count,
+    wd.max_attempts
+  FROM public.webhook_deliveries wd
+  JOIN public.webhook_endpoints we
+    ON we.id = wd.endpoint_id
+  WHERE wd.status = 'pending'
+    AND wd.next_retry_at <= now()
+    AND we.is_active = true
+  ORDER BY wd.created_at ASC
+  LIMIT GREATEST(COALESCE(p_batch_size, 50), 1);
+$$;
+
+CREATE OR REPLACE FUNCTION public.update_webhook_delivery_status(
+  p_delivery_id uuid,
+  p_status text,
+  p_response_status integer DEFAULT NULL,
+  p_response_body text DEFAULT NULL,
+  p_error_message text DEFAULT NULL,
+  p_next_retry_at timestamptz DEFAULT NULL,
+  p_attempt_increment integer DEFAULT 1
+)
+RETURNS public.webhook_deliveries
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.webhook_deliveries;
+BEGIN
+  UPDATE public.webhook_deliveries wd
+  SET
+    status = p_status,
+    response_status = COALESCE(p_response_status, wd.response_status),
+    response_body = COALESCE(p_response_body, wd.response_body),
+    error_message = p_error_message,
+    attempt_count = wd.attempt_count + GREATEST(COALESCE(p_attempt_increment, 1), 0),
+    delivered_at = CASE WHEN p_status = 'delivered' THEN now() ELSE wd.delivered_at END,
+    next_retry_at = COALESCE(p_next_retry_at, wd.next_retry_at),
+    updated_at = now()
+  WHERE wd.id = p_delivery_id
+  RETURNING wd.* INTO v_row;
+
+  RETURN v_row;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_pending_webhook_deliveries(integer) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.update_webhook_delivery_status(uuid, text, integer, text, text, timestamptz, integer) TO authenticated, service_role;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS public.api_keys (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  owner_user_id uuid,
+  key_name text NOT NULL,
+  key_hash text NOT NULL,
+  key_prefix text,
+  scopes text[] NOT NULL DEFAULT '{}'::text[],
+  rate_limit_per_minute integer NOT NULL DEFAULT 60,
+  is_active boolean NOT NULL DEFAULT true,
+  last_used_at timestamptz,
+  expires_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (key_hash)
+);
+
+CREATE TABLE IF NOT EXISTS public.api_rate_limit_windows (
+  api_key_id uuid PRIMARY KEY REFERENCES public.api_keys(id) ON DELETE CASCADE,
+  window_start timestamptz NOT NULL DEFAULT now(),
+  request_count integer NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.api_request_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  api_key_id uuid REFERENCES public.api_keys(id) ON DELETE SET NULL,
+  organization_id uuid,
+  request_path text NOT NULL,
+  request_method text NOT NULL,
+  request_ip inet,
+  request_metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status_code integer,
+  response_body jsonb,
+  error_message text,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz,
+  duration_ms integer,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.api_calendar_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  title text NOT NULL,
+  description text,
+  start_at timestamptz NOT NULL,
+  end_at timestamptz NOT NULL,
+  location text,
+  created_by uuid,
+  source text NOT NULL DEFAULT 'api',
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT api_calendar_events_end_after_start CHECK (end_at > start_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_keys_owner ON public.api_keys(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_org ON public.api_keys(organization_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_active ON public.api_keys(is_active, expires_at);
+CREATE INDEX IF NOT EXISTS idx_api_request_logs_key_started ON public.api_request_logs(api_key_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_request_logs_org_started ON public.api_request_logs(organization_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_calendar_events_org_start ON public.api_calendar_events(organization_id, start_at);
+
+ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_rate_limit_windows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_request_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_calendar_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS api_keys_admin_select ON public.api_keys;
+CREATE POLICY api_keys_admin_select
+ON public.api_keys
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS api_keys_owner_select ON public.api_keys;
+CREATE POLICY api_keys_owner_select
+ON public.api_keys
+FOR SELECT
+TO authenticated
+USING (owner_user_id = auth.uid());
+
+DROP POLICY IF EXISTS api_keys_admin_modify ON public.api_keys;
+CREATE POLICY api_keys_admin_modify
+ON public.api_keys
+FOR ALL
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS api_rate_limit_windows_admin_only ON public.api_rate_limit_windows;
+CREATE POLICY api_rate_limit_windows_admin_only
+ON public.api_rate_limit_windows
+FOR ALL
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS api_request_logs_admin_select ON public.api_request_logs;
+CREATE POLICY api_request_logs_admin_select
+ON public.api_request_logs
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS api_request_logs_owner_select ON public.api_request_logs;
+CREATE POLICY api_request_logs_owner_select
+ON public.api_request_logs
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.api_keys ak
+    WHERE ak.id = api_request_logs.api_key_id
+      AND ak.owner_user_id = auth.uid()
+  )
+);
+
+DROP POLICY IF EXISTS api_request_logs_admin_insert ON public.api_request_logs;
+CREATE POLICY api_request_logs_admin_insert
+ON public.api_request_logs
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS api_request_logs_admin_update ON public.api_request_logs;
+CREATE POLICY api_request_logs_admin_update
+ON public.api_request_logs
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS api_calendar_events_admin_select ON public.api_calendar_events;
+CREATE POLICY api_calendar_events_admin_select
+ON public.api_calendar_events
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS api_calendar_events_org_select ON public.api_calendar_events;
+CREATE POLICY api_calendar_events_org_select
+ON public.api_calendar_events
+FOR SELECT
+TO authenticated
+USING (
+  organization_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.organization_id = api_calendar_events.organization_id
+  )
+);
+
+DROP POLICY IF EXISTS api_calendar_events_admin_modify ON public.api_calendar_events;
+CREATE POLICY api_calendar_events_admin_modify
+ON public.api_calendar_events
+FOR ALL
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.validate_api_key(
+  p_api_key text,
+  p_required_scope text DEFAULT NULL
+)
+RETURNS TABLE (
+  is_valid boolean,
+  api_key_id uuid,
+  organization_id uuid,
+  owner_user_id uuid,
+  rate_limit_per_minute integer,
+  scopes text[]
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+  SELECT
+    true AS is_valid,
+    ak.id AS api_key_id,
+    ak.organization_id,
+    ak.owner_user_id,
+    ak.rate_limit_per_minute,
+    ak.scopes
+  FROM public.api_keys ak
+  WHERE ak.key_hash = encode(extensions.digest(p_api_key::bytea, 'sha256'::text), 'hex')
+    AND ak.is_active = true
+    AND (ak.expires_at IS NULL OR ak.expires_at > now())
+    AND (
+      p_required_scope IS NULL
+      OR p_required_scope = ''
+      OR p_required_scope = ANY(ak.scopes)
+    )
+  LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.check_api_rate_limit(
+  p_api_key_id uuid,
+  p_rate_limit integer
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.api_rate_limit_windows;
+  v_limit integer;
+BEGIN
+  v_limit := GREATEST(COALESCE(p_rate_limit, 60), 1);
+
+  INSERT INTO public.api_rate_limit_windows AS arlw (api_key_id, window_start, request_count, updated_at)
+  VALUES (p_api_key_id, now(), 1, now())
+  ON CONFLICT (api_key_id)
+  DO UPDATE SET
+    window_start = CASE
+      WHEN arlw.window_start <= now() - interval '1 minute' THEN now()
+      ELSE arlw.window_start
+    END,
+    request_count = CASE
+      WHEN arlw.window_start <= now() - interval '1 minute' THEN 1
+      ELSE arlw.request_count + 1
+    END,
+    updated_at = now()
+  RETURNING * INTO v_row;
+
+  RETURN v_row.request_count <= v_limit;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.log_api_request(
+  p_api_key_id uuid,
+  p_organization_id uuid,
+  p_request_path text,
+  p_request_method text,
+  p_request_ip inet DEFAULT NULL,
+  p_request_metadata jsonb DEFAULT '{}'::jsonb
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_id uuid;
+BEGIN
+  INSERT INTO public.api_request_logs (
+    api_key_id,
+    organization_id,
+    request_path,
+    request_method,
+    request_ip,
+    request_metadata,
+    started_at,
+    created_at
+  )
+  VALUES (
+    p_api_key_id,
+    p_organization_id,
+    p_request_path,
+    upper(p_request_method),
+    p_request_ip,
+    COALESCE(p_request_metadata, '{}'::jsonb),
+    now(),
+    now()
+  )
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.complete_api_request(
+  p_request_log_id uuid,
+  p_status_code integer,
+  p_response_body jsonb DEFAULT NULL,
+  p_error_message text DEFAULT NULL
+)
+RETURNS public.api_request_logs
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.api_request_logs;
+BEGIN
+  UPDATE public.api_request_logs arl
+  SET
+    status_code = p_status_code,
+    response_body = p_response_body,
+    error_message = p_error_message,
+    completed_at = now(),
+    duration_ms = GREATEST((EXTRACT(EPOCH FROM (now() - arl.started_at)) * 1000)::integer, 0)
+  WHERE arl.id = p_request_log_id
+  RETURNING arl.* INTO v_row;
+
+  UPDATE public.api_keys ak
+  SET last_used_at = now(),
+      updated_at = now()
+  WHERE ak.id = v_row.api_key_id;
+
+  RETURN v_row;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.api_get_calendar_events(
+  p_organization_id uuid,
+  p_start_at timestamptz DEFAULT NULL,
+  p_end_at timestamptz DEFAULT NULL,
+  p_limit integer DEFAULT 100,
+  p_offset integer DEFAULT 0
+)
+RETURNS SETOF public.api_calendar_events
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT ace.*
+  FROM public.api_calendar_events ace
+  WHERE (p_organization_id IS NULL OR ace.organization_id = p_organization_id)
+    AND (p_start_at IS NULL OR ace.end_at >= p_start_at)
+    AND (p_end_at IS NULL OR ace.start_at <= p_end_at)
+  ORDER BY ace.start_at ASC
+  LIMIT GREATEST(COALESCE(p_limit, 100), 1)
+  OFFSET GREATEST(COALESCE(p_offset, 0), 0);
+$$;
+
+CREATE OR REPLACE FUNCTION public.api_create_calendar_event(
+  p_organization_id uuid,
+  p_title text,
+  p_description text,
+  p_start_at timestamptz,
+  p_end_at timestamptz,
+  p_location text DEFAULT NULL,
+  p_created_by uuid DEFAULT NULL,
+  p_metadata jsonb DEFAULT '{}'::jsonb
+)
+RETURNS public.api_calendar_events
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.api_calendar_events;
+BEGIN
+  INSERT INTO public.api_calendar_events (
+    organization_id,
+    title,
+    description,
+    start_at,
+    end_at,
+    location,
+    created_by,
+    metadata,
+    source,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    p_organization_id,
+    p_title,
+    p_description,
+    p_start_at,
+    p_end_at,
+    p_location,
+    p_created_by,
+    COALESCE(p_metadata, '{}'::jsonb),
+    'api',
+    now(),
+    now()
+  )
+  RETURNING * INTO v_row;
+
+  RETURN v_row;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.validate_api_key(text, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.check_api_rate_limit(uuid, integer) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.log_api_request(uuid, uuid, text, text, inet, jsonb) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.complete_api_request(uuid, integer, jsonb, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.api_get_calendar_events(uuid, timestamptz, timestamptz, integer, integer) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.api_create_calendar_event(uuid, text, text, timestamptz, timestamptz, text, uuid, jsonb) TO authenticated, service_role;
+CREATE TABLE IF NOT EXISTS public.security_audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  actor_user_id uuid,
+  actor_type text NOT NULL DEFAULT 'user',
+  event_type text NOT NULL,
+  severity text NOT NULL DEFAULT 'info',
+  source text NOT NULL DEFAULT 'api',
+  ip_address inet,
+  user_agent text,
+  target_type text,
+  target_id text,
+  event_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT security_audit_logs_severity_check CHECK (severity IN ('info', 'warning', 'error', 'critical'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_security_audit_logs_org_created ON public.security_audit_logs(organization_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_security_audit_logs_actor_created ON public.security_audit_logs(actor_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_security_audit_logs_event_type_created ON public.security_audit_logs(event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_security_audit_logs_severity_created ON public.security_audit_logs(severity, created_at DESC);
+
+ALTER TABLE public.security_audit_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS security_audit_logs_admin_select ON public.security_audit_logs;
+CREATE POLICY security_audit_logs_admin_select
+ON public.security_audit_logs
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+DROP POLICY IF EXISTS security_audit_logs_actor_select ON public.security_audit_logs;
+CREATE POLICY security_audit_logs_actor_select
+ON public.security_audit_logs
+FOR SELECT
+TO authenticated
+USING (actor_user_id = auth.uid());
+
+DROP POLICY IF EXISTS security_audit_logs_admin_insert ON public.security_audit_logs;
+CREATE POLICY security_audit_logs_admin_insert
+ON public.security_audit_logs
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND p.role IN ('admin', 'superadmin')
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.log_security_event(
+  p_organization_id uuid,
+  p_actor_user_id uuid,
+  p_event_type text,
+  p_severity text DEFAULT 'info',
+  p_source text DEFAULT 'api',
+  p_ip_address inet DEFAULT NULL,
+  p_user_agent text DEFAULT NULL,
+  p_target_type text DEFAULT NULL,
+  p_target_id text DEFAULT NULL,
+  p_event_data jsonb DEFAULT '{}'::jsonb
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_id uuid;
+BEGIN
+  INSERT INTO public.security_audit_logs (
+    organization_id,
+    actor_user_id,
+    actor_type,
+    event_type,
+    severity,
+    source,
+    ip_address,
+    user_agent,
+    target_type,
+    target_id,
+    event_data,
+    created_at
+  )
+  VALUES (
+    p_organization_id,
+    p_actor_user_id,
+    CASE WHEN p_actor_user_id IS NULL THEN 'system' ELSE 'user' END,
+    p_event_type,
+    CASE
+      WHEN p_severity IN ('info', 'warning', 'error', 'critical') THEN p_severity
+      ELSE 'info'
+    END,
+    COALESCE(NULLIF(p_source, ''), 'api'),
+    p_ip_address,
+    p_user_agent,
+    p_target_type,
+    p_target_id,
+    COALESCE(p_event_data, '{}'::jsonb),
+    now()
+  )
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.log_security_event(uuid, uuid, text, text, text, inet, text, text, text, jsonb) TO authenticated, service_role;

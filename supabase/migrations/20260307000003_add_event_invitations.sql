@@ -54,6 +54,7 @@ CREATE TRIGGER trg_event_invitations_updated_at
 ALTER TABLE event_invitations ENABLE ROW LEVEL SECURITY;
 
 -- Select: Event creator, invitee, or org admin
+DROP POLICY IF EXISTS event_invitations_select_policy ON event_invitations;
 CREATE POLICY event_invitations_select_policy ON event_invitations
     FOR SELECT
     USING (
@@ -69,6 +70,7 @@ CREATE POLICY event_invitations_select_policy ON event_invitations
     );
 
 -- Insert: Event creator only
+DROP POLICY IF EXISTS event_invitations_insert_policy ON event_invitations;
 CREATE POLICY event_invitations_insert_policy ON event_invitations
     FOR INSERT
     WITH CHECK (
@@ -81,6 +83,7 @@ CREATE POLICY event_invitations_insert_policy ON event_invitations
     );
 
 -- Update: Event creator or invitee (for RSVP)
+DROP POLICY IF EXISTS event_invitations_update_policy ON event_invitations;
 CREATE POLICY event_invitations_update_policy ON event_invitations
     FOR UPDATE
     USING (
@@ -90,6 +93,7 @@ CREATE POLICY event_invitations_update_policy ON event_invitations
     );
 
 -- Delete: Event creator only
+DROP POLICY IF EXISTS event_invitations_delete_policy ON event_invitations;
 CREATE POLICY event_invitations_delete_policy ON event_invitations
     FOR DELETE
     USING (
