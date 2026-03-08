@@ -174,14 +174,13 @@ export default function ResetPassword() {
       setPassword('');
       setConfirmPassword('');
 
-      // Sign out to clear the recovery session before redirecting
-      // This ensures a clean state when the user logs in with their new password
-      await supabase.auth.signOut();
-
       toast({
         title: 'Password reset successfully!',
         description: 'Your password has been updated. You can now sign in with your new password.',
       });
+
+      // Sign out to clear the recovery session (fire-and-forget to avoid blocking navigation)
+      supabase.auth.signOut().catch(() => {});
 
       // Redirect to login after successful password reset
       navigate('/login');
