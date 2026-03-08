@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { useContract } from '@/hooks/useContracts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
