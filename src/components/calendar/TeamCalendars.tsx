@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Share2, Eye, Pencil, User } from 'lucide-react';
-import { useSharedCalendars } from '@/hooks/useCalendarSharing';
+import { useSharedCalendars, useOrganizationMembersForSharing } from '@/hooks/useCalendarSharing';
 import { ShareCalendarDialog } from './ShareCalendarDialog';
 import { ManageCalendarSharesDialog } from './ManageCalendarSharesDialog';
 

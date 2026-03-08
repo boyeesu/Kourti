@@ -81,7 +81,9 @@ type EventTypeFilter =
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | CalendarEventWithOwner | null>(
+    null
+  );
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
   const [eventTypeFilter, setEventTypeFilter] = useState<EventTypeFilter>('all');
@@ -123,12 +125,15 @@ export default function Calendar() {
 
         // Add owner info to events
         const ownerCalendar = sharedCalendars?.find((sc) => sc.calendar_owner_id === ownerId);
-        const eventsWithOwner = (data || []).map((event) => ({
-          ...event,
-          owner_name: ownerCalendar?.owner_name,
-          owner_email: ownerCalendar?.owner_email,
-          owner_color: ownerCalendar?.calendar_color,
-        }));
+        const eventsWithOwner: CalendarEventWithOwner[] = (data || []).map(
+          (event) =>
+            ({
+              ...event,
+              owner_name: ownerCalendar?.owner_name,
+              owner_email: ownerCalendar?.owner_email,
+              owner_color: ownerCalendar?.calendar_color,
+            }) as CalendarEventWithOwner
+        );
 
         setSharedCalendarEvents((prev) => [...prev, ...eventsWithOwner]);
       } catch (err) {
@@ -286,7 +291,7 @@ export default function Calendar() {
     }
   };
 
-  const handleEventClick = (event: CalendarEvent) => {
+  const handleEventClick = (event: CalendarEvent | CalendarEventWithOwner) => {
     setSelectedEvent(event);
     setShowEventDialog(true);
   };

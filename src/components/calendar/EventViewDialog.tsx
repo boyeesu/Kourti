@@ -1,30 +1,22 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { CalendarEvent } from "@/types";
-import { format } from "date-fns";
-import {
-  Clock,
-  MapPin,
-  Users,
-  FileText,
-  Edit,
-  Trash2,
-  User
-} from "lucide-react";
-import { useDeleteCalendarEvent } from "@/hooks/useCalendar";
-import { useToast } from "@/hooks/use-toast";
-import { EventEditDialog } from "./EventEditDialog";
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { CalendarEvent, CalendarEventWithOwner } from '@/types';
+import { format } from 'date-fns';
+import { Clock, MapPin, Users, FileText, Edit, Trash2, User } from 'lucide-react';
+import { useDeleteCalendarEvent } from '@/hooks/useCalendar';
+import { useToast } from '@/hooks/use-toast';
+import { EventEditDialog } from './EventEditDialog';
 
 interface EventViewDialogProps {
-  event: CalendarEvent | null;
+  event: CalendarEvent | CalendarEventWithOwner | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -38,13 +30,20 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
-      case "meeting": return "bg-primary text-primary-foreground";
-      case "hearing": return "bg-destructive text-destructive-foreground";
-      case "deadline": return "bg-warning text-warning-foreground";
-      case "deposition": return "bg-success text-success-foreground";
-      case "review": return "bg-muted text-muted-foreground";
-      case "consultation": return "bg-secondary text-secondary-foreground";
-      default: return "bg-muted text-muted-foreground";
+      case 'meeting':
+        return 'bg-primary text-primary-foreground';
+      case 'hearing':
+        return 'bg-destructive text-destructive-foreground';
+      case 'deadline':
+        return 'bg-warning text-warning-foreground';
+      case 'deposition':
+        return 'bg-success text-success-foreground';
+      case 'review':
+        return 'bg-muted text-muted-foreground';
+      case 'consultation':
+        return 'bg-secondary text-secondary-foreground';
+      default:
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -54,9 +53,9 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
       onOpenChange(false);
     } catch {
       toast({
-        title: "Error",
-        description: "Failed to delete event",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to delete event',
+        variant: 'destructive',
       });
     }
   };
@@ -78,13 +77,11 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl">{event.title}</DialogTitle>
-              <Badge className={getEventTypeColor(event.event_type)}>
-                {event.event_type}
+              <Badge className={getEventTypeColor(event.event_type || 'meeting')}>
+                {event.event_type || 'event'}
               </Badge>
             </div>
-            <DialogDescription>
-              Event details and information
-            </DialogDescription>
+            <DialogDescription>Event details and information</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">
@@ -93,11 +90,10 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
               <div className="flex items-center gap-3">
                 <Clock className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium">
-                    {format(new Date(event.start_date), "PPP")}
-                  </p>
+                  <p className="text-sm font-medium">{format(new Date(event.start_date), 'PPP')}</p>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(event.start_date), "p")} - {format(new Date(event.end_date), "p")}
+                    {format(new Date(event.start_date), 'p')} -{' '}
+                    {format(new Date(event.end_date), 'p')}
                   </p>
                 </div>
               </div>
@@ -144,11 +140,7 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Event
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleDelete}
-                  disabled={deleteEvent.isPending}
-                >
+                <Button variant="outline" onClick={handleDelete} disabled={deleteEvent.isPending}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete Event
                 </Button>
@@ -161,8 +153,8 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
         </DialogContent>
       </Dialog>
 
-      <EventEditDialog 
-        event={event}
+      <EventEditDialog
+        event={event as CalendarEvent}
         open={showEditDialog}
         onOpenChange={handleEditClose}
       />

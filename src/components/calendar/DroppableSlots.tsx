@@ -6,6 +6,7 @@ interface DroppableTimeSlotProps {
   minute?: number;
   children?: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   onClick?: (e: React.MouseEvent) => void;
 }
 
@@ -14,6 +15,7 @@ export function DroppableTimeSlot({
   minute = 0,
   children,
   className,
+  style,
   onClick,
 }: DroppableTimeSlotProps) {
   const { isOver, setNodeRef } = useDroppable({
@@ -24,6 +26,7 @@ export function DroppableTimeSlot({
   return (
     <div
       ref={setNodeRef}
+      style={style}
       onClick={onClick}
       className={cn(
         'relative transition-colors',
@@ -49,6 +52,7 @@ interface DroppableWorkWeekSlotProps {
   minute?: number;
   children?: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   onClick?: (e: React.MouseEvent) => void;
 }
 
@@ -58,6 +62,7 @@ export function DroppableWorkWeekSlot({
   minute = 0,
   children,
   className,
+  style,
   onClick,
 }: DroppableWorkWeekSlotProps) {
   const { isOver, setNodeRef } = useDroppable({
@@ -68,6 +73,7 @@ export function DroppableWorkWeekSlot({
   return (
     <div
       ref={setNodeRef}
+      style={style}
       onClick={onClick}
       className={cn(
         'relative transition-colors',

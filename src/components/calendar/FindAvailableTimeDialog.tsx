@@ -52,8 +52,8 @@ export function FindAvailableTimeDialog({ open, onOpenChange }: FindAvailableTim
 
   const filteredMembers = members?.filter(
     (member) =>
-      member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (member.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const availabilitySlots = useMemo(() => {

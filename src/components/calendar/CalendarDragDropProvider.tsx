@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import {
   DndContext,
   DragOverlay,
@@ -21,6 +22,7 @@ interface CalendarDragDropProviderProps {
 
 export function CalendarDragDropProvider({ children, currentDate }: CalendarDragDropProviderProps) {
   const [activeEvent, setActiveEvent] = useState<CalendarEventWithOwner | null>(null);
+  const [, setIsDragging] = useState(false);
   const updateEvent = useUpdateCalendarEvent();
 
   const sensors = useSensors(
@@ -29,12 +31,7 @@ export function CalendarDragDropProvider({ children, currentDate }: CalendarDrag
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: (event) => {
-        const { clientX, clientY } = event;
-        return { x: clientX, y: clientY };
-      },
-    })
+    useSensor(KeyboardSensor)
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {

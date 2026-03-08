@@ -49,18 +49,23 @@ export interface UpdateCalendarShareData {
 export interface CalendarEventWithOwner {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   start_date: string;
   end_date: string;
-  location?: string;
-  attendees?: string[];
-  event_type?: string;
-  case_id?: string;
-  client_id?: string;
+  location?: string | null;
+  attendees?: string[] | null;
+  event_type?: string | null;
+  case_id?: string | null;
+  client_id?: string | null;
   organization_id: string;
   created_by: string;
   created_at: string;
   updated_at?: string;
+  reminder_date?: string;
+  external_event_id?: string | null;
+  external_source?: 'google_calendar' | 'microsoft_teams';
+  external_calendar_id?: string | null;
+  source?: 'internal' | 'google_calendar' | 'microsoft_teams';
   is_recurring?: boolean;
   recurrence_pattern?: {
     frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -69,9 +74,6 @@ export interface CalendarEventWithOwner {
   recurrence_end_date?: string;
   parent_event_id?: string;
   recurrence_instance_id?: string;
-  external_event_id?: string;
-  external_source?: 'google_calendar' | 'microsoft_teams';
-  external_calendar_id?: string;
   conflict_detected?: boolean;
   conflict_with?: {
     event_id?: string;
@@ -83,7 +85,6 @@ export interface CalendarEventWithOwner {
   owner_name?: string;
   owner_email?: string;
   owner_color?: string;
-  source?: 'google_calendar' | 'microsoft_teams';
 }
 
 // Filter options for calendar

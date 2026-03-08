@@ -56,7 +56,7 @@ export function CalendarColorSettings() {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to update calendar color.',
+        description: error instanceof Error ? error.message : 'Failed to update calendar color.',
       });
     } finally {
       setIsLoading(false);

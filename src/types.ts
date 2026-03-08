@@ -110,26 +110,28 @@ export interface Task {
   organization_id: string;
 }
 
+export type { CalendarEventWithOwner } from '@/types/calendar-sharing';
+
 export interface CalendarEvent {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   start_date: string;
   end_date: string;
-  location?: string;
+  location?: string | null;
   event_type: 'meeting' | 'hearing' | 'deadline' | 'deposition' | 'review' | 'consultation';
-  case_id?: string;
-  client_id?: string;
+  case_id?: string | null;
+  client_id?: string | null;
   organization_id: string;
   created_by: string;
   created_at: string;
   updated_at: string;
-  attendees?: string[];
+  attendees?: string[] | null;
   reminder_date?: string;
   source?: 'internal' | 'google_calendar' | 'microsoft_teams';
-  external_event_id?: string;
+  external_event_id?: string | null;
   external_source?: 'google_calendar' | 'microsoft_teams';
-  external_calendar_id?: string;
+  external_calendar_id?: string | null;
 }
 
 export interface Document {

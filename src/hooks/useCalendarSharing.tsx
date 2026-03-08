@@ -256,8 +256,8 @@ export function useOrganizationMembersForSharing() {
       return (
         data.map((member) => ({
           id: member.user_id,
-          name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email,
-          email: member.email,
+          name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email || '',
+          email: member.email || '',
           color: member.calendar_color || '#3b82f6',
         })) || []
       );
