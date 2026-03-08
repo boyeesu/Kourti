@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { logError, logInfo } from '@/lib/logger';
 import { env } from '@/lib/env';
 import { getAuthRedirectUrl } from '@/utils/auth-helpers';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
 interface UserData {
   first_name?: string;
@@ -327,9 +326,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Use Resend-based edge function instead of Supabase's built-in email service
-      // Note: Password reset doesn't require CSRF (unauthenticated endpoint)
-      // But we'll include it if available for additional security
-      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; messageId?: string }>(
+      // Password reset is unauthenticated — call the edge function directly
+      // (invokeFunctionWithCsrf requires an active session which doesn't exist here)
+      const { data: rawData, error: invokeError } = await supabase.functions.invoke(
         'send-password-reset-email',
         {
           body: {
@@ -338,6 +337,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         }
       );
+
+      // Normalize the invoke result
+      let data = rawData as { error?: string; messageId?: string } | null;
+      let error: Error | null = null;
+      if (invokeError) {
+        const err = invokeError as Error & { context?: Response };
+        if (
+          err.name === 'FunctionsHttpError' &&
+          err.context &&
+          typeof err.context.json === 'function'
+        ) {
+          try {
+            const body = (await err.context.json()) as { error?: string };
+            error = new Error(body?.error || err.message);
+          } catch {
+            error = err;
+          }
+        } else {
+          error = err instanceof Error ? err : new Error(String(err));
+        }
+        data = null;
+      }
 
       if (error) {
         logError('Password reset error', {
