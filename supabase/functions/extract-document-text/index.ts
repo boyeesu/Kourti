@@ -1,26 +1,38 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import JSZip from "https://esm.sh/jszip@3.10.1";
-import { getDocument } from "https://esm.sh/pdfjs-serverless@0.6.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, no-control-regex */
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import JSZip from 'https://esm.sh/jszip@3.10.1';
+import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.6.0';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
+import { createErrorResponse as createSanitizedErrorResponse } from '../_shared/errorHandling.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8081',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
+  'https://kouti-legal-hub-41.lovable.app',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -36,16 +48,17 @@ const PDF_MIN_VIABLE_LENGTH = 50;
 const PDF_OCR_MAX_BYTES = 20 * 1024 * 1024;
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -71,7 +84,10 @@ async function authenticateRequest(req: Request) {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(token);
 
   if (authError || !user) {
     console.error('Authentication failed:', authError?.message);
@@ -89,7 +105,7 @@ function isValidUUID(str: string): boolean {
 }
 
 serve(async (req: Request) => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   // Handle CORS preflight
@@ -213,7 +229,8 @@ serve(async (req: Request) => {
         }
 
         if (extractedText.length < PDF_MIN_VIABLE_LENGTH) {
-          extractionError = 'PDF text extraction yielded limited content. This PDF may contain images or scanned content that requires OCR processing.';
+          extractionError =
+            'PDF text extraction yielded limited content. This PDF may contain images or scanned content that requires OCR processing.';
           extractedText = `[PDF document detected: ${filePath}. Text extraction yielded limited content. This PDF may contain images or scanned content that could not be processed.]`;
         }
       } else if (fileName.endsWith('.docx')) {
@@ -222,7 +239,7 @@ serve(async (req: Request) => {
           const arrayBuffer = await fileData.arrayBuffer();
           extractedText = await extractTextFromDocx(new Uint8Array(arrayBuffer));
           console.log('Extracted DOCX content, length:', extractedText.length);
-          
+
           if (!extractedText || extractedText.length < 10) {
             extractionError = 'DOCX extraction yielded no meaningful content';
             extractedText = `[Unable to extract text from DOCX document automatically.]`;
@@ -251,14 +268,15 @@ serve(async (req: Request) => {
 
     // Update the document record with the extracted content
     // Only update if we have meaningful content (not error messages)
-    const hasValidContent = extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
-    
+    const hasValidContent =
+      extractedText && extractedText.length > 50 && !extractedText.startsWith('[');
+
     if (hasValidContent) {
       const { error: updateError } = await supabase
         .from('documents' as any)
-        .update({ 
+        .update({
           content: extractedText,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         } as any)
         .eq('id', documentId);
 
@@ -266,10 +284,14 @@ serve(async (req: Request) => {
         console.error('Error updating document content:', updateError);
         // Log but don't fail - we still return the extracted content
       } else {
-        console.log(`Successfully updated document ${documentId} content in database (${extractedText.length} characters)`);
+        console.log(
+          `Successfully updated document ${documentId} content in database (${extractedText.length} characters)`
+        );
       }
     } else {
-      console.warn(`Document ${documentId} extraction did not yield valid content. Length: ${extractedText?.length || 0}, Error: ${extractionError || 'None'}`);
+      console.warn(
+        `Document ${documentId} extraction did not yield valid content. Length: ${extractedText?.length || 0}, Error: ${extractionError || 'None'}`
+      );
     }
 
     const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
@@ -280,14 +302,13 @@ serve(async (req: Request) => {
         contentLength: extractedText.length,
         documentId,
         error: extractionError || undefined,
-        warning: !hasValidContent ? 'Extraction did not yield meaningful content' : undefined
+        warning: !hasValidContent ? 'Extraction did not yield meaningful content' : undefined,
       },
       {
         cors: corsOptions,
         headers: rateLimitHeaders,
       }
     );
-
   } catch (error: unknown) {
     if (error instanceof HttpError) {
       return createErrorResponse(error, corsOptions);
@@ -389,7 +410,9 @@ function extractTextFromPDFNaive(data: Uint8Array): string {
     const streamContent = match[1];
     const readableText = streamContent.match(/[\x20-\x7E]{20,}/g);
     if (readableText) {
-      text.push(...readableText.filter(segment => !segment.includes('/') && !segment.includes('<<')));
+      text.push(
+        ...readableText.filter((segment) => !segment.includes('/') && !segment.includes('<<'))
+      );
     }
   }
 
@@ -441,7 +464,7 @@ async function extractTextFromPDFWithOCR(
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -464,7 +487,7 @@ async function extractTextFromPDFWithOCR(
             ],
           },
         ],
-        max_tokens: 4096,
+        max_completion_tokens: 4096,
         temperature: 0,
       }),
     });
@@ -495,25 +518,25 @@ async function extractTextFromDocx(data: Uint8Array): Promise<string> {
   try {
     // Load the DOCX file as a ZIP archive using JSZip
     const zip = await JSZip.loadAsync(data);
-    
+
     // Get the main document XML file
     const documentXml = zip.file('word/document.xml');
-    
+
     if (!documentXml) {
       throw new Error('word/document.xml not found in DOCX archive');
     }
-    
+
     // Read the document XML content as text
     const xmlText = await documentXml.async('string');
-    
+
     // Extract text from XML using regex
     const text: string[] = [];
-    
+
     // Look for text content in <w:t> tags (Word's text elements)
     // Use global flag and handle multiline content
     const textPattern = /<w:t[^>]*>(.*?)<\/w:t>/gs;
     let match;
-    
+
     while ((match = textPattern.exec(xmlText)) !== null) {
       const textContent = match[1];
       // Decode XML entities
@@ -525,12 +548,12 @@ async function extractTextFromDocx(data: Uint8Array): Promise<string> {
         .replace(/&apos;/g, "'")
         .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
         .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-      
+
       if (decoded.trim()) {
         text.push(decoded);
       }
     }
-    
+
     // If no text found with the standard pattern, try a more aggressive approach
     if (text.length === 0) {
       // Look for any text between tags, but be more selective
@@ -538,42 +561,45 @@ async function extractTextFromDocx(data: Uint8Array): Promise<string> {
       while ((match = fallbackPattern.exec(xmlText)) !== null) {
         const potential = match[1].trim();
         // Filter out XML tags, attributes, and other non-text content
-        if (potential && 
-            !potential.startsWith('?') &&
-            !potential.startsWith('!') &&
-            !potential.includes('xmlns') &&
-            !potential.match(/^[a-z]+:/i) &&
-            !potential.match(/^[A-Z][a-z]+:/) && // Filter namespace prefixes
-            potential.match(/[A-Za-z]/)) { // Must contain at least one letter
+        if (
+          potential &&
+          !potential.startsWith('?') &&
+          !potential.startsWith('!') &&
+          !potential.includes('xmlns') &&
+          !potential.match(/^[a-z]+:/i) &&
+          !potential.match(/^[A-Z][a-z]+:/) && // Filter namespace prefixes
+          potential.match(/[A-Za-z]/)
+        ) {
+          // Must contain at least one letter
           text.push(potential);
         }
       }
     }
-    
-    const result = text.join(' ')
+
+    const result = text
+      .join(' ')
       .replace(/\s+/g, ' ')
       .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
       .trim();
-    
+
     if (result.length < 10) {
       throw new Error('Extracted text is too short, likely extraction failed');
     }
-    
+
     return result;
-    
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('DOCX extraction error:', errorMsg);
-    
+
     // Fallback: try to extract any readable text from the raw data
     try {
       const decoder = new TextDecoder('utf-8', { fatal: false });
       const content = decoder.decode(data);
-      
+
       // Look for any readable text sequences (this is a last resort)
       const readablePattern = /[A-Za-z0-9\s.,;:!?\-'"]{30,}/g;
       const matches = content.match(readablePattern);
-      
+
       if (matches && matches.length > 0) {
         const fallbackText = matches.join(' ').substring(0, 10000); // Limit to 10k chars
         if (fallbackText.length > 50) {
@@ -584,7 +610,7 @@ async function extractTextFromDocx(data: Uint8Array): Promise<string> {
     } catch (fallbackError) {
       console.error('Fallback extraction also failed:', fallbackError);
     }
-    
+
     throw new Error(`Failed to extract DOCX content: ${errorMsg}`);
   }
 }

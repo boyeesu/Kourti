@@ -1,32 +1,40 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment */
 declare const Deno: any;
 
 // @ts-ignore Deno runtime
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
 // @ts-ignore Deno runtime
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 // @ts-ignore Deno runtime
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { createEmptyResponse, createJsonResponse } from "../_shared/responseHeaders.ts";
-import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
-import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createEmptyResponse, createJsonResponse } from '../_shared/responseHeaders.ts';
+import { createTrace, traceOpenAIChatCompletion } from '../_shared/langfuse.ts';
+import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { CorsSecurityHeadersOptions } from '../_shared/responseHeaders.ts';
 
 // Allowed origins for CORS validation
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://localhost:8082",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8081',
+        'http://localhost:8082',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
+  'https://kouti-legal-hub-41.lovable.app',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -37,16 +45,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -106,12 +115,12 @@ async function requestChatCompletion(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openAIApiKey}`,
+          Authorization: `Bearer ${openAIApiKey}`,
         },
         body: JSON.stringify({
           model,
           messages,
-          max_tokens: maxTokens,
+          max_completion_tokens: maxTokens,
         }),
       });
 
@@ -136,12 +145,9 @@ async function requestChatCompletion(
       }
 
       // Other errors should be thrown immediately
-      throw new HttpError(
-        `OpenAI API error: ${response.status}`,
-        502,
-        'OPENAI_UPSTREAM_ERROR',
-        { status: response.status }
-      );
+      throw new HttpError(`OpenAI API error: ${response.status}`, 502, 'OPENAI_UPSTREAM_ERROR', {
+        status: response.status,
+      });
     } catch (error) {
       if (error instanceof HttpError) {
         lastError = error;
@@ -165,7 +171,7 @@ async function requestChatCompletion(
 
 serve(async (req: Request) => {
   // Get request origin and build CORS options
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -236,7 +242,10 @@ serve(async (req: Request) => {
       );
     }
 
-    if (basicInfo.description && basicInfo.description.length > INPUT_LIMITS.MAX_DESCRIPTION_LENGTH) {
+    if (
+      basicInfo.description &&
+      basicInfo.description.length > INPUT_LIMITS.MAX_DESCRIPTION_LENGTH
+    ) {
       throw new HttpError(
         `Description exceeds maximum length of ${INPUT_LIMITS.MAX_DESCRIPTION_LENGTH} characters`,
         400,
@@ -307,7 +316,7 @@ serve(async (req: Request) => {
       partiesCount: parties?.length || 0,
       termsLength: terms?.length || 0,
       clausesCount: clauses?.length || 0,
-      templateProvided: !!template
+      templateProvided: !!template,
     });
 
     // Get user from auth header
@@ -325,7 +334,10 @@ serve(async (req: Request) => {
       throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
 
     if (authError || !user) {
       console.warn('Failed to resolve user from token', authError);
@@ -394,14 +406,17 @@ serve(async (req: Request) => {
         jurisdiction,
         terms ? terms.substring(0, 500) : '',
         clauses?.map((c: any) => c.title).join(' ') || '',
-      ].filter(Boolean).join(' ').substring(0, 2000);
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .substring(0, 2000);
 
       console.log('RAG: Generating query embedding for context retrieval');
 
       const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
+          Authorization: `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -435,8 +450,9 @@ serve(async (req: Request) => {
             .slice(0, 8);
 
           ragContext = chunks
-            .map((chunk: any, i: number) =>
-              `[Reference ${i + 1} (relevance: ${(chunk.similarity * 100).toFixed(0)}%)]\n${chunk.content}`
+            .map(
+              (chunk: any, i: number) =>
+                `[Reference ${i + 1} (relevance: ${(chunk.similarity * 100).toFixed(0)}%)]\n${chunk.content}`
             )
             .join('\n\n');
 
@@ -701,7 +717,7 @@ Generate a complete, professional contract that:
 3. Uses plain text formatting suitable for PDF generation
 4. Reflects the drafting standards of a senior partner at a top ${jurisdiction} law firm
 5. Includes all schedules with substantive content
-6. Is legally enforceable under ${jurisdiction} law${ragContext ? '\n7. Incorporates the organization\'s preferred language and clause style from the reference material above' : ''}
+6. Is legally enforceable under ${jurisdiction} law${ragContext ? "\n7. Incorporates the organization's preferred language and clause style from the reference material above" : ''}
 
 Generate the complete contract now.`;
 
@@ -718,7 +734,9 @@ Generate the complete contract now.`;
         hasTerms: !!terms,
         clausesCount: clauses?.length || 0,
         ragChunksUsed: ragContext ? ragContext.split('[Reference').length - 1 : 0,
-        bestPracticesUsed: bestPracticesContext ? bestPracticesContext.split('[Best Practice').length - 1 : 0,
+        bestPracticesUsed: bestPracticesContext
+          ? bestPracticesContext.split('[Best Practice').length - 1
+          : 0,
       },
       tags: ['contract-generation', 'legal-ai', ...(ragContext ? ['rag-enhanced'] : [])],
     });
@@ -728,7 +746,7 @@ Generate the complete contract now.`;
     // Build messages array
     const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: 'user', content: userPrompt },
     ];
 
     // Call OpenAI API with fallback support
@@ -832,29 +850,35 @@ Generate the complete contract now.`;
         const tentativeTokens = Math.ceil(tentative.length / 4);
 
         if (tentativeTokens > chunkMaxTokens && currentChunk) {
-          textChunks.push({ content: currentChunk.trim(), tokenCount: Math.ceil(currentChunk.length / 4) });
+          textChunks.push({
+            content: currentChunk.trim(),
+            tokenCount: Math.ceil(currentChunk.length / 4),
+          });
           currentChunk = sentence.trim();
         } else {
           currentChunk = tentative;
         }
       }
       if (currentChunk.trim()) {
-        textChunks.push({ content: currentChunk.trim(), tokenCount: Math.ceil(currentChunk.length / 4) });
+        textChunks.push({
+          content: currentChunk.trim(),
+          tokenCount: Math.ceil(currentChunk.length / 4),
+        });
       }
 
-      const validChunks = textChunks.filter(c => c.content.length > 20);
+      const validChunks = textChunks.filter((c) => c.content.length > 20);
 
       if (validChunks.length > 0) {
         // Generate embeddings for all chunks in one batch
         const chunkEmbeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
+            Authorization: `Bearer ${openAIApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             model: 'text-embedding-3-small',
-            input: validChunks.map(c => c.content),
+            input: validChunks.map((c) => c.content),
             encoding_format: 'float',
           }),
         });
@@ -887,7 +911,9 @@ Generate the complete contract now.`;
           if (insertError) {
             console.error('Embedding: Failed to store chunks:', insertError.message);
           } else {
-            console.log(`Embedding: Stored ${chunksToInsert.length} chunks for contract ${savedContract.id}`);
+            console.log(
+              `Embedding: Stored ${chunksToInsert.length} chunks for contract ${savedContract.id}`
+            );
           }
         } else {
           console.warn('Embedding: Chunk embedding generation failed');
@@ -905,7 +931,7 @@ Generate the complete contract now.`;
         generatedText: generatedContract,
         modelUsed,
       },
-      { cors: corsOptions },
+      { cors: corsOptions }
     );
   } catch (error: unknown) {
     console.error('Error in ai-contract-generator:', error);
