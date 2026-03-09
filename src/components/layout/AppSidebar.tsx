@@ -100,8 +100,6 @@ const primaryNavigation: NavigationGroup = {
 
 const documentsNavigation: NavigationGroup = {
   label: 'Legal',
-  icon: FileText,
-  collapsible: true,
   items: [
     {
       title: 'Documents',
@@ -118,10 +116,8 @@ const documentsNavigation: NavigationGroup = {
   ],
 };
 
-const toolsNavigation: NavigationGroup = {
+const workspaceNavigation: NavigationGroup = {
   label: 'Workspace',
-  icon: Bot,
-  collapsible: true,
   items: [
     {
       title: 'Live Chat',
@@ -136,6 +132,14 @@ const toolsNavigation: NavigationGroup = {
       icon: Bot,
       permission: { resource: 'documents', action: 'read' },
     },
+  ],
+};
+
+const moreToolsNavigation: NavigationGroup = {
+  label: 'More Tools',
+  icon: Mic,
+  collapsible: true,
+  items: [
     {
       title: 'Voice Recorder',
       url: '/voice-recorder',
@@ -159,15 +163,25 @@ const toolsNavigation: NavigationGroup = {
   ],
 };
 
-const billingNavigation: NavigationItem = {
-  title: 'Billing',
-  url: '/settings?tab=billing',
-  icon: CreditCard,
+const accountNavigation: NavigationGroup = {
+  label: 'Account',
+  items: [
+    {
+      title: 'Settings',
+      url: '/settings',
+      icon: Settings,
+    },
+    {
+      title: 'Billing',
+      url: '/settings?tab=billing',
+      icon: CreditCard,
+    },
+  ],
 };
 
-const managementNavigation: NavigationGroup = {
+const adminNavigation: NavigationGroup = {
   label: 'Admin',
-  icon: Settings,
+  icon: Users,
   collapsible: true,
   items: [
     {
@@ -182,12 +196,6 @@ const managementNavigation: NavigationGroup = {
       icon: Gauge,
       permission: { resource: 'cases', action: 'manage' },
     },
-    {
-      title: 'Settings',
-      url: '/settings',
-      icon: Settings,
-      permission: { resource: 'settings', action: 'manage' },
-    },
   ],
 };
 
@@ -199,8 +207,10 @@ const platformAdminNavigation: NavigationGroup = {
 const groups = [
   primaryNavigation,
   documentsNavigation,
-  toolsNavigation,
-  managementNavigation,
+  workspaceNavigation,
+  moreToolsNavigation,
+  accountNavigation,
+  adminNavigation,
   platformAdminNavigation,
 ];
 
@@ -223,8 +233,8 @@ const AppSidebar: React.FC = () => {
   const filteredGroups = React.useMemo(() => {
     return groups
       .map((group) => {
-        if (group === toolsNavigation) {
-          const filteredItems = group.items.filter((item) => {
+        if (group === moreToolsNavigation) {
+          const filteredItems = group.items.filter((item: NavigationItem) => {
             if (item.url === '/invoices' && !isAdmin) {
               return false;
             }
@@ -232,18 +242,15 @@ const AppSidebar: React.FC = () => {
           });
           return { ...group, items: filteredItems };
         }
-        if (group === managementNavigation && !isAdmin) {
-          return {
-            label: 'Management',
-            items: managementNavigation.items.filter((item) => item.url === '/settings'),
-          };
+        if (group === adminNavigation && !isAdmin) {
+          return null; // Hide admin group for non-admins
         }
         if (group === platformAdminNavigation && !isPlatformAdmin) {
-          return null; // Hide platform admin group if user is not platform admin
+          return null;
         }
         return group;
       })
-      .filter((group) => group !== null && group.items.length > 0);
+      .filter((group): group is NavigationGroup => group !== null && group.items.length > 0);
   }, [isAdmin, isPlatformAdmin]);
 
   const isActive = React.useCallback(
@@ -455,29 +462,6 @@ const AppSidebar: React.FC = () => {
                 </SidebarGroup>
               );
             })}
-
-            {/* Billing - standalone item */}
-            {!collapsed && (
-              <SidebarGroup className="p-0">
-                <SidebarGroupContent>
-                  <SidebarMenu className="space-y-0.5">
-                    <Tooltip disableHoverableContent={!collapsed}>
-                      <TooltipTrigger asChild>
-                        <NavItemContent item={billingNavigation} />
-                      </TooltipTrigger>
-                    </Tooltip>
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-            {collapsed && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <NavItemContent item={billingNavigation} />
-                </TooltipTrigger>
-                <TooltipContent side="right">Billing</TooltipContent>
-              </Tooltip>
-            )}
           </div>
 
           <div className="mt-auto space-y-2 border-t border-[hsl(var(--sidebar-border))] pt-2">
