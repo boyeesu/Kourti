@@ -69,3 +69,12 @@ verify_jwt = false
 
 [functions.check-twilio-config]
 verify_jwt = false
+
+[functions.flutterwave-verify-payment]
+verify_jwt = false
+
+[functions.flutterwave-init-payment]
+verify_jwt = false
+
+[functions.flutterwave-webhook]
+verify_jwt = false
