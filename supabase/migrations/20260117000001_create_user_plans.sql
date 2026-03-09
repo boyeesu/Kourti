@@ -41,27 +41,32 @@ ALTER TABLE public.user_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_plan_assignments ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for user_plans (readable by all authenticated users)
+DROP POLICY IF EXISTS "user_plans_select" ON public.user_plans;
 CREATE POLICY "user_plans_select" ON public.user_plans
   FOR SELECT TO authenticated
   USING (is_active = true);
 
 -- RLS Policies for user_plan_assignments
 -- Users can view their own plan assignments
+DROP POLICY IF EXISTS "user_plan_assignments_select_own" ON public.user_plan_assignments;
 CREATE POLICY "user_plan_assignments_select_own" ON public.user_plan_assignments
   FOR SELECT TO authenticated
   USING (user_id = auth.uid());
 
 -- Platform admins can view all assignments
+DROP POLICY IF EXISTS "user_plan_assignments_select_all" ON public.user_plan_assignments;
 CREATE POLICY "user_plan_assignments_select_all" ON public.user_plan_assignments
   FOR SELECT TO authenticated
   USING (is_platform_admin(auth.uid()));
 
 -- Platform admins can insert assignments
+DROP POLICY IF EXISTS "user_plan_assignments_insert" ON public.user_plan_assignments;
 CREATE POLICY "user_plan_assignments_insert" ON public.user_plan_assignments
   FOR INSERT TO authenticated
   WITH CHECK (is_platform_admin(auth.uid()));
 
 -- Platform admins can update assignments
+DROP POLICY IF EXISTS "user_plan_assignments_update" ON public.user_plan_assignments;
 CREATE POLICY "user_plan_assignments_update" ON public.user_plan_assignments
   FOR UPDATE TO authenticated
   USING (is_platform_admin(auth.uid()));

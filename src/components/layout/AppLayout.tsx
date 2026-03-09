@@ -1038,7 +1038,7 @@ function AppLayoutInner({
             </CommandDialog>
           </header>
 
-          <main className="workspace-body flex-1 overflow-auto">
+          <main id="main-content" className="workspace-body flex-1 overflow-auto">
             <div className="workspace-body__inner h-full">{children}</div>
           </main>
         </div>

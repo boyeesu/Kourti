@@ -34,16 +34,22 @@ import { format } from 'date-fns';
 interface Subscription {
   id: string;
   user_id: string;
+  organization_id: string;
   plan_id: string;
   status: 'active' | 'cancelled' | 'paused' | 'past_due' | 'trialing';
-  interval: 'monthly' | 'yearly';
-  amount: number;
-  currency: string;
+  billing_interval: 'monthly' | 'yearly';
+  flutterwave_customer_email: string;
+  current_period_start: string | null;
   current_period_end: string | null;
+  cancel_at_period_end: boolean;
   created_at: string;
-  user_email?: string;
-  organization_name?: string;
-  plan_name?: string;
+  // Joined fields
+  organization_name: string;
+  plan_name: string;
+  plan_display_name: string;
+  price_monthly: number | null;
+  price_yearly: number | null;
+  currency: string;
 }
 
 interface PlanPricing {
@@ -75,13 +81,65 @@ function useSubscriptions() {
     queryKey: ['admin-subscriptions'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
-          .from('subscriptions' as never)
-          .select('*, user_plans!inner(name, display_name)')
+        // Use untyped client since 'subscriptions' isn't in generated types
+        const client = supabase as unknown as {
+          from: (table: string) => {
+            select: (cols: string) => {
+              order: (
+                col: string,
+                opts: { ascending: boolean }
+              ) => PromiseLike<{
+                data: unknown;
+                error: { message: string } | null;
+              }>;
+            };
+          };
+        };
+
+        const { data, error } = await client
+          .from('subscriptions')
+          .select(
+            `id, user_id, organization_id, plan_id, status, billing_interval,
+             flutterwave_customer_email, current_period_start, current_period_end,
+             cancel_at_period_end, created_at,
+             organizations!inner(name),
+             user_plans!inner(name, display_name, price_monthly, price_yearly, currency)`
+          )
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return (data || []) as unknown as Subscription[];
+
+        // Flatten the joined data
+        return ((data as Record<string, unknown>[]) || []).map((row) => {
+          const org = row.organizations as { name: string } | null;
+          const plan = row.user_plans as {
+            name: string;
+            display_name: string;
+            price_monthly: number | null;
+            price_yearly: number | null;
+            currency: string;
+          } | null;
+
+          return {
+            id: row.id as string,
+            user_id: row.user_id as string,
+            organization_id: row.organization_id as string,
+            plan_id: row.plan_id as string,
+            status: row.status as Subscription['status'],
+            billing_interval: row.billing_interval as Subscription['billing_interval'],
+            flutterwave_customer_email: row.flutterwave_customer_email as string,
+            current_period_start: row.current_period_start as string | null,
+            current_period_end: row.current_period_end as string | null,
+            cancel_at_period_end: row.cancel_at_period_end as boolean,
+            created_at: row.created_at as string,
+            organization_name: org?.name || '--',
+            plan_name: plan?.name || '--',
+            plan_display_name: plan?.display_name || '--',
+            price_monthly: plan?.price_monthly ?? null,
+            price_yearly: plan?.price_yearly ?? null,
+            currency: plan?.currency || 'NGN',
+          } as Subscription;
+        });
       } catch (error) {
         logError('Error fetching subscriptions', error);
         throw error;
@@ -140,7 +198,24 @@ function useSavePrices() {
         currency?: string;
       }[]
     ) => {
+      // Input validation before sending to server
       for (const update of updates) {
+        if (
+          update.price_monthly != null &&
+          (update.price_monthly < 0 || update.price_monthly > 99_999_999)
+        ) {
+          throw new Error('Monthly price must be between 0 and 99,999,999');
+        }
+        if (
+          update.price_yearly != null &&
+          (update.price_yearly < 0 || update.price_yearly > 99_999_999)
+        ) {
+          throw new Error('Yearly price must be between 0 and 99,999,999');
+        }
+        if (update.currency && !/^[A-Z]{3}$/.test(update.currency)) {
+          throw new Error('Currency must be a valid 3-letter ISO code (e.g. NGN, USD)');
+        }
+
         const updateData: Record<string, unknown> = {};
         if (update.price_monthly !== undefined) updateData.price_monthly = update.price_monthly;
         if (update.price_yearly !== undefined) updateData.price_yearly = update.price_yearly;
@@ -234,19 +309,23 @@ export function SubscriptionManagement() {
   const totalActive = activeSubscriptions.length;
 
   const monthlyRevenue = activeSubscriptions
-    .filter((s) => s.interval === 'monthly')
-    .reduce((sum, s) => sum + (s.amount || 0), 0);
+    .filter((s) => s.billing_interval === 'monthly')
+    .reduce((sum, s) => sum + (s.price_monthly || 0), 0);
 
   const yearlyRevenue = activeSubscriptions
-    .filter((s) => s.interval === 'yearly')
-    .reduce((sum, s) => sum + (s.amount || 0), 0);
+    .filter((s) => s.billing_interval === 'yearly')
+    .reduce((sum, s) => sum + (s.price_yearly || 0), 0);
+
+  // Estimated MRR: monthly revenue + (yearly revenue / 12)
+  const estimatedMRR = monthlyRevenue + yearlyRevenue / 12;
 
   // ---- Subscription filtering ----
   const filteredSubscriptions = subscriptions.filter((sub) => {
     const matchesSearch =
       !searchQuery ||
-      sub.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sub.organization_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      sub.flutterwave_customer_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sub.organization_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sub.plan_display_name?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || sub.status === statusFilter;
 
@@ -302,7 +381,7 @@ export function SubscriptionManagement() {
       </div>
 
       {/* ---- Revenue Overview ---- */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
@@ -324,7 +403,7 @@ export function SubscriptionManagement() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Recurring Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Monthly Plans Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -333,7 +412,10 @@ export function SubscriptionManagement() {
             ) : (
               <>
                 <div className="text-2xl font-bold">{formatCurrency(monthlyRevenue)}</div>
-                <p className="text-xs text-muted-foreground">From monthly plans</p>
+                <p className="text-xs text-muted-foreground">
+                  {activeSubscriptions.filter((s) => s.billing_interval === 'monthly').length}{' '}
+                  monthly subscribers
+                </p>
               </>
             )}
           </CardContent>
@@ -341,7 +423,7 @@ export function SubscriptionManagement() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Yearly Recurring Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Yearly Plans Revenue</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -350,7 +432,27 @@ export function SubscriptionManagement() {
             ) : (
               <>
                 <div className="text-2xl font-bold">{formatCurrency(yearlyRevenue)}</div>
-                <p className="text-xs text-muted-foreground">From yearly plans</p>
+                <p className="text-xs text-muted-foreground">
+                  {activeSubscriptions.filter((s) => s.billing_interval === 'yearly').length} yearly
+                  subscribers
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Estimated MRR</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {subsLoading ? (
+              <Skeleton className="h-8 w-28" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{formatCurrency(Math.round(estimatedMRR))}</div>
+                <p className="text-xs text-muted-foreground">Monthly + yearly/12</p>
               </>
             )}
           </CardContent>
@@ -408,32 +510,50 @@ export function SubscriptionManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Organization</TableHead>
-                    <TableHead>User Email</TableHead>
+                    <TableHead>Customer Email</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Interval</TableHead>
+                    <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Period End</TableHead>
+                    <TableHead>Auto-Renew</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSubscriptions.map((sub) => (
-                    <TableRow key={sub.id}>
-                      <TableCell className="font-medium">{sub.organization_name || '--'}</TableCell>
-                      <TableCell>{sub.user_email || sub.user_id}</TableCell>
-                      <TableCell>{sub.plan_name || sub.plan_id}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {sub.interval}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{getSubscriptionStatusBadge(sub.status)}</TableCell>
-                      <TableCell>
-                        {sub.current_period_end
-                          ? format(new Date(sub.current_period_end), 'MMM dd, yyyy')
-                          : '--'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredSubscriptions.map((sub) => {
+                    const amount =
+                      sub.billing_interval === 'yearly' ? sub.price_yearly : sub.price_monthly;
+
+                    return (
+                      <TableRow key={sub.id}>
+                        <TableCell className="font-medium">{sub.organization_name}</TableCell>
+                        <TableCell>{sub.flutterwave_customer_email}</TableCell>
+                        <TableCell>{sub.plan_display_name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {sub.billing_interval}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(amount, sub.currency)}
+                          <span className="text-xs text-muted-foreground ml-1">
+                            /{sub.billing_interval === 'yearly' ? 'yr' : 'mo'}
+                          </span>
+                        </TableCell>
+                        <TableCell>{getSubscriptionStatusBadge(sub.status)}</TableCell>
+                        <TableCell>
+                          {sub.current_period_end
+                            ? format(new Date(sub.current_period_end), 'MMM dd, yyyy')
+                            : '--'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={sub.cancel_at_period_end ? 'secondary' : 'outline'}>
+                            {sub.cancel_at_period_end ? 'Cancelling' : 'Yes'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

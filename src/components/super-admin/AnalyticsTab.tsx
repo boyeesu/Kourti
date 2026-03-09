@@ -22,6 +22,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 
+function formatCurrency(amount: number | null | undefined, currency = 'NGN') {
+  if (amount == null) return '--';
+  const symbol = currency === 'NGN' ? '\u20A6' : currency === 'USD' ? '$' : currency;
+  return `${symbol}${Math.round(amount).toLocaleString()}`;
+}
+
 export function AnalyticsTab() {
   const { data: analytics, isLoading } = usePlatformAnalytics();
   const { data: users = [] } = useAllUsers();
@@ -233,6 +239,134 @@ export function AnalyticsTab() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* Subscription & Revenue Analytics */}
+      {analytics && (
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscriptions by Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const subStatusData = [
+                  { name: 'Active', value: analytics.subscriptions.active },
+                  { name: 'Cancelled', value: analytics.subscriptions.cancelled },
+                  { name: 'Paused', value: analytics.subscriptions.paused },
+                  { name: 'Past Due', value: analytics.subscriptions.pastDue },
+                  { name: 'Trialing', value: analytics.subscriptions.trialing },
+                ].filter((d) => d.value > 0);
+
+                if (subStatusData.length === 0) {
+                  return (
+                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      No subscription data yet
+                    </div>
+                  );
+                }
+
+                return (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={subStatusData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) =>
+                          `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`
+                        }
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {subStatusData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscribers by Plan</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const planData = Object.entries(analytics.subscriptions.byPlan).map(
+                  ([plan, count]) => ({ plan, count })
+                );
+
+                if (planData.length === 0) {
+                  return (
+                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      No subscription data yet
+                    </div>
+                  );
+                }
+
+                return (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={planData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="plan" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#82ca9d" name="Subscribers" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Revenue Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 sm:grid-cols-3">
+                <div className="space-y-1 rounded-lg border p-4 text-center">
+                  <p className="text-sm text-muted-foreground">Monthly Plans Revenue</p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency(
+                      analytics.subscriptions.monthlyRevenue,
+                      analytics.subscriptions.currency
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {analytics.subscriptions.active} active subscriptions
+                  </p>
+                </div>
+                <div className="space-y-1 rounded-lg border p-4 text-center">
+                  <p className="text-sm text-muted-foreground">Yearly Plans Revenue</p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency(
+                      analytics.subscriptions.yearlyRevenue,
+                      analytics.subscriptions.currency
+                    )}
+                  </p>
+                </div>
+                <div className="space-y-1 rounded-lg border p-4 text-center bg-primary/5">
+                  <p className="text-sm text-muted-foreground">Estimated MRR</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {formatCurrency(
+                      analytics.subscriptions.estimatedMRR,
+                      analytics.subscriptions.currency
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">monthly + yearly/12</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,15 +1,32 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/hooks/useOrganization';
 import { Organization } from '@/hooks/useAllOrganizations';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Building2, Mail, Phone, Globe, MapPin, Users, Calendar, Power, PowerOff, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Building2,
+  Mail,
+  Phone,
+  Globe,
+  MapPin,
+  Users,
+  Calendar,
+  Power,
+  PowerOff,
+  Trash2,
+  CreditCard,
+  Crown,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { useToggleOrganizationStatus } from '@/hooks/useToggleOrganizationStatus';
 import { useDeleteOrganization } from '@/hooks/useDeleteOrganization';
 import { useState } from 'react';
+import { logError } from '@/lib/logger';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +37,94 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+
+interface OrgSubscription {
+  id: string;
+  status: string;
+  billing_interval: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  plan_display_name: string;
+  plan_type: string;
+  price_monthly: number | null;
+  price_yearly: number | null;
+  currency: string;
+  flutterwave_customer_email: string;
+}
+
+function useOrgSubscriptions(orgId: string | null) {
+  return useQuery({
+    queryKey: ['org-subscriptions', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      try {
+        const client = supabase as unknown as {
+          from: (table: string) => {
+            select: (cols: string) => {
+              eq: (
+                col: string,
+                val: string
+              ) => {
+                order: (
+                  col: string,
+                  opts: { ascending: boolean }
+                ) => PromiseLike<{
+                  data: unknown;
+                  error: { message: string } | null;
+                }>;
+              };
+            };
+          };
+        };
+        const { data, error } = await client
+          .from('subscriptions')
+          .select(
+            `id, status, billing_interval, current_period_end, cancel_at_period_end,
+             flutterwave_customer_email,
+             user_plans!inner(display_name, plan_type, price_monthly, price_yearly, currency)`
+          )
+          .eq('organization_id', orgId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return ((data as Record<string, unknown>[]) || []).map((row) => {
+          const plan = row.user_plans as {
+            display_name: string;
+            plan_type: string;
+            price_monthly: number | null;
+            price_yearly: number | null;
+            currency: string;
+          } | null;
+          return {
+            id: row.id as string,
+            status: row.status as string,
+            billing_interval: row.billing_interval as string,
+            current_period_end: row.current_period_end as string | null,
+            cancel_at_period_end: row.cancel_at_period_end as boolean,
+            plan_display_name: plan?.display_name || '--',
+            plan_type: plan?.plan_type || '--',
+            price_monthly: plan?.price_monthly ?? null,
+            price_yearly: plan?.price_yearly ?? null,
+            currency: plan?.currency || 'NGN',
+            flutterwave_customer_email: row.flutterwave_customer_email as string,
+          } as OrgSubscription;
+        });
+      } catch (error) {
+        logError('Error fetching org subscriptions', error);
+        return [];
+      }
+    },
+    enabled: !!orgId,
+    staleTime: 30 * 1000,
+  });
+}
+
+function formatCurrency(amount: number | null | undefined, currency = 'NGN') {
+  if (amount == null) return '--';
+  const symbol = currency === 'NGN' ? '\u20A6' : currency === 'USD' ? '$' : currency;
+  return `${symbol}${amount.toLocaleString()}`;
+}
 
 const formatOrgType = (type: string | null) => {
   if (!type) return 'N/A';
@@ -33,6 +138,7 @@ export function OrganizationDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: organization, isLoading } = useOrganization(id || null);
+  const { data: orgSubscriptions = [], isLoading: subsLoading } = useOrgSubscriptions(id || null);
   const toggleStatus = useToggleOrganizationStatus();
   const deleteOrg = useDeleteOrganization();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -112,7 +218,11 @@ export function OrganizationDetail() {
                 </>
               )}
             </Button>
-            <Button variant="destructive" onClick={handleDeleteClick} disabled={deleteOrg.isPending}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteClick}
+              disabled={deleteOrg.isPending}
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </Button>
@@ -143,10 +253,10 @@ export function OrganizationDetail() {
                       !org.is_active
                         ? 'destructive'
                         : org.status === 'active'
-                        ? 'default'
-                        : org.status === 'empty'
-                        ? 'secondary'
-                        : 'destructive'
+                          ? 'default'
+                          : org.status === 'empty'
+                            ? 'secondary'
+                            : 'destructive'
                     }
                   >
                     {!org.is_active ? 'Disabled' : org.status}
@@ -187,7 +297,12 @@ export function OrganizationDetail() {
                   <label className="text-sm font-medium text-muted-foreground">Website</label>
                   <p className="text-sm">
                     {org.website ? (
-                      <a href={org.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                      <a
+                        href={org.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
                         {org.website}
                       </a>
                     ) : (
@@ -253,13 +368,92 @@ export function OrganizationDetail() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Logo</label>
                   <div className="mt-2">
-                    <img src={org.logo_url} alt={org.name} className="h-16 w-16 object-contain rounded" />
+                    <img
+                      src={org.logo_url}
+                      alt={org.name}
+                      className="h-16 w-16 object-contain rounded"
+                    />
                   </div>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Billing & Subscription */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Billing & Subscription
+            </CardTitle>
+            <CardDescription>Organization subscription and plan details</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {subsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : orgSubscriptions.length === 0 ? (
+              <div className="text-center py-8">
+                <Crown className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">
+                  No subscriptions found for this organization
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {orgSubscriptions.map((sub) => {
+                  const amount =
+                    sub.billing_interval === 'yearly' ? sub.price_yearly : sub.price_monthly;
+                  const statusVariant =
+                    sub.status === 'active'
+                      ? 'default'
+                      : sub.status === 'past_due'
+                        ? 'destructive'
+                        : 'secondary';
+
+                  return (
+                    <div
+                      key={sub.id}
+                      className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{sub.plan_display_name}</span>
+                          <Badge variant="outline" className="capitalize">
+                            {sub.plan_type}
+                          </Badge>
+                          <Badge variant={statusVariant} className="capitalize">
+                            {sub.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {sub.flutterwave_customer_email} &middot; {sub.billing_interval}
+                        </p>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <div className="font-semibold">
+                          {formatCurrency(amount, sub.currency)}
+                          <span className="text-xs text-muted-foreground ml-1">
+                            /{sub.billing_interval === 'yearly' ? 'yr' : 'mo'}
+                          </span>
+                        </div>
+                        {sub.current_period_end && (
+                          <p className="text-xs text-muted-foreground">
+                            {sub.cancel_at_period_end ? 'Cancels' : 'Renews'}{' '}
+                            {format(new Date(sub.current_period_end), 'MMM dd, yyyy')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -267,9 +461,9 @@ export function OrganizationDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Organization</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{org.name}</strong>?
-              This will permanently delete the organization and all associated data, including {org.user_count || 0} users.
-              This action cannot be undone.
+              Are you sure you want to delete <strong>{org.name}</strong>? This will permanently
+              delete the organization and all associated data, including {org.user_count || 0}{' '}
+              users. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

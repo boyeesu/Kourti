@@ -1,8 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Building2, UserCheck, UserX, TrendingUp, Activity } from 'lucide-react';
+import {
+  Users,
+  Building2,
+  UserCheck,
+  UserX,
+  TrendingUp,
+  Activity,
+  CreditCard,
+  DollarSign,
+  Crown,
+} from 'lucide-react';
 import { PlatformAnalytics } from '@/hooks/usePlatformAnalytics';
 import { formatDistanceToNow } from 'date-fns';
+
+function formatCurrency(amount: number | null | undefined, currency = 'NGN') {
+  if (amount == null) return '--';
+  const symbol = currency === 'NGN' ? '\u20A6' : currency === 'USD' ? '$' : currency;
+  return `${symbol}${Math.round(amount).toLocaleString()}`;
+}
 
 interface OverviewTabProps {
   analytics: PlatformAnalytics | undefined;
@@ -37,6 +53,8 @@ export function OverviewTab({ analytics, isLoading }: OverviewTabProps) {
     );
   }
 
+  const subs = analytics.subscriptions;
+
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -47,9 +65,7 @@ export function OverviewTab({ analytics, isLoading }: OverviewTabProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              {analytics.activeUsers} active
-            </p>
+            <p className="text-xs text-muted-foreground">{analytics.activeUsers} active</p>
           </CardContent>
         </Card>
 
@@ -60,12 +76,41 @@ export function OverviewTab({ analytics, isLoading }: OverviewTabProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.totalOrganizations}</div>
+            <p className="text-xs text-muted-foreground">{analytics.activeOrganizations} active</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{subs.active}</div>
             <p className="text-xs text-muted-foreground">
-              {analytics.activeOrganizations} active
+              {subs.total} total, {subs.pastDue} past due
             </p>
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Estimated MRR</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(subs.estimatedMRR, subs.currency)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {formatCurrency(subs.monthlyRevenue, subs.currency)}/mo +{' '}
+              {formatCurrency(subs.yearlyRevenue, subs.currency)}/yr
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Users</CardTitle>
@@ -73,9 +118,7 @@ export function OverviewTab({ analytics, isLoading }: OverviewTabProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.pendingUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              {analytics.approvedUsers} approved
-            </p>
+            <p className="text-xs text-muted-foreground">{analytics.approvedUsers} approved</p>
           </CardContent>
         </Card>
 
@@ -86,11 +129,28 @@ export function OverviewTab({ analytics, isLoading }: OverviewTabProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.disabledUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              Requires attention
-            </p>
+            <p className="text-xs text-muted-foreground">Requires attention</p>
           </CardContent>
         </Card>
+
+        {Object.keys(subs.byPlan).length > 0 && (
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Subscribers by Plan</CardTitle>
+              <Crown className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-3">
+                {Object.entries(subs.byPlan).map(([plan, count]) => (
+                  <div key={plan} className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium capitalize">{plan}:</span>
+                    <span className="text-sm text-muted-foreground">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -147,9 +207,7 @@ export function OverviewTab({ analytics, isLoading }: OverviewTabProps) {
                 >
                   <div>
                     <div className="font-medium">{action.action_type}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {action.target_type}
-                    </div>
+                    <div className="text-sm text-muted-foreground">{action.target_type}</div>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {formatDistanceToNow(new Date(action.created_at), { addSuffix: true })}
