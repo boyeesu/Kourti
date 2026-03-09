@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
-import { useCurrentSubscription } from '@/hooks/useSubscription';
+import { useVerifyPayment } from '@/hooks/useSubscription';
 import { useQueryClient } from '@tanstack/react-query';
 
 type CallbackStatus = 'verifying' | 'success' | 'failed' | 'cancelled';
@@ -12,14 +12,12 @@ export default function BillingCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: subscription, refetch } = useCurrentSubscription();
+  const verifyPayment = useVerifyPayment();
 
   const status = searchParams.get('status');
   const txRef = searchParams.get('tx_ref');
-  const transactionId = searchParams.get('transaction_id');
-
   const [callbackStatus, setCallbackStatus] = useState<CallbackStatus>('verifying');
-  const [pollCount, setPollCount] = useState(0);
+  const verifyStarted = useRef(false);
 
   useEffect(() => {
     if (status === 'cancelled') {
@@ -32,42 +30,62 @@ export default function BillingCallback() {
       return;
     }
 
-    // For successful payments, poll for the webhook to process
-    if (status === 'successful' || status === 'completed') {
+    // For successful payments, verify with Flutterwave via our edge function
+    if ((status === 'successful' || status === 'completed') && txRef && !verifyStarted.current) {
+      verifyStarted.current = true;
       setCallbackStatus('verifying');
 
-      const interval = setInterval(async () => {
-        setPollCount((prev) => {
-          const next = prev + 1;
-          if (next >= 10) {
-            // After ~20 seconds, assume success (webhook may still be processing)
-            clearInterval(interval);
+      let attempts = 0;
+      const maxAttempts = 8;
+
+      const attemptVerification = async () => {
+        attempts++;
+        try {
+          const result = await verifyPayment.mutateAsync({ tx_ref: txRef });
+
+          if (result.payment_status === 'successful') {
+            setCallbackStatus('success');
+            queryClient.invalidateQueries({ queryKey: ['subscription'] });
+            queryClient.invalidateQueries({ queryKey: ['payment-history'] });
+            queryClient.invalidateQueries({ queryKey: ['organization-billing'] });
+            queryClient.invalidateQueries({ queryKey: ['current-user-plan'] });
+            return;
+          }
+
+          if (result.payment_status === 'failed') {
+            setCallbackStatus('failed');
+            return;
+          }
+
+          // Still pending — retry after delay
+          if (attempts < maxAttempts) {
+            setTimeout(attemptVerification, 3000);
+          } else {
+            // After max attempts, show success optimistically (webhook may still process)
             setCallbackStatus('success');
             queryClient.invalidateQueries({ queryKey: ['subscription'] });
             queryClient.invalidateQueries({ queryKey: ['payment-history'] });
             queryClient.invalidateQueries({ queryKey: ['organization-billing'] });
             queryClient.invalidateQueries({ queryKey: ['current-user-plan'] });
           }
-          return next;
-        });
-
-        const { data: updated } = await refetch();
-        if (updated) {
-          clearInterval(interval);
-          setCallbackStatus('success');
-          queryClient.invalidateQueries({ queryKey: ['subscription'] });
-          queryClient.invalidateQueries({ queryKey: ['payment-history'] });
-          queryClient.invalidateQueries({ queryKey: ['organization-billing'] });
-          queryClient.invalidateQueries({ queryKey: ['current-user-plan'] });
+        } catch {
+          if (attempts < maxAttempts) {
+            setTimeout(attemptVerification, 3000);
+          } else {
+            setCallbackStatus('failed');
+          }
         }
-      }, 2000);
+      };
 
-      return () => clearInterval(interval);
+      // Initial delay to give Flutterwave time to process
+      setTimeout(attemptVerification, 2000);
     }
 
     // Unknown status
-    setCallbackStatus('failed');
-  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!status || !['successful', 'completed', 'cancelled', 'failed'].includes(status)) {
+      setCallbackStatus('failed');
+    }
+  }, [status, txRef]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusConfig = {
     verifying: {

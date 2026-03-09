@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 // @ts-ignore: Deno module
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 // @ts-ignore: Deno module
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 interface EventReminder {
@@ -28,18 +29,11 @@ interface EventReminder {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  console.log("process-event-reminders function invoked");
+  console.log('process-event-reminders function invoked');
 
-  // Handle CORS for testing
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
-    });
+  // No CORS needed — this function is invoked by cron/service-role only
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204 });
   }
 
   // Require service-role authentication (cron jobs only)
@@ -58,7 +52,8 @@ const handler = async (req: Request): Promise<Response> => {
     // Query all unsent reminders with their associated events
     const { data: reminders, error: queryError } = await supabase
       .from('event_reminders')
-      .select(`
+      .select(
+        `
         id,
         event_id,
         user_id,
@@ -76,37 +71,36 @@ const handler = async (req: Request): Promise<Response> => {
           location,
           event_type
         )
-      `)
+      `
+      )
       .eq('sent', false);
 
     if (queryError) {
-      console.error("Error querying reminders:", queryError);
+      console.error('Error querying reminders:', queryError);
       const errorResponse = {
         success: false,
-        error: "Failed to query reminders",
+        error: 'Failed to query reminders',
         message: queryError.message,
       };
       return new Response(JSON.stringify(errorResponse), {
         status: 500,
         headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
+          'Content-Type': 'application/json',
         },
       });
     }
 
     if (!reminders || reminders.length === 0) {
-      console.log("No unsent reminders found");
+      console.log('No unsent reminders found');
       const response = {
         success: true,
         processed: 0,
-        message: "No reminders to process",
+        message: 'No reminders to process',
       };
       return new Response(JSON.stringify(response), {
         status: 200,
         headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
+          'Content-Type': 'application/json',
         },
       });
     }
@@ -188,21 +182,24 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         const eventStart = new Date(reminder.event.start_date);
         const eventEnd = new Date(reminder.event.end_date);
-        const formatTime = (date: Date) => date.toLocaleString('en-US', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-        });
+        const formatTime = (date: Date) =>
+          date.toLocaleString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
 
-        const timeString = reminder.reminder_type === 'before'
-          ? `${reminder.reminder_minutes} minute${reminder.reminder_minutes !== 1 ? 's' : ''} before`
-          : 'at';
+        const timeString =
+          reminder.reminder_type === 'before'
+            ? `${reminder.reminder_minutes} minute${reminder.reminder_minutes !== 1 ? 's' : ''} before`
+            : 'at';
 
         const title = `Calendar Reminder: ${reminder.event.title}`;
-        const message = `Event "${reminder.event.title}" ${timeString}.\n\n` +
+        const message =
+          `Event "${reminder.event.title}" ${timeString}.\n\n` +
           `Start: ${formatTime(eventStart)}\n` +
           `End: ${formatTime(eventEnd)}\n` +
           (reminder.event.location ? `Location: ${reminder.event.location}\n` : '') +
@@ -210,19 +207,20 @@ const handler = async (req: Request): Promise<Response> => {
 
         // Create in-app notification
         if (reminder.notification_method === 'in_app' || reminder.notification_method === 'both') {
-          const { error: notifError } = await supabase
-            .from('notifications')
-            .insert({
-              user_id: reminder.user_id,
-              organization_id: reminder.organization_id,
-              title,
-              description: message,
-              type: 'calendar',
-              status: 'unread',
-            });
+          const { error: notifError } = await supabase.from('notifications').insert({
+            user_id: reminder.user_id,
+            organization_id: reminder.organization_id,
+            title,
+            description: message,
+            type: 'calendar',
+            status: 'unread',
+          });
 
           if (notifError) {
-            console.error(`Failed to create in-app notification for reminder ${reminder.id}:`, notifError);
+            console.error(
+              `Failed to create in-app notification for reminder ${reminder.id}:`,
+              notifError
+            );
             errors.push(`In-app notification failed for reminder ${reminder.id}`);
           } else {
             console.log(`Created in-app notification for reminder ${reminder.id}`);
@@ -290,25 +288,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(JSON.stringify(response), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error("Unexpected error in process-event-reminders:", errorMsg);
+    console.error('Unexpected error in process-event-reminders:', errorMsg);
     const errorResponse = {
       success: false,
-      error: "Unexpected error processing reminders",
+      error: 'Unexpected error processing reminders',
       message: errorMsg,
     };
     return new Response(JSON.stringify(errorResponse), {
       status: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 };

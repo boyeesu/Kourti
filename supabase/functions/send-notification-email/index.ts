@@ -1,32 +1,45 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 // @ts-ignore: Deno module
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 // @ts-ignore: Deno module
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 // @ts-ignore: Deno module
-import { Resend } from "https://esm.sh/resend@2.0.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { createErrorResponse } from "../_shared/errorHandling.ts";
+import { Resend } from 'https://esm.sh/resend@2.0.0';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { createErrorResponse } from '../_shared/errorHandling.ts';
+import { escapeHtml } from '../_shared/htmlEscape.ts';
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "onboarding@resend.dev";
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+const fromEmail = Deno.env.get('SMTP_FROM_EMAIL') || 'onboarding@resend.dev';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
+  'https://kouti-legal-hub-41.lovable.app',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -37,21 +50,28 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
 interface NotificationEmailRequest {
-  type: 'task_assigned' | 'case_update' | 'document_shared' | 'calendar_reminder' | 'invoice_created' | 'general';
+  type:
+    | 'task_assigned'
+    | 'case_update'
+    | 'document_shared'
+    | 'calendar_reminder'
+    | 'invoice_created'
+    | 'general';
   recipientUserId: string;
   subject?: string;
   title: string;
@@ -62,12 +82,12 @@ interface NotificationEmailRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  console.log("send-notification-email function invoked");
+  console.log('send-notification-email function invoked');
 
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
@@ -98,8 +118,40 @@ const handler = async (req: Request): Promise<Response> => {
   let notificationId: string | null = null;
 
   try {
+    // Authentication: require a valid JWT or service-role key
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return createJsonResponse(
+        { success: false, error: 'Authentication required', errorCode: 'UNAUTHORIZED' },
+        { status: 401, cors: corsOptions }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim();
+
+    // Allow service-role calls (from cron jobs / other edge functions)
+    const isServiceRole = token === supabaseServiceKey;
+
+    if (!isServiceRole) {
+      // Verify JWT for regular user calls
+      const {
+        data: { user: callerUser },
+        error: authError,
+      } = await supabase.auth.getUser(token);
+      if (authError || !callerUser) {
+        return createJsonResponse(
+          { success: false, error: 'Invalid or expired token', errorCode: 'UNAUTHORIZED' },
+          { status: 401, cors: corsOptions }
+        );
+      }
+      console.log('Authenticated user:', callerUser.id);
+    } else {
+      console.log('Service-role access granted');
+    }
+
     const requestData: NotificationEmailRequest = await req.json();
-    const { type, recipientUserId, subject, title, message, actionUrl, actionText, metadata } = requestData;
+    const { type, recipientUserId, subject, title, message, actionUrl, actionText, metadata } =
+      requestData;
 
     console.log('Processing notification email:', { type, recipientUserId, title });
 
@@ -113,17 +165,18 @@ const handler = async (req: Request): Promise<Response> => {
     if (profileError || !profile?.email) {
       console.error('Could not find recipient email:', profileError);
       return createJsonResponse(
-        { 
+        {
           success: false,
           error: 'Recipient email not found',
-          errorCode: 'NOT_FOUND'
+          errorCode: 'NOT_FOUND',
         },
         { status: 400, cors: corsOptions }
       );
     }
 
     const recipientEmail = profile.email;
-    const recipientName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Team Member';
+    const recipientName =
+      [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Team Member';
     const organizationId = profile.organization_id;
 
     // Check notification preferences
@@ -142,14 +195,18 @@ const handler = async (req: Request): Promise<Response> => {
       console.log('Email notifications disabled for user:', recipientUserId);
       // Still create in-app notification
       if (organizationId) {
-        const { data: notif } = await supabase.from('notifications').insert({
-          user_id: recipientUserId,
-          organization_id: organizationId,
-          title,
-          description: message,
-          type: mapTypeToNotificationType(type),
-          status: 'unread',
-        }).select().single();
+        const { data: notif } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: recipientUserId,
+            organization_id: organizationId,
+            title,
+            description: message,
+            type: mapTypeToNotificationType(type),
+            status: 'unread',
+          })
+          .select()
+          .single();
         notificationId = notif?.id || null;
       }
       const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
@@ -176,21 +233,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Create in-app notification first
     if (organizationId) {
-      const { data: notif } = await supabase.from('notifications').insert({
-        user_id: recipientUserId,
-        organization_id: organizationId,
-        title,
-        description: message,
-        type: mapTypeToNotificationType(type),
-        status: 'unread',
-      }).select().single();
+      const { data: notif } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: recipientUserId,
+          organization_id: organizationId,
+          title,
+          description: message,
+          type: mapTypeToNotificationType(type),
+          status: 'unread',
+        })
+        .select()
+        .single();
       notificationId = notif?.id || null;
-      console.log("In-app notification created for user:", recipientUserId);
+      console.log('In-app notification created for user:', recipientUserId);
     }
 
     // Email subject based on type
     const emailSubject = subject || getDefaultSubject(type, title);
-    
+
     // Build HTML email
     const htmlContent = buildEmailHtml({
       type,
@@ -224,7 +285,7 @@ const handler = async (req: Request): Promise<Response> => {
       deliveryLogId = logEntry?.id || null;
     }
 
-    console.log("Sending email via Resend:", {
+    console.log('Sending email via Resend:', {
       to: recipientEmail,
       subject: emailSubject,
     });
@@ -237,8 +298,8 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (error) {
-      console.error("Resend error:", error);
-      
+      console.error('Resend error:', error);
+
       // Update delivery log with error
       if (deliveryLogId) {
         await supabase
@@ -266,7 +327,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(error.message);
     }
 
-    console.log("Email sent successfully:", data?.id);
+    console.log('Email sent successfully:', data?.id);
 
     // Update delivery log with success
     if (deliveryLogId) {
@@ -348,7 +409,7 @@ interface EmailHtmlParams {
 
 function buildEmailHtml(params: EmailHtmlParams): string {
   const { type, title, message, recipientName, organizationName, actionUrl, actionText } = params;
-  
+
   const iconMap: Record<string, string> = {
     task_assigned: '📋',
     case_update: '⚖️',
@@ -357,16 +418,16 @@ function buildEmailHtml(params: EmailHtmlParams): string {
     invoice_created: '💰',
     general: '🔔',
   };
-  
+
   const icon = iconMap[type] || '🔔';
-  
+
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
@@ -377,45 +438,49 @@ function buildEmailHtml(params: EmailHtmlParams): string {
           <tr>
             <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 30px; border-radius: 8px 8px 0 0;">
               <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
-                ${icon} ${organizationName}
+                ${icon} ${escapeHtml(organizationName)}
               </h1>
             </td>
           </tr>
-          
+
           <!-- Content -->
           <tr>
             <td style="padding: 40px 30px;">
               <p style="color: #666666; font-size: 16px; margin: 0 0 20px;">
-                Hello ${recipientName},
+                Hello ${escapeHtml(recipientName)},
               </p>
-              
+
               <h2 style="color: #1a365d; font-size: 20px; margin: 0 0 15px;">
-                ${title}
+                ${escapeHtml(title)}
               </h2>
-              
+
               <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
-                ${message}
+                ${escapeHtml(message)}
               </p>
-              
-              ${actionUrl ? `
+
+              ${
+                actionUrl
+                  ? `
               <table cellpadding="0" cellspacing="0" style="margin: 25px 0;">
                 <tr>
                   <td style="background-color: #1a365d; border-radius: 6px;">
-                    <a href="${actionUrl}" style="display: inline-block; padding: 14px 28px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-                      ${actionText || 'View Details'}
+                    <a href="${escapeHtml(actionUrl)}" style="display: inline-block; padding: 14px 28px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
+                      ${escapeHtml(actionText) || 'View Details'}
                     </a>
                   </td>
                 </tr>
               </table>
-              ` : ''}
+              `
+                  : ''
+              }
             </td>
           </tr>
-          
+
           <!-- Footer -->
           <tr>
             <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
               <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
-                This is an automated notification from ${organizationName}.<br>
+                This is an automated notification from ${escapeHtml(organizationName)}.<br>
                 Please do not reply to this email.
               </p>
             </td>
@@ -431,7 +496,7 @@ function buildEmailHtml(params: EmailHtmlParams): string {
 
 function checkTypePreference(preferences: any, type: string): boolean {
   if (!preferences) return true; // Default to enabled if no preferences
-  
+
   const typeMap: Record<string, keyof typeof preferences> = {
     task_assigned: 'task_notifications',
     case_update: 'case_notifications',
@@ -440,7 +505,7 @@ function checkTypePreference(preferences: any, type: string): boolean {
     invoice_created: 'invoice_notifications',
     general: 'general_notifications',
   };
-  
+
   const preferenceKey = typeMap[type] || 'general_notifications';
   return preferences[preferenceKey] !== false;
 }
@@ -451,7 +516,7 @@ async function shouldRetryEmail(deliveryLogId: string): Promise<boolean> {
     .select('retry_count, max_retries')
     .eq('id', deliveryLogId)
     .single();
-  
+
   if (!log) return false;
   return (log.retry_count || 0) < (log.max_retries || 3);
 }

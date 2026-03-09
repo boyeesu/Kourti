@@ -10,8 +10,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Receipt, Loader2 } from 'lucide-react';
-import { usePaymentHistory, type PaymentTransaction } from '@/hooks/useSubscription';
+import { Receipt, Loader2, RefreshCw } from 'lucide-react';
+import {
+  usePaymentHistory,
+  useVerifyPayment,
+  type PaymentTransaction,
+} from '@/hooks/useSubscription';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -67,8 +71,19 @@ function formatAmount(amount: number, currency: string): string {
 export function PaymentHistory() {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const { data: transactions = [], isLoading } = usePaymentHistory(limit);
+  const verifyPayment = useVerifyPayment();
+  const [verifyingTxRef, setVerifyingTxRef] = useState<string | null>(null);
 
   const canLoadMore = transactions.length === limit;
+
+  const handleVerify = async (txRef: string) => {
+    setVerifyingTxRef(txRef);
+    try {
+      await verifyPayment.mutateAsync({ tx_ref: txRef });
+    } finally {
+      setVerifyingTxRef(null);
+    }
+  };
 
   return (
     <Card>
@@ -124,7 +139,27 @@ export function PaymentHistory() {
                           {formatAmount(tx.amount, tx.currency)}
                         </TableCell>
                         <TableCell>
-                          <Badge className={statusConfig.className}>{statusConfig.label}</Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className={statusConfig.className}>{statusConfig.label}</Badge>
+                            {tx.status === 'pending' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                disabled={verifyingTxRef === tx.flutterwave_tx_ref}
+                                onClick={() => handleVerify(tx.flutterwave_tx_ref)}
+                              >
+                                {verifyingTxRef === tx.flutterwave_tx_ref ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <RefreshCw className="mr-1 h-3 w-3" />
+                                    Verify
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>{TYPE_LABELS[tx.payment_type] ?? tx.payment_type}</TableCell>
                         <TableCell className="hidden max-w-[180px] truncate font-mono text-xs sm:table-cell">

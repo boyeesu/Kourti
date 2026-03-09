@@ -88,6 +88,19 @@ export interface ManageSubscriptionParams {
   subscription_id: string;
 }
 
+export interface VerifyPaymentParams {
+  tx_ref: string;
+}
+
+export interface VerifyPaymentResult {
+  success: boolean;
+  payment_status: 'pending' | 'successful' | 'failed' | 'unknown';
+  subscription_status: string | null;
+  subscription_id?: string;
+  already_processed?: boolean;
+  message?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Hooks
 // ---------------------------------------------------------------------------
@@ -242,6 +255,54 @@ export function useManageSubscription() {
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to update subscription',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+/**
+ * Mutation that calls the `flutterwave-verify-payment` edge function to
+ * manually verify a pending transaction with Flutterwave and activate
+ * the subscription if the payment was successful.
+ */
+export function useVerifyPayment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: organization } = useCurrentUserOrganization();
+
+  return useMutation({
+    mutationFn: async (params: VerifyPaymentParams): Promise<VerifyPaymentResult> => {
+      try {
+        const { data, error } = await supabase.functions.invoke('flutterwave-verify-payment', {
+          body: params,
+        });
+
+        if (error) throw error;
+        return data as VerifyPaymentResult;
+      } catch (error) {
+        logError('Error verifying payment', error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      const orgId = organization?.id;
+      if (data.payment_status === 'successful') {
+        queryClient.invalidateQueries({ queryKey: ['subscription', orgId] });
+        queryClient.invalidateQueries({ queryKey: ['payment-history', orgId] });
+        queryClient.invalidateQueries({ queryKey: ['organization-billing', orgId] });
+        queryClient.invalidateQueries({ queryKey: ['current-user-plan'] });
+        toast({
+          title: 'Payment Verified',
+          description: 'Your subscription has been activated successfully.',
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: 'Verification Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to verify payment. Please try again.',
         variant: 'destructive',
       });
     },

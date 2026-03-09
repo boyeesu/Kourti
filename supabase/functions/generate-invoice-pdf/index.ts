@@ -1,25 +1,38 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 declare const Deno: any;
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createCorsSecurityHeaders, createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import {
+  createCorsSecurityHeaders,
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
+import { createErrorResponse as createSanitizedErrorResponse } from '../_shared/errorHandling.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
+import { escapeHtml } from '../_shared/htmlEscape.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
+  'https://kouti-legal-hub-41.lovable.app',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -30,16 +43,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -47,7 +61,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 serve(async (req: Request) => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   // Handle CORS preflight requests
@@ -67,7 +81,10 @@ serve(async (req: Request) => {
     const token = authHeader.replace('Bearer ', '').trim();
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
     if (authError || !user) {
       console.error('Authentication failed:', authError?.message);
       throw new HttpError('Invalid or expired authentication token', 401, 'UNAUTHORIZED');
@@ -118,16 +135,18 @@ serve(async (req: Request) => {
     console.log('Fetching invoice data for user:', user.id);
 
     // Fetch invoice with related data
-    const { data: invoice, error: invoiceError } = await supabase
+    const { data: invoice, error: invoiceError } = (await supabase
       .from('invoices' as any)
-      .select(`
+      .select(
+        `
         *,
         client:client_id(id, name, email, address, phone),
         case:case_id(id, title),
         invoice_items(*)
-      `)
+      `
+      )
       .eq('id', invoiceId)
-      .single() as { data: any; error: any };
+      .single()) as { data: any; error: any };
 
     if (invoiceError || !invoice) {
       console.error('Failed to fetch invoice:', invoiceError);
@@ -135,11 +154,11 @@ serve(async (req: Request) => {
     }
 
     // Fetch user's profile and organization in one go
-    const { data: profile } = await supabase
+    const { data: profile } = (await supabase
       .from('profiles' as any)
       .select('organization_id')
       .eq('user_id', user.id)
-      .single() as { data: { organization_id: string } | null; error: any };
+      .single()) as { data: { organization_id: string } | null; error: any };
 
     if (!profile?.organization_id) {
       throw new HttpError('User profile not found', 404, 'PROFILE_NOT_FOUND');
@@ -147,15 +166,17 @@ serve(async (req: Request) => {
 
     // Verify user has access to this invoice through their organization
     if (invoice.organization_id !== profile.organization_id) {
-      console.warn(`User ${user.id} attempted to access invoice ${invoiceId} without authorization`);
+      console.warn(
+        `User ${user.id} attempted to access invoice ${invoiceId} without authorization`
+      );
       throw new HttpError('Access denied to this invoice', 403, 'FORBIDDEN');
     }
 
-    const { data: organization } = await supabase
+    const { data: organization } = (await supabase
       .from('organizations' as any)
       .select('*')
       .eq('id', profile.organization_id)
-      .single() as { data: any; error: any };
+      .single()) as { data: any; error: any };
 
     console.log('Generating PDF for invoice:', invoice.invoice_number);
 
@@ -177,12 +198,14 @@ serve(async (req: Request) => {
     });
 
     headers.set('Content-Type', 'application/pdf');
-    headers.set('Content-Disposition', `attachment; filename="invoice-${invoice.invoice_number}.pdf"`);
+    headers.set(
+      'Content-Disposition',
+      `attachment; filename="invoice-${invoice.invoice_number}.pdf"`
+    );
 
     return new Response(pdfBuffer as unknown as BodyInit, {
       headers,
     });
-
   } catch (error: unknown) {
     if (error instanceof HttpError) {
       return createErrorResponse(error, corsOptions);
@@ -197,7 +220,7 @@ function generateInvoiceHTML(invoice: any, organization: any): string {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: invoice.currency || 'USD'
+      currency: invoice.currency || 'USD',
     }).format(amount);
   };
 
@@ -205,7 +228,7 @@ function generateInvoiceHTML(invoice: any, organization: any): string {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -363,15 +386,15 @@ function generateInvoiceHTML(invoice: any, organization: any): string {
 <body>
     <div class="header">
         <div class="company-info">
-            <div class="company-name">${organization?.name || 'Your Company'}</div>
-            <div>${organization?.address || ''}</div>
-            <div>${organization?.email || ''}</div>
-            <div>${organization?.phone || ''}</div>
+            <div class="company-name">${escapeHtml(organization?.name) || 'Your Company'}</div>
+            <div>${escapeHtml(organization?.address)}</div>
+            <div>${escapeHtml(organization?.email)}</div>
+            <div>${escapeHtml(organization?.phone)}</div>
         </div>
         <div class="invoice-info">
             <div class="invoice-title">INVOICE</div>
-            <div class="invoice-number">${invoice.invoice_number}</div>
-            <div class="status-badge status-${invoice.status || 'draft'}">${(invoice.status || 'draft').replace('_', ' ')}</div>
+            <div class="invoice-number">${escapeHtml(invoice.invoice_number)}</div>
+            <div class="status-badge status-${escapeHtml(invoice.status) || 'draft'}">${escapeHtml((invoice.status || 'draft').replace('_', ' '))}</div>
         </div>
     </div>
 
@@ -379,10 +402,10 @@ function generateInvoiceHTML(invoice: any, organization: any): string {
         <div class="bill-to">
             <div class="section-title">Bill To</div>
             <div class="client-info">
-                <strong>${invoice.client?.name || 'N/A'}</strong><br>
-                ${invoice.client?.address || ''}<br>
-                ${invoice.client?.email || ''}<br>
-                ${invoice.client?.phone || ''}
+                <strong>${escapeHtml(invoice.client?.name) || 'N/A'}</strong><br>
+                ${escapeHtml(invoice.client?.address)}<br>
+                ${escapeHtml(invoice.client?.email)}<br>
+                ${escapeHtml(invoice.client?.phone)}
             </div>
         </div>
         <div class="invoice-meta">
@@ -390,7 +413,7 @@ function generateInvoiceHTML(invoice: any, organization: any): string {
             <div class="meta-info">
                 <strong>Issue Date:</strong> ${formatDate(invoice.issue_date)}<br>
                 <strong>Due Date:</strong> ${formatDate(invoice.due_date)}<br>
-                ${invoice.case ? `<strong>Related Case:</strong> ${invoice.case.title}<br>` : ''}
+                ${invoice.case ? `<strong>Related Case:</strong> ${escapeHtml(invoice.case.title)}<br>` : ''}
                 <strong>Currency:</strong> ${invoice.currency || 'USD'}
             </div>
         </div>
@@ -406,14 +429,20 @@ function generateInvoiceHTML(invoice: any, organization: any): string {
             </tr>
         </thead>
         <tbody>
-            ${invoice.invoice_items?.map((item: any) => `
+            ${
+              invoice.invoice_items
+                ?.map(
+                  (item: any) => `
                 <tr>
-                    <td>${item.description}</td>
+                    <td>${escapeHtml(item.description)}</td>
                     <td>${item.quantity}</td>
                     <td>${formatCurrency(item.rate)}</td>
                     <td>${formatCurrency(item.amount)}</td>
                 </tr>
-            `).join('') || '<tr><td colspan="4">No items found</td></tr>'}
+            `
+                )
+                .join('') || '<tr><td colspan="4">No items found</td></tr>'
+            }
         </tbody>
     </table>
 
@@ -434,19 +463,27 @@ function generateInvoiceHTML(invoice: any, organization: any): string {
         </table>
     </div>
 
-    ${invoice.notes ? `
+    ${
+      invoice.notes
+        ? `
     <div class="notes">
         <div class="notes-title">Notes</div>
-        <div>${invoice.notes}</div>
+        <div>${escapeHtml(invoice.notes)}</div>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
-    ${invoice.terms_conditions ? `
+    ${
+      invoice.terms_conditions
+        ? `
     <div class="notes">
         <div class="notes-title">Terms & Conditions</div>
-        <div>${invoice.terms_conditions}</div>
+        <div>${escapeHtml(invoice.terms_conditions)}</div>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <div class="footer">
         <p>Thank you for your business!</p>
@@ -464,7 +501,7 @@ async function generatePDFFromHTML(html: string): Promise<Uint8Array> {
   // - Puppeteer
   // - Playwright
   // - HTML/CSS to PDF API service
-  
+
   // For now, we'll return the HTML content as a simple PDF-like response
   // In production, replace this with actual PDF generation
   const encoder = new TextEncoder();
