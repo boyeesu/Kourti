@@ -126,8 +126,8 @@ async function handleChargeCompleted(
       flutterwave_tx_id: String(transactionId),
       updated_at: new Date().toISOString(),
     })
-    .eq('tx_ref', txRef)
-    .select('id, organization_id, plan_id, billing_period')
+    .eq('flutterwave_tx_ref', txRef)
+    .select('id, organization_id, metadata')
     .single();
 
   if (txUpdateError) {
@@ -135,53 +135,105 @@ async function handleChargeCompleted(
     throw new Error(`Failed to update payment transaction: ${txUpdateError.message}`);
   }
 
-  // If transaction has a payment_plan, manage subscription
-  if (data.payment_plan && txRecord) {
+  // If transaction record exists, manage subscription
+  if (txRecord) {
+    const meta = (txRecord.metadata || {}) as Record<string, unknown>;
+    const planId = meta.plan_id as string | undefined;
+    const userId = meta.user_id as string | undefined;
+    const billingInterval = (meta.billing_interval as string) || 'monthly';
+
     const now = new Date();
     const periodEnd = new Date(now);
 
-    // Determine period based on billing_period from the transaction record
-    if (txRecord.billing_period === 'yearly') {
+    if (billingInterval === 'yearly') {
       periodEnd.setFullYear(periodEnd.getFullYear() + 1);
     } else {
       periodEnd.setMonth(periodEnd.getMonth() + 1);
     }
 
-    // Upsert subscription and return its ID
-    const { data: subRecord, error: subError } = await supabase
-      .from('subscriptions')
-      .upsert(
-        {
-          organization_id: txRecord.organization_id,
-          plan_id: txRecord.plan_id,
-          status: 'active',
-          flutterwave_payment_plan_id: String(data.payment_plan),
-          current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          updated_at: now.toISOString(),
-        },
-        { onConflict: 'organization_id' }
-      )
-      .select('id')
-      .single();
+    if (planId && userId) {
+      // Look up user's email for the subscription record
+      const { data: userData } = await supabase.auth.admin.getUserById(userId);
+      const customerEmail = userData?.user?.email || 'unknown@unknown.com';
 
-    if (subError) {
-      console.error('Failed to upsert subscription:', subError);
-      throw new Error(`Failed to upsert subscription: ${subError.message}`);
-    }
+      // Check for existing active subscription for this org
+      const { data: existingSub } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('organization_id', txRecord.organization_id)
+        .in('status', ['active', 'trialing', 'past_due'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    // Atomically sync user_plan_assignments via RPC
-    const { error: rpcError } = await supabase.rpc('handle_subscription_change', {
-      p_subscription_id: subRecord.id,
-      p_new_status: 'active',
-      p_plan_id: txRecord.plan_id,
-      p_current_period_start: now.toISOString(),
-      p_current_period_end: periodEnd.toISOString(),
-    });
+      let subRecord: { id: string };
 
-    if (rpcError) {
-      console.error('Failed to call handle_subscription_change RPC:', rpcError);
-      throw new Error(`Failed to sync user plan assignments: ${rpcError.message}`);
+      if (existingSub) {
+        // Update existing subscription
+        const { data: updated, error: updateErr } = await supabase
+          .from('subscriptions')
+          .update({
+            plan_id: planId,
+            flutterwave_subscription_id: data.payment_plan ? String(data.payment_plan) : null,
+            billing_interval: billingInterval,
+            status: 'active',
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            updated_at: now.toISOString(),
+          })
+          .eq('id', existingSub.id)
+          .select('id')
+          .single();
+
+        if (updateErr || !updated) {
+          console.error('Failed to update subscription:', updateErr);
+          throw new Error(`Failed to update subscription: ${updateErr?.message}`);
+        }
+        subRecord = updated;
+      } else {
+        // Create new subscription
+        const { data: inserted, error: insertErr } = await supabase
+          .from('subscriptions')
+          .insert({
+            organization_id: txRecord.organization_id,
+            user_id: userId,
+            plan_id: planId,
+            flutterwave_subscription_id: data.payment_plan ? String(data.payment_plan) : null,
+            flutterwave_customer_email: customerEmail,
+            billing_interval: billingInterval,
+            status: 'active',
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+          })
+          .select('id')
+          .single();
+
+        if (insertErr || !inserted) {
+          console.error('Failed to insert subscription:', insertErr);
+          throw new Error(`Failed to insert subscription: ${insertErr?.message}`);
+        }
+        subRecord = inserted;
+      }
+
+      // Link the transaction to the subscription
+      await supabase
+        .from('payment_transactions')
+        .update({ subscription_id: subRecord.id })
+        .eq('id', txRecord.id);
+
+      // Atomically sync user_plan_assignments via RPC
+      const { error: rpcError } = await supabase.rpc('handle_subscription_change', {
+        p_subscription_id: subRecord.id,
+        p_new_status: 'active',
+        p_plan_id: planId,
+        p_current_period_start: now.toISOString(),
+        p_current_period_end: periodEnd.toISOString(),
+      });
+
+      if (rpcError) {
+        console.error('Failed to call handle_subscription_change RPC:', rpcError);
+        throw new Error(`Failed to sync user plan assignments: ${rpcError.message}`);
+      }
     }
   }
 
@@ -206,7 +258,7 @@ async function handleChargeFailed(
       status: 'failed',
       updated_at: new Date().toISOString(),
     })
-    .eq('tx_ref', txRef)
+    .eq('flutterwave_tx_ref', txRef)
     .select('organization_id')
     .single();
 
@@ -249,7 +301,7 @@ async function handleSubscriptionCancelled(
   const { data: subscription, error: subFetchError } = await supabase
     .from('subscriptions')
     .select('id, organization_id, plan_id')
-    .eq('flutterwave_payment_plan_id', paymentPlanId)
+    .eq('flutterwave_subscription_id', paymentPlanId)
     .single();
 
   if (subFetchError || !subscription) {

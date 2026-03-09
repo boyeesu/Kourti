@@ -71,6 +71,7 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 const Changelog = lazy(() => import('./pages/Changelog'));
 const Pricing = lazy(() => import('./pages/Pricing'));
+const BillingCallback = lazy(() => import('./pages/BillingCallback'));
 
 type ProtectedRouteConfig = {
   path: string;
@@ -308,6 +309,7 @@ const protectedRoutes: ProtectedRouteConfig[] = [
   { path: '/live-chat', component: LiveChatPage, boundaryName: 'Live Chat' },
   { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center' },
   { path: '/changelog', component: Changelog, boundaryName: 'Changelog' },
+  { path: '/billing/callback', component: BillingCallback, boundaryName: 'Billing Callback' },
   {
     path: '/users',
     component: UserManagement,

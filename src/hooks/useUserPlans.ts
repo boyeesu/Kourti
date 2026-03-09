@@ -13,6 +13,9 @@ export interface UserPlan {
   plan_type: 'free' | 'starter' | 'professional' | 'enterprise';
   features: string[];
   is_active: boolean;
+  price_monthly: number;
+  price_yearly: number;
+  currency: string;
   created_at: string;
   updated_at: string;
 }

@@ -15,22 +15,6 @@ import { Check, Loader2, Sparkles } from 'lucide-react';
 import { useUserPlans, useCurrentUserPlan, type UserPlan } from '@/hooks/useUserPlans';
 import { useCurrentSubscription, useInitiatePayment } from '@/hooks/useSubscription';
 
-// ---------------------------------------------------------------------------
-// Plan pricing map (amounts in the base currency, e.g. USD)
-// These would ideally come from the backend; kept here as a display fallback.
-// ---------------------------------------------------------------------------
-
-const PLAN_PRICING: Record<string, { monthly: number; yearly: number; currency: string }> = {
-  free: { monthly: 0, yearly: 0, currency: 'USD' },
-  starter: { monthly: 29, yearly: 290, currency: 'USD' },
-  professional: { monthly: 79, yearly: 790, currency: 'USD' },
-  enterprise: { monthly: 199, yearly: 1990, currency: 'USD' },
-};
-
-function getPricing(planType: string) {
-  return PLAN_PRICING[planType] ?? PLAN_PRICING.free;
-}
-
 function formatCurrency(amount: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 }
@@ -68,7 +52,7 @@ export function PlanSelector({ open, onOpenChange }: PlanSelectorProps) {
       const result = await initiatePayment.mutateAsync({
         plan_id: plan.id,
         billing_interval: billingInterval,
-        redirect_url: window.location.href,
+        redirect_url: `${window.location.origin}/billing/callback`,
       });
 
       // Redirect the user to the Flutterwave payment page
@@ -141,8 +125,8 @@ export function PlanSelector({ open, onOpenChange }: PlanSelectorProps) {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {sortedPlans.map((plan) => {
-              const pricing = getPricing(plan.plan_type);
-              const price = isYearly ? pricing.yearly : pricing.monthly;
+              const price = isYearly ? plan.price_yearly : plan.price_monthly;
+              const currency = plan.currency || 'USD';
               const isCurrent = isCurrentPlan(plan);
               const isSubmitting = initiatePayment.isPending && selectedPlanId === plan.id;
 
@@ -168,16 +152,16 @@ export function PlanSelector({ open, onOpenChange }: PlanSelectorProps) {
                     {/* Price */}
                     <div>
                       <p className="text-3xl font-bold">
-                        {price === 0 ? 'Free' : formatCurrency(price, pricing.currency)}
+                        {price === 0 ? 'Free' : formatCurrency(price, currency)}
                       </p>
                       {price > 0 && (
                         <p className="text-xs text-muted-foreground">
                           per {isYearly ? 'year' : 'month'}
                         </p>
                       )}
-                      {isYearly && pricing.monthly > 0 && (
+                      {isYearly && plan.price_monthly > 0 && (
                         <p className="mt-1 text-xs text-muted-foreground line-through">
-                          {formatCurrency(pricing.monthly * 12, pricing.currency)}/year
+                          {formatCurrency(plan.price_monthly * 12, currency)}/year
                         </p>
                       )}
                     </div>

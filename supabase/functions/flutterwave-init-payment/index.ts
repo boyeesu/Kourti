@@ -148,7 +148,6 @@ serve(async (req: Request) => {
       .from('payment_transactions' as never)
       .select('id, metadata')
       .eq('organization_id', organizationId)
-      .eq('plan_id', plan_id)
       .eq('status', 'pending')
       .gte('created_at', thirtyMinutesAgo)
       .order('created_at', { ascending: false })
@@ -189,12 +188,12 @@ serve(async (req: Request) => {
     // Determine price and Flutterwave plan ID based on billing interval
     const amount =
       billing_interval === 'monthly'
-        ? (plan.monthly_price as number)
-        : (plan.yearly_price as number);
+        ? (plan.price_monthly as number)
+        : (plan.price_yearly as number);
     const flutterwavePlanId =
       billing_interval === 'monthly'
-        ? (plan.flutterwave_monthly_plan_id as string | undefined)
-        : (plan.flutterwave_yearly_plan_id as string | undefined);
+        ? (plan.flutterwave_plan_id_monthly as string | undefined)
+        : (plan.flutterwave_plan_id_yearly as string | undefined);
 
     if (!amount || amount <= 0) {
       throw new HttpError(
@@ -215,15 +214,16 @@ serve(async (req: Request) => {
       .from('payment_transactions' as never)
       .insert({
         organization_id: organizationId,
-        plan_id: plan_id,
-        user_id: user.id,
-        tx_ref: txRef,
+        flutterwave_tx_ref: txRef,
         amount: amount,
         currency: (plan.currency as string) || 'NGN',
-        billing_interval: billing_interval,
         status: 'pending',
-        provider: 'flutterwave',
-        metadata: {},
+        payment_type: 'subscription',
+        metadata: {
+          plan_id: plan_id,
+          user_id: user.id,
+          billing_interval: billing_interval,
+        },
       })
       .select('id')
       .single()) as { data: { id: string } | null; error: { message?: string } | null };
@@ -272,11 +272,14 @@ serve(async (req: Request) => {
 
     const paymentLink = paymentResponse.data.link;
 
-    // --- 8. Update transaction metadata with the payment link ---
+    // --- 8. Update transaction metadata with the payment link (merge, don't overwrite) ---
     const { error: updateError } = await supabase
       .from('payment_transactions' as never)
       .update({
         metadata: {
+          plan_id: plan_id,
+          user_id: user.id,
+          billing_interval: billing_interval,
           payment_link: paymentLink,
           flutterwave_response: paymentResponse.data,
         },
