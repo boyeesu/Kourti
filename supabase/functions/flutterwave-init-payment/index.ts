@@ -142,34 +142,52 @@ serve(async (req: Request) => {
     }
 
     // --- 3. Check for duplicate pending payment (idempotency) ---
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-
-    const { data: existingTransaction } = (await supabase
+    // Look for ANY pending transaction for this org, regardless of age.
+    // This prevents users from creating multiple pending payments.
+    const { data: existingTransactions } = (await supabase
       .from('payment_transactions' as never)
-      .select('id, metadata')
+      .select('id, metadata, created_at')
       .eq('organization_id', organizationId)
       .eq('status', 'pending')
-      .gte('created_at', thirtyMinutesAgo)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()) as {
-      data: { id: string; metadata: Record<string, unknown> } | null;
+      .order('created_at', { ascending: false })) as {
+      data: Array<{ id: string; metadata: Record<string, unknown>; created_at: string }> | null;
       error: { message?: string } | null;
     };
 
-    if (existingTransaction?.metadata?.payment_link) {
-      console.log(
-        `Returning existing pending payment link for org ${organizationId}, plan ${plan_id}`
-      );
-      return createJsonResponse(
-        {
-          success: true,
-          payment_link: existingTransaction.metadata.payment_link,
-          transaction_id: existingTransaction.id,
-          existing: true,
-        },
-        { status: 200, cors: corsOptions }
-      );
+    if (existingTransactions && existingTransactions.length > 0) {
+      const newest = existingTransactions[0];
+      const ageMs = Date.now() - new Date(newest.created_at).getTime();
+      const twoHoursMs = 2 * 60 * 60 * 1000;
+
+      // If the newest pending transaction has a payment link and is under 2 hours old, reuse it
+      if (newest.metadata?.payment_link && ageMs < twoHoursMs) {
+        console.log(
+          `Returning existing pending payment link for org ${organizationId}, plan ${plan_id}`
+        );
+        return createJsonResponse(
+          {
+            success: true,
+            payment_link: newest.metadata.payment_link,
+            transaction_id: newest.id,
+            existing: true,
+          },
+          { status: 200, cors: corsOptions }
+        );
+      }
+
+      // Expire any stale pending transactions before creating a new one
+      const staleIds = existingTransactions.map((t) => t.id);
+      if (staleIds.length > 0) {
+        console.log(
+          `Expiring ${staleIds.length} stale pending transaction(s) for org ${organizationId}`
+        );
+        for (const staleId of staleIds) {
+          await supabase
+            .from('payment_transactions' as never)
+            .update({ status: 'failed', updated_at: new Date().toISOString() })
+            .eq('id', staleId);
+        }
+      }
     }
 
     // --- 4. Look up the plan ---

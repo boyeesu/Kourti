@@ -14,6 +14,7 @@ import {
 import { createErrorResponse } from '../_shared/errorHandling.ts';
 import { HttpError, createErrorResponse as createHttpErrorResponse } from '../_shared/httpError.ts';
 import { verifyTransaction } from '../_shared/flutterwaveClient.ts';
+import { sendPlanConfirmationEmail } from '../_shared/planConfirmationEmail.ts';
 
 const ALLOWED_ORIGINS = [
   Deno.env.get('APP_URL'),
@@ -192,7 +193,7 @@ serve(async (req: Request) => {
     // --- 5. Verify the transaction ---
     const verification = await verifyTransaction(transactionId);
 
-    if (verification.status !== 'successful' || verification.data?.status !== 'successful') {
+    if (verification.status !== 'success' || verification.data?.status !== 'successful') {
       // Transaction exists but not successful
       const flwStatus = verification.data?.status || 'unknown';
 
@@ -334,7 +335,32 @@ serve(async (req: Request) => {
       console.error('Failed to call handle_subscription_change RPC:', rpcError);
     }
 
+    // Cancel any other pending transactions for this org to prevent double billing
+    const { error: cleanupError } = await supabase
+      .from('payment_transactions')
+      .update({ status: 'failed', updated_at: new Date().toISOString() })
+      .eq('organization_id', txRecord.organization_id)
+      .eq('status', 'pending')
+      .neq('id', txRecord.id);
+
+    if (cleanupError) {
+      console.warn('Failed to clean up other pending transactions:', cleanupError);
+    }
+
     console.log(`Payment verified and subscription activated for tx_ref=${tx_ref}`);
+
+    // Send plan purchase/renewal confirmation email
+    await sendPlanConfirmationEmail({
+      supabase,
+      userId,
+      planId,
+      organizationId: txRecord.organization_id,
+      billingInterval,
+      isRenewal: !!existingSub,
+      transactionRef: tx_ref,
+      amount: verification.data?.amount,
+      currency: verification.data?.currency,
+    });
 
     return createJsonResponse(
       {

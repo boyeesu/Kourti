@@ -9,6 +9,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { createCorsSecurityHeaders } from '../_shared/responseHeaders.ts';
 import { logError } from '../_shared/errorHandling.ts';
 import { verifyWebhookSignature, verifyTransaction } from '../_shared/flutterwaveClient.ts';
+import { sendPlanConfirmationEmail } from '../_shared/planConfirmationEmail.ts';
 
 const corsOptions = {
   origin: '*',
@@ -98,7 +99,7 @@ async function handleChargeCompleted(
   // SECURITY: Always re-verify transaction via Flutterwave API
   const verification = await verifyTransaction(transactionId);
 
-  if (verification.status !== 'successful') {
+  if (verification.status !== 'success') {
     console.warn(
       `Transaction verification failed for tx_ref=${txRef}, id=${transactionId}. ` +
         `API status: ${verification.status}. Skipping DB update.`
@@ -234,6 +235,33 @@ async function handleChargeCompleted(
         console.error('Failed to call handle_subscription_change RPC:', rpcError);
         throw new Error(`Failed to sync user plan assignments: ${rpcError.message}`);
       }
+
+      // Send plan purchase/renewal confirmation email
+      await sendPlanConfirmationEmail({
+        supabase,
+        userId,
+        planId,
+        organizationId: txRecord.organization_id,
+        billingInterval,
+        isRenewal: !!existingSub,
+        transactionRef: txRef,
+        amount: verification.data?.amount,
+        currency: verification.data?.currency,
+      });
+    }
+  }
+
+  // Cancel any other pending transactions for this org to prevent double billing
+  if (txRecord) {
+    const { error: cleanupError } = await supabase
+      .from('payment_transactions')
+      .update({ status: 'failed', updated_at: new Date().toISOString() })
+      .eq('organization_id', txRecord.organization_id)
+      .eq('status', 'pending')
+      .neq('flutterwave_tx_ref', txRef);
+
+    if (cleanupError) {
+      console.warn('Failed to clean up other pending transactions:', cleanupError);
     }
   }
 
