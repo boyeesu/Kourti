@@ -2,28 +2,28 @@ import React, { useState } from 'react';
 import { z } from 'zod';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import { Button } from '@/components/ui/button';
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { CalendarIcon, Plus, TrashIcon } from 'lucide-react';
@@ -36,22 +36,22 @@ import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
 
 // Define invoice item schema
 const invoiceItemSchema = z.object({
-  description: z.string().min(1, "Description is required"),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
-  unit_price: z.number().min(0, "Unit price cannot be negative"),
+  description: z.string().min(1, 'Description is required'),
+  quantity: z.number().min(1, 'Quantity must be at least 1'),
+  unit_price: z.number().min(0, 'Unit price cannot be negative'),
 });
 
 // Define invoice schema
 const invoiceSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  client_id: z.string().min(1, "Client is required"),
+  title: z.string().min(1, 'Title is required'),
+  client_id: z.string().min(1, 'Client is required'),
   case_id: z.string().optional(),
   issue_date: z.date(),
   due_date: z.date(),
   status: z.string(),
   notes: z.string().optional(),
-  items: z.array(invoiceItemSchema).min(1, "At least one item is required"),
-  vat: z.number().min(0, "VAT cannot be negative"),
+  items: z.array(invoiceItemSchema).min(1, 'At least one item is required'),
+  vat: z.number().min(0, 'VAT cannot be negative'),
   currency: z.string().default('USD'),
 });
 
@@ -80,8 +80,8 @@ export function InvoiceForm({
 
   // Get clients and cases data
   const { data: clientsData } = useClients();
-  const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items ?? [];
-  
+  const clients = Array.isArray(clientsData) ? clientsData : (clientsData?.items ?? []);
+
   const { data: casesData = [] } = useCases();
   const cases = Array.isArray(casesData) ? casesData : casesData?.cases || [];
 
@@ -101,15 +101,16 @@ export function InvoiceForm({
       currency: initialData?.currency || 'USD',
     },
     onSubmit: onSubmit,
-    successMessage: initialData?.title ? 'Invoice updated successfully' : 'Invoice created successfully',
+    successMessage: initialData?.title
+      ? 'Invoice updated successfully'
+      : 'Invoice created successfully',
   });
 
   // Calculate subtotal
-  const subtotal = form.watch('items').reduce(
-    (sum, item) => sum + (item.quantity * item.unit_price), 
-    0
-  );
-  
+  const subtotal = form
+    .watch('items')
+    .reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+
   const vat = form.watch('vat');
   const total = subtotal + vat;
 
@@ -119,10 +120,7 @@ export function InvoiceForm({
       return; // Basic validation
     }
 
-    form.setValue('items', [
-      ...form.watch('items'),
-      { ...newItem }
-    ]);
+    form.setValue('items', [...form.watch('items'), { ...newItem }]);
 
     // Reset the new item form
     setNewItem({
@@ -135,7 +133,10 @@ export function InvoiceForm({
   // Handle removing an item
   const handleRemoveItem = (index: number) => {
     const currentItems = form.watch('items');
-    form.setValue('items', currentItems.filter((_, i) => i !== index));
+    form.setValue(
+      'items',
+      currentItems.filter((_, i) => i !== index)
+    );
   };
 
   // Handle new item form change
@@ -154,7 +155,7 @@ export function InvoiceForm({
           <DialogHeader>
             <DialogTitle>{initialData?.title ? 'Edit Invoice' : 'Create New Invoice'}</DialogTitle>
           </DialogHeader>
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(form.submitHandler)} className="space-y-6">
               {/* Basic Information */}
@@ -172,7 +173,7 @@ export function InvoiceForm({
                     </FormItem>
                   )}
                 />
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -180,10 +181,7 @@ export function InvoiceForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client</FormLabel>
-                        <Select 
-                          value={field.value} 
-                          onValueChange={field.onChange}
-                        >
+                        <Select value={field.value} onValueChange={field.onChange}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select a client" />
@@ -201,16 +199,16 @@ export function InvoiceForm({
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="case_id"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Related Case (Optional)</FormLabel>
-                        <Select 
-                          value={field.value} 
-                          onValueChange={field.onChange}
+                        <Select
+                          value={field.value || 'none'}
+                          onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -218,7 +216,7 @@ export function InvoiceForm({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">No Case</SelectItem>
+                            <SelectItem value="none">No Case</SelectItem>
                             {cases.map((caseItem: { id: string; title: string }) => (
                               <SelectItem key={caseItem.id} value={caseItem.id}>
                                 {caseItem.title}
@@ -231,7 +229,7 @@ export function InvoiceForm({
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -243,14 +241,14 @@ export function InvoiceForm({
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
-                                variant={"outline"}
+                                variant={'outline'}
                                 className={cn(
-                                  "pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
+                                  'pl-3 text-left font-normal',
+                                  !field.value && 'text-muted-foreground'
                                 )}
                               >
                                 {field.value ? (
-                                  format(field.value, "PPP")
+                                  format(field.value, 'PPP')
                                 ) : (
                                   <span>Pick a date</span>
                                 )}
@@ -264,7 +262,7 @@ export function InvoiceForm({
                               selected={field.value}
                               onSelect={field.onChange}
                               disabled={(date) =>
-                                date > new Date() || date < new Date("1900-01-01")
+                                date > new Date() || date < new Date('1900-01-01')
                               }
                               initialFocus
                             />
@@ -274,7 +272,7 @@ export function InvoiceForm({
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="due_date"
@@ -285,14 +283,14 @@ export function InvoiceForm({
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
-                                variant={"outline"}
+                                variant={'outline'}
                                 className={cn(
-                                  "pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
+                                  'pl-3 text-left font-normal',
+                                  !field.value && 'text-muted-foreground'
                                 )}
                               >
                                 {field.value ? (
-                                  format(field.value, "PPP")
+                                  format(field.value, 'PPP')
                                 ) : (
                                   <span>Pick a date</span>
                                 )}
@@ -305,9 +303,7 @@ export function InvoiceForm({
                               mode="single"
                               selected={field.value}
                               onSelect={field.onChange}
-                              disabled={(date) =>
-                                date < new Date("1900-01-01")
-                              }
+                              disabled={(date) => date < new Date('1900-01-01')}
                               initialFocus
                             />
                           </PopoverContent>
@@ -317,17 +313,14 @@ export function InvoiceForm({
                     )}
                   />
                 </div>
-                
+
                 <FormField
                   control={form.control}
                   name="status"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select 
-                        value={field.value} 
-                        onValueChange={field.onChange}
-                      >
+                      <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
@@ -346,13 +339,13 @@ export function InvoiceForm({
                   )}
                 />
               </div>
-              
+
               {/* Line Items */}
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium">Line Items</h3>
                   <p className="text-xs text-muted-foreground mb-2">Add items to your invoice</p>
-                  
+
                   {/* Line items list */}
                   <div className="rounded-md border overflow-hidden">
                     <table className="w-full text-sm">
@@ -375,9 +368,9 @@ export function InvoiceForm({
                               {formatCurrency(item.quantity * item.unit_price)}
                             </td>
                             <td className="p-2 text-center">
-                              <Button 
-                                type="button" 
-                                variant="ghost" 
+                              <Button
+                                type="button"
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => handleRemoveItem(index)}
                               >
@@ -386,7 +379,7 @@ export function InvoiceForm({
                             </td>
                           </tr>
                         ))}
-                        
+
                         {/* New item form */}
                         <tr className="border-t bg-accent/30">
                           <td className="p-2 pl-3">
@@ -423,9 +416,9 @@ export function InvoiceForm({
                             {formatCurrency(newItem.quantity * newItem.unit_price)}
                           </td>
                           <td className="p-2 text-center">
-                            <Button 
-                              type="button" 
-                              variant="ghost" 
+                            <Button
+                              type="button"
+                              variant="ghost"
                               size="icon"
                               onClick={handleAddItem}
                             >
@@ -436,7 +429,7 @@ export function InvoiceForm({
                       </tbody>
                     </table>
                   </div>
-                  
+
                   {/* Error message for items */}
                   {form.formState.errors.items && (
                     <p className="text-sm text-destructive mt-1">
@@ -444,14 +437,14 @@ export function InvoiceForm({
                     </p>
                   )}
                 </div>
-                
+
                 {/* Totals */}
                 <div className="space-y-2 ml-auto w-60">
                   <div className="flex justify-between">
                     <span className="text-sm">Subtotal:</span>
                     <span className="font-medium">{formatCurrency(subtotal)}</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm">VAT:</span>
                     <div className="w-24">
@@ -461,13 +454,13 @@ export function InvoiceForm({
                         render={({ field }) => (
                           <FormItem>
                             <FormControl>
-                              <Input 
+                              <Input
                                 {...field}
-                                type="number" 
-                                min={0} 
+                                type="number"
+                                min={0}
                                 step={0.01}
                                 className="h-8 text-right"
-                                onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                               />
                             </FormControl>
                           </FormItem>
@@ -475,13 +468,13 @@ export function InvoiceForm({
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-between pt-2 border-t">
                     <span className="font-medium">Total:</span>
                     <span className="font-bold text-lg">{formatCurrency(total)}</span>
                   </div>
                 </div>
-                
+
                 {/* Notes */}
                 <FormField
                   control={form.control}
@@ -502,20 +495,17 @@ export function InvoiceForm({
                   )}
                 />
               </div>
-              
+
               <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => onOpenChange(false)}
-                >
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   Cancel
                 </Button>
-                <Button 
-                  type="submit"
-                  disabled={isLoading || form.isSubmitting}
-                >
-                  {isLoading || form.isSubmitting ? 'Saving...' : (initialData?.title ? 'Update Invoice' : 'Create Invoice')}
+                <Button type="submit" disabled={isLoading || form.isSubmitting}>
+                  {isLoading || form.isSubmitting
+                    ? 'Saving...'
+                    : initialData?.title
+                      ? 'Update Invoice'
+                      : 'Create Invoice'}
                 </Button>
               </DialogFooter>
             </form>

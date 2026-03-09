@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -115,6 +116,9 @@ export function ActivityDialog({ open, onOpenChange, caseId, activity }: Activit
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
+          <DialogDescription>
+            Fill in the details below to {isEdit ? 'update the' : 'create a new'} activity.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4" id="activity-form">

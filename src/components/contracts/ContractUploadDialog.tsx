@@ -315,14 +315,16 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
             <div className="space-y-2">
               <Label>Client (Optional)</Label>
               <Select
-                value={contractData.client_id}
-                onValueChange={(value) => setContractData({ ...contractData, client_id: value })}
+                value={contractData.client_id || 'none'}
+                onValueChange={(value) =>
+                  setContractData({ ...contractData, client_id: value === 'none' ? '' : value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Client</SelectItem>
+                  <SelectItem value="none">No Client</SelectItem>
                   {clients.map((client: { id: string; name: string }) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
@@ -335,14 +337,16 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
             <div className="space-y-2">
               <Label>Related Case (Optional)</Label>
               <Select
-                value={contractData.case_id}
-                onValueChange={(value) => setContractData({ ...contractData, case_id: value })}
+                value={contractData.case_id || 'none'}
+                onValueChange={(value) =>
+                  setContractData({ ...contractData, case_id: value === 'none' ? '' : value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select case" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Case</SelectItem>
+                  <SelectItem value="none">No Case</SelectItem>
                   {cases.map((case_: { id: string; title: string }) => (
                     <SelectItem key={case_.id} value={case_.id}>
                       {case_.title}

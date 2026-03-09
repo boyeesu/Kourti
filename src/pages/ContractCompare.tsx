@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState } from 'react';
 import { logError } from '@/lib/logger';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, FileText, AlertCircle, Eye, Download, Zap } from "lucide-react";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Upload, FileText, AlertCircle, Eye, Download, Zap } from 'lucide-react';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ComparisonResult {
   differences: {
@@ -44,7 +44,7 @@ export default function ContractCompare() {
 
   const handleCompare = async () => {
     if (!primaryFile || !comparisonFile) return;
-    
+
     setIsAnalyzing(true);
 
     try {
@@ -54,9 +54,10 @@ export default function ContractCompare() {
 
       if (!primaryText || !comparisonText) {
         toast({
-          title: "Extraction Failed",
-          description: "Could not extract text from one or both documents. Please use text-based formats (.txt, .docx).",
-          variant: "destructive"
+          title: 'Extraction Failed',
+          description:
+            'Could not extract text from one or both documents. Please use .txt or .docx formats. PDF files are not yet supported for comparison.',
+          variant: 'destructive',
         });
         setIsAnalyzing(false);
         return;
@@ -66,16 +67,16 @@ export default function ContractCompare() {
       const { data, error } = await supabase.functions.invoke('compare-contracts', {
         body: {
           primaryText,
-          comparisonText
-        }
+          comparisonText,
+        },
       });
 
       if (error) {
         logError('Comparison error', error);
         toast({
-          title: "Comparison Failed",
-          description: error.message || "Failed to compare contracts. Please try again.",
-          variant: "destructive"
+          title: 'Comparison Failed',
+          description: error.message || 'Failed to compare contracts. Please try again.',
+          variant: 'destructive',
         });
         setIsAnalyzing(false);
         return;
@@ -83,15 +84,15 @@ export default function ContractCompare() {
 
       setResults(data as ComparisonResult);
       toast({
-        title: "Comparison Complete",
+        title: 'Comparison Complete',
         description: `Identified ${data.summary.totalChanges} differences between the contracts.`,
       });
     } catch (error) {
       logError('Comparison error', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred during comparison.",
-        variant: "destructive"
+        title: 'Error',
+        description: 'An unexpected error occurred during comparison.',
+        variant: 'destructive',
       });
     } finally {
       setIsAnalyzing(false);
@@ -100,23 +101,40 @@ export default function ContractCompare() {
 
   const extractTextFromFile = async (file: File): Promise<string | null> => {
     try {
-      if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+      // Plain text files
+      if (file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')) {
         return await file.text();
-      } else if (
-        file.type === 'application/msword' ||
-        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      ) {
-        // Basic text extraction for Word docs
-        return await file.text();
-      } else if (file.type === 'application/pdf') {
-        // For PDFs, inform user to use text format
-        toast({
-          title: "PDF Not Supported",
-          description: "Please convert PDF to text format for comparison.",
-          variant: "default"
-        });
-        return null;
       }
+
+      // DOCX extraction via mammoth
+      if (file.name.toLowerCase().endsWith('.docx')) {
+        try {
+          const mammoth = await import('mammoth');
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          if (result.value && result.value.length > 10) {
+            return result.value;
+          }
+        } catch (e) {
+          logError('DOCX extraction failed', e);
+        }
+      }
+
+      // Fallback: try reading as raw text (works for some file types)
+      try {
+        const reader = new FileReader();
+        const rawText = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => resolve('');
+          reader.readAsText(file);
+        });
+        if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
+          return rawText;
+        }
+      } catch (e) {
+        logError('Raw text fallback failed', e);
+      }
+
       return null;
     } catch (error) {
       logError('Text extraction error', error);
@@ -124,12 +142,12 @@ export default function ContractCompare() {
     }
   };
 
-  const FileUploadZone = ({ 
-    onFileUpload, 
-    file, 
-    label, 
-    type 
-  }: { 
+  const FileUploadZone = ({
+    onFileUpload,
+    file,
+    label,
+    type,
+  }: {
     onFileUpload: (file: File) => void;
     file: File | null;
     label: string;
@@ -158,9 +176,7 @@ export default function ContractCompare() {
             <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <div className="space-y-2">
               <p className="font-medium">{label}</p>
-              <p className="text-sm text-muted-foreground">
-                Upload PDF, DOC, or DOCX file
-              </p>
+              <p className="text-sm text-muted-foreground">Upload TXT, DOC, or DOCX file</p>
             </div>
             <Button
               variant="outline"
@@ -174,7 +190,7 @@ export default function ContractCompare() {
         <input
           id={`file-${type}`}
           type="file"
-          accept=".pdf,.doc,.docx"
+          accept=".txt,.doc,.docx,.pdf"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -210,7 +226,6 @@ export default function ContractCompare() {
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
-
 
   return (
     <div className="p-6 space-y-6">
@@ -282,19 +297,27 @@ export default function ContractCompare() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-primary">{results.summary.totalChanges}</div>
+                  <div className="text-2xl font-semibold text-primary">
+                    {results.summary.totalChanges}
+                  </div>
                   <div className="text-sm text-muted-foreground">Total Changes</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-blue-600">{results.summary.addedSections}</div>
+                  <div className="text-2xl font-semibold text-blue-600">
+                    {results.summary.addedSections}
+                  </div>
                   <div className="text-sm text-muted-foreground">Added</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-orange-600">{results.summary.modifiedSections}</div>
+                  <div className="text-2xl font-semibold text-orange-600">
+                    {results.summary.modifiedSections}
+                  </div>
                   <div className="text-sm text-muted-foreground">Modified</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-red-600">{results.summary.removedSections}</div>
+                  <div className="text-2xl font-semibold text-red-600">
+                    {results.summary.removedSections}
+                  </div>
                   <div className="text-sm text-muted-foreground">Removed</div>
                 </div>
               </div>
@@ -321,9 +344,16 @@ export default function ContractCompare() {
               <Tabs defaultValue="all" className="space-y-4">
                 <TabsList>
                   <TabsTrigger value="all">All Changes ({results.differences.length})</TabsTrigger>
-                  <TabsTrigger value="high">High Risk ({results.differences.filter(d => d.severity === 'high').length})</TabsTrigger>
-                  <TabsTrigger value="medium">Medium Risk ({results.differences.filter(d => d.severity === 'medium').length})</TabsTrigger>
-                  <TabsTrigger value="low">Low Risk ({results.differences.filter(d => d.severity === 'low').length})</TabsTrigger>
+                  <TabsTrigger value="high">
+                    High Risk ({results.differences.filter((d) => d.severity === 'high').length})
+                  </TabsTrigger>
+                  <TabsTrigger value="medium">
+                    Medium Risk ({results.differences.filter((d) => d.severity === 'medium').length}
+                    )
+                  </TabsTrigger>
+                  <TabsTrigger value="low">
+                    Low Risk ({results.differences.filter((d) => d.severity === 'low').length})
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="all" className="space-y-4">
@@ -338,7 +368,10 @@ export default function ContractCompare() {
                                 <Badge variant="outline" className={getTypeColor(diff.type)}>
                                   {diff.type}
                                 </Badge>
-                                <Badge variant="outline" className={getSeverityColor(diff.severity)}>
+                                <Badge
+                                  variant="outline"
+                                  className={getSeverityColor(diff.severity)}
+                                >
                                   {diff.severity} risk
                                 </Badge>
                               </div>
@@ -350,9 +383,7 @@ export default function ContractCompare() {
                               <AlertCircle className="h-5 w-5 text-red-500" />
                             )}
                           </div>
-                          <p className="text-sm bg-muted/50 p-3 rounded-lg">
-                            {diff.content}
-                          </p>
+                          <p className="text-sm bg-muted/50 p-3 rounded-lg">{diff.content}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -360,102 +391,117 @@ export default function ContractCompare() {
                 </TabsContent>
 
                 <TabsContent value="high" className="space-y-4">
-                  {results.differences.filter(d => d.severity === 'high').map((diff, index) => (
-                    <Card key={index} className="border border-red-200">
-                      <CardContent className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium">{diff.section}</h4>
-                                <Badge variant="outline" className={getTypeColor(diff.type)}>
-                                  {diff.type}
-                                </Badge>
-                                <Badge variant="outline" className={getSeverityColor(diff.severity)}>
-                                  {diff.severity} risk
-                                </Badge>
+                  {results.differences
+                    .filter((d) => d.severity === 'high')
+                    .map((diff, index) => (
+                      <Card key={index} className="border border-red-200">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium">{diff.section}</h4>
+                                  <Badge variant="outline" className={getTypeColor(diff.type)}>
+                                    {diff.type}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={getSeverityColor(diff.severity)}
+                                  >
+                                    {diff.severity} risk
+                                  </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Page {diff.page}, Line {diff.line}
+                                </div>
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                Page {diff.page}, Line {diff.line}
-                              </div>
+                              <AlertCircle className="h-5 w-5 text-red-500" />
                             </div>
-                            <AlertCircle className="h-5 w-5 text-red-500" />
+                            <p className="text-sm bg-red-50 p-3 rounded-lg border border-red-200">
+                              {diff.content}
+                            </p>
                           </div>
-                          <p className="text-sm bg-red-50 p-3 rounded-lg border border-red-200">
-                            {diff.content}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ))}
                 </TabsContent>
 
                 <TabsContent value="medium" className="space-y-4">
-                  {results.differences.filter(d => d.severity === 'medium').map((diff, index) => (
-                    <Card key={index} className="border border-yellow-200">
-                      <CardContent className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium">{diff.section}</h4>
-                                <Badge variant="outline" className={getTypeColor(diff.type)}>
-                                  {diff.type}
-                                </Badge>
-                                <Badge variant="outline" className={getSeverityColor(diff.severity)}>
-                                  {diff.severity} risk
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                Page {diff.page}, Line {diff.line}
+                  {results.differences
+                    .filter((d) => d.severity === 'medium')
+                    .map((diff, index) => (
+                      <Card key={index} className="border border-yellow-200">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium">{diff.section}</h4>
+                                  <Badge variant="outline" className={getTypeColor(diff.type)}>
+                                    {diff.type}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={getSeverityColor(diff.severity)}
+                                  >
+                                    {diff.severity} risk
+                                  </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Page {diff.page}, Line {diff.line}
+                                </div>
                               </div>
                             </div>
+                            <p className="text-sm bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                              {diff.content}
+                            </p>
                           </div>
-                          <p className="text-sm bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                            {diff.content}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ))}
                 </TabsContent>
 
                 <TabsContent value="low" className="space-y-4">
-                  {results.differences.filter(d => d.severity === 'low').map((diff, index) => (
-                    <Card key={index} className="border border-green-200">
-                      <CardContent className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium">{diff.section}</h4>
-                                <Badge variant="outline" className={getTypeColor(diff.type)}>
-                                  {diff.type}
-                                </Badge>
-                                <Badge variant="outline" className={getSeverityColor(diff.severity)}>
-                                  {diff.severity} risk
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                Page {diff.page}, Line {diff.line}
+                  {results.differences
+                    .filter((d) => d.severity === 'low')
+                    .map((diff, index) => (
+                      <Card key={index} className="border border-green-200">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium">{diff.section}</h4>
+                                  <Badge variant="outline" className={getTypeColor(diff.type)}>
+                                    {diff.type}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={getSeverityColor(diff.severity)}
+                                  >
+                                    {diff.severity} risk
+                                  </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Page {diff.page}, Line {diff.line}
+                                </div>
                               </div>
                             </div>
+                            <p className="text-sm bg-green-50 p-3 rounded-lg border border-green-200">
+                              {diff.content}
+                            </p>
                           </div>
-                          <p className="text-sm bg-green-50 p-3 rounded-lg border border-green-200">
-                            {diff.content}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ))}
                 </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
 
           <div className="flex justify-center">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setResults(null);
                 setPrimaryFile(null);
