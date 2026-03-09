@@ -46,6 +46,11 @@ export const TABLES = {
   // Permissions
   PERMISSIONS: 'permissions',
   ROLE_PERMISSIONS: 'role_permissions',
+
+  // Subscriptions & Payments
+  SUBSCRIPTIONS: 'subscriptions',
+  PAYMENT_TRANSACTIONS: 'payment_transactions',
+  WEBHOOK_EVENTS: 'webhook_events',
 } as const;
 
 /**

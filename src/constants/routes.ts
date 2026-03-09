@@ -52,6 +52,9 @@ export const ROUTES = {
   SETTINGS_SECURITY: '/settings/security',
   SETTINGS_BILLING: '/settings/billing',
 
+  // Pricing (public)
+  PRICING: '/pricing',
+
   // Help
   HELP_CENTER: '/help',
 } as const;

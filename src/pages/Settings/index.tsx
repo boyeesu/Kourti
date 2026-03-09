@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ProfileTab from './ProfileTab';
 import OrgTab from './OrgTab';
 import RolesTab from './RolesTab';
@@ -8,8 +8,16 @@ import PermissionsTab from './PermissionsTab';
 import { useUserRoleAssignments } from '@/hooks/useUserRoleAssignments';
 
 const SSOTab = lazy(() => import('./SSOTab'));
+const BillingTab = lazy(() => import('./BillingTab'));
 
-const AVAILABLE_TABS = ['profile', 'organization', 'roles', 'permissions', 'sso'] as const;
+const AVAILABLE_TABS = [
+  'profile',
+  'organization',
+  'billing',
+  'roles',
+  'permissions',
+  'sso',
+] as const;
 
 type TabValue = (typeof AVAILABLE_TABS)[number];
 
@@ -22,7 +30,7 @@ export default function Settings() {
   const urlTab = searchParams.get('tab');
   const initialTab = isValidTab(urlTab) ? urlTab : 'profile';
   const [tab, setTab] = useState<TabValue>(initialTab);
-  
+
   // Get user role assignments
   const { data: roleData } = useUserRoleAssignments();
   const isSuperAdmin = roleData?.isSuperAdmin || false;
@@ -54,6 +62,7 @@ export default function Settings() {
     () => ({
       profile: 'Update personal details and security preferences',
       organization: 'Manage your organization settings and branding',
+      billing: 'Manage your subscription, plan, and payment history',
       roles: 'Fine-tune roles and permissions',
       permissions: 'Assign granular permissions to roles and users',
       sso: 'Set up single sign-on for your identity providers',
@@ -69,9 +78,10 @@ export default function Settings() {
       </div>
 
       <Tabs value={tab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="organization">Organization</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="permissions" disabled={!isAdmin}>
             Permissions
@@ -87,6 +97,13 @@ export default function Settings() {
         <TabsContent value="organization">
           <OrgTab />
         </TabsContent>
+        <TabsContent value="billing">
+          <Suspense
+            fallback={<div className="p-6 text-sm text-muted-foreground">Loading billing...</div>}
+          >
+            <BillingTab />
+          </Suspense>
+        </TabsContent>
         <TabsContent value="roles">
           <RolesTab />
         </TabsContent>
@@ -94,7 +111,11 @@ export default function Settings() {
           <PermissionsTab />
         </TabsContent>
         <TabsContent value="sso">
-          <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading SSO settings...</div>}>
+          <Suspense
+            fallback={
+              <div className="p-6 text-sm text-muted-foreground">Loading SSO settings...</div>
+            }
+          >
             <SSOTab />
           </Suspense>
         </TabsContent>

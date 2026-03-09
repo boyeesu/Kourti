@@ -6,6 +6,7 @@ import { OverviewTab } from '@/components/super-admin/OverviewTab';
 import { OrganizationsTab } from '@/components/super-admin/OrganizationsTab';
 import { UsersTab } from '@/components/super-admin/UsersTab';
 import { PlansTab } from '@/components/super-admin/PlansTab';
+import { SubscriptionManagement } from '@/components/super-admin/SubscriptionManagement';
 import { AnalyticsTab } from '@/components/super-admin/AnalyticsTab';
 import { OrganizationDetail } from '@/components/super-admin/OrganizationDetail';
 import { UserDetail } from '@/components/super-admin/UserDetail';
@@ -29,13 +30,19 @@ export default function ThanosDashboard() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Platform</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                      Platform
+                    </span>
                     <div className="flex items-baseline gap-2">
                       <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4 text-primary" />
-                        <span className="text-xl font-semibold text-foreground">Administration</span>
+                        <span className="text-xl font-semibold text-foreground">
+                          Administration
+                        </span>
                       </div>
-                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">System-wide management</span>
+                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">
+                        System-wide management
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -51,6 +58,7 @@ export default function ThanosDashboard() {
               <Route path="users" element={<UsersTab />} />
               <Route path="users/:id" element={<UserDetail />} />
               <Route path="plans" element={<PlansTab />} />
+              <Route path="subscriptions" element={<SubscriptionManagement />} />
               <Route path="analytics" element={<AnalyticsTab />} />
             </Routes>
           </div>

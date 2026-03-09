@@ -70,6 +70,7 @@ const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 const Changelog = lazy(() => import('./pages/Changelog'));
+const Pricing = lazy(() => import('./pages/Pricing'));
 
 type ProtectedRouteConfig = {
   path: string;
@@ -528,6 +529,14 @@ const App = () => (
               element={
                 <Suspense fallback={<LoadingFallback />}>
                   <Register />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/pricing"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <Pricing />
                 </Suspense>
               }
             />

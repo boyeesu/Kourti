@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { KourtiKLogo } from '@/components/ui/KourtiKLogo';
-import { BarChart3, Building2, Users, LogOut, Home, Crown } from 'lucide-react';
+import { BarChart3, Building2, Users, LogOut, Home, Crown, CreditCard } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -28,6 +28,7 @@ const navigation: NavItem[] = [
   { title: 'Organizations', url: '/thanos/organizations', icon: Building2 },
   { title: 'Users', url: '/thanos/users', icon: Users },
   { title: 'Plans', url: '/thanos/plans', icon: Crown },
+  { title: 'Subscriptions', url: '/thanos/subscriptions', icon: CreditCard },
   { title: 'Analytics', url: '/thanos/analytics', icon: BarChart3 },
 ];
 
@@ -97,10 +98,13 @@ export function ThanosSidebar() {
                           active && 'bg-sidebar-accent text-sidebar-accent-foreground'
                         )}
                       >
-                        <a href={item.url} onClick={(e) => {
-                          e.preventDefault();
-                          navigate(item.url);
-                        }}>
+                        <a
+                          href={item.url}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            navigate(item.url);
+                          }}
+                        >
                           <Icon className="h-4 w-4" />
                           <span>{item.title}</span>
                         </a>
@@ -115,14 +119,14 @@ export function ThanosSidebar() {
         <div className="space-y-1 border-t border-[hsl(var(--sidebar-border))] pt-2">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                className="w-full justify-start"
-              >
-                <a href="/dashboard" onClick={(e) => {
-                  e.preventDefault();
-                  handleGoToDashboard();
-                }}>
+              <SidebarMenuButton asChild className="w-full justify-start">
+                <a
+                  href="/dashboard"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleGoToDashboard();
+                  }}
+                >
                   <Home className="h-4 w-4" />
                   <span>Go to Dashboard</span>
                 </a>
