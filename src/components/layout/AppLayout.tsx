@@ -33,7 +33,6 @@ import {
   Home,
   X,
   Menu,
-  HelpCircle,
   LayoutDashboard,
   Users,
   FileCheck,
@@ -722,22 +721,6 @@ function AppLayoutInner({
                   </Button>
                   <NotificationsDropdown />
                   <DeadlineReminders />
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigate('/help-center')}
-                          aria-label="Help Center"
-                          className="hidden h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground sm:flex"
-                        >
-                          <HelpCircle className="h-5 w-5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Help Center</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                   <TooltipProvider>
                     <ThemeToggle />
                   </TooltipProvider>
