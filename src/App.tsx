@@ -420,7 +420,7 @@ function PasswordChangeCheck({ children }: { children: React.ReactNode }) {
 
         if (error) {
           logWarn('Failed to check password status', { error });
-          setMustChangePassword(false); // Don't block on error
+          setMustChangePassword(true); // Fail closed: force password change on error for security
         } else if (data) {
           setMustChangePassword(data.must_change_password ?? false);
         } else {
@@ -428,7 +428,7 @@ function PasswordChangeCheck({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         logWarn('Password check failed', { err });
-        setMustChangePassword(false);
+        setMustChangePassword(true); // Fail closed on catch too
       } finally {
         setLoading(false);
       }

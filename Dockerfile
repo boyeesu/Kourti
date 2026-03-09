@@ -1,6 +1,5 @@
 # Stage 1: Build
-# TODO: Pin base image to a specific digest in CI (e.g. node:20-alpine@sha256:...)
-FROM node:20-alpine as builder
+FROM node:20.18-alpine3.21 as builder
 
 WORKDIR /app
 
@@ -21,8 +20,7 @@ ARG VITE_API_TIMEOUT
 RUN npm run build
 
 # Stage 2: Serve
-# TODO: Pin base image to a specific digest in CI (e.g. nginx:alpine@sha256:...)
-FROM nginx:alpine
+FROM nginx:1.27-alpine3.21
 
 # Copy the build output
 COPY --from=builder /app/dist /usr/share/nginx/html
