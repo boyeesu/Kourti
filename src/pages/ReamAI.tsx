@@ -54,6 +54,90 @@ const EXAMPLE_PROMPTS = [
   'What should I look for when reviewing a lease?',
 ];
 
+/** Render AI response with basic markdown formatting */
+function FormattedMessage({ content }: { content: string }) {
+  if (!content) return null;
+
+  const lines = content.split('\n');
+  const elements: JSX.Element[] = [];
+
+  lines.forEach((line, i) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      elements.push(<div key={i} className="h-1.5" />);
+      return;
+    }
+
+    if (trimmed.startsWith('### ')) {
+      elements.push(
+        <h4 key={i} className="text-sm font-semibold mt-3 mb-1">
+          {trimmed.slice(4)}
+        </h4>
+      );
+    } else if (trimmed.startsWith('## ')) {
+      elements.push(
+        <h3 key={i} className="text-sm font-semibold mt-4 mb-1.5 text-primary">
+          {trimmed.slice(3)}
+        </h3>
+      );
+    } else if (trimmed.startsWith('# ')) {
+      elements.push(
+        <h2 key={i} className="text-base font-bold mt-4 mb-1.5">
+          {trimmed.slice(2)}
+        </h2>
+      );
+    } else if (/^\*\*(.+?)\*\*\s*$/.test(trimmed)) {
+      const match = trimmed.match(/^\*\*(.+?)\*\*\s*$/);
+      elements.push(
+        <h4 key={i} className="text-sm font-semibold mt-3 mb-1">
+          {match?.[1]}
+        </h4>
+      );
+    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+      elements.push(
+        <div key={i} className="flex gap-2 ml-1 my-0.5">
+          <span className="text-primary/70 mt-0 shrink-0">&#8226;</span>
+          <span className="text-sm leading-relaxed">{renderBold(trimmed.slice(2))}</span>
+        </div>
+      );
+    } else if (/^\d+[.)]\s/.test(trimmed)) {
+      const match = trimmed.match(/^(\d+)[.)]\s(.+)/);
+      if (match) {
+        elements.push(
+          <div key={i} className="flex gap-2 ml-1 my-0.5">
+            <span className="text-primary/70 font-medium text-sm shrink-0 min-w-[1.25rem] text-right">
+              {match[1]}.
+            </span>
+            <span className="text-sm leading-relaxed">{renderBold(match[2])}</span>
+          </div>
+        );
+      }
+    } else {
+      elements.push(
+        <p key={i} className="text-sm leading-relaxed my-0.5">
+          {renderBold(trimmed)}
+        </p>
+      );
+    }
+  });
+
+  return <>{elements}</>;
+}
+
+function renderBold(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-semibold">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 type QuickAction = {
   label: string;
   prompt: string;
@@ -309,21 +393,64 @@ export default function ReamAI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationsLoading, conversations.length]);
 
-  // Track which conversations have had their title updated
-  const [titleUpdatedConversations, setTitleUpdatedConversations] = useState<Set<string>>(
-    new Set()
-  );
+  // Track which conversations have had their title updated (check actual title from DB)
+  const conversationNeedsTitle = (convId: string): boolean => {
+    const conv = conversations.find((c) => c.id === convId);
+    return !conv || conv.title === 'New Chat';
+  };
 
-  // Function to generate conversation title from first user message
+  // Generate a smart conversation title from the first user message
   const generateConversationTitle = (userMessage: string): string => {
     const cleanMessage = userMessage.trim();
     if (!cleanMessage) return 'New Chat';
 
-    // Truncate if too long
-    if (cleanMessage.length > 50) {
-      return cleanMessage.substring(0, 47) + '...';
+    // Remove common prefixes that don't add meaning
+    const prefixesToRemove = [
+      /^(can you |could you |please |help me |i need to |i want to |i'd like to )/i,
+      /^(what is |what are |what's |how do |how does |how can |tell me about )/i,
+    ];
+
+    let title = cleanMessage;
+    for (const prefix of prefixesToRemove) {
+      title = title.replace(prefix, '');
     }
-    return cleanMessage;
+
+    // Capitalize first letter
+    title = title.charAt(0).toUpperCase() + title.slice(1);
+
+    // Remove trailing punctuation for cleaner titles
+    title = title.replace(/[?.!]+$/, '');
+
+    // Truncate intelligently at word boundary
+    if (title.length > 45) {
+      const truncated = title.substring(0, 45);
+      const lastSpace = truncated.lastIndexOf(' ');
+      title = lastSpace > 20 ? truncated.substring(0, lastSpace) : truncated;
+    }
+
+    return title || 'New Chat';
+  };
+
+  // Generate title from AI response asynchronously (fire-and-forget)
+  const generateSmartTitle = async (convId: string, userMessage: string, _aiResponse: string) => {
+    try {
+      // Use a short summary prompt via the assistant
+      const titlePrompt = `Generate a 3-6 word title for a conversation that started with this question: "${userMessage.substring(0, 200)}". Reply with ONLY the title, no quotes or punctuation.`;
+      const titleResponse = await sendAssistantMessage(titlePrompt, []);
+      const smartTitle = titleResponse
+        .trim()
+        .replace(/^["']|["']$/g, '')
+        .substring(0, 50);
+      if (smartTitle && smartTitle.length > 2 && smartTitle !== 'New Chat') {
+        updateConversation.mutate({ id: convId, title: smartTitle });
+      }
+    } catch {
+      // Fallback: use the simple title generation
+      const fallbackTitle = generateConversationTitle(userMessage);
+      if (fallbackTitle !== 'New Chat') {
+        updateConversation.mutate({ id: convId, title: fallbackTitle });
+      }
+    }
   };
 
   const scrollChatToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -770,15 +897,12 @@ export default function ReamAI() {
         });
       }
 
-      // Update conversation title on first user message (if not already updated)
-      if (currentConversationId && !titleUpdatedConversations.has(currentConversationId)) {
-        const title = generateConversationTitle(userMessage);
-        if (title !== 'New Chat') {
-          updateConversation.mutate({
-            id: currentConversationId,
-            title: title,
-          });
-          setTitleUpdatedConversations((prev) => new Set(prev).add(currentConversationId));
+      // Update conversation title on first user message (check actual DB title)
+      if (currentConversationId && conversationNeedsTitle(currentConversationId)) {
+        // Set a quick title immediately, then refine with AI asynchronously
+        const quickTitle = generateConversationTitle(userMessage);
+        if (quickTitle !== 'New Chat') {
+          updateConversation.mutate({ id: currentConversationId, title: quickTitle });
         }
       }
     }
@@ -1046,6 +1170,10 @@ I'll answer based on the relevant information found above.`;
                   role: 'assistant',
                   content: aiContent,
                 });
+                // Refine conversation title with AI after first response
+                if (conversationNeedsTitle(currentConversationId)) {
+                  generateSmartTitle(currentConversationId, userMessage, aiContent);
+                }
               }
             }
           },
@@ -1089,6 +1217,10 @@ I'll answer based on the relevant information found above.`;
               role: 'assistant',
               content: response,
             });
+            // Refine conversation title with AI after first response
+            if (conversationNeedsTitle(currentConversationId)) {
+              generateSmartTitle(currentConversationId, userMessage, response);
+            }
           }
         } catch (error) {
           console.error('Error with general query:', error);
@@ -1377,18 +1509,25 @@ I'll answer based on the relevant information found above.`;
 
                           {/* Message content */}
                           <div className="flex-1 min-w-0">
-                            <div className="prose prose-sm dark:prose-invert max-w-none">
-                              <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                {msg.content ||
-                                  (msg.isStreaming && (
-                                    <span className="inline-flex items-center gap-1">
-                                      <span className="animate-pulse">▋</span>
-                                      <span className="text-muted-foreground text-xs">
-                                        Thinking...
-                                      </span>
+                            <div className="max-w-none">
+                              {msg.content ? (
+                                msg.role === 'assistant' ? (
+                                  <FormattedMessage content={msg.content} />
+                                ) : (
+                                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                    {msg.content}
+                                  </p>
+                                )
+                              ) : (
+                                msg.isStreaming && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <span className="animate-pulse">▋</span>
+                                    <span className="text-muted-foreground text-xs">
+                                      Thinking...
                                     </span>
-                                  ))}
-                              </div>
+                                  </span>
+                                )
+                              )}
                             </div>
                             {msg.timestamp && (
                               <div className="mt-2 text-xs text-muted-foreground">
