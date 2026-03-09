@@ -33,3 +33,4 @@ supabase/.temp/
 .claude/
 nul
 .mcp.json
+out/

@@ -2,6 +2,9 @@
 -- This is needed for edge functions that use the service role key (bypassing RLS)
 -- and therefore cannot rely on get_current_user_organization_id().
 
+-- Ensure vector type is resolvable
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE OR REPLACE FUNCTION match_document_chunks_for_org(
   query_embedding vector(1536),
   org_id uuid,

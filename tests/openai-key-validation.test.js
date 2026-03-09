@@ -121,7 +121,7 @@ test('OpenAI API key chat completion test', async () => {
       body: JSON.stringify({
         model: 'gpt-5.1',
         messages: [{ role: 'user', content: 'Say "test" and nothing else.' }],
-        max_tokens: 10,
+        max_completion_tokens: 10,
       }),
     });
 
