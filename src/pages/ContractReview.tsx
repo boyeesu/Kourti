@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Upload, FileText, Bot, Target, Sparkles, Loader2, ArrowLeft } from 'lucide-react';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCreateContract } from '@/hooks/useContracts';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -62,6 +64,7 @@ IMPORTANT:
 - riskScore: 0-30 = low risk, 31-60 = moderate, 61-100 = high risk`;
 
 export default function ContractReview() {
+  const [searchParams] = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
   const [textContent, setTextContent] = useState('');
   const [documentContent, setDocumentContent] = useState('');
@@ -76,10 +79,131 @@ export default function ContractReview() {
   const [findings, setFindings] = useState<AnalysisFinding[]>([]);
   const [recap, setRecap] = useState<AnalysisRecap | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isLoadingSource, setIsLoadingSource] = useState(false);
   const { toast } = useToast();
   const createContractMutation = useCreateContract();
 
   const hasResults = findings.length > 0 && recap;
+
+  // Auto-load content from contractId or documentId query params
+  useEffect(() => {
+    const contractId = searchParams.get('contractId');
+    const documentId = searchParams.get('documentId');
+
+    if (contractId) {
+      setIsLoadingSource(true);
+      supabase
+        .from('contracts')
+        .select('title, terms')
+        .eq('id', contractId)
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) {
+            toast({
+              title: 'Failed to load contract',
+              description: error?.message || 'Contract not found.',
+              variant: 'destructive',
+            });
+          } else if (data.terms) {
+            setTextContent(data.terms);
+            setDocumentContent(data.terms);
+            toast({
+              title: 'Contract Loaded',
+              description: `Loaded "${data.title}" for review.`,
+            });
+          }
+          setIsLoadingSource(false);
+        });
+    } else if (documentId) {
+      setIsLoadingSource(true);
+      setAnalysisType('document_review');
+      supabase
+        .from('documents')
+        .select('name, content, file_path, mime_type')
+        .eq('id', documentId)
+        .single()
+        .then(async ({ data, error }) => {
+          if (error || !data) {
+            toast({
+              title: 'Failed to load document',
+              description: error?.message || 'Document not found.',
+              variant: 'destructive',
+            });
+            setIsLoadingSource(false);
+            return;
+          }
+
+          // If document has inline content, use it directly
+          if (data.content && data.content.length > 10) {
+            setTextContent(data.content);
+            setDocumentContent(data.content);
+            toast({
+              title: 'Document Loaded',
+              description: `Loaded "${data.name}" for review.`,
+            });
+            setIsLoadingSource(false);
+            return;
+          }
+
+          // Otherwise try to download and extract text from storage
+          if (data.file_path) {
+            try {
+              const { data: fileData } = await supabase.storage
+                .from('documents')
+                .download(data.file_path);
+
+              if (fileData) {
+                let extracted = '';
+                const fileName = data.name || data.file_path;
+
+                if (data.mime_type === 'text/plain' || fileName.toLowerCase().endsWith('.txt')) {
+                  extracted = await fileData.text();
+                } else if (fileName.toLowerCase().endsWith('.docx')) {
+                  try {
+                    const mammoth = await import('mammoth');
+                    const arrayBuffer = await fileData.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer });
+                    extracted = result.value;
+                  } catch {
+                    // DOCX extraction failed
+                  }
+                } else {
+                  // Try reading as text as a fallback
+                  const rawText = await fileData.text();
+                  if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
+                    extracted = rawText;
+                  }
+                }
+
+                if (extracted && extracted.length > 10) {
+                  setTextContent(extracted);
+                  setDocumentContent(extracted);
+                  toast({
+                    title: 'Document Loaded',
+                    description: `Loaded "${data.name}" for review.`,
+                  });
+                } else {
+                  toast({
+                    title: 'Could not extract text',
+                    description:
+                      'The document format is not supported for automatic extraction. Please paste the text manually.',
+                    variant: 'default',
+                  });
+                }
+              }
+            } catch {
+              toast({
+                title: 'Download Failed',
+                description: 'Could not download the document from storage.',
+                variant: 'destructive',
+              });
+            }
+          }
+          setIsLoadingSource(false);
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Extract text from uploaded file
   const handleFileUpload = useCallback(
@@ -435,6 +559,18 @@ export default function ContractReview() {
         </div>
       </div>
 
+      {/* Loading source document */}
+      {isLoadingSource && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 text-primary animate-spin" />
+              <p className="text-sm font-medium">Loading document for review...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Progress bar during analysis */}
       {isAnalyzing && (
         <Card className="border-primary/30 bg-primary/5">
@@ -580,7 +716,9 @@ export default function ContractReview() {
         <div className="flex justify-center pt-2">
           <Button
             onClick={handleAnalyze}
-            disabled={(!textContent.trim() && !file) || isAnalyzing || isExtracting}
+            disabled={
+              (!textContent.trim() && !file) || isAnalyzing || isExtracting || isLoadingSource
+            }
             size="lg"
             className="px-10 h-12 text-base"
           >

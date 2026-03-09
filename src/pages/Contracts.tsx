@@ -1,20 +1,20 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { useSearch } from "@/hooks/use-search";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { useContracts } from "@/hooks/useContracts";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import { DataTable, ColumnDef } from "@/components/ui/data-table";
+import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearch } from '@/hooks/use-search';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { useContracts } from '@/hooks/useContracts';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   Plus,
   Search,
@@ -28,49 +28,48 @@ import {
   AlertTriangle,
   GitBranch,
   Zap,
-
-  RefreshCw
-} from "lucide-react";
+  ScanSearch,
+  RefreshCw,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Link } from "react-router-dom";
+} from '@/components/ui/dropdown-menu';
+import { Link } from 'react-router-dom';
 
 // Status options constant for consistency
 const CONTRACT_STATUSES = [
-  { value: "all", label: "All Status" },
-  { value: "active", label: "Active" },
-  { value: "signed", label: "Signed" },
-  { value: "draft", label: "Draft" },
-  { value: "expired", label: "Expired" },
-  { value: "under_review", label: "Under Review" }
+  { value: 'all', label: 'All Status' },
+  { value: 'active', label: 'Active' },
+  { value: 'signed', label: 'Signed' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'under_review', label: 'Under Review' },
 ];
 
 export default function Contracts() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const { term: globalSearch } = useSearch();
 
   // Use pagination parameters in the hook
-  const {
-    data,
-    isLoading,
-    error,
-    refetch
-  } = useContracts(page, pageSize, statusFilter !== "all" ? statusFilter : undefined);
+  const { data, isLoading, error, refetch } = useContracts(
+    page,
+    pageSize,
+    statusFilter !== 'all' ? statusFilter : undefined
+  );
 
   const contracts = data?.contracts || [];
   const totalCount = data?.count || 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  const clientFilter = searchParams.get("client")?.toLowerCase() || "";
+  const clientFilter = searchParams.get('client')?.toLowerCase() || '';
 
   // Create a memoized function to determine expiry status
   const getExpiryStatus = (contract: { end_date?: string }) => {
@@ -83,7 +82,7 @@ export default function Contracts() {
 
     return {
       isExpiring: expiryDate > today && expiryDate <= thirtyDaysFromNow,
-      isExpired: expiryDate < today
+      isExpired: expiryDate < today,
     };
   };
 
@@ -102,7 +101,7 @@ export default function Contracts() {
         <AlertTriangle className="h-12 w-12 text-destructive" />
         <p className="text-destructive text-lg font-medium">Failed to load contracts.</p>
         <p className="text-muted-foreground text-center max-w-md">
-          {error instanceof Error ? error.message : "An unexpected error occurred."}
+          {error instanceof Error ? error.message : 'An unexpected error occurred.'}
         </p>
         <Button onClick={() => refetch()} className="gap-2">
           <RefreshCw className="h-4 w-4" />
@@ -115,29 +114,37 @@ export default function Contracts() {
   const getStatusColor = (status: string) => {
     const statusLower = status.toLowerCase();
     switch (statusLower) {
-      case "active": return "bg-success text-success-foreground";
-      case "signed": return "bg-primary text-primary-foreground";
-      case "draft": return "bg-muted text-muted-foreground";
-      case "expired": return "bg-destructive text-destructive-foreground";
-      case "under_review":
-      case "under review": return "bg-warning text-warning-foreground";
-      default: return "bg-muted text-muted-foreground";
+      case 'active':
+        return 'bg-success text-success-foreground';
+      case 'signed':
+        return 'bg-primary text-primary-foreground';
+      case 'draft':
+        return 'bg-muted text-muted-foreground';
+      case 'expired':
+        return 'bg-destructive text-destructive-foreground';
+      case 'under_review':
+      case 'under review':
+        return 'bg-warning text-warning-foreground';
+      default:
+        return 'bg-muted text-muted-foreground';
     }
   };
 
   // Client-side filtering only for the search term and client filter
   // (status filtering is handled server-side for better performance)
-  const filteredContracts = contracts.filter(contract => {
+  const filteredContracts = contracts.filter((contract) => {
     const termMatches = (t: string) =>
       contract.title.toLowerCase().includes(t.toLowerCase()) ||
       String(contract.id).toLowerCase().includes(t.toLowerCase());
 
-    const matchesLocal = searchTerm === "" || termMatches(searchTerm);
-    const matchesGlobal = globalSearch === "" || termMatches(globalSearch);
+    const matchesLocal = searchTerm === '' || termMatches(searchTerm);
+    const matchesGlobal = globalSearch === '' || termMatches(globalSearch);
     const matchesClient =
-      clientFilter === "" ||
+      clientFilter === '' ||
       String(contract.client_id).toLowerCase() === clientFilter ||
-      (contract as unknown as { client?: { name?: string } }).client?.name?.toLowerCase().includes(clientFilter);
+      (contract as unknown as { client?: { name?: string } }).client?.name
+        ?.toLowerCase()
+        .includes(clientFilter);
 
     return matchesLocal && matchesGlobal && matchesClient;
   });
@@ -145,15 +152,14 @@ export default function Contracts() {
   // Calculate contract statistics
   const contractStats = {
     total: totalCount,
-    active: contracts.filter(c => c.status.toLowerCase() === "active").length,
-    expiringSoon: contracts.filter(c => getExpiryStatus(c).isExpiring).length,
-    expired: contracts.filter(c => getExpiryStatus(c).isExpired).length
+    active: contracts.filter((c) => c.status.toLowerCase() === 'active').length,
+    expiringSoon: contracts.filter((c) => getExpiryStatus(c).isExpiring).length,
+    expired: contracts.filter((c) => getExpiryStatus(c).isExpired).length,
   };
 
   // Pagination handlers
-  const handlePreviousPage = () => setPage(prev => Math.max(1, prev - 1));
-  const handleNextPage = () => setPage(prev => Math.min(totalPages, prev + 1));
-
+  const handlePreviousPage = () => setPage((prev) => Math.max(1, prev - 1));
+  const handleNextPage = () => setPage((prev) => Math.min(totalPages, prev + 1));
 
   return (
     <div className="px-4 py-6 space-y-6 max-w-7xl mx-auto">
@@ -162,14 +168,16 @@ export default function Contracts() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Contracts</h1>
-          <p className="text-muted-foreground">Manage contracts with version control and AI-powered analysis</p>
+          <p className="text-muted-foreground">
+            Manage contracts with version control and AI-powered analysis
+          </p>
           {clientFilter && (
             <div className="mt-2">
               <Badge variant="outline" className="px-2 py-1">
                 Client: {clientFilter}
                 <button
                   className="ml-2 hover:text-destructive"
-                  onClick={() => navigate("/contracts")}
+                  onClick={() => navigate('/contracts')}
                   aria-label="Clear client filter"
                 >
                   ×
@@ -179,17 +187,29 @@ export default function Contracts() {
           )}
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="shadow-sm flex-1 sm:flex-none" onClick={() => navigate("/contracts/create")}>
+          <Button
+            variant="outline"
+            className="shadow-sm flex-1 sm:flex-none"
+            onClick={() => navigate('/contracts/create')}
+          >
             <Plus className="h-4 w-4 mr-2" />
             New Contract
           </Button>
-          <Button variant="default" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/contracts/compare")}>
+          <Button
+            variant="default"
+            className="shadow-md flex-1 sm:flex-none"
+            onClick={() => navigate('/contracts/review')}
+          >
+            <ScanSearch className="h-4 w-4 mr-2" />
+            AI Review
+          </Button>
+          <Button
+            variant="outline"
+            className="shadow-sm flex-1 sm:flex-none"
+            onClick={() => navigate('/contracts/compare')}
+          >
             <GitBranch className="h-4 w-4 mr-2" />
             Compare Contracts
-          </Button>
-          <Button variant="secondary" className="shadow-md flex-1 sm:flex-none" onClick={() => navigate("/ream-ai")}>
-            <Zap className="h-4 w-4 mr-2" />
-            Ream AI Analysis
           </Button>
         </div>
       </div>
@@ -264,19 +284,26 @@ export default function Contracts() {
         </div>
         {/* Status */}
         <div className="sm:w-[130px] w-full">
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => {
+              setStatusFilter(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full h-10">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              {CONTRACT_STATUSES.map(s => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              {CONTRACT_STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-
       </div>
 
       {/* Contracts Table */}
@@ -289,101 +316,122 @@ export default function Contracts() {
         </CardHeader>
         <CardContent>
           <DataTable
-            columns={[
-              {
-                id: "contract",
-                header: "Contract",
-                accessorKey: "title",
-                minWidth: "250px",
-                cell: (contract) => (
-                  <div className="font-medium truncate max-w-[250px]" title={contract.title}>
-                    {contract.title}
-                  </div>
-                ),
-              },
-              {
-                id: "client",
-                header: "Client",
-                accessorFn: (contract) => (contract as unknown as { client?: { name?: string } }).client?.name || contract.client_id || 'No client',
-                minWidth: "180px",
-                cell: (contract) => (
-                  <div className="truncate max-w-[180px]" title={(contract as unknown as { client?: { name?: string } }).client?.name || contract.client_id || 'No client'}>
-                    {(contract as unknown as { client?: { name?: string } }).client?.name || contract.client_id || 'No client'}
-                  </div>
-                ),
-              },
-              {
-                id: "status",
-                header: "Status",
-                accessorKey: "status",
-                minWidth: "130px",
-                cell: (contract) => (
-                  <Badge className={getStatusColor(contract.status)} variant="secondary">
-                    {contract.status}
-                  </Badge>
-                ),
-              },
-              {
-                id: "createdBy",
-                header: "Created By",
-                sortable: false,
-                minWidth: "180px",
-                cell: (contract) => (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <div className="text-sm">
-                        {(contract as unknown as { created_by_user?: { first_name?: string } }).created_by_user?.first_name || 'User'}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(contract.created_at).toLocaleDateString()}
+            columns={
+              [
+                {
+                  id: 'contract',
+                  header: 'Contract',
+                  accessorKey: 'title',
+                  minWidth: '250px',
+                  cell: (contract) => (
+                    <div className="font-medium truncate max-w-[250px]" title={contract.title}>
+                      {contract.title}
+                    </div>
+                  ),
+                },
+                {
+                  id: 'client',
+                  header: 'Client',
+                  accessorFn: (contract) =>
+                    (contract as unknown as { client?: { name?: string } }).client?.name ||
+                    contract.client_id ||
+                    'No client',
+                  minWidth: '180px',
+                  cell: (contract) => (
+                    <div
+                      className="truncate max-w-[180px]"
+                      title={
+                        (contract as unknown as { client?: { name?: string } }).client?.name ||
+                        contract.client_id ||
+                        'No client'
+                      }
+                    >
+                      {(contract as unknown as { client?: { name?: string } }).client?.name ||
+                        contract.client_id ||
+                        'No client'}
+                    </div>
+                  ),
+                },
+                {
+                  id: 'status',
+                  header: 'Status',
+                  accessorKey: 'status',
+                  minWidth: '130px',
+                  cell: (contract) => (
+                    <Badge className={getStatusColor(contract.status)} variant="secondary">
+                      {contract.status}
+                    </Badge>
+                  ),
+                },
+                {
+                  id: 'createdBy',
+                  header: 'Created By',
+                  sortable: false,
+                  minWidth: '180px',
+                  cell: (contract) => (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="text-sm">
+                          {(contract as unknown as { created_by_user?: { first_name?: string } })
+                            .created_by_user?.first_name || 'User'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(contract.created_at).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ),
-              },
-              {
-                id: "actions",
-                header: "Actions",
-                sortable: false,
-                minWidth: "80px",
-                cell: (contract) => (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="More options">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link to={`/contracts/${contract.id}`} className="flex items-center">
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Contract
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to={`/contracts/${contract.id}/edit`} className="flex items-center">
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Contract
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to={`/contracts/${contract.id}/history`} className="flex items-center">
-                          <GitBranch className="h-4 w-4 mr-2" />
-                          Version History
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to={`/ream-ai?contract=${contract.id}`} className="flex items-center">
-                          <Zap className="h-4 w-4 mr-2" />
-                          Ream AI Analysis
-                        </Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ),
-              },
-            ] as ColumnDef<typeof contracts[number]>[]}
+                  ),
+                },
+                {
+                  id: 'actions',
+                  header: 'Actions',
+                  sortable: false,
+                  minWidth: '80px',
+                  cell: (contract) => (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label="More options">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link to={`/contracts/${contract.id}`} className="flex items-center">
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Contract
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to={`/contracts/${contract.id}/edit`} className="flex items-center">
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Contract
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            to={`/contracts/${contract.id}/history`}
+                            className="flex items-center"
+                          >
+                            <GitBranch className="h-4 w-4 mr-2" />
+                            Version History
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            to={`/contracts/review?contractId=${contract.id}`}
+                            className="flex items-center"
+                          >
+                            <ScanSearch className="h-4 w-4 mr-2" />
+                            AI Review
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ),
+                },
+              ] as ColumnDef<(typeof contracts)[number]>[]
+            }
             data={filteredContracts}
             emptyMessage="No contracts found matching your criteria."
             getRowKey={(row) => row.id}
@@ -421,8 +469,10 @@ export default function Contracts() {
                 <FileCheck className="h-8 w-8 text-muted-foreground" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">No contracts yet</h3>
-              <p className="text-muted-foreground mb-4">Get started by creating your first contract.</p>
-              <Button onClick={() => navigate("/contracts/create")} className="shadow-md">
+              <p className="text-muted-foreground mb-4">
+                Get started by creating your first contract.
+              </p>
+              <Button onClick={() => navigate('/contracts/create')} className="shadow-md">
                 <Plus className="h-4 w-4 mr-2" />
                 Create First Contract
               </Button>

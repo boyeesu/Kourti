@@ -20,6 +20,7 @@ import {
   Shield,
   CreditCard,
   ChevronRight,
+  ScanSearch,
 } from 'lucide-react';
 import {
   Dialog,
@@ -125,6 +126,12 @@ const workspaceNavigation: NavigationGroup = {
       icon: MessageCircle,
       badge: 'New',
       badgeVariant: 'default',
+    },
+    {
+      title: 'AI Review',
+      url: '/contracts/review',
+      icon: ScanSearch,
+      permission: { resource: 'documents', action: 'read' },
     },
     {
       title: 'Ream AI',

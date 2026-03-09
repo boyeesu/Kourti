@@ -250,7 +250,7 @@ const protectedRoutes: ProtectedRouteConfig[] = [
     path: '/contracts/review',
     component: ContractReview,
     boundaryName: 'Contract Review',
-    permission: { resource: 'contracts', action: 'update' },
+    permission: { resource: 'documents', action: 'read' },
   },
   {
     path: '/invoices',

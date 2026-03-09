@@ -25,6 +25,7 @@ import {
   MessageSquare,
   Calendar,
   User,
+  ScanSearch,
 } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import {
@@ -148,6 +149,14 @@ export default function Documents() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="default"
+            className="shadow-md"
+            onClick={() => navigate('/contracts/review')}
+          >
+            <ScanSearch className="h-4 w-4 mr-2" />
+            AI Review
+          </Button>
           <Button
             variant="outline"
             className="shadow-sm"
@@ -361,8 +370,7 @@ export default function Documents() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
-                            sessionStorage.setItem('ream_ai_document_id', doc.id);
-                            navigate('/ream-ai');
+                            navigate(`/contracts/review?documentId=${doc.id}`);
                           }}
                         >
                           <MessageSquare className="h-4 w-4 mr-2" />
