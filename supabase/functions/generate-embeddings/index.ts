@@ -1,27 +1,37 @@
 declare const Deno: any;
 
-import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
+import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { createErrorResponse as createSanitizedErrorResponse } from '../_shared/errorHandling.ts';
 // @ts-ignore: Deno module
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createTrace, traceOpenAIEmbedding } from "../_shared/langfuse.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createTrace, traceOpenAIEmbedding } from '../_shared/langfuse.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-    "http://localhost:8087",
-    "http://localhost:8082",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8083',
+        'http://localhost:8087',
+        'http://localhost:8082',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -32,21 +42,22 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
 export const generateEmbeddingsHandler = async (req: Request) => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   // Handle CORS preflight requests
@@ -98,7 +109,10 @@ export const generateEmbeddingsHandler = async (req: Request) => {
     }
 
     const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseAuth.auth.getUser(token);
     if (authError || !user) {
       throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
     }
@@ -114,7 +128,11 @@ export const generateEmbeddingsHandler = async (req: Request) => {
     const { documentId, documentType, content } = payload ?? {};
 
     if (!documentId || !content || !documentType) {
-      throw new HttpError('Missing required parameters: documentId, documentType, content', 400, 'INVALID_INPUT');
+      throw new HttpError(
+        'Missing required parameters: documentId, documentType, content',
+        400,
+        'INVALID_INPUT'
+      );
     }
 
     // Create Langfuse trace for this request
@@ -133,13 +151,13 @@ export const generateEmbeddingsHandler = async (req: Request) => {
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'text-embedding-3-small',
         input: content.substring(0, 8000), // Limit content length
-        encoding_format: 'float'
+        encoding_format: 'float',
       }),
     });
 
@@ -190,7 +208,6 @@ export const generateEmbeddingsHandler = async (req: Request) => {
         headers: rateLimitHeaders,
       }
     );
-
   } catch (error: unknown) {
     if (error instanceof HttpError) {
       return createErrorResponse(error, corsOptions);

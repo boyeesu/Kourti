@@ -1,25 +1,35 @@
 declare const Deno: any;
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { createErrorResponse } from "../_shared/errorHandling.ts";
-import { requireOrganizationAccess } from "../_shared/organizationValidation.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { createErrorResponse } from '../_shared/errorHandling.ts';
+import { requireOrganizationAccess } from '../_shared/organizationValidation.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -30,16 +40,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
   };
 }
 
@@ -118,14 +129,14 @@ const MAX_STATE_AGE_MS = 1000 * 60 * 10;
 
 function base64UrlEncode(input: Uint8Array): string {
   return btoa(String.fromCharCode(...input))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
 function base64UrlDecode(input: string): Uint8Array {
-  const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
-  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = normalized.length % 4 === 0 ? '' : '='.repeat(4 - (normalized.length % 4));
   const decoded = atob(normalized + padding);
   const bytes = new Uint8Array(decoded.length);
   for (let i = 0; i < decoded.length; i++) {
@@ -147,7 +158,7 @@ async function signState(payload: CalendarStatePayload): Promise<string> {
     keyData,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ['sign'],
+    ['sign']
   );
 
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, data);
@@ -174,12 +185,19 @@ async function verifyState(state: string): Promise<CalendarStatePayload> {
     new TextEncoder().encode(SSO_STATE_SECRET),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ['sign', 'verify'],
+    ['sign', 'verify']
   );
 
-  const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, payloadBytes.buffer as ArrayBuffer);
+  const signatureBuffer = await crypto.subtle.sign(
+    'HMAC',
+    cryptoKey,
+    payloadBytes.buffer as ArrayBuffer
+  );
   const expectedSignature = new Uint8Array(signatureBuffer);
-  if (expectedSignature.length !== signatureBytes.length || !expectedSignature.every((value, idx) => value === signatureBytes[idx])) {
+  if (
+    expectedSignature.length !== signatureBytes.length ||
+    !expectedSignature.every((value, idx) => value === signatureBytes[idx])
+  ) {
     throw new Error('Invalid state signature');
   }
 
@@ -216,7 +234,7 @@ function buildRedirectUrl(target: string, provider: string) {
 }
 
 serve(async (req) => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -228,7 +246,7 @@ serve(async (req) => {
       {
         success: false,
         error: 'Service configuration error',
-        errorCode: 'CONFIG_ERROR'
+        errorCode: 'CONFIG_ERROR',
       },
       { status: 500, cors: corsOptions }
     );
@@ -266,20 +284,34 @@ serve(async (req) => {
       const stateParam = url.searchParams.get('state');
 
       if (!code || !stateParam) {
-        return createJsonResponse({ error: 'Missing OAuth parameters' }, { status: 400, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Missing OAuth parameters' },
+          { status: 400, cors: corsOptions }
+        );
       }
 
       const state = await verifyState(stateParam);
-      const { data: config, error: configError } = await supabase
+      const { data: config, error: configError } = (await supabase
         .from('organization_sso_configs_view' as any)
         .select('client_id, client_secret, redirect_uri, tenant_id')
         .eq('provider', 'microsoft')
         .eq('organization_id', state.organization_id)
         .eq('is_enabled', true)
-        .maybeSingle() as { data: { client_id: string; client_secret: string | null; redirect_uri: string | null; tenant_id: string | null } | null; error: any };
+        .maybeSingle()) as {
+        data: {
+          client_id: string;
+          client_secret: string | null;
+          redirect_uri: string | null;
+          tenant_id: string | null;
+        } | null;
+        error: any;
+      };
 
       if (configError || !config?.client_id) {
-        return createJsonResponse({ error: 'Microsoft OAuth is not configured for this organization.' }, { status: 400, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Microsoft OAuth is not configured for this organization.' },
+          { status: 400, cors: corsOptions }
+        );
       }
 
       const tenantId = config.tenant_id ?? 'common';
@@ -305,12 +337,18 @@ serve(async (req) => {
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
         console.error('Microsoft token exchange failed:', errorText);
-        return createJsonResponse({ error: 'Failed to exchange Microsoft authorization code.' }, { status: 502, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Failed to exchange Microsoft authorization code.' },
+          { status: 502, cors: corsOptions }
+        );
       }
 
-      const tokenJson = await tokenResponse.json() as TokenResponse;
+      const tokenJson = (await tokenResponse.json()) as TokenResponse;
       if (!tokenJson.access_token) {
-        return createJsonResponse({ error: 'Microsoft token response missing access token.' }, { status: 502, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Microsoft token response missing access token.' },
+          { status: 502, cors: corsOptions }
+        );
       }
 
       const profileResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
@@ -324,12 +362,12 @@ serve(async (req) => {
       const externalEmail = profileJson.mail ?? profileJson.userPrincipalName ?? null;
       const externalUserId = profileJson.id ?? null;
 
-      const { data: existingIntegration } = await supabase
+      const { data: existingIntegration } = (await supabase
         .from('user_calendar_integrations' as any)
         .select('refresh_token')
         .eq('user_id', state.user_id)
         .eq('provider', 'microsoft')
-        .maybeSingle() as { data: { refresh_token: string | null } | null; error: any };
+        .maybeSingle()) as { data: { refresh_token: string | null } | null; error: any };
 
       const expiresAt = tokenJson.expires_in
         ? new Date(Date.now() + tokenJson.expires_in * 1000).toISOString()
@@ -339,39 +377,58 @@ serve(async (req) => {
 
       const { error: upsertError } = await supabase
         .from('user_calendar_integrations' as any)
-        .upsert({
-          user_id: state.user_id,
-          organization_id: state.organization_id,
-          provider: 'microsoft',
-          access_token: tokenJson.access_token,
-          refresh_token: refreshToken,
-          token_type: tokenJson.token_type ?? null,
-          scope: tokenJson.scope ?? MICROSOFT_SCOPES,
-          expires_at: expiresAt,
-          external_user_id: externalUserId,
-          external_email: externalEmail,
-        }, { onConflict: 'user_id,provider' });
+        .upsert(
+          {
+            user_id: state.user_id,
+            organization_id: state.organization_id,
+            provider: 'microsoft',
+            access_token: tokenJson.access_token,
+            refresh_token: refreshToken,
+            token_type: tokenJson.token_type ?? null,
+            scope: tokenJson.scope ?? MICROSOFT_SCOPES,
+            expires_at: expiresAt,
+            external_user_id: externalUserId,
+            external_email: externalEmail,
+          },
+          { onConflict: 'user_id,provider' }
+        );
 
       if (upsertError) {
         console.error('Failed to store Microsoft calendar tokens:', upsertError);
-        return createJsonResponse({ error: 'Failed to store Microsoft calendar tokens.' }, { status: 500, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Failed to store Microsoft calendar tokens.' },
+          { status: 500, cors: corsOptions }
+        );
       }
 
       const redirectTo = buildRedirectUrl(state.redirect_to, 'microsoft');
-      return createEmptyResponse({ status: 302, cors: corsOptions, headers: { Location: redirectTo } });
+      return createEmptyResponse({
+        status: 302,
+        cors: corsOptions,
+        headers: { Location: redirectTo },
+      });
     }
 
     if (req.method !== 'POST') {
-      return createJsonResponse({ error: 'Method not allowed' }, { status: 405, cors: corsOptions });
+      return createJsonResponse(
+        { error: 'Method not allowed' },
+        { status: 405, cors: corsOptions }
+      );
     }
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return createJsonResponse({ error: 'No authorization header' }, { status: 401, cors: corsOptions });
+      return createJsonResponse(
+        { error: 'No authorization header' },
+        { status: 401, cors: corsOptions }
+      );
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
       return createJsonResponse({ error: 'Unauthorized' }, { status: 401, cors: corsOptions });
@@ -388,7 +445,7 @@ serve(async (req) => {
         {
           success: false,
           error: 'Organization not found',
-          errorCode: 'NOT_FOUND'
+          errorCode: 'NOT_FOUND',
         },
         { status: 400, cors: corsOptions }
       );
@@ -403,22 +460,28 @@ serve(async (req) => {
     const body = await req.json();
     const action = body.action as CalendarAction | undefined;
 
-    const { data: config } = await supabase
+    const { data: config } = (await supabase
       .from('organization_sso_configs_view')
       .select('client_id, client_secret, redirect_uri, tenant_id')
       .eq('provider', 'microsoft')
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true)
-      .maybeSingle() as { data: OAuthConfig | null };
+      .maybeSingle()) as { data: OAuthConfig | null };
 
     if (!config?.client_id) {
-      return createJsonResponse({ error: 'Microsoft Calendar OAuth is not configured.' }, { status: 400, cors: corsOptions });
+      return createJsonResponse(
+        { error: 'Microsoft Calendar OAuth is not configured.' },
+        { status: 400, cors: corsOptions }
+      );
     }
 
     if (action === 'authorize') {
       const redirectTo = body.redirect_to ?? Deno.env.get('APP_URL') ?? '';
       if (!redirectTo) {
-        return createJsonResponse({ error: 'Missing redirect URL' }, { status: 400, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Missing redirect URL' },
+          { status: 400, cors: corsOptions }
+        );
       }
 
       const statePayload: CalendarStatePayload = {
@@ -444,20 +507,23 @@ serve(async (req) => {
       params.set('prompt', 'select_account');
 
       const authorizationUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
-      return createJsonResponse({ authorization_url: authorizationUrl, redirect_uri: redirectUri }, { cors: corsOptions });
+      return createJsonResponse(
+        { authorization_url: authorizationUrl, redirect_uri: redirectUri },
+        { cors: corsOptions }
+      );
     }
 
-    const { data: integration } = await supabase
+    const { data: integration } = (await supabase
       .from('user_calendar_integrations')
       .select('*')
       .eq('user_id', user.id)
       .eq('provider', 'microsoft')
-      .maybeSingle() as { data: CalendarIntegrationRow | null };
+      .maybeSingle()) as { data: CalendarIntegrationRow | null };
 
     if (!integration?.access_token) {
       return createJsonResponse(
         { error: 'Microsoft Calendar not connected. Please connect your calendar first.' },
-        { status: 400, cors: corsOptions },
+        { status: 400, cors: corsOptions }
       );
     }
 
@@ -487,10 +553,13 @@ serve(async (req) => {
       if (!refreshResponse.ok) {
         const errorText = await refreshResponse.text();
         console.error('Microsoft token refresh failed:', errorText);
-        return createJsonResponse({ error: 'Microsoft token refresh failed' }, { status: 502, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Microsoft token refresh failed' },
+          { status: 502, cors: corsOptions }
+        );
       }
 
-      const refreshJson = await refreshResponse.json() as TokenResponse;
+      const refreshJson = (await refreshResponse.json()) as TokenResponse;
       if (refreshJson.access_token) {
         accessToken = refreshJson.access_token;
         const refreshExpiresAt = refreshJson.expires_in
@@ -528,34 +597,44 @@ serve(async (req) => {
         console.error('Microsoft Graph API error:', errorText);
         return createJsonResponse(
           { error: 'Failed to fetch Microsoft Teams calendar events' },
-          { status: 502, cors: corsOptions },
+          { status: 502, cors: corsOptions }
         );
       }
 
       const graphData = await graphResponse.json();
-      const events = graphData.value?.map((event: any) => ({
-        id: event.id,
-        title: event.subject || 'Untitled Event',
-        description: event.bodyPreview || '',
-        start_date: event.start.dateTime,
-        end_date: event.end.dateTime,
-        location: event.location?.displayName || '',
-        attendees: event.attendees?.map((a: any) => a.emailAddress.address) || [],
-        event_type: event.isOnlineMeeting ? 'meeting' : 'meeting',
-        source: 'microsoft_teams',
-        external_event_id: event.id,
-      })) || [];
+      const events =
+        graphData.value?.map((event: any) => ({
+          id: event.id,
+          title: event.subject || 'Untitled Event',
+          description: event.bodyPreview || '',
+          start_date: event.start.dateTime,
+          end_date: event.end.dateTime,
+          location: event.location?.displayName || '',
+          attendees: event.attendees?.map((a: any) => a.emailAddress.address) || [],
+          event_type: event.isOnlineMeeting ? 'meeting' : 'meeting',
+          source: 'microsoft_teams',
+          external_event_id: event.id,
+        })) || [];
 
       return createJsonResponse({ events }, { cors: corsOptions });
     }
 
     if (action === 'create-event') {
-      const { calendarEventId, event } = body as { calendarEventId?: string; event?: CalendarEventPayload };
+      const { calendarEventId, event } = body as {
+        calendarEventId?: string;
+        event?: CalendarEventPayload;
+      };
       if (!event) {
-        return createJsonResponse({ error: 'Missing event payload' }, { status: 400, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Missing event payload' },
+          { status: 400, cors: corsOptions }
+        );
       }
 
-      const attendees = event.attendees?.map((email) => ({ emailAddress: { address: email }, type: 'required' }));
+      const attendees = event.attendees?.map((email) => ({
+        emailAddress: { address: email },
+        type: 'required',
+      }));
       const createPayload = {
         subject: event.title,
         body: {
@@ -580,7 +659,10 @@ serve(async (req) => {
       if (!createResponse.ok) {
         const errorText = await createResponse.text();
         console.error('Microsoft Graph create error:', errorText);
-        return createJsonResponse({ error: 'Failed to create Microsoft calendar event' }, { status: 502, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Failed to create Microsoft calendar event' },
+          { status: 502, cors: corsOptions }
+        );
       }
 
       const createdEvent = await createResponse.json();
@@ -618,17 +700,26 @@ serve(async (req) => {
       }
 
       if (!eventId) {
-        return createJsonResponse({ error: 'Missing external event ID for update' }, { status: 400, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Missing external event ID for update' },
+          { status: 400, cors: corsOptions }
+        );
       }
 
       const updatePayload: Record<string, unknown> = {};
       if (updates?.title) updatePayload.subject = updates.title;
-      if (updates?.description !== undefined) updatePayload.body = { contentType: 'HTML', content: updates.description ?? '' };
-      if (updates?.start_date) updatePayload.start = { dateTime: updates.start_date, timeZone: 'UTC' };
+      if (updates?.description !== undefined)
+        updatePayload.body = { contentType: 'HTML', content: updates.description ?? '' };
+      if (updates?.start_date)
+        updatePayload.start = { dateTime: updates.start_date, timeZone: 'UTC' };
       if (updates?.end_date) updatePayload.end = { dateTime: updates.end_date, timeZone: 'UTC' };
-      if (updates?.location !== undefined) updatePayload.location = updates.location ? { displayName: updates.location } : null;
+      if (updates?.location !== undefined)
+        updatePayload.location = updates.location ? { displayName: updates.location } : null;
       if (updates?.attendees) {
-        updatePayload.attendees = updates.attendees.map((email) => ({ emailAddress: { address: email }, type: 'required' }));
+        updatePayload.attendees = updates.attendees.map((email) => ({
+          emailAddress: { address: email },
+          type: 'required',
+        }));
       }
 
       const updateResponse = await fetch(`https://graph.microsoft.com/v1.0/me/events/${eventId}`, {
@@ -643,7 +734,10 @@ serve(async (req) => {
       if (!updateResponse.ok) {
         const errorText = await updateResponse.text();
         console.error('Microsoft Graph update error:', errorText);
-        return createJsonResponse({ error: 'Failed to update Microsoft calendar event' }, { status: 502, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Failed to update Microsoft calendar event' },
+          { status: 502, cors: corsOptions }
+        );
       }
 
       const updatedEvent = updateResponse.status === 204 ? {} : await updateResponse.json();
@@ -680,7 +774,10 @@ serve(async (req) => {
       }
 
       if (!eventId) {
-        return createJsonResponse({ error: 'Missing external event ID for delete' }, { status: 400, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Missing external event ID for delete' },
+          { status: 400, cors: corsOptions }
+        );
       }
 
       const deleteResponse = await fetch(`https://graph.microsoft.com/v1.0/me/events/${eventId}`, {
@@ -694,7 +791,10 @@ serve(async (req) => {
       if (!deleteResponse.ok) {
         const errorText = await deleteResponse.text();
         console.error('Microsoft Graph delete error:', errorText);
-        return createJsonResponse({ error: 'Failed to delete Microsoft calendar event' }, { status: 502, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Failed to delete Microsoft calendar event' },
+          { status: 502, cors: corsOptions }
+        );
       }
 
       if (calendarEventId) {
@@ -715,16 +815,19 @@ serve(async (req) => {
     // Sync-import: Import events from Microsoft Teams
     if (action === 'sync-import') {
       const { timeMin, timeMax } = body;
-      
-      const { data: integration } = await supabase
+
+      const { data: integration } = (await supabase
         .from('user_calendar_integrations')
         .select('*')
         .eq('user_id', user.id)
         .eq('provider', 'microsoft')
-        .maybeSingle() as { data: CalendarIntegrationRow | null };
+        .maybeSingle()) as { data: CalendarIntegrationRow | null };
 
       if (!integration?.access_token) {
-        return createJsonResponse({ error: 'Microsoft Teams calendar not connected' }, { status: 400, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Microsoft Teams calendar not connected' },
+          { status: 400, cors: corsOptions }
+        );
       }
 
       const timeMinParam = timeMin || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -746,7 +849,10 @@ serve(async (req) => {
       );
 
       if (!eventsResponse.ok) {
-        return createJsonResponse({ error: 'Failed to fetch Microsoft calendar events' }, { status: 502, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Failed to fetch Microsoft calendar events' },
+          { status: 502, cors: corsOptions }
+        );
       }
 
       const eventsData = await eventsResponse.json();
@@ -826,26 +932,32 @@ serve(async (req) => {
         .update({ last_sync_at: new Date().toISOString() })
         .eq('id', integration.id);
 
-      return createJsonResponse({
-        success: true,
-        events_imported: importedEvents.length,
-        events_created: eventsCreated,
-        events_updated: eventsUpdated,
-        errors: errors.length,
-      }, { cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: true,
+          events_imported: importedEvents.length,
+          events_created: eventsCreated,
+          events_updated: eventsUpdated,
+          errors: errors.length,
+        },
+        { cors: corsOptions }
+      );
     }
 
     // Sync-export: Export events to Microsoft Teams
     if (action === 'sync-export') {
-      const { data: integration } = await supabase
+      const { data: integration } = (await supabase
         .from('user_calendar_integrations')
         .select('*')
         .eq('user_id', user.id)
         .eq('provider', 'microsoft')
-        .maybeSingle() as { data: CalendarIntegrationRow | null };
+        .maybeSingle()) as { data: CalendarIntegrationRow | null };
 
       if (!integration?.access_token) {
-        return createJsonResponse({ error: 'Microsoft Teams calendar not connected' }, { status: 400, cors: corsOptions });
+        return createJsonResponse(
+          { error: 'Microsoft Teams calendar not connected' },
+          { status: 400, cors: corsOptions }
+        );
       }
 
       const { timeMin, timeMax } = body;
@@ -901,9 +1013,11 @@ serve(async (req) => {
               dateTime: event.end_date,
               timeZone: 'UTC',
             },
-            location: event.location ? {
-              displayName: event.location,
-            } : undefined,
+            location: event.location
+              ? {
+                  displayName: event.location,
+                }
+              : undefined,
           };
 
           let response;
@@ -922,17 +1036,14 @@ serve(async (req) => {
             );
           } else {
             // Create new event
-            response = await fetch(
-              'https://graph.microsoft.com/v1.0/me/events',
-              {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(msEvent),
-              }
-            );
+            response = await fetch('https://graph.microsoft.com/v1.0/me/events', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(msEvent),
+            });
           }
 
           if (response.ok) {
@@ -974,28 +1085,34 @@ serve(async (req) => {
         .update({ last_sync_at: new Date().toISOString() })
         .eq('id', integration.id);
 
-      return createJsonResponse({
-        success: true,
-        events_exported: eventsExported,
-        errors: errors.length,
-      }, { cors: corsOptions });
+      return createJsonResponse(
+        {
+          success: true,
+          events_exported: eventsExported,
+          errors: errors.length,
+        },
+        { cors: corsOptions }
+      );
     }
 
     // Connect action (alias for authorize)
     if (action === 'connect') {
       // Redirect to authorize with same parameters
-      return createJsonResponse({ 
-        redirect: true, 
-        action: 'authorize',
-        ...body 
-      }, { cors: corsOptions });
+      return createJsonResponse(
+        {
+          redirect: true,
+          action: 'authorize',
+          ...body,
+        },
+        { cors: corsOptions }
+      );
     }
 
     return createJsonResponse(
       {
         success: false,
         error: 'Invalid action',
-        errorCode: 'VALIDATION_ERROR'
+        errorCode: 'VALIDATION_ERROR',
       },
       { status: 400, cors: corsOptions }
     );

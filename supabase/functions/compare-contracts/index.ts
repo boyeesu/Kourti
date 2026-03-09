@@ -1,27 +1,37 @@
 declare const Deno: any;
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
-import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
+import { createErrorResponse as createSanitizedErrorResponse } from '../_shared/errorHandling.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
+import { createTrace, traceOpenAIChatCompletion } from '../_shared/langfuse.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -32,16 +42,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -67,7 +78,10 @@ async function authenticateRequest(req: Request) {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(token);
 
   if (authError || !user) {
     console.error('Authentication failed:', authError?.message);
@@ -80,7 +94,7 @@ async function authenticateRequest(req: Request) {
 }
 
 serve(async (req) => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -193,14 +207,14 @@ Provide a detailed JSON comparison following the specified structure.`;
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        Authorization: `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'gpt-5.1',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          { role: 'user', content: userPrompt },
         ],
         max_completion_tokens: 4000,
         temperature: 0.3,
@@ -221,7 +235,7 @@ Provide a detailed JSON comparison following the specified structure.`;
     // Trace the OpenAI chat completion
     const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: 'user', content: userPrompt },
     ];
     await traceOpenAIChatCompletion(traceId, {
       model: 'gpt-5.1',
@@ -236,7 +250,10 @@ Provide a detailed JSON comparison following the specified structure.`;
     });
 
     // Clean up markdown formatting if present
-    analysis = analysis.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    analysis = analysis
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
 
     // Parse the JSON response
     let comparisonResult;
@@ -254,7 +271,6 @@ Provide a detailed JSON comparison following the specified structure.`;
       cors: corsOptions,
       headers: rateLimitHeaders,
     });
-
   } catch (error: unknown) {
     if (error instanceof HttpError) {
       return createErrorResponse(error, corsOptions);

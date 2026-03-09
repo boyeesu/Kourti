@@ -1,27 +1,37 @@
 declare const Deno: any;
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
-import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
+import { createErrorResponse as createSanitizedErrorResponse } from '../_shared/errorHandling.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
+import { createTrace, traceOpenAIChatCompletion } from '../_shared/langfuse.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -32,16 +42,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -67,7 +78,10 @@ async function authenticateRequest(req: Request) {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(token);
 
   if (authError || !user) {
     console.error('Authentication failed:', authError?.message);
@@ -87,33 +101,33 @@ interface AnalysisPayload {
 
 const personas: Record<string, { persona: string; guidance: string }> = {
   contract_review: {
-    persona: "REAM AI Legal Strategist",
+    persona: 'REAM AI Legal Strategist',
     guidance:
-      "Provide a contract review that highlights obligations, risks, liability allocation, termination triggers, compliance considerations, and recommended next steps.",
+      'Provide a contract review that highlights obligations, risks, liability allocation, termination triggers, compliance considerations, and recommended next steps.',
   },
   document_review: {
-    persona: "REAM AI Document Analyst",
+    persona: 'REAM AI Document Analyst',
     guidance:
-      "Deliver a structured document review that summarizes purpose, key provisions, stakeholders, timelines, financial terms, and potential gaps.",
+      'Deliver a structured document review that summarizes purpose, key provisions, stakeholders, timelines, financial terms, and potential gaps.',
   },
   key_information: {
-    persona: "REAM AI Insights Specialist",
+    persona: 'REAM AI Insights Specialist',
     guidance:
-      "Extract key facts, critical clauses, involved parties, monetary values, deadlines, and any action items that require attention.",
+      'Extract key facts, critical clauses, involved parties, monetary values, deadlines, and any action items that require attention.',
   },
 };
 
 const basePersona = {
-  persona: "REAM AI Legal Analyst",
+  persona: 'REAM AI Legal Analyst',
   guidance:
-    "Provide a clear, professional legal analysis that surfaces obligations, risks, and suggested follow-up actions.",
+    'Provide a clear, professional legal analysis that surfaces obligations, risks, and suggested follow-up actions.',
 };
 
 serve(async (req: Request) => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return createEmptyResponse({ status: 204, cors: corsOptions });
   }
 
@@ -148,7 +162,7 @@ serve(async (req: Request) => {
       );
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
       throw new HttpError('OPENAI_API_KEY not configured', 503, 'OPENAI_CONFIG_MISSING');
     }
@@ -161,9 +175,9 @@ serve(async (req: Request) => {
       throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
     }
 
-    const { text, goal, analysisType = "contract_review" } = payload;
+    const { text, goal, analysisType = 'contract_review' } = payload;
 
-    if (!text || typeof text !== "string" || text.trim().length === 0) {
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
       throw new HttpError('Document text is required', 400, 'INVALID_INPUT');
     }
 
@@ -187,9 +201,7 @@ CRITICAL WRITING RULES - STRICTLY ENFORCE:
 - Keep the tone professional, practical, and easy to follow for legal and business stakeholders
 - Structure responses with clear, flowing paragraphs that naturally transition between topics`;
 
-    const goalInstruction = goal && goal.trim().length > 0
-      ? `\n\nUSER GOAL:\n${goal.trim()}`
-      : "";
+    const goalInstruction = goal && goal.trim().length > 0 ? `\n\nUSER GOAL:\n${goal.trim()}` : '';
 
     const guidance = `\n\nANALYSIS FOCUS:\n${typeDetails.guidance}`;
 
@@ -220,17 +232,17 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
     });
 
     const requestStartTime = Date.now();
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-5.1",
+        model: 'gpt-5.1',
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
         ],
         max_completion_tokens: 2000,
       }),
@@ -255,11 +267,11 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
 
     // Trace the OpenAI chat completion
     const messages = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
     ];
     await traceOpenAIChatCompletion(traceId, {
-      model: "gpt-5.1",
+      model: 'gpt-5.1',
       messages,
       response: data,
       metadata: {
@@ -271,30 +283,30 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
     });
 
     const cleanAnalysis = analysis
-      .replace(/^#{1,6}\s+/gm, "") // Remove markdown headers
-      .replace(/^\s*[-*+•]\s+/gm, "") // Remove bullet points (including bullet symbol)
-      .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold formatting
-      .replace(/\*(.*?)\*/g, "$1") // Remove italic formatting
-      .replace(/__(.*?)__/g, "$1") // Remove underline formatting
-      .replace(/`([^`]+)`/g, "$1") // Remove inline code
-      .replace(/```[\s\S]*?```/g, "") // Remove code blocks
-      .replace(/^\s*>\s+/gm, "") // Remove blockquotes
-      .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Remove markdown links, keep text
-      .replace(/—/g, " ") // Replace em dashes with spaces
-      .replace(/–/g, "-") // Replace en dashes with hyphens
-      .replace(/…/g, "...") // Replace ellipsis
+      .replace(/^#{1,6}\s+/gm, '') // Remove markdown headers
+      .replace(/^\s*[-*+•]\s+/gm, '') // Remove bullet points (including bullet symbol)
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
+      .replace(/__(.*?)__/g, '$1') // Remove underline formatting
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
+      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+      .replace(/^\s*>\s+/gm, '') // Remove blockquotes
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove markdown links, keep text
+      .replace(/—/g, ' ') // Replace em dashes with spaces
+      .replace(/–/g, '-') // Replace en dashes with hyphens
+      .replace(/…/g, '...') // Replace ellipsis
       .replace(/[""]/g, '"') // Replace smart quotes with regular quotes
       .replace(/['']/g, "'") // Replace smart apostrophes with regular apostrophes
-      .replace(/•/g, "") // Remove bullet symbols
-      .replace(/→/g, "to") // Replace arrows
-      .replace(/←/g, "from")
-      .replace(/↔/g, "to and from")
-      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, " ") // Replace various unicode spaces
-      .replace(/\*\s+/g, " ") // Remove any remaining asterisks used as bullets
-      .replace(/^\s*[-*+•]\s+/gm, "") // Second pass for bullet points
-      .replace(/\n{3,}/g, "\n\n") // Replace multiple newlines with double newlines
-      .replace(/([A-Z][A-Z\s]+):\s*\n/g, "$1: ") // Convert section headers with colons to inline text
-      .replace(/\n\s*\n\s*\n/g, "\n\n") // Clean up excessive spacing
+      .replace(/•/g, '') // Remove bullet symbols
+      .replace(/→/g, 'to') // Replace arrows
+      .replace(/←/g, 'from')
+      .replace(/↔/g, 'to and from')
+      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, ' ') // Replace various unicode spaces
+      .replace(/\*\s+/g, ' ') // Remove any remaining asterisks used as bullets
+      .replace(/^\s*[-*+•]\s+/gm, '') // Second pass for bullet points
+      .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newlines
+      .replace(/([A-Z][A-Z\s]+):\s*\n/g, '$1: ') // Convert section headers with colons to inline text
+      .replace(/\n\s*\n\s*\n/g, '\n\n') // Clean up excessive spacing
       .trim();
 
     const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
@@ -307,7 +319,7 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
       {
         cors: corsOptions,
         headers: rateLimitHeaders,
-      },
+      }
     );
   } catch (error: unknown) {
     if (error instanceof HttpError) {

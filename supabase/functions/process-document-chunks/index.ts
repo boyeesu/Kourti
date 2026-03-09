@@ -1,30 +1,40 @@
 declare const Deno: any;
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { createErrorResponse as createSanitizedErrorResponse } from "../_shared/errorHandling.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
-import { createTrace, traceOpenAIEmbedding } from "../_shared/langfuse.ts";
+import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { createErrorResponse as createSanitizedErrorResponse } from '../_shared/errorHandling.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
+import { createTrace, traceOpenAIEmbedding } from '../_shared/langfuse.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://localhost:8082",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8081',
+        'http://localhost:8082',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -35,16 +45,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -60,11 +71,14 @@ type DocumentChunkInsert = {
 };
 
 // Document chunking logic (simplified version)
-function chunkText(text: string, maxTokens: number = 500): Array<{ content: string, tokenCount: number }> {
+function chunkText(
+  text: string,
+  maxTokens: number = 500
+): Array<{ content: string; tokenCount: number }> {
   if (!text || text.length < 50) return [];
 
   const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
-  const chunks: Array<{ content: string, tokenCount: number }> = [];
+  const chunks: Array<{ content: string; tokenCount: number }> = [];
   let currentChunk = '';
 
   for (const sentence of sentences) {
@@ -74,7 +88,7 @@ function chunkText(text: string, maxTokens: number = 500): Array<{ content: stri
     if (tentativeTokens > maxTokens && currentChunk) {
       chunks.push({
         content: currentChunk.trim(),
-        tokenCount: Math.ceil(currentChunk.length / 4)
+        tokenCount: Math.ceil(currentChunk.length / 4),
       });
       currentChunk = sentence.trim();
     } else {
@@ -85,15 +99,15 @@ function chunkText(text: string, maxTokens: number = 500): Array<{ content: stri
   if (currentChunk.trim()) {
     chunks.push({
       content: currentChunk.trim(),
-      tokenCount: Math.ceil(currentChunk.length / 4)
+      tokenCount: Math.ceil(currentChunk.length / 4),
     });
   }
 
-  return chunks.filter(chunk => chunk.content.length > 20);
+  return chunks.filter((chunk) => chunk.content.length > 20);
 }
 
 export const processDocumentChunksHandler = async (req: Request) => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -176,7 +190,7 @@ export const processDocumentChunksHandler = async (req: Request) => {
         profileError.code === 'PGRST116'
           ? 'USER_ORGANIZATION_NOT_FOUND'
           : 'USER_ORGANIZATION_LOAD_FAILED',
-        { supabaseCode: profileError.code },
+        { supabaseCode: profileError.code }
       );
     }
 
@@ -219,7 +233,11 @@ export const processDocumentChunksHandler = async (req: Request) => {
 
     // Input size limit to prevent cost abuse
     if (typeof content === 'string' && content.length > 500000) {
-      throw new HttpError('Content exceeds maximum length of 500,000 characters', 400, 'INPUT_TOO_LARGE');
+      throw new HttpError(
+        'Content exceeds maximum length of 500,000 characters',
+        400,
+        'INPUT_TOO_LARGE'
+      );
     }
 
     if (!documentId && !contractId) {
@@ -227,11 +245,11 @@ export const processDocumentChunksHandler = async (req: Request) => {
     }
 
     if (documentId) {
-      const { data: document, error: documentError } = await supabase
+      const { data: document, error: documentError } = (await supabase
         .from('documents' as any)
         .select('organization_id')
         .eq('id', documentId)
-        .single() as { data: { organization_id: string } | null; error: any };
+        .single()) as { data: { organization_id: string } | null; error: any };
 
       if (documentError) {
         console.error('Error verifying document ownership:', documentError);
@@ -241,10 +259,8 @@ export const processDocumentChunksHandler = async (req: Request) => {
             ? 'Document not found'
             : 'Failed to verify document ownership',
           status,
-          documentError.code === 'PGRST116'
-            ? 'DOCUMENT_NOT_FOUND'
-            : 'DOCUMENT_OWNERSHIP_ERROR',
-          { supabaseCode: documentError.code },
+          documentError.code === 'PGRST116' ? 'DOCUMENT_NOT_FOUND' : 'DOCUMENT_OWNERSHIP_ERROR',
+          { supabaseCode: documentError.code }
         );
       }
 
@@ -254,11 +270,11 @@ export const processDocumentChunksHandler = async (req: Request) => {
     }
 
     if (contractId) {
-      const { data: contract, error: contractError } = await supabase
+      const { data: contract, error: contractError } = (await supabase
         .from('contracts' as any)
         .select('organization_id')
         .eq('id', contractId)
-        .single() as { data: { organization_id: string } | null; error: any };
+        .single()) as { data: { organization_id: string } | null; error: any };
 
       if (contractError) {
         console.error('Error verifying contract ownership:', contractError);
@@ -268,10 +284,8 @@ export const processDocumentChunksHandler = async (req: Request) => {
             ? 'Contract not found'
             : 'Failed to verify contract ownership',
           status,
-          contractError.code === 'PGRST116'
-            ? 'CONTRACT_NOT_FOUND'
-            : 'CONTRACT_OWNERSHIP_ERROR',
-          { supabaseCode: contractError.code },
+          contractError.code === 'PGRST116' ? 'CONTRACT_NOT_FOUND' : 'CONTRACT_OWNERSHIP_ERROR',
+          { supabaseCode: contractError.code }
         );
       }
 
@@ -302,7 +316,7 @@ export const processDocumentChunksHandler = async (req: Request) => {
         `Failed to clear existing chunks: ${clearResult.error.message}`,
         500,
         'DATABASE_ERROR',
-        { supabaseCode: clearResult.error.code },
+        { supabaseCode: clearResult.error.code }
       );
     }
 
@@ -319,7 +333,7 @@ export const processDocumentChunksHandler = async (req: Request) => {
           chunksProcessed: 0,
           message: 'Document too short for chunking',
         },
-        { cors: corsOptions },
+        { cors: corsOptions }
       );
     }
 
@@ -329,19 +343,23 @@ export const processDocumentChunksHandler = async (req: Request) => {
     const maxRetries = 3;
 
     // Helper function to retry failed requests
-    const fetchWithRetry = async (url: string, options: RequestInit, retries = maxRetries): Promise<Response> => {
+    const fetchWithRetry = async (
+      url: string,
+      options: RequestInit,
+      retries = maxRetries
+    ): Promise<Response> => {
       try {
         const response = await fetch(url, options);
         if (!response.ok && response.status >= 500 && retries > 0) {
           console.log(`Retrying request, attempts remaining: ${retries}`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (maxRetries - retries + 1)));
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (maxRetries - retries + 1)));
           return fetchWithRetry(url, options, retries - 1);
         }
         return response;
       } catch (error) {
         if (retries > 0) {
           console.log(`Network error, retrying. Attempts remaining: ${retries}`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (maxRetries - retries + 1)));
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (maxRetries - retries + 1)));
           return fetchWithRetry(url, options, retries - 1);
         }
         throw error;
@@ -358,13 +376,13 @@ export const processDocumentChunksHandler = async (req: Request) => {
         const embeddingResponse = await fetchWithRetry('https://api.openai.com/v1/embeddings', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             model: 'text-embedding-3-small',
-            input: batch.map(c => c.content),
-            encoding_format: 'float'
+            input: batch.map((c) => c.content),
+            encoding_format: 'float',
           }),
         });
 
@@ -380,7 +398,7 @@ export const processDocumentChunksHandler = async (req: Request) => {
         // Trace the embedding generation
         await traceOpenAIEmbedding(traceId, {
           model: 'text-embedding-3-small',
-          input: batch.map(c => c.content),
+          input: batch.map((c) => c.content),
           response: embeddingData,
           userId: user.id,
           metadata: {
@@ -392,7 +410,9 @@ export const processDocumentChunksHandler = async (req: Request) => {
           },
         });
 
-        console.log(`Generated ${embeddings.length} embeddings in ${Date.now() - batchStartTime}ms`);
+        console.log(
+          `Generated ${embeddings.length} embeddings in ${Date.now() - batchStartTime}ms`
+        );
 
         // Prepare batch insert data
         const chunksToInsert: DocumentChunkInsert[] = batch.map((chunk, batchIndex) => {
@@ -406,8 +426,8 @@ export const processDocumentChunksHandler = async (req: Request) => {
               chunkSize,
               documentType: documentType || 'document',
               processingDate: new Date().toISOString(),
-              embeddingModel: 'text-embedding-3-small'
-            }
+              embeddingModel: 'text-embedding-3-small',
+            },
           };
 
           if (documentId) {
@@ -431,34 +451,35 @@ export const processDocumentChunksHandler = async (req: Request) => {
             `Database error: ${insertResult.error.message}`,
             500,
             'DATABASE_ERROR',
-            { supabaseCode: insertResult.error.code },
+            { supabaseCode: insertResult.error.code }
           );
         }
 
-        console.log(`Inserted ${chunksToInsert.length} chunks in ${Date.now() - insertStartTime}ms`);
+        console.log(
+          `Inserted ${chunksToInsert.length} chunks in ${Date.now() - insertStartTime}ms`
+        );
 
         // Track processed chunks
         batch.forEach((chunk, batchIndex) => {
           processedChunks.push({
             index: i + batchIndex,
             tokenCount: chunk.tokenCount,
-            contentLength: chunk.content.length
+            contentLength: chunk.content.length,
           });
         });
-
       } catch (error) {
         console.error(`Error processing batch starting at chunk ${i}:`, error);
         // Log detailed error but continue processing remaining batches
         console.error('Batch error details:', {
           batchStart: i,
           batchSize: batch.length,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
 
       // Rate limiting: small delay between batches
       if (i + embeddingBatchSize < chunks.length) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
     }
 

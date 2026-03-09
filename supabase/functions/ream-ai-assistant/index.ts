@@ -1,33 +1,47 @@
 // @ts-ignore: Deno module
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 // @ts-ignore: Deno module
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { createJsonResponse, createEmptyResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { createErrorResponse } from "../_shared/errorHandling.ts";
-import { requireOrganizationAccess } from "../_shared/organizationValidation.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
-import { createTrace, traceOpenAIChatCompletion, traceOpenAIEmbedding } from "../_shared/langfuse.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import {
+  createJsonResponse,
+  createEmptyResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { createErrorResponse } from '../_shared/errorHandling.ts';
+import { requireOrganizationAccess } from '../_shared/organizationValidation.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
+import {
+  createTrace,
+  traceOpenAIChatCompletion,
+  traceOpenAIEmbedding,
+} from '../_shared/langfuse.ts';
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const openAIApiKey = Deno.env.get("OPENAI_API_KEY")!;
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY')!;
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://localhost:8083",
-    "http://localhost:8087",
-    "http://localhost:8082",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8081',
+        'http://localhost:8083',
+        'http://localhost:8087',
+        'http://localhost:8082',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -38,16 +52,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -63,20 +78,20 @@ interface ReamAIRequest {
 }
 
 serve(async (req: Request): Promise<Response> => {
-  console.log("ream-ai-assistant function invoked", {
+  console.log('ream-ai-assistant function invoked', {
     method: req.method,
-    url: req.url
+    url: req.url,
   });
 
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   // Handle CORS preflight requests first
-  if (req.method === "OPTIONS") {
-    console.log("Handling OPTIONS preflight request");
+  if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS preflight request');
     return createEmptyResponse({
       status: 204,
-      cors: corsOptions
+      cors: corsOptions,
     });
   }
 
@@ -100,7 +115,10 @@ serve(async (req: Request): Promise<Response> => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return createJsonResponse(
         { success: false, error: 'Unauthorized', errorCode: 'UNAUTHORIZED' },
@@ -119,7 +137,11 @@ serve(async (req: Request): Promise<Response> => {
 
     if (profileError || !profile?.organization_id) {
       return createJsonResponse(
-        { success: false, error: 'User profile or organization not found', errorCode: 'PROFILE_NOT_FOUND' },
+        {
+          success: false,
+          error: 'User profile or organization not found',
+          errorCode: 'PROFILE_NOT_FOUND',
+        },
         { status: 403, cors: corsOptions }
       );
     }
@@ -144,7 +166,7 @@ serve(async (req: Request): Promise<Response> => {
         {
           success: false,
           error: 'Missing required field: message',
-          errorCode: 'VALIDATION_ERROR'
+          errorCode: 'VALIDATION_ERROR',
         },
         { status: 400, cors: corsOptions }
       );
@@ -153,24 +175,40 @@ serve(async (req: Request): Promise<Response> => {
     // Input size limits to prevent cost abuse
     if (typeof message === 'string' && message.length > 50000) {
       return createJsonResponse(
-        { success: false, error: 'Message exceeds maximum length of 50,000 characters', errorCode: 'INPUT_TOO_LARGE' },
+        {
+          success: false,
+          error: 'Message exceeds maximum length of 50,000 characters',
+          errorCode: 'INPUT_TOO_LARGE',
+        },
         { status: 400, cors: corsOptions }
       );
     }
     if (Array.isArray(conversationHistory) && conversationHistory.length > 20) {
       return createJsonResponse(
-        { success: false, error: 'Conversation history exceeds maximum of 20 messages', errorCode: 'INPUT_TOO_LARGE' },
+        {
+          success: false,
+          error: 'Conversation history exceeds maximum of 20 messages',
+          errorCode: 'INPUT_TOO_LARGE',
+        },
         { status: 400, cors: corsOptions }
       );
     }
-    if (context?.documentContent && typeof context.documentContent === 'string' && context.documentContent.length > 200000) {
+    if (
+      context?.documentContent &&
+      typeof context.documentContent === 'string' &&
+      context.documentContent.length > 200000
+    ) {
       return createJsonResponse(
-        { success: false, error: 'Document content exceeds maximum length of 200,000 characters', errorCode: 'INPUT_TOO_LARGE' },
+        {
+          success: false,
+          error: 'Document content exceeds maximum length of 200,000 characters',
+          errorCode: 'INPUT_TOO_LARGE',
+        },
         { status: 400, cors: corsOptions }
       );
     }
 
-    console.log("Processing request for user:", userId, "org:", organizationId);
+    console.log('Processing request for user:', userId, 'org:', organizationId);
 
     // Rate limiting - prevent AI cost abuse
     const rateLimitId = userId || getRateLimitIdentifier(req);
@@ -215,16 +253,16 @@ serve(async (req: Request): Promise<Response> => {
 
     // Gather system context - query relevant tables
     // Wrap in try-catch to prevent context gathering from breaking the request
-    let systemContext = "No system context available.";
+    let systemContext = 'No system context available.';
     try {
-      console.log("Gathering system context...");
+      console.log('Gathering system context...');
       systemContext = await gatherSystemContext(supabase, organizationId, message, traceId);
-      console.log("System context gathered, length:", systemContext.length);
+      console.log('System context gathered, length:', systemContext.length);
     } catch (contextError: any) {
-      console.error("Error gathering system context:", contextError);
-      console.error("Context error stack:", contextError?.stack);
+      console.error('Error gathering system context:', contextError);
+      console.error('Context error stack:', contextError?.stack);
       // Continue with minimal context rather than failing
-      systemContext = "System context unavailable. Proceeding with general knowledge.";
+      systemContext = 'System context unavailable. Proceeding with general knowledge.';
     }
 
     // Build enhanced system prompt with intelligent context understanding
@@ -357,42 +395,43 @@ IMPORTANT: This question is about the document above. Extract information direct
     }
 
     // Call OpenAI
-    console.log("Calling OpenAI API...");
+    console.log('Calling OpenAI API...');
     const messages = [
-      { role: "system", content: systemPrompt },
+      { role: 'system', content: systemPrompt },
       ...conversationHistory,
-      { role: "user", content: userMessage },
+      { role: 'user', content: userMessage },
     ];
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${openAIApiKey}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-5.1",
+        model: 'gpt-5.1',
         messages,
         // GPT-5.1 is a reasoning model: temperature/top_p/max_tokens are unsupported.
         // Use max_completion_tokens and reasoning_effort instead.
         max_completion_tokens: 4000,
-        reasoning_effort: "medium",
+        reasoning_effort: 'medium',
         stream: false,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
+      console.error('OpenAI API error:', response.status, errorText);
       throw new Error(`OpenAI API error: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
-    let aiResponse = data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
+    let aiResponse =
+      data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
 
     // Trace the OpenAI chat completion
     await traceOpenAIChatCompletion(traceId, {
-      model: "gpt-5.1",
+      model: 'gpt-5.1',
       messages,
       response: data,
       userId,
@@ -404,34 +443,34 @@ IMPORTANT: This question is about the document above. Extract information direct
       },
     });
 
-    console.log("OpenAI response received, length:", aiResponse.length);
+    console.log('OpenAI response received, length:', aiResponse.length);
 
     // Clean the response to remove markdown formatting, em dashes, and special characters
     const cleanResponse = aiResponse
-      .replace(/^#{1,6}\s+/gm, "") // Remove markdown headers (#, ##, ###, etc.)
-      .replace(/^\s*[-*+•]\s+/gm, "") // Remove bullet points (including bullet symbol)
-      .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold formatting
-      .replace(/\*(.*?)\*/g, "$1") // Remove italic formatting
-      .replace(/__(.*?)__/g, "$1") // Remove underline formatting
-      .replace(/`([^`]+)`/g, "$1") // Remove inline code
-      .replace(/```[\s\S]*?```/g, "") // Remove code blocks
-      .replace(/^\s*>\s+/gm, "") // Remove blockquotes
-      .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Remove markdown links, keep text
-      .replace(/—/g, " ") // Replace em dashes with spaces
-      .replace(/–/g, "-") // Replace en dashes with hyphens
-      .replace(/…/g, "...") // Replace ellipsis
+      .replace(/^#{1,6}\s+/gm, '') // Remove markdown headers (#, ##, ###, etc.)
+      .replace(/^\s*[-*+•]\s+/gm, '') // Remove bullet points (including bullet symbol)
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
+      .replace(/__(.*?)__/g, '$1') // Remove underline formatting
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
+      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+      .replace(/^\s*>\s+/gm, '') // Remove blockquotes
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove markdown links, keep text
+      .replace(/—/g, ' ') // Replace em dashes with spaces
+      .replace(/–/g, '-') // Replace en dashes with hyphens
+      .replace(/…/g, '...') // Replace ellipsis
       .replace(/[""]/g, '"') // Replace smart quotes with regular quotes
       .replace(/['']/g, "'") // Replace smart apostrophes with regular apostrophes
-      .replace(/•/g, "") // Remove bullet symbols
-      .replace(/→/g, "to") // Replace arrows
-      .replace(/←/g, "from")
-      .replace(/↔/g, "to and from")
-      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, " ") // Replace various unicode spaces
-      .replace(/\*\s+/g, " ") // Remove any remaining asterisks used as bullets
-      .replace(/^\s*[-*+•]\s+/gm, "") // Second pass for bullet points
-      .replace(/\n{3,}/g, "\n\n") // Replace multiple newlines with double newlines
-      .replace(/([A-Z][A-Z\s]+):\s*\n/g, "$1: ") // Convert section headers with colons to inline text
-      .replace(/\n\s*\n\s*\n/g, "\n\n") // Clean up excessive spacing
+      .replace(/•/g, '') // Remove bullet symbols
+      .replace(/→/g, 'to') // Replace arrows
+      .replace(/←/g, 'from')
+      .replace(/↔/g, 'to and from')
+      .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, ' ') // Replace various unicode spaces
+      .replace(/\*\s+/g, ' ') // Remove any remaining asterisks used as bullets
+      .replace(/^\s*[-*+•]\s+/gm, '') // Second pass for bullet points
+      .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newlines
+      .replace(/([A-Z][A-Z\s]+):\s*\n/g, '$1: ') // Convert section headers with colons to inline text
+      .replace(/\n\s*\n\s*\n/g, '\n\n') // Clean up excessive spacing
       .trim();
 
     const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
@@ -464,16 +503,27 @@ async function gatherSystemContext(
 
   // Detect query intent
   const isCountQuery = /\b(how many|count|total|number of)\b/i.test(userMessage);
-  const isClientQuery = /\b(client|clients|contact|contacts|customer|customers)\b/i.test(userMessage);
+  const isClientQuery = /\b(client|clients|contact|contacts|customer|customers)\b/i.test(
+    userMessage
+  );
   const isCaseQuery = /\b(case|cases|matter|matters)\b/i.test(userMessage);
   const isDocumentQuery = /\b(document|documents|file|files|paperwork)\b/i.test(userMessage);
   const isContractQuery = /\b(contract|contracts|agreement|agreements)\b/i.test(userMessage);
   const isInvoiceQuery = /\b(invoice|invoices|billing|payment|payments|bill)\b/i.test(userMessage);
   const isTaskQuery = /\b(task|tasks|todo|todos|pending|assignment)\b/i.test(userMessage);
-  const isEventQuery = /\b(event|events|meeting|meetings|calendar|deadline|appointment)\b/i.test(userMessage);
+  const isEventQuery = /\b(event|events|meeting|meetings|calendar|deadline|appointment)\b/i.test(
+    userMessage
+  );
 
   // Determine if this is a general query (not specific to any module)
-  const queryAll = !isClientQuery && !isCaseQuery && !isDocumentQuery && !isContractQuery && !isInvoiceQuery && !isTaskQuery && !isEventQuery;
+  const queryAll =
+    !isClientQuery &&
+    !isCaseQuery &&
+    !isDocumentQuery &&
+    !isContractQuery &&
+    !isInvoiceQuery &&
+    !isTaskQuery &&
+    !isEventQuery;
 
   // Fetch counts/statistics only for relevant modules based on query intent
   // This avoids unnecessary real-time queries - only query what's needed
@@ -481,27 +531,48 @@ async function gatherSystemContext(
 
   // Always get client count (most common query) or if it's a general/count query
   if (isClientQuery || isCountQuery || queryAll) {
-    countQueries.clients = supabase.from("clients").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+    countQueries.clients = supabase
+      .from('clients')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
   }
 
   // Get other counts only if relevant to the query
   if (isCaseQuery || isCountQuery || queryAll) {
-    countQueries.cases = supabase.from("cases").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+    countQueries.cases = supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
   }
   if (isDocumentQuery || isCountQuery || queryAll) {
-    countQueries.documents = supabase.from("documents").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+    countQueries.documents = supabase
+      .from('documents')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
   }
   if (isContractQuery || isCountQuery || queryAll) {
-    countQueries.contracts = supabase.from("contracts").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+    countQueries.contracts = supabase
+      .from('contracts')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
   }
   if (isInvoiceQuery || isCountQuery || queryAll) {
-    countQueries.invoices = supabase.from("invoices").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+    countQueries.invoices = supabase
+      .from('invoices')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
   }
   if (isTaskQuery || isCountQuery || queryAll) {
-    countQueries.tasks = supabase.from("tasks").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+    countQueries.tasks = supabase
+      .from('tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
   }
   if (isEventQuery || isCountQuery || queryAll) {
-    countQueries.events = supabase.from("calendar_events").select("*", { count: "exact", head: true }).eq("organization_id", organizationId);
+    countQueries.events = supabase
+      .from('calendar_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
   }
 
   // Execute count queries in parallel
@@ -513,7 +584,12 @@ async function gatherSystemContext(
   countKeys.forEach((key, index) => {
     try {
       const result = countResults[index];
-      if (result.status === "fulfilled" && result.value && result.value.count !== null && result.value.count !== undefined) {
+      if (
+        result.status === 'fulfilled' &&
+        result.value &&
+        result.value.count !== null &&
+        result.value.count !== undefined
+      ) {
         stats[key] = result.value.count;
       } else {
         stats[key] = 0;
@@ -527,7 +603,7 @@ async function gatherSystemContext(
   // Include statistics for queried modules - this answers "how many clients" type questions
   const statsList = Object.entries(stats)
     .map(([key, count]) => `- Total ${key.charAt(0).toUpperCase() + key.slice(1)}: ${count}`)
-    .join("\n");
+    .join('\n');
   if (statsList) {
     contextParts.push(`ORGANIZATION STATISTICS (Total Counts):\n${statsList}`);
   }
@@ -540,72 +616,72 @@ async function gatherSystemContext(
   // Always query clients if client-related or general query
   if (isClientQuery || queryAll || isCountQuery) {
     dataQueries.clients = supabase
-      .from("clients")
-      .select("id, name, email, phone, created_at")
-      .eq("organization_id", organizationId)
+      .from('clients')
+      .select('id, name, email, phone, created_at')
+      .eq('organization_id', organizationId)
       .limit(isClientQuery ? 50 : 20)
-      .order("created_at", { ascending: false });
+      .order('created_at', { ascending: false });
   }
 
   // Query cases if case-related or general query
   if (isCaseQuery || queryAll) {
     dataQueries.cases = supabase
-      .from("cases")
-      .select("id, title, status, client_id, created_at")
-      .eq("organization_id", organizationId)
+      .from('cases')
+      .select('id, title, status, client_id, created_at')
+      .eq('organization_id', organizationId)
       .limit(isCaseQuery ? 30 : 15)
-      .order("created_at", { ascending: false });
+      .order('created_at', { ascending: false });
   }
 
   // Query documents if document-related or general query
   if (isDocumentQuery || queryAll) {
     dataQueries.documents = supabase
-      .from("documents")
-      .select("id, name, type, created_at, case_id, client_id")
-      .eq("organization_id", organizationId)
+      .from('documents')
+      .select('id, name, type, created_at, case_id, client_id')
+      .eq('organization_id', organizationId)
       .limit(15)
-      .order("created_at", { ascending: false });
+      .order('created_at', { ascending: false });
   }
 
   // Query contracts if contract-related or general query
   if (isContractQuery || queryAll) {
     dataQueries.contracts = supabase
-      .from("contracts")
-      .select("id, title, contract_type, status, start_date, end_date, created_at")
-      .eq("organization_id", organizationId)
+      .from('contracts')
+      .select('id, title, contract_type, status, start_date, end_date, created_at')
+      .eq('organization_id', organizationId)
       .limit(15)
-      .order("created_at", { ascending: false });
+      .order('created_at', { ascending: false });
   }
 
   // Query invoices if invoice-related or general query
   if (isInvoiceQuery || queryAll) {
     dataQueries.invoices = supabase
-      .from("invoices")
-      .select("id, invoice_number, total_amount, status, client_id, due_date, created_at")
-      .eq("organization_id", organizationId)
+      .from('invoices')
+      .select('id, invoice_number, total_amount, status, client_id, due_date, created_at')
+      .eq('organization_id', organizationId)
       .limit(15)
-      .order("created_at", { ascending: false });
+      .order('created_at', { ascending: false });
   }
 
   // Query tasks if task-related or general query
   if (isTaskQuery || queryAll) {
     dataQueries.tasks = supabase
-      .from("tasks")
-      .select("id, title, status, due_date, assigned_to, created_at")
-      .eq("organization_id", organizationId)
+      .from('tasks')
+      .select('id, title, status, due_date, assigned_to, created_at')
+      .eq('organization_id', organizationId)
       .limit(15)
-      .order("due_date", { ascending: true });
+      .order('due_date', { ascending: true });
   }
 
   // Query calendar events if event-related or general query
   if (isEventQuery || queryAll) {
     dataQueries.events = supabase
-      .from("calendar_events")
-      .select("id, title, event_type, start_date, end_date, location")
-      .eq("organization_id", organizationId)
-      .gte("start_date", new Date().toISOString())
+      .from('calendar_events')
+      .select('id, title, event_type, start_date, end_date, location')
+      .eq('organization_id', organizationId)
+      .gte('start_date', new Date().toISOString())
       .limit(15)
-      .order("start_date", { ascending: true });
+      .order('start_date', { ascending: true });
   }
 
   // Execute all data queries in parallel
@@ -616,57 +692,71 @@ async function gatherSystemContext(
 
   if ('clients' in dataQueries) {
     const result = dataResults[currentIndex++];
-    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
       const clients = result.value.data;
-      contextParts.push(`CLIENTS (${clients.length} of ${stats.clients || 0} total):\n${clients.map((c: any) => `- ${c.name}${c.email ? ` (${c.email})` : ""}${c.phone ? ` - ${c.phone}` : ""}`).join("\n")}`);
+      contextParts.push(
+        `CLIENTS (${clients.length} of ${stats.clients || 0} total):\n${clients.map((c: any) => `- ${c.name}${c.email ? ` (${c.email})` : ''}${c.phone ? ` - ${c.phone}` : ''}`).join('\n')}`
+      );
     }
   }
 
   if ('cases' in dataQueries) {
     const result = dataResults[currentIndex++];
-    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
       const cases = result.value.data;
-      contextParts.push(`CASES (${cases.length} of ${stats.cases || 0} total):\n${cases.map((c: any) => `- ${c.title} (Status: ${c.status})`).join("\n")}`);
+      contextParts.push(
+        `CASES (${cases.length} of ${stats.cases || 0} total):\n${cases.map((c: any) => `- ${c.title} (Status: ${c.status})`).join('\n')}`
+      );
     }
   }
 
   if ('documents' in dataQueries) {
     const result = dataResults[currentIndex++];
-    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
       const documents = result.value.data;
-      contextParts.push(`DOCUMENTS (${documents.length} of ${stats.documents || 0} total):\n${documents.map((d: any) => `- ${d.name} (${d.type || "Unknown"})`).join("\n")}`);
+      contextParts.push(
+        `DOCUMENTS (${documents.length} of ${stats.documents || 0} total):\n${documents.map((d: any) => `- ${d.name} (${d.type || 'Unknown'})`).join('\n')}`
+      );
     }
   }
 
   if ('contracts' in dataQueries) {
     const result = dataResults[currentIndex++];
-    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
       const contracts = result.value.data;
-      contextParts.push(`CONTRACTS (${contracts.length} of ${stats.contracts || 0} total):\n${contracts.map((c: any) => `- ${c.title} (${c.contract_type || "Unknown"}, ${c.status || "Active"})`).join("\n")}`);
+      contextParts.push(
+        `CONTRACTS (${contracts.length} of ${stats.contracts || 0} total):\n${contracts.map((c: any) => `- ${c.title} (${c.contract_type || 'Unknown'}, ${c.status || 'Active'})`).join('\n')}`
+      );
     }
   }
 
   if ('invoices' in dataQueries) {
     const result = dataResults[currentIndex++];
-    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
       const invoices = result.value.data;
-      contextParts.push(`INVOICES (${invoices.length} of ${stats.invoices || 0} total):\n${invoices.map((i: any) => `- ${i.invoice_number}: $${i.total_amount || 0} (${i.status})`).join("\n")}`);
+      contextParts.push(
+        `INVOICES (${invoices.length} of ${stats.invoices || 0} total):\n${invoices.map((i: any) => `- ${i.invoice_number}: $${i.total_amount || 0} (${i.status})`).join('\n')}`
+      );
     }
   }
 
   if ('tasks' in dataQueries) {
     const result = dataResults[currentIndex++];
-    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
       const tasks = result.value.data;
-      contextParts.push(`TASKS (${tasks.length} of ${stats.tasks || 0} total):\n${tasks.map((t: any) => `- ${t.title} (${t.status})${t.due_date ? ` - Due: ${new Date(t.due_date).toLocaleDateString()}` : ""}`).join("\n")}`);
+      contextParts.push(
+        `TASKS (${tasks.length} of ${stats.tasks || 0} total):\n${tasks.map((t: any) => `- ${t.title} (${t.status})${t.due_date ? ` - Due: ${new Date(t.due_date).toLocaleDateString()}` : ''}`).join('\n')}`
+      );
     }
   }
 
   if ('events' in dataQueries) {
     const result = dataResults[currentIndex++];
-    if (result.status === "fulfilled" && result.value.data && result.value.data.length > 0) {
+    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
       const events = result.value.data;
-      contextParts.push(`UPCOMING CALENDAR EVENTS (${events.length} of ${stats.events || 0} total):\n${events.map((e: any) => `- ${e.title} (${e.event_type}) on ${new Date(e.start_date).toLocaleDateString()}`).join("\n")}`);
+      contextParts.push(
+        `UPCOMING CALENDAR EVENTS (${events.length} of ${stats.events || 0} total):\n${events.map((e: any) => `- ${e.title} (${e.event_type}) on ${new Date(e.start_date).toLocaleDateString()}`).join('\n')}`
+      );
     }
   }
 
@@ -677,16 +767,16 @@ async function gatherSystemContext(
       // Generate embedding for the user's query using OpenAI embedding model
       // This is the only real-time embedding generation - document embeddings are pre-computed
       const embeddingInput = userMessage.substring(0, 8000);
-      const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
-        method: "POST",
+      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
         headers: {
-          "Authorization": `Bearer ${openAIApiKey}`,
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: "text-embedding-3-small", // Using OpenAI embedding model from your key
+          model: 'text-embedding-3-small', // Using OpenAI embedding model from your key
           input: embeddingInput,
-          encoding_format: "float"
+          encoding_format: 'float',
         }),
       });
 
@@ -696,7 +786,7 @@ async function gatherSystemContext(
 
         // Trace the embedding generation
         await traceOpenAIEmbedding(traceId, {
-          model: "text-embedding-3-small",
+          model: 'text-embedding-3-small',
           input: embeddingInput,
           response: embeddingData,
           metadata: {
@@ -708,55 +798,60 @@ async function gatherSystemContext(
         // Perform vector search against pre-computed embeddings in document_chunks table
         // This uses the match_document_chunks RPC which searches pre-existing embeddings
         const { data: vectorResults, error: vectorError } = await supabase.rpc(
-          "match_document_chunks",
+          'match_document_chunks',
           {
             query_embedding: queryEmbedding,
             match_threshold: 0.6,
-            match_count: 10
+            match_count: 10,
           }
         );
 
         if (!vectorError && vectorResults && vectorResults.length > 0) {
           // Get document/contract names for the results (lightweight query)
-          const docIds = Array.from(new Set(vectorResults.map((r: any) => r.document_id).filter(Boolean)));
-          const contractIds = Array.from(new Set(vectorResults.map((r: any) => r.contract_id).filter(Boolean)));
+          const docIds = Array.from(
+            new Set(vectorResults.map((r: any) => r.document_id).filter(Boolean))
+          );
+          const contractIds = Array.from(
+            new Set(vectorResults.map((r: any) => r.contract_id).filter(Boolean))
+          );
 
           const [docNames, contractNames] = await Promise.all([
-            docIds.length > 0 ? supabase.from("documents").select("id, name").in("id", docIds) : Promise.resolve({ data: [] }),
-            contractIds.length > 0 ? supabase.from("contracts").select("id, title").in("id", contractIds) : Promise.resolve({ data: [] })
+            docIds.length > 0
+              ? supabase.from('documents').select('id, name').in('id', docIds)
+              : Promise.resolve({ data: [] }),
+            contractIds.length > 0
+              ? supabase.from('contracts').select('id, title').in('id', contractIds)
+              : Promise.resolve({ data: [] }),
           ]);
 
           const docNameMap = new Map((docNames.data || []).map((d: any) => [d.id, d.name]));
-          const contractNameMap = new Map((contractNames.data || []).map((c: any) => [c.id, c.title]));
+          const contractNameMap = new Map(
+            (contractNames.data || []).map((c: any) => [c.id, c.title])
+          );
 
-          const vectorContext = vectorResults.map((r: any, i: number) => {
-            const docName = r.document_id ? docNameMap.get(r.document_id) : contractNameMap.get(r.contract_id);
-            return `[VECTOR SEARCH RESULT ${i + 1}] "${docName || "Unknown"}" (similarity: ${(r.similarity * 100).toFixed(1)}%):\n${r.content.substring(0, 500)}`;
-          }).join("\n\n");
+          const vectorContext = vectorResults
+            .map((r: any, i: number) => {
+              const docName = r.document_id
+                ? docNameMap.get(r.document_id)
+                : contractNameMap.get(r.contract_id);
+              return `[VECTOR SEARCH RESULT ${i + 1}] "${docName || 'Unknown'}" (similarity: ${(r.similarity * 100).toFixed(1)}%):\n${r.content.substring(0, 500)}`;
+            })
+            .join('\n\n');
 
-          contextParts.push(`VECTOR SEARCH RESULTS (Semantic search using pre-computed embeddings):\n${vectorContext}`);
+          contextParts.push(
+            `VECTOR SEARCH RESULTS (Semantic search using pre-computed embeddings):\n${vectorContext}`
+          );
         }
       }
     } catch (e) {
-      console.error("Error performing vector search:", e);
+      console.error('Error performing vector search:', e);
       // Continue without vector search results - don't fail the entire request
     }
   }
 
   return contextParts.length > 0
-    ? contextParts.join("\n\n")
-    : `ORGANIZATION STATISTICS:\n${Object.entries(stats).map(([key, count]) => `- Total ${key.charAt(0).toUpperCase() + key.slice(1)}: ${count}`).join("\n")}`;
+    ? contextParts.join('\n\n')
+    : `ORGANIZATION STATISTICS:\n${Object.entries(stats)
+        .map(([key, count]) => `- Total ${key.charAt(0).toUpperCase() + key.slice(1)}: ${count}`)
+        .join('\n')}`;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

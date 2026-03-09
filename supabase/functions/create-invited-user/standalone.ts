@@ -1,19 +1,14 @@
 // @ts-ignore: Deno module
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 // @ts-ignore: Deno module
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
 // ============================================================================
 // CORS Headers Helper (inline version)
 // ============================================================================
 declare const Deno: any;
 
-const DEFAULT_ALLOWED_HEADERS = [
-  'authorization',
-  'x-client-info',
-  'apikey',
-  'content-type',
-];
+const DEFAULT_ALLOWED_HEADERS = ['authorization', 'x-client-info', 'apikey', 'content-type'];
 
 const DEFAULT_PERMISSIONS_POLICY = [
   'accelerometer=()',
@@ -40,7 +35,10 @@ function isTrue(value: string | null | undefined): boolean {
 }
 
 function shouldIncludeHsts(): boolean {
-  if (isTrue(Deno.env.get('DISABLE_HSTS')) || isTrue(Deno.env.get('DISABLE_STRICT_TRANSPORT_SECURITY'))) {
+  if (
+    isTrue(Deno.env.get('DISABLE_HSTS')) ||
+    isTrue(Deno.env.get('DISABLE_STRICT_TRANSPORT_SECURITY'))
+  ) {
     return false;
   }
 
@@ -94,7 +92,9 @@ function resolveOrigin(options: CorsSecurityHeadersOptions): string {
   return '*';
 }
 
-function createCorsSecurityHeaders(options: CorsSecurityHeadersOptions = {}): Record<string, string> {
+function createCorsSecurityHeaders(
+  options: CorsSecurityHeadersOptions = {}
+): Record<string, string> {
   const {
     allowMethods = ['POST', 'OPTIONS'],
     allowHeaders = DEFAULT_ALLOWED_HEADERS,
@@ -190,29 +190,28 @@ function createEmptyResponse(init: JsonResponseInit = {}): Response {
 // ============================================================================
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? ['http://localhost:3000', 'http://localhost:5173']
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean);
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   // Can't use "*" with allowCredentials: true, so we must have a specific origin
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com"); // Fallback to a specific origin, never "*"
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com'; // Fallback to a specific origin, never "*"
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -233,9 +232,9 @@ function generateTempPassword(length = 16): string {
   // Calculate the maximum value that ensures uniform distribution
   // We reject values >= maxValid to avoid modulo bias
   const maxValid = 256 - (256 % charsLength);
-  
+
   let password = '';
-  
+
   for (let i = 0; i < length; i++) {
     let randomByte: number;
     // Rejection sampling: keep generating until we get a valid byte
@@ -244,17 +243,17 @@ function generateTempPassword(length = 16): string {
       crypto.getRandomValues(temp);
       randomByte = temp[0];
     } while (randomByte >= maxValid);
-    
+
     password += chars[randomByte % charsLength];
   }
-  
+
   return password;
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  console.log("create-invited-user function invoked");
+  console.log('create-invited-user function invoked');
 
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -270,7 +269,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     // Create admin client for user creation
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -289,7 +288,10 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     // Verify caller is authenticated and is admin/superadmin
-    const { data: { user: callerUser }, error: callerError } = await supabaseUser.auth.getUser();
+    const {
+      data: { user: callerUser },
+      error: callerError,
+    } = await supabaseUser.auth.getUser();
     if (callerError || !callerUser) {
       throw new Error('Unauthorized: Invalid or expired token');
     }
@@ -328,7 +330,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Check if user already exists
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find((u: { email?: string }) => u.email === email);
-    
+
     if (existingUser) {
       throw new Error('A user with this email already exists');
     }
@@ -357,21 +359,19 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Auth user created:', newUser.user.id);
 
     // Create profile linked to organization
-    const { error: profileInsertError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        user_id: newUser.user.id,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        organization_id: organizationId,
-        role: role,
-        department: department || null,
-        is_organization_creator: false,
-        must_change_password: true, // Force password change on first login
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+    const { error: profileInsertError } = await supabaseAdmin.from('profiles').insert({
+      user_id: newUser.user.id,
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      organization_id: organizationId,
+      role: role,
+      department: department || null,
+      is_organization_creator: false,
+      must_change_password: true, // Force password change on first login
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
 
     if (profileInsertError) {
       console.error('Failed to create profile:', profileInsertError);
@@ -385,10 +385,10 @@ const handler = async (req: Request): Promise<Response> => {
     // Update invitation record if it exists
     await supabaseAdmin
       .from('invitations')
-      .update({ 
-        status: 'accepted', 
+      .update({
+        status: 'accepted',
         temp_password_set: true,
-        updated_at: new Date().toISOString() 
+        updated_at: new Date().toISOString(),
       })
       .eq('email', email)
       .eq('organization_id', organizationId)
@@ -407,9 +407,9 @@ const handler = async (req: Request): Promise<Response> => {
           department,
           organizationId,
           tempPassword, // Pass securely server-to-server
-        }
+        },
       });
-      
+
       if (emailError) {
         console.error('Failed to send invitation email:', emailError);
         // Don't fail the user creation if email fails, but log it
@@ -425,20 +425,19 @@ const handler = async (req: Request): Promise<Response> => {
         userId: newUser.user.id,
         message: 'User created successfully. Credentials will be sent via email.',
       },
-      { 
+      {
         status: 200,
         cors: corsOptions,
       }
     );
-
   } catch (error: any) {
     console.error('Error in create-invited-user function:', error);
     return createJsonResponse(
-      { 
+      {
         success: false,
-        error: error.message 
+        error: error.message,
       },
-      { 
+      {
         status: error.message.includes('Unauthorized') ? 403 : 500,
         cors: corsOptions,
       }

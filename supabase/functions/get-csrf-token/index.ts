@@ -4,28 +4,33 @@
  */
 
 // @ts-ignore: Deno module
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 // @ts-ignore: Deno module
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { createCsrfTokenForUser, getCsrfTokenForUser } from "../_shared/csrfProtection.ts";
-import { createErrorResponse } from "../_shared/errorHandling.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import { createCsrfTokenForUser, getCsrfTokenForUser } from '../_shared/csrfProtection.ts';
+import { createErrorResponse } from '../_shared/errorHandling.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://localhost:8082",
-    "http://localhost:8083",
-    "http://localhost:8087",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8081',
+        'http://localhost:8082',
+        'http://localhost:8083',
+        'http://localhost:8087',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -36,21 +41,22 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
   };
 }
 
 serve(async (req: Request): Promise<Response> => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -93,7 +99,10 @@ serve(async (req: Request): Promise<Response> => {
     });
 
     // Verify user
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return createJsonResponse(
         {

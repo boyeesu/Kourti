@@ -28,7 +28,6 @@ const ALLOWED_ORIGINS = [
       ]
     : []),
   'https://app.kourti.com',
-  'https://kouti-legal-hub-41.lovable.app',
 ]
   .flatMap((value: string | undefined) => (value ? value.split(',') : []))
   .filter(Boolean)

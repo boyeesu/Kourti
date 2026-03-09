@@ -1,26 +1,36 @@
 // @ts-ignore: Deno module
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 // @ts-ignore: Deno module
-import { Resend } from "https://esm.sh/resend@2.0.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { createErrorResponse } from "../_shared/errorHandling.ts";
+import { Resend } from 'https://esm.sh/resend@2.0.0';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { createErrorResponse } from '../_shared/errorHandling.ts';
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-const fromEmail = Deno.env.get("SMTP_FROM_EMAIL") || "onboarding@resend.dev";
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+const fromEmail = Deno.env.get('SMTP_FROM_EMAIL') || 'onboarding@resend.dev';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -31,16 +41,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -65,9 +76,9 @@ interface InvitationEmailRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  console.log("send-invitation-email function invoked");
+  console.log('send-invitation-email function invoked');
 
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -111,7 +122,11 @@ const handler = async (req: Request): Promise<Response> => {
     const bearerToken = authHeader.replace('Bearer ', '').trim();
     if (bearerToken !== supabaseServiceKey) {
       return createJsonResponse(
-        { success: false, error: 'Forbidden: service-role access required', errorCode: 'FORBIDDEN' },
+        {
+          success: false,
+          error: 'Forbidden: service-role access required',
+          errorCode: 'FORBIDDEN',
+        },
         { status: 403, cors: corsOptions }
       );
     }
@@ -136,7 +151,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate the login URL (not signup - user already created)
     const origin = new URL(invitationUrl).origin;
-    const loginUrl = tempPassword 
+    const loginUrl = tempPassword
       ? `${origin}/auth?email=${encodeURIComponent(email)}&invited=true`
       : `${origin}/auth?email=${encodeURIComponent(email)}&invited=true`;
 
@@ -168,7 +183,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailSubject = `You're invited to join ${organizationName}`;
 
-    console.log("Sending invitation email via Resend:", { to: email, subject: emailSubject });
+    console.log('Sending invitation email via Resend:', { to: email, subject: emailSubject });
 
     const { data, error } = await resend.emails.send({
       from: `${organizationName} <${fromEmail}>`,
@@ -178,11 +193,11 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (error) {
-      console.error("Resend error:", error);
+      console.error('Resend error:', error);
       throw new Error(error.message);
     }
 
-    console.log("Invitation email sent successfully:", data?.id);
+    console.log('Invitation email sent successfully:', data?.id);
 
     const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
     return createJsonResponse(
@@ -197,7 +212,6 @@ const handler = async (req: Request): Promise<Response> => {
         headers: rateLimitHeaders,
       }
     );
-
   } catch (error: unknown) {
     return createErrorResponse(error, corsOptions, {
       function: 'send-invitation-email',
@@ -230,12 +244,24 @@ interface TempPasswordEmailParams {
 }
 
 function buildTempPasswordEmailHtml(params: TempPasswordEmailParams): string {
-  const { firstName, lastName, role, department, organizationName, inviterName, loginUrl, tempPassword, email } = params;
-  
+  const {
+    firstName,
+    lastName,
+    role,
+    department,
+    organizationName,
+    inviterName,
+    loginUrl,
+    tempPassword,
+    email,
+  } = params;
+
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'there';
   const roleDisplay = role.charAt(0).toUpperCase() + role.slice(1);
-  const departmentLine = department ? `<p style="color: #666666; font-size: 14px; margin: 8px 0 0;">Department: ${department}</p>` : '';
-  
+  const departmentLine = department
+    ? `<p style="color: #666666; font-size: 14px; margin: 8px 0 0;">Department: ${department}</p>`
+    : '';
+
   return `
 <!DOCTYPE html>
 <html>
@@ -336,20 +362,33 @@ function buildTempPasswordEmailHtml(params: TempPasswordEmailParams): string {
 }
 
 function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
-  const { firstName, lastName, role, department, organizationName, inviterName, signupUrl, ssoEnforced, ssoLinks } = params;
-  
+  const {
+    firstName,
+    lastName,
+    role,
+    department,
+    organizationName,
+    inviterName,
+    signupUrl,
+    ssoEnforced,
+    ssoLinks,
+  } = params;
+
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'there';
   const roleDisplay = role.charAt(0).toUpperCase() + role.slice(1);
-  const departmentLine = department ? `<p style="color: #666666; font-size: 14px; margin: 8px 0 0;">Department: ${department}</p>` : '';
-  
+  const departmentLine = department
+    ? `<p style="color: #666666; font-size: 14px; margin: 8px 0 0;">Department: ${department}</p>`
+    : '';
+
   // Build SSO buttons HTML
   let ssoButtonsHtml = '';
   if (ssoLinks.length > 0) {
-    const ssoButtons = ssoLinks.map(link => {
-      const providerName = link.provider === 'google' ? 'Google' : 'Microsoft';
-      const providerColor = link.provider === 'google' ? '#4285F4' : '#00A4EF';
-      
-      return `
+    const ssoButtons = ssoLinks
+      .map((link) => {
+        const providerName = link.provider === 'google' ? 'Google' : 'Microsoft';
+        const providerColor = link.provider === 'google' ? '#4285F4' : '#00A4EF';
+
+        return `
         <tr>
           <td style="padding: 8px 0;">
             <a href="${link.url}" style="display: inline-block; width: 100%; padding: 12px 24px; background-color: ${providerColor}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -358,24 +397,27 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
           </td>
         </tr>
       `;
-    }).join('');
-    
+      })
+      .join('');
+
     ssoButtonsHtml = `
       <table cellpadding="0" cellspacing="0" style="margin: 20px 0; width: 100%;">
         ${ssoButtons}
       </table>
     `;
   }
-  
+
   // Build main CTA section
   let mainCtaHtml = '';
   if (ssoEnforced && ssoLinks.length > 0) {
     // SSO is enforced - only show SSO buttons
     mainCtaHtml = `
       <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
-        ${ssoLinks.length === 1 
-          ? 'Please sign in using your organization account:'
-          : 'Please sign in using one of your organization accounts:'}
+        ${
+          ssoLinks.length === 1
+            ? 'Please sign in using your organization account:'
+            : 'Please sign in using one of your organization accounts:'
+        }
       </p>
       ${ssoButtonsHtml}
     `;
@@ -414,7 +456,7 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
       </table>
     `;
   }
-  
+
   return `
 <!DOCTYPE html>
 <html>
@@ -448,12 +490,16 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
               </p>
               ${departmentLine}
               ${mainCtaHtml}
-              ${!ssoEnforced ? `
+              ${
+                !ssoEnforced
+                  ? `
               <p style="color: #888888; font-size: 13px; margin: 25px 0 0;">
                 If the button doesn't work, copy and paste this link into your browser:<br>
                 <a href="${signupUrl}" style="color: #1a365d; word-break: break-all;">${signupUrl}</a>
               </p>
-              ` : ''}
+              `
+                  : ''
+              }
             </td>
           </tr>
           <tr>

@@ -1,25 +1,35 @@
 // @ts-ignore: Deno module
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 // @ts-ignore: Deno module
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_PRESETS, createRateLimitHeaders } from "../_shared/rateLimiting.ts";
-import { createErrorResponse } from "../_shared/errorHandling.ts";
-import { requireOrganizationAccess } from "../_shared/organizationValidation.ts";
-import { requireCsrfTokenForUser } from "../_shared/csrfProtection.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import {
+  checkRateLimit,
+  getRateLimitIdentifier,
+  RATE_LIMIT_PRESETS,
+  createRateLimitHeaders,
+} from '../_shared/rateLimiting.ts';
+import { createErrorResponse } from '../_shared/errorHandling.ts';
+import { requireOrganizationAccess } from '../_shared/organizationValidation.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8083",
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://localhost:8083',
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     // Ensure all origins have a protocol
@@ -33,16 +43,17 @@ const ALLOWED_ORIGINS = [
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
   // Can't use "*" with allowCredentials: true, so we must have a specific origin
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com"); // Fallback to a specific origin, never "*"
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com'; // Fallback to a specific origin, never "*"
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -63,9 +74,9 @@ function generateTempPassword(length = 16): string {
   // Calculate the maximum value that ensures uniform distribution
   // We reject values >= maxValid to avoid modulo bias
   const maxValid = 256 - (256 % charsLength);
-  
+
   let password = '';
-  
+
   for (let i = 0; i < length; i++) {
     let randomByte: number;
     // Rejection sampling: keep generating until we get a valid byte
@@ -74,17 +85,17 @@ function generateTempPassword(length = 16): string {
       crypto.getRandomValues(temp);
       randomByte = temp[0];
     } while (randomByte >= maxValid);
-    
+
     password += chars[randomByte % charsLength];
   }
-  
+
   return password;
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  console.log("create-invited-user function invoked");
+  console.log('create-invited-user function invoked');
 
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -94,14 +105,14 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     // Verify authorization - must be an authenticated admin/superadmin
     const authHeader = req.headers.get('Authorization');
-    
+
     if (!authHeader) {
       throw new Error('Missing authorization header');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     // Create admin client for user creation and auth verification
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -112,22 +123,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Extract token from Authorization header (format: "Bearer <token>")
     const token = authHeader.replace('Bearer ', '').trim();
-    
+
     if (!token) {
       throw new Error('Invalid authorization header format');
     }
 
     // Verify caller is authenticated using service role client
-    const { data: { user: callerUser }, error: callerError } = await supabaseAdmin.auth.getUser(token);
+    const {
+      data: { user: callerUser },
+      error: callerError,
+    } = await supabaseAdmin.auth.getUser(token);
     if (callerError || !callerUser) {
       console.error('Authentication failed:', {
         error: callerError?.message,
         status: callerError?.status,
-        hasUser: !!callerUser
+        hasUser: !!callerUser,
       });
       throw new Error('Unauthorized: Invalid or expired token');
     }
-    
+
     console.log('User authenticated:', callerUser.id);
 
     // Rate limiting - prevent user enumeration and abuse (after auth check)
@@ -176,7 +190,8 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     type RoleAssignment = { role_name: string };
-    const roleNames: string[] = (callerRoles as RoleAssignment[] | null)?.map((r: RoleAssignment) => r.role_name) || [];
+    const roleNames: string[] =
+      (callerRoles as RoleAssignment[] | null)?.map((r: RoleAssignment) => r.role_name) || [];
     if (!roleNames.includes('superadmin') && !roleNames.includes('admin')) {
       throw new Error('Unauthorized: Only admins can invite users');
     }
@@ -201,7 +216,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Check if user already exists
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find((u: { email?: string }) => u.email === email);
-    
+
     if (existingUser) {
       throw new Error('A user with this email already exists');
     }
@@ -231,9 +246,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Create or update profile linked to organization
     // Using upsert because the handle_new_user trigger may have already created a profile
-    const { error: profileInsertError } = await supabaseAdmin
-      .from('profiles')
-      .upsert({
+    const { error: profileInsertError } = await supabaseAdmin.from('profiles').upsert(
+      {
         user_id: newUser.user.id,
         email,
         first_name: firstName,
@@ -243,7 +257,9 @@ const handler = async (req: Request): Promise<Response> => {
         is_organization_creator: false,
         must_change_password: true, // Force password change on first login
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
+      },
+      { onConflict: 'user_id' }
+    );
 
     if (profileInsertError) {
       console.error('Failed to create profile:', profileInsertError);
@@ -255,24 +271,19 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Profile created for invited user');
 
     // Assign role via user_role_assignments
-    const { error: roleAssignError } = await supabaseAdmin
-      .from('user_role_assignments')
-      .insert({
-        user_id: newUser.user.id,
-        role_name: role,
-        organization_id: organizationId,
-        assigned_by: callerUser.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+    const { error: roleAssignError } = await supabaseAdmin.from('user_role_assignments').insert({
+      user_id: newUser.user.id,
+      role_name: role,
+      organization_id: organizationId,
+      assigned_by: callerUser.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
 
     if (roleAssignError) {
       console.error('Failed to assign role:', roleAssignError);
       // Rollback: delete the profile and auth user
-      await supabaseAdmin
-        .from('profiles')
-        .delete()
-        .eq('user_id', newUser.user.id);
+      await supabaseAdmin.from('profiles').delete().eq('user_id', newUser.user.id);
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       throw new Error(`Failed to assign role: ${roleAssignError.message}`);
     }
@@ -282,10 +293,10 @@ const handler = async (req: Request): Promise<Response> => {
     // Update invitation record if it exists
     await supabaseAdmin
       .from('invitations')
-      .update({ 
-        status: 'accepted', 
+      .update({
+        status: 'accepted',
         temp_password_set: true,
-        updated_at: new Date().toISOString() 
+        updated_at: new Date().toISOString(),
       })
       .eq('email', email)
       .eq('organization_id', organizationId)
@@ -310,10 +321,10 @@ const handler = async (req: Request): Promise<Response> => {
         .single();
 
       const organizationName = orgData?.name || 'Your Organization';
-      const inviterName = inviterData 
+      const inviterName = inviterData
         ? `${inviterData.first_name || ''} ${inviterData.last_name || ''}`.trim() || 'Admin'
         : 'Admin';
-      
+
       // Use APP_URL or fallback to kourti.com
       const appUrl = Deno.env.get('APP_URL') || 'https://app.kourti.com';
       const invitationUrl = `${appUrl}/auth?email=${encodeURIComponent(email)}&invited=true`;
@@ -329,9 +340,9 @@ const handler = async (req: Request): Promise<Response> => {
           inviterName,
           invitationUrl,
           tempPassword, // Pass securely server-to-server
-        }
+        },
       });
-      
+
       if (emailError) {
         console.error('Failed to send invitation email:', emailError);
         // Don't fail the user creation if email fails, but log it
@@ -348,13 +359,12 @@ const handler = async (req: Request): Promise<Response> => {
         userId: newUser.user.id,
         message: 'User created successfully. Credentials will be sent via email.',
       },
-      { 
+      {
         status: 200,
         cors: corsOptions,
         headers: rateLimitHeaders,
       }
     );
-
   } catch (error: unknown) {
     return createErrorResponse(error, corsOptions, {
       function: 'create-invited-user',

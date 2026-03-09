@@ -1,29 +1,36 @@
 declare const Deno: any;
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-import { HttpError, createErrorResponse } from "../_shared/httpError.ts";
-import { createEmptyResponse, createJsonResponse, CorsSecurityHeadersOptions } from "../_shared/responseHeaders.ts";
-import { createTrace, traceOpenAIChatCompletion } from "../_shared/langfuse.ts";
+import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
+import {
+  createEmptyResponse,
+  createJsonResponse,
+  CorsSecurityHeadersOptions,
+} from '../_shared/responseHeaders.ts';
+import { createTrace, traceOpenAIChatCompletion } from '../_shared/langfuse.ts';
 
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),
-  ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-    ...(Deno.env.get("ENVIRONMENT") !== "production" ? [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "http://localhost:8080",
-      "http://localhost:8081",
-      "http://localhost:8082",
-      "http://localhost:8083",
-    ] : []),
-  ] : []),
-  "https://app.kourti.com",
-  "https://kouti-legal-hub-41.lovable.app",
+  Deno.env.get('APP_URL'),
+  ...(Deno.env.get('ENVIRONMENT') !== 'production'
+    ? [
+        ...(Deno.env.get('ENVIRONMENT') !== 'production'
+          ? [
+              'http://localhost:3000',
+              'http://localhost:5173',
+              'http://localhost:8080',
+              'http://localhost:8081',
+              'http://localhost:8082',
+              'http://localhost:8083',
+            ]
+          : []),
+      ]
+    : []),
+  'https://app.kourti.com',
 ]
-  .flatMap((value) => (value ? value.split(",") : []))
+  .flatMap((value) => (value ? value.split(',') : []))
   .filter(Boolean)
   .map((origin) => {
     if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
@@ -34,16 +41,17 @@ const ALLOWED_ORIGINS = [
   .filter((origin) => origin && (origin.startsWith('http://') || origin.startsWith('https://')));
 
 function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOptions {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || "https://app.kourti.com");
+  const origin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0] || 'https://app.kourti.com';
 
   return {
     origin,
     requestOrigin,
     allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : undefined,
     allowCredentials: true,
-    allowMethods: ["POST", "OPTIONS"],
+    allowMethods: ['POST', 'OPTIONS'],
   };
 }
 
@@ -90,7 +98,7 @@ async function requestChatCompletion(body: Record<string, unknown>) {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
+          Authorization: `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ...body, model }),
@@ -109,7 +117,7 @@ async function requestChatCompletion(body: Record<string, unknown>) {
           `Model ${model} unavailable: ${errorText}`,
           424,
           'OPENAI_MODEL_UNAVAILABLE',
-          { status: response.status },
+          { status: response.status }
         );
         continue;
       }
@@ -118,7 +126,7 @@ async function requestChatCompletion(body: Record<string, unknown>) {
         `OpenAI API error: ${response.status} - ${errorText}`,
         502,
         'OPENAI_UPSTREAM_ERROR',
-        { status: response.status },
+        { status: response.status }
       );
     } catch (error) {
       const normalizedError =
@@ -154,7 +162,7 @@ async function handleStreamingResponse(
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
+          Authorization: `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -174,7 +182,7 @@ async function handleStreamingResponse(
             `Model ${model} unavailable: ${errorText}`,
             424,
             'OPENAI_MODEL_UNAVAILABLE',
-            { status: response.status },
+            { status: response.status }
           );
           continue;
         }
@@ -183,7 +191,7 @@ async function handleStreamingResponse(
           `OpenAI API error: ${response.status} - ${errorText}`,
           502,
           'OPENAI_UPSTREAM_ERROR',
-          { status: response.status },
+          { status: response.status }
         );
       }
 
@@ -191,13 +199,16 @@ async function handleStreamingResponse(
       const headers = new Headers({
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
       });
 
       // Add CORS headers (use corsOptions.origin, not the non-existent corsOptions.allowOrigin)
       if (corsOptions) {
         headers.set('Access-Control-Allow-Origin', corsOptions.origin || 'https://app.kourti.com');
-        headers.set('Access-Control-Allow-Methods', corsOptions.allowMethods?.join(',') || 'POST, OPTIONS');
+        headers.set(
+          'Access-Control-Allow-Methods',
+          corsOptions.allowMethods?.join(',') || 'POST, OPTIONS'
+        );
         headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         headers.set('Access-Control-Allow-Credentials', 'true');
       }
@@ -221,7 +232,7 @@ async function handleStreamingResponse(
 }
 
 export const advancedContractAnalysisHandler = async (req: Request) => {
-  const requestOrigin = req.headers.get("Origin");
+  const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
 
   // Handle CORS preflight requests
@@ -240,7 +251,8 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
       throw new HttpError('Invalid JSON payload', 400, 'INVALID_JSON');
     }
 
-    const { text, analysisType, goal, documentId, conversationHistory, ragContext, stream } = payload ?? {};
+    const { text, analysisType, goal, documentId, conversationHistory, ragContext, stream } =
+      payload ?? {};
 
     console.log('Request payload:', { text: text?.length || 0, analysisType, goal });
 
@@ -251,13 +263,25 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
 
     // Input size limits to prevent cost abuse
     if (text.length > 200000) {
-      throw new HttpError('Document text exceeds maximum length of 200,000 characters', 400, 'INPUT_TOO_LARGE');
+      throw new HttpError(
+        'Document text exceeds maximum length of 200,000 characters',
+        400,
+        'INPUT_TOO_LARGE'
+      );
     }
     if (ragContext && typeof ragContext === 'string' && ragContext.length > 100000) {
-      throw new HttpError('RAG context exceeds maximum length of 100,000 characters', 400, 'INPUT_TOO_LARGE');
+      throw new HttpError(
+        'RAG context exceeds maximum length of 100,000 characters',
+        400,
+        'INPUT_TOO_LARGE'
+      );
     }
     if (Array.isArray(conversationHistory) && conversationHistory.length > 20) {
-      throw new HttpError('Conversation history exceeds maximum of 20 messages', 400, 'INPUT_TOO_LARGE');
+      throw new HttpError(
+        'Conversation history exceeds maximum of 20 messages',
+        400,
+        'INPUT_TOO_LARGE'
+      );
     }
 
     // --- Authentication: mandatory ---
@@ -273,7 +297,10 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
 
     const supabase = getSupabaseClient();
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
     if (error || !user) {
       throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
     }
@@ -486,7 +513,9 @@ This analysis will be used for document comparison purposes.`;
         break;
 
       default:
-        userPrompt = goal || `Please analyze this legal document and provide insights:
+        userPrompt =
+          goal ||
+          `Please analyze this legal document and provide insights:
 
 ${text}
 
@@ -495,23 +524,25 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
 
     // Build messages array with conversation history if provided
     const messages: Array<{ role: string; content: string }> = [
-      { role: 'system', content: systemPrompt }
+      { role: 'system', content: systemPrompt },
     ];
 
     // Add conversation history if provided (last 10 messages to manage context)
     if (conversationHistory && Array.isArray(conversationHistory)) {
       const recentHistory = conversationHistory.slice(-10); // Keep last 10 messages
-      messages.push(...recentHistory.map((msg: any) => ({
-        role: msg.role || 'user',
-        content: msg.content || ''
-      })));
+      messages.push(
+        ...recentHistory.map((msg: any) => ({
+          role: msg.role || 'user',
+          content: msg.content || '',
+        }))
+      );
     }
 
     // Add RAG context if provided
     if (ragContext && typeof ragContext === 'string' && ragContext.trim()) {
       messages.push({
         role: 'user',
-        content: `RELEVANT DOCUMENT CONTEXT FROM KNOWLEDGE BASE:\n\n${ragContext}\n\n---\n\nNow answer the user's question based on this context.`
+        content: `RELEVANT DOCUMENT CONTEXT FROM KNOWLEDGE BASE:\n\n${ragContext}\n\n---\n\nNow answer the user's question based on this context.`,
       });
     }
 
@@ -522,7 +553,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
       messageCount: messages.length,
       hasHistory: conversationHistory?.length > 0,
       hasRAGContext: !!ragContext,
-      stream: stream === true
+      stream: stream === true,
     });
 
     // If streaming is requested, handle streaming response
@@ -603,16 +634,14 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
     // Store analysis if documentId is provided
     if (documentId && userId && supabase) {
       try {
-        await supabase
-          .from('document_analyses' as any)
-          .insert({
-            document_id: documentId,
-            analysis_type: analysisType || 'general',
-            content: analysis,
-            status: 'completed',
-            created_by: userId,
-            organization_id: null // Will be set by RLS if needed
-          } as any);
+        await supabase.from('document_analyses' as any).insert({
+          document_id: documentId,
+          analysis_type: analysisType || 'general',
+          content: analysis,
+          status: 'completed',
+          created_by: userId,
+          organization_id: null, // Will be set by RLS if needed
+        } as any);
         console.log('Analysis stored in database');
       } catch (dbError) {
         console.error('Failed to store analysis:', dbError);
@@ -627,9 +656,8 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
         tokensUsed: data.usage?.total_tokens || 0,
         modelUsed,
       },
-      { cors: corsOptions },
+      { cors: corsOptions }
     );
-
   } catch (error: any) {
     console.error('Error in advanced contract analysis:', error);
     return createErrorResponse(error, corsOptions, 'Analysis failed');
