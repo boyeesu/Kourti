@@ -19,7 +19,7 @@ import { useInsights } from '@/hooks/useInsights';
 import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 // import { NotificationIcon } from '@/components/ui/notifications';
-import NotificationsDropdown from "./NotificationsDropdown";
+import NotificationsDropdown from './NotificationsDropdown';
 import {
   User,
   Settings,
@@ -43,12 +43,20 @@ import {
   Mic,
   ChevronRight,
   MonitorSmartphone,
-  MessageCircle
+  MessageCircle,
+  Crown,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
+import {
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from '@/components/ui/command';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 import { useUserPermission } from '@/hooks/usePermissions';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -56,6 +64,7 @@ import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { KeyboardShortcutsDialog } from '@/hooks/useKeyboardShortcuts';
 import { useTotalUnreadCount } from '@/hooks/useChat';
+import { useCurrentUserPlan } from '@/hooks/useUserPlans';
 
 // Navigation item type
 export type NavItem = {
@@ -64,7 +73,7 @@ export type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   end: boolean;
   badge?: string;
-  badgeVariant?: "default" | "outline" | "destructive" | "secondary";
+  badgeVariant?: 'default' | 'outline' | 'destructive' | 'secondary';
 };
 
 // Types - can be removed as we're using the database-backed notifications now
@@ -107,7 +116,11 @@ function CommandPalette() {
   const actionOptions = [
     { label: 'New Case', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/cases/create' },
     { label: 'New Client', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients/create' },
-    { label: 'Upload Document', icon: <FileText className="h-4 w-4 mr-2" />, href: '/documents/upload' },
+    {
+      label: 'Upload Document',
+      icon: <FileText className="h-4 w-4 mr-2" />,
+      href: '/documents/upload',
+    },
   ];
 
   return (
@@ -150,6 +163,43 @@ function CommandPalette() {
   );
 }
 
+// Plan badge shown in the top bar
+function PlanBadge() {
+  const { data: currentPlan, isLoading } = useCurrentUserPlan();
+  const navigate = useNavigate();
+
+  if (isLoading || !currentPlan) return null;
+
+  const planColors: Record<string, string> = {
+    free: 'bg-muted text-muted-foreground',
+    starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    professional: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    enterprise: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  };
+
+  const colorClass = planColors[currentPlan.plan_type] || planColors.free;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => navigate('/settings?tab=billing')}
+            className={cn(
+              'hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-opacity hover:opacity-80 sm:inline-flex',
+              colorClass
+            )}
+          >
+            <Crown className="h-3 w-3" />
+            {currentPlan.plan_display_name}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Current plan – click to manage billing</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 // Trigger initial reminders from insights
 function DeadlineReminders() {
   useInsights(7);
@@ -163,7 +213,13 @@ function DeadlineReminders() {
 // Mobile navigation for small screens
 import { useUserRole } from '@/hooks/useUserManagement';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 function useIsMobile(breakpoint = 640) {
   const [isMobile, setIsMobile] = useState(false);
@@ -203,11 +259,11 @@ function MobileAccessNotice() {
   }
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-background/95 px-6 text-center backdrop-blur-sm"
       onClick={() => setDismissed(true)}
     >
-      <div 
+      <div
         className="max-w-sm space-y-4 rounded-2xl border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -220,9 +276,9 @@ function MobileAccessNotice() {
             For the best experience, please use Kourti Legal Hub on a tablet or desktop computer.
           </p>
         </div>
-        <Button 
-          variant="outline" 
-          className="w-full pointer-events-auto" 
+        <Button
+          variant="outline"
+          className="w-full pointer-events-auto"
           onClick={() => setDismissed(true)}
           onTouchEnd={(e) => {
             e.preventDefault();
@@ -243,61 +299,81 @@ function MobileNavigation() {
   const location = useLocation();
   const { data: userRoleData } = useUserRole();
   const role = userRoleData && 'role' in userRoleData ? userRoleData.role : null;
-  const isAdmin = role === "superadmin" || role === "admin";
+  const isAdmin = role === 'superadmin' || role === 'admin';
   const totalUnreadCount = useTotalUnreadCount();
 
   // Sidebar navigation groups and filtering (from AppSidebar)
   const primaryNavigation = {
-    label: "Main",
+    label: 'Main',
     items: [
-      { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
-      { title: "Matters", url: "/matters", icon: Briefcase, end: false },
-      { title: "Clients", url: "/clients", icon: UserCheck, end: false },
-      { title: "Calendar", url: "/calendar", icon: Calendar, end: false }
-    ]
+      { title: 'Dashboard', url: '/', icon: LayoutDashboard, end: true },
+      { title: 'Matters', url: '/matters', icon: Briefcase, end: false },
+      { title: 'Clients', url: '/clients', icon: UserCheck, end: false },
+      { title: 'Calendar', url: '/calendar', icon: Calendar, end: false },
+    ],
   };
   const documentsNavigation = {
-    label: "Legal Documents",
+    label: 'Legal Documents',
     items: [
-      { title: "Documents", url: "/documents", icon: FileText, end: false },
-      { title: "Contracts", url: "/contracts", icon: FileCheck, end: false }
-    ]
+      { title: 'Documents', url: '/documents', icon: FileText, end: false },
+      { title: 'Contracts', url: '/contracts', icon: FileCheck, end: false },
+    ],
   };
   const toolsNavigation = {
-    label: "Tools",
+    label: 'Tools',
     items: [
-      { title: "Live Chat", url: "/live-chat", icon: MessageCircle, end: false, badge: "New", badgeVariant: "default" as const },
-      { title: "Ream AI", url: "/ream-ai", icon: Bot, end: false },
-      { title: "Voice Recorder", url: "/voice-recorder", icon: Mic, end: false },
-      { title: "Transcriptions", url: "/transcriptions", icon: FileText, end: false },
-      { title: "Invoicing", url: "/invoices", icon: Receipt, end: false, badge: "Soon", badgeVariant: "outline" as const }
-    ]
+      {
+        title: 'Live Chat',
+        url: '/live-chat',
+        icon: MessageCircle,
+        end: false,
+        badge: 'New',
+        badgeVariant: 'default' as const,
+      },
+      { title: 'Ream AI', url: '/ream-ai', icon: Bot, end: false },
+      { title: 'Voice Recorder', url: '/voice-recorder', icon: Mic, end: false },
+      { title: 'Transcriptions', url: '/transcriptions', icon: FileText, end: false },
+      {
+        title: 'Invoicing',
+        url: '/invoices',
+        icon: Receipt,
+        end: false,
+        badge: 'Soon',
+        badgeVariant: 'outline' as const,
+      },
+    ],
   };
   const managementNavigation = {
-    label: "Management",
+    label: 'Management',
     items: [
-      { title: "Users", url: "/users", icon: Users, end: false },
-      { title: "Analytics", url: "/analytics", icon: Gauge, end: false },
-      { title: "Settings", url: "/settings", icon: Settings, end: false }
-    ]
+      { title: 'Users', url: '/users', icon: Users, end: false },
+      { title: 'Analytics', url: '/analytics', icon: Gauge, end: false },
+      { title: 'Settings', url: '/settings', icon: Settings, end: false },
+    ],
   };
   // Filter logic
   const getFilteredNavigation = () => {
-    const navigation: { label: string; items: NavItem[] }[] = [primaryNavigation, documentsNavigation];
+    const navigation: { label: string; items: NavItem[] }[] = [
+      primaryNavigation,
+      documentsNavigation,
+    ];
     const filteredTools = {
       ...toolsNavigation,
-      items: toolsNavigation.items.filter(item => {
-        if (item.url === "/invoices" && !isAdmin) {
+      items: toolsNavigation.items.filter((item) => {
+        if (item.url === '/invoices' && !isAdmin) {
           return false;
         }
         return true;
-      })
+      }),
     };
     if (filteredTools.items.length > 0) navigation.push(filteredTools);
     if (isAdmin) {
       navigation.push(managementNavigation);
     } else {
-      navigation.push({ label: "Management", items: [managementNavigation.items.find(i => i.url === "/settings")!] });
+      navigation.push({
+        label: 'Management',
+        items: [managementNavigation.items.find((i) => i.url === '/settings')!],
+      });
     }
     return navigation;
   };
@@ -318,7 +394,9 @@ function MobileNavigation() {
               The invoicing & billing module will be available in an upcoming release!
             </DialogDescription>
           </DialogHeader>
-          <Button className="mt-2 w-full" onClick={() => setShowInvoiceSoon(false)} autoFocus>Close</Button>
+          <Button className="mt-2 w-full" onClick={() => setShowInvoiceSoon(false)} autoFocus>
+            Close
+          </Button>
         </DialogContent>
       </Dialog>
       <Sheet open={open} onOpenChange={setOpen}>
@@ -333,7 +411,10 @@ function MobileNavigation() {
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-[280px] border-none bg-[hsl(var(--sidebar-background))] p-0">
+        <SheetContent
+          side="left"
+          className="w-[280px] border-none bg-[hsl(var(--sidebar-background))] p-0"
+        >
           <div className="flex flex-col h-full">
             <div className="p-4 border-b">
               <div className="flex items-center justify-between">
@@ -344,28 +425,28 @@ function MobileNavigation() {
               </div>
             </div>
             <div className="px-2 py-4 flex-1 overflow-y-auto">
-              {navigationGroups.map(group => (
+              {navigationGroups.map((group) => (
                 <div key={group.label} className="mb-3">
                   <div className="text-xs text-muted-foreground font-semibold px-2 mb-1">
                     {group.label}
                   </div>
                   <nav className="space-y-1">
-                    {group.items.map(item => {
+                    {group.items.map((item) => {
                       if (!item) return null;
-                      const isInvoice = item.url === "/invoices";
-                      const isLiveChat = item.url === "/live-chat";
-                      
+                      const isInvoice = item.url === '/invoices';
+                      const isLiveChat = item.url === '/live-chat';
+
                       return (
                         <Button
                           key={item.url}
                           variant="ghost"
                           className={cn(
-                            "w-full justify-start gap-3 rounded-lg border border-transparent px-3 py-2 text-sm font-medium",
+                            'w-full justify-start gap-3 rounded-lg border border-transparent px-3 py-2 text-sm font-medium',
                             isActive(item.url, item.end)
-                              ? "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]"
-                              : "text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground"
+                              ? 'bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]'
+                              : 'text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground'
                           )}
-                          onClick={e => {
+                          onClick={(e) => {
                             setOpen(false);
                             if (isInvoice) {
                               e.preventDefault();
@@ -379,7 +460,10 @@ function MobileNavigation() {
                           <item.icon className="h-5 w-5" />
                           <span>{item.title}</span>
                           {isLiveChat && totalUnreadCount > 0 ? (
-                            <Badge variant="destructive" className="ml-auto text-[10px] min-w-5 justify-center">
+                            <Badge
+                              variant="destructive"
+                              className="ml-auto text-[10px] min-w-5 justify-center"
+                            >
                               {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                             </Badge>
                           ) : item.badge ? (
@@ -404,7 +488,7 @@ function MobileNavigation() {
                 className="w-full justify-start"
                 onClick={() => {
                   setOpen(false);
-                  navigate('/settings')
+                  navigate('/settings');
                 }}
               >
                 <Settings className="h-5 w-5 mr-3" />
@@ -435,14 +519,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
     error: globalSearchError,
   } = useGlobalSearch({ term, organizationId, enabled: searchDialogOpen });
 
-  const searchResults =
-    globalSearchResults ?? {
-      cases: [],
-      clients: [],
-      calendarEvents: [],
-      voiceRecordings: [],
-      transcriptions: [],
-    };
+  const searchResults = globalSearchResults ?? {
+    cases: [],
+    clients: [],
+    calendarEvents: [],
+    voiceRecordings: [],
+    transcriptions: [],
+  };
 
   const hasSearchTerm = term.trim().length >= 2;
 
@@ -470,7 +553,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     users: { label: 'User Management', status: 'Access Governance', tone: 'info' },
     settings: { label: 'Settings', status: 'Configuration', tone: 'info' },
     'ream-ai': { label: 'Ream AI', status: 'Assistant Ready', tone: 'success' },
-    default: { label: 'Workspace', status: 'Operational', tone: 'info' }
+    default: { label: 'Workspace', status: 'Operational', tone: 'info' },
   };
 
   const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -481,13 +564,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
     if (index === 0) {
       return moduleMeta.label;
     }
-    return segment
-      .replace(/[-_]/g, ' ')
-      .replace(/\b\w/g, (char: string) => char.toUpperCase());
+    return segment.replace(/[-_]/g, ' ').replace(/\b\w/g, (char: string) => char.toUpperCase());
   });
 
   const headerTimestamp = useMemo(
-    () => new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date()),
+    () =>
+      new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date()),
     []
   );
 
@@ -516,11 +598,35 @@ export function AppLayout({ children }: { children: ReactNode }) {
 }
 
 type GlobalSearchResults = {
-  cases: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
+  cases: {
+    id: string;
+    title: string;
+    subtitle?: string;
+    url: string;
+    badge?: { label: string; variant?: string };
+  }[];
   clients: { id: string; title: string; subtitle?: string; url: string }[];
-  calendarEvents: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
-  voiceRecordings: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
-  transcriptions: { id: string; title: string; subtitle?: string; url: string; badge?: { label: string; variant?: string } }[];
+  calendarEvents: {
+    id: string;
+    title: string;
+    subtitle?: string;
+    url: string;
+    badge?: { label: string; variant?: string };
+  }[];
+  voiceRecordings: {
+    id: string;
+    title: string;
+    subtitle?: string;
+    url: string;
+    badge?: { label: string; variant?: string };
+  }[];
+  transcriptions: {
+    id: string;
+    title: string;
+    subtitle?: string;
+    url: string;
+    badge?: { label: string; variant?: string };
+  }[];
 };
 
 type ModuleTone = 'success' | 'info' | 'warning';
@@ -561,13 +667,11 @@ function AppLayoutInner({
   navigate,
   user,
   userInitials,
-  handleSignOut
+  handleSignOut,
 }: AppLayoutInnerProps) {
   const hasSearchResults =
     hasSearchTerm &&
-    Object.values(searchResults ?? {}).some(
-      (items) => Array.isArray(items) && items.length > 0
-    );
+    Object.values(searchResults ?? {}).some((items) => Array.isArray(items) && items.length > 0);
 
   const handleSearchResultSelect = (url: string) => {
     setSearchDialogOpen(false);
@@ -593,14 +697,21 @@ function AppLayoutInner({
                 <div className="flex items-center gap-3">
                   <MobileNavigation />
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Workspace</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                      Workspace
+                    </span>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-semibold text-foreground">{moduleMeta?.label}</span>
-                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">{moduleMeta?.status}</span>
+                      <span className="text-xl font-semibold text-foreground">
+                        {moduleMeta?.label}
+                      </span>
+                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">
+                        {moduleMeta?.status}
+                      </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <PlanBadge />
                   <Button
                     variant="default"
                     className="hidden items-center gap-2 rounded-md bg-[hsl(var(--primary))] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[hsl(var(--primary))/0.9] sm:flex"
@@ -613,17 +724,17 @@ function AppLayoutInner({
                   <DeadlineReminders />
                   <TooltipProvider>
                     <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/help-center')}
-                        aria-label="Help Center"
-                        className="hidden h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground sm:flex"
-                      >
-                        <HelpCircle className="h-5 w-5" />
-                      </Button>
-                    </TooltipTrigger>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate('/help-center')}
+                          aria-label="Help Center"
+                          className="hidden h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] text-muted-foreground transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground sm:flex"
+                        >
+                          <HelpCircle className="h-5 w-5" />
+                        </Button>
+                      </TooltipTrigger>
                       <TooltipContent>Help Center</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -638,7 +749,13 @@ function AppLayoutInner({
                         className="ml-1 flex h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-0 text-foreground transition-colors hover:border-[hsl(var(--primary))]"
                       >
                         <Avatar className="h-7 w-7">
-                          <AvatarImage src={(user as { user_metadata?: { avatar_url?: string } })?.user_metadata?.avatar_url} alt={user?.email || 'User'} />
+                          <AvatarImage
+                            src={
+                              (user as { user_metadata?: { avatar_url?: string } })?.user_metadata
+                                ?.avatar_url
+                            }
+                            alt={user?.email || 'User'}
+                          />
                           <AvatarFallback className="bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))] text-sm">
                             {userInitials}
                           </AvatarFallback>
@@ -648,7 +765,10 @@ function AppLayoutInner({
                     <DropdownMenuContent align="end" className="mt-1 w-56">
                       <DropdownMenuLabel>
                         <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none">{(user as { user_metadata?: { name?: string } })?.user_metadata?.name || user?.email}</p>
+                          <p className="text-sm font-medium leading-none">
+                            {(user as { user_metadata?: { name?: string } })?.user_metadata?.name ||
+                              user?.email}
+                          </p>
                           <p className="text-xs leading-none text-muted-foreground">
                             {user?.email}
                           </p>
@@ -678,7 +798,10 @@ function AppLayoutInner({
                         </PermissionGate>
                       </DropdownMenuGroup>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={handleSignOut}
+                      >
                         Sign Out
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -692,10 +815,14 @@ function AppLayoutInner({
                   onClick={() => setSearchDialogOpen(true)}
                 >
                   <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                  <span className="flex-1 truncate">Search cases, clients, calendar events, voice notes...</span>
+                  <span className="flex-1 truncate">
+                    Search cases, clients, calendar events, voice notes...
+                  </span>
                   <span className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:flex">
                     Press
-                    <kbd className="rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-foreground">⌘K</kbd>
+                    <kbd className="rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                      ⌘K
+                    </kbd>
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground md:justify-end">
@@ -708,7 +835,13 @@ function AppLayoutInner({
                   {breadcrumbLabels.map((label, index) => (
                     <span key={`${label}-${index}`} className="flex items-center gap-1">
                       {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/60" />}
-                      <span className={index === breadcrumbLabels.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+                      <span
+                        className={
+                          index === breadcrumbLabels.length - 1
+                            ? 'font-medium text-foreground'
+                            : 'text-muted-foreground'
+                        }
+                      >
                         {label}
                       </span>
                     </span>
@@ -724,168 +857,206 @@ function AppLayoutInner({
                 onValueChange={setTerm}
               />
               <CommandList>
-                {hasSearchTerm && searchResults &&
-                  searchResults.cases.length > 0 && (
-                    <CommandGroup heading="Matters">
-                      {searchResults.cases.map((item) => (
-                        <CommandItem
-                          key={`case-${item.id}`}
-                          value={`case-${item.title}`}
-                          className="flex items-center gap-3"
-                          onSelect={() => handleSearchResultSelect(item.url)}
-                        >
-                          <Briefcase className="h-4 w-4 text-muted-foreground" />
-                          <div className="flex flex-col flex-1">
-                            <span className="text-sm font-medium text-foreground">{item.title}</span>
-                            {item.subtitle && (
-                              <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-                            )}
-                          </div>
-                          {item.badge && (
-                            <Badge variant={(item.badge.variant as "secondary" | "destructive" | "default" | "outline") ?? 'secondary'} className="ml-2">
-                              {item.badge.label}
-                            </Badge>
+                {hasSearchTerm && searchResults && searchResults.cases.length > 0 && (
+                  <CommandGroup heading="Matters">
+                    {searchResults.cases.map((item) => (
+                      <CommandItem
+                        key={`case-${item.id}`}
+                        value={`case-${item.title}`}
+                        className="flex items-center gap-3"
+                        onSelect={() => handleSearchResultSelect(item.url)}
+                      >
+                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col flex-1">
+                          <span className="text-sm font-medium text-foreground">{item.title}</span>
+                          {item.subtitle && (
+                            <span className="text-xs text-muted-foreground">{item.subtitle}</span>
                           )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
+                        </div>
+                        {item.badge && (
+                          <Badge
+                            variant={
+                              (item.badge.variant as
+                                | 'secondary'
+                                | 'destructive'
+                                | 'default'
+                                | 'outline') ?? 'secondary'
+                            }
+                            className="ml-2"
+                          >
+                            {item.badge.label}
+                          </Badge>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
 
-                {hasSearchTerm && searchResults &&
-                  searchResults.clients.length > 0 && (
-                    <CommandGroup heading="Clients">
-                      {searchResults.clients.map((item) => (
-                        <CommandItem
-                          key={`client-${item.id}`}
-                          value={`client-${item.title}`}
-                          className="flex items-center gap-3"
-                          onSelect={() => handleSearchResultSelect(item.url)}
-                        >
-                          <UserCheck className="h-4 w-4 text-muted-foreground" />
-                          <div className="flex flex-col flex-1">
-                            <span className="text-sm font-medium text-foreground">{item.title}</span>
-                            {item.subtitle && (
-                              <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-                            )}
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-
-                {hasSearchTerm && searchResults &&
-                  searchResults.calendarEvents.length > 0 && (
-                    <CommandGroup heading="Calendar Events">
-                      {searchResults.calendarEvents.map((item) => (
-                        <CommandItem
-                          key={`event-${item.id}`}
-                          value={`event-${item.title}`}
-                          className="flex items-center gap-3"
-                          onSelect={() => handleSearchResultSelect(item.url)}
-                        >
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <div className="flex flex-col flex-1">
-                            <span className="text-sm font-medium text-foreground">{item.title}</span>
-                            {item.subtitle && (
-                              <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-                            )}
-                          </div>
-                          {item.badge && (
-                            <Badge variant={(item.badge.variant as "secondary" | "destructive" | "default" | "outline") ?? 'secondary'} className="ml-2 capitalize">
-                              {item.badge.label}
-                            </Badge>
+                {hasSearchTerm && searchResults && searchResults.clients.length > 0 && (
+                  <CommandGroup heading="Clients">
+                    {searchResults.clients.map((item) => (
+                      <CommandItem
+                        key={`client-${item.id}`}
+                        value={`client-${item.title}`}
+                        className="flex items-center gap-3"
+                        onSelect={() => handleSearchResultSelect(item.url)}
+                      >
+                        <UserCheck className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col flex-1">
+                          <span className="text-sm font-medium text-foreground">{item.title}</span>
+                          {item.subtitle && (
+                            <span className="text-xs text-muted-foreground">{item.subtitle}</span>
                           )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
 
-                {hasSearchTerm && searchResults &&
-                  searchResults.voiceRecordings.length > 0 && (
-                    <CommandGroup heading="Voice Recordings">
-                      {searchResults.voiceRecordings.map((item) => (
-                        <CommandItem
-                          key={`voice-${item.id}`}
-                          value={`voice-${item.title}`}
-                          className="flex items-center gap-3"
-                          onSelect={() => handleSearchResultSelect(item.url)}
-                        >
-                          <Mic className="h-4 w-4 text-muted-foreground" />
-                          <div className="flex flex-col flex-1">
-                            <span className="text-sm font-medium text-foreground">{item.title}</span>
-                            {item.subtitle && (
-                              <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-                            )}
-                          </div>
-                          {item.badge && (
-                            <Badge variant={(item.badge.variant as "secondary" | "destructive" | "default" | "outline") ?? 'secondary'} className="ml-2 capitalize">
-                              {item.badge.label}
-                            </Badge>
+                {hasSearchTerm && searchResults && searchResults.calendarEvents.length > 0 && (
+                  <CommandGroup heading="Calendar Events">
+                    {searchResults.calendarEvents.map((item) => (
+                      <CommandItem
+                        key={`event-${item.id}`}
+                        value={`event-${item.title}`}
+                        className="flex items-center gap-3"
+                        onSelect={() => handleSearchResultSelect(item.url)}
+                      >
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col flex-1">
+                          <span className="text-sm font-medium text-foreground">{item.title}</span>
+                          {item.subtitle && (
+                            <span className="text-xs text-muted-foreground">{item.subtitle}</span>
                           )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
+                        </div>
+                        {item.badge && (
+                          <Badge
+                            variant={
+                              (item.badge.variant as
+                                | 'secondary'
+                                | 'destructive'
+                                | 'default'
+                                | 'outline') ?? 'secondary'
+                            }
+                            className="ml-2 capitalize"
+                          >
+                            {item.badge.label}
+                          </Badge>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
 
-                {hasSearchTerm && searchResults &&
-                  searchResults.transcriptions.length > 0 && (
-                    <CommandGroup heading="Transcriptions">
-                      {searchResults.transcriptions.map((item) => (
-                        <CommandItem
-                          key={`transcription-${item.id}`}
-                          value={`transcription-${item.title}`}
-                          className="flex items-center gap-3"
-                          onSelect={() => handleSearchResultSelect(item.url)}
-                        >
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <div className="flex flex-col flex-1">
-                            <span className="text-sm font-medium text-foreground">{item.title}</span>
-                            {item.subtitle && (
-                              <span className="text-xs text-muted-foreground line-clamp-2">{item.subtitle}</span>
-                            )}
-                          </div>
-                          {item.badge && (
-                            <Badge variant={(item.badge.variant as "secondary" | "destructive" | "default" | "outline") ?? 'secondary'} className="ml-2 capitalize">
-                              {item.badge.label}
-                            </Badge>
+                {hasSearchTerm && searchResults && searchResults.voiceRecordings.length > 0 && (
+                  <CommandGroup heading="Voice Recordings">
+                    {searchResults.voiceRecordings.map((item) => (
+                      <CommandItem
+                        key={`voice-${item.id}`}
+                        value={`voice-${item.title}`}
+                        className="flex items-center gap-3"
+                        onSelect={() => handleSearchResultSelect(item.url)}
+                      >
+                        <Mic className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col flex-1">
+                          <span className="text-sm font-medium text-foreground">{item.title}</span>
+                          {item.subtitle && (
+                            <span className="text-xs text-muted-foreground">{item.subtitle}</span>
                           )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
+                        </div>
+                        {item.badge && (
+                          <Badge
+                            variant={
+                              (item.badge.variant as
+                                | 'secondary'
+                                | 'destructive'
+                                | 'default'
+                                | 'outline') ?? 'secondary'
+                            }
+                            className="ml-2 capitalize"
+                          >
+                            {item.badge.label}
+                          </Badge>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
 
-                {hasSearchTerm && searchResults && !isGlobalSearchLoading && hasSearchResults && (() => {
-                  const totalResults = Object.values(searchResults).reduce((sum: number, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
-                  return (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground border-t">
-                      Found {totalResults} result{totalResults !== 1 ? 's' : ''}
-                    </div>
-                  );
-                })()}
+                {hasSearchTerm && searchResults && searchResults.transcriptions.length > 0 && (
+                  <CommandGroup heading="Transcriptions">
+                    {searchResults.transcriptions.map((item) => (
+                      <CommandItem
+                        key={`transcription-${item.id}`}
+                        value={`transcription-${item.title}`}
+                        className="flex items-center gap-3"
+                        onSelect={() => handleSearchResultSelect(item.url)}
+                      >
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col flex-1">
+                          <span className="text-sm font-medium text-foreground">{item.title}</span>
+                          {item.subtitle && (
+                            <span className="text-xs text-muted-foreground line-clamp-2">
+                              {item.subtitle}
+                            </span>
+                          )}
+                        </div>
+                        {item.badge && (
+                          <Badge
+                            variant={
+                              (item.badge.variant as
+                                | 'secondary'
+                                | 'destructive'
+                                | 'default'
+                                | 'outline') ?? 'secondary'
+                            }
+                            className="ml-2 capitalize"
+                          >
+                            {item.badge.label}
+                          </Badge>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {hasSearchTerm &&
+                  searchResults &&
+                  !isGlobalSearchLoading &&
+                  hasSearchResults &&
+                  (() => {
+                    const totalResults = Object.values(searchResults).reduce(
+                      (sum: number, items) => sum + (Array.isArray(items) ? items.length : 0),
+                      0
+                    );
+                    return (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground border-t">
+                        Found {totalResults} result{totalResults !== 1 ? 's' : ''}
+                      </div>
+                    );
+                  })()}
                 <CommandEmpty>
-                  {!hasSearchTerm
-                    ? 'Type at least 2 characters to search across the workspace.'
-                    : globalSearchError
-                      ? 'Unable to search the workspace. Please try again.'
-                      : isGlobalSearchLoading
-                        ? (
-                          <div className="flex items-center gap-2 py-4">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                            <span>Searching workspace...</span>
-                          </div>
-                        )
-                        : hasSearchResults
-                          ? 'Keep typing to narrow down your results.'
-                          : 'No results found for your search.'}
+                  {!hasSearchTerm ? (
+                    'Type at least 2 characters to search across the workspace.'
+                  ) : globalSearchError ? (
+                    'Unable to search the workspace. Please try again.'
+                  ) : isGlobalSearchLoading ? (
+                    <div className="flex items-center gap-2 py-4">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      <span>Searching workspace...</span>
+                    </div>
+                  ) : hasSearchResults ? (
+                    'Keep typing to narrow down your results.'
+                  ) : (
+                    'No results found for your search.'
+                  )}
                 </CommandEmpty>
               </CommandList>
             </CommandDialog>
           </header>
 
           <main className="workspace-body flex-1 overflow-auto">
-            <div className="workspace-body__inner h-full">
-              {children}
-            </div>
+            <div className="workspace-body__inner h-full">{children}</div>
           </main>
         </div>
       </div>
