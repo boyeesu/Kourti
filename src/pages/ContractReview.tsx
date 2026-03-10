@@ -33,6 +33,7 @@ import {
   parseAnalysisToFindings,
   type AnalysisFinding,
   type AnalysisRecap,
+  type FindingDecision,
 } from '@/components/ream-ai/ContractAnalysisView';
 
 const goalSuggestions = [
@@ -64,8 +65,13 @@ export default function ContractReview() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLoadingSource, setIsLoadingSource] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [decisions, setDecisions] = useState<Record<string, FindingDecision>>({});
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const createContractMutation = useCreateContract();
+
+  const handleDecision = (findingId: string, decision: FindingDecision) => {
+    setDecisions((prev) => ({ ...prev, [findingId]: decision }));
+  };
 
   const hasResults = findings.length > 0 && recap;
   const hasDocument = textContent.trim().length > 50 || file;
@@ -169,7 +175,6 @@ export default function ContractReview() {
           setIsLoadingSource(false);
         });
     }
-     
   }, [searchParams]);
 
   // Extract text from uploaded file
@@ -189,6 +194,34 @@ export default function ContractReview() {
 
       if (uploadedFile.type === 'text/plain' || uploadedFile.name.toLowerCase().endsWith('.txt')) {
         extracted = await uploadedFile.text();
+      } else if (
+        uploadedFile.type === 'application/pdf' ||
+        uploadedFile.name.toLowerCase().endsWith('.pdf')
+      ) {
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+            'pdfjs-dist/build/pdf.worker.min.mjs',
+            import.meta.url
+          ).toString();
+
+          const arrayBuffer = await uploadedFile.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const pageTexts: string[] = [];
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item) => ('str' in item ? item.str : '') || '')
+              .join(' ');
+            pageTexts.push(pageText);
+          }
+
+          extracted = pageTexts.join('\n\n');
+        } catch (e) {
+          console.error('PDF extraction failed:', e);
+        }
       } else if (uploadedFile.name.toLowerCase().endsWith('.docx')) {
         try {
           const mammoth = await import('mammoth');
@@ -212,7 +245,13 @@ export default function ContractReview() {
         });
 
         const rawText = await textPromise;
-        if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
+        // Only use raw text if it's actually readable (not binary like PDF)
+        if (
+          rawText &&
+          rawText.length > 50 &&
+          !rawText.includes('\x00') &&
+          !rawText.startsWith('%PDF')
+        ) {
           extracted = rawText;
         }
       }
@@ -279,9 +318,6 @@ export default function ContractReview() {
     setDocumentContent(content);
 
     try {
-      setAnalysisProgress(25);
-      setProgressLabel('Sending to REAM AI for analysis...');
-
       const combinedGoals = [...selectedGoals, goal].filter(Boolean).join('. ');
       const goalText =
         combinedGoals ||
@@ -290,45 +326,107 @@ export default function ContractReview() {
         text: content,
         goal: goalText,
         analysisType: resolveAnalysisType(),
+        stream: true,
       };
 
-      setAnalysisProgress(40);
-      setProgressLabel('AI is reviewing the contract...');
+      // Get auth session for the streaming request
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required. Please sign in again.');
+      }
 
-      const { data, error } = await invokeFunctionWithCsrf<{ analysis?: string }>(
-        'advanced-contract-analysis',
-        {
-          body: payload,
-        }
-      );
+      setAnalysisProgress(20);
+      setProgressLabel('Connecting to REAM AI...');
 
-      let analysisText = '';
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey =
+        import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-      if (error) {
-        console.warn('Primary analysis failed, trying fallback:', error.message);
-        setAnalysisProgress(50);
-        setProgressLabel('Trying fallback analysis...');
+      // Use direct fetch for streaming — bypasses Supabase client overhead
+      const response = await fetch(`${supabaseUrl}/functions/v1/advanced-contract-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabaseKey,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        console.warn('Streaming analysis failed:', response.status, errorBody);
+
+        // Fallback to non-streaming via csrfClient
+        setAnalysisProgress(40);
+        setProgressLabel('Trying alternative analysis...');
         const fallback = await invokeFunctionWithCsrf<{ analysis?: string }>(
           'contract-analysis-ai',
-          {
-            body: payload,
-          }
+          { body: { ...payload, stream: undefined } }
         );
         if (fallback.error) throw fallback.error;
-        analysisText = fallback.data?.analysis || '';
-      } else {
-        analysisText = data?.analysis || '';
+        const analysisText = fallback.data?.analysis || '';
+        if (!analysisText) throw new Error('Analysis returned empty results. Please try again.');
+
+        setAnalysisProgress(80);
+        setProgressLabel('Parsing findings...');
+        const parsed = parseAnalysisToFindings(analysisText, content);
+        setFindings(parsed.findings);
+        setRecap(parsed.recap);
+        setAnalysisProgress(100);
+        setProgressLabel('Analysis complete!');
+        toast.success('Analysis Complete', {
+          description: `Found ${parsed.findings.length} findings across ${parsed.recap.categories.length} categories.`,
+        });
+        return;
+      }
+
+      // Stream the response — show progress as chunks arrive
+      setAnalysisProgress(30);
+      setProgressLabel('AI is analyzing your contract...');
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Streaming not supported');
+
+      const decoder = new TextDecoder();
+      let analysisText = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              analysisText += delta;
+              // Update progress based on content length (rough estimate)
+              const progress = Math.min(30 + Math.floor((analysisText.length / 3000) * 50), 80);
+              setAnalysisProgress(progress);
+            }
+          } catch {
+            // Skip malformed SSE chunks
+          }
+        }
       }
 
       if (!analysisText) {
-        throw new Error(
-          error
-            ? 'Both analysis services returned empty results. Please try again.'
-            : 'AI service returned an empty analysis. Please try again.'
-        );
+        throw new Error('AI service returned an empty analysis. Please try again.');
       }
 
-      setAnalysisProgress(80);
+      setAnalysisProgress(85);
       setProgressLabel('Parsing findings and building analysis view...');
 
       const parsed = parseAnalysisToFindings(analysisText, content);
@@ -422,17 +520,34 @@ export default function ContractReview() {
   const handleSaveAsContract = async () => {
     if (!recap) return;
     try {
+      // Apply all accepted recommendations to the document content before saving
+      let finalContent = documentContent;
+      const acceptedFindings = findings.filter(
+        (f) => decisions[f.id] === 'accepted' && f.matchText && f.recommendation
+      );
+
+      for (const finding of acceptedFindings) {
+        finalContent = finalContent.replace(finding.matchText, finding.recommendation!);
+      }
+
       const contractTitle =
         file?.name?.replace(/\.[^/.]+$/, '') ||
         `AI Reviewed Contract - ${new Date().toLocaleDateString()}`;
       await createContractMutation.mutateAsync({
         title: contractTitle,
         description: goal || selectedGoals.join(', ') || 'AI-generated contract review',
-        terms: documentContent,
+        terms: finalContent,
         status: 'active',
         contract_type: analysisType === 'contract_review' ? 'service' : 'general',
       });
-      toast.success('Contract Saved', { description: 'Contract has been saved successfully.' });
+
+      const editCount = acceptedFindings.length;
+      toast.success('Contract Saved', {
+        description:
+          editCount > 0
+            ? `Contract saved with ${editCount} accepted edit${editCount !== 1 ? 's' : ''} applied.`
+            : 'Contract has been saved successfully.',
+      });
     } catch {
       // Error toast handled by mutation
     }
@@ -446,6 +561,7 @@ export default function ContractReview() {
     setDocumentContent('');
     setGoal('');
     setSelectedGoals([]);
+    setDecisions({});
   };
 
   // Drag and drop handlers
@@ -491,6 +607,13 @@ export default function ContractReview() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {Object.values(decisions).filter((d) => d === 'accepted').length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {Object.values(decisions).filter((d) => d === 'accepted').length} edit
+                {Object.values(decisions).filter((d) => d === 'accepted').length !== 1 ? 's' : ''}{' '}
+                accepted
+              </Badge>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -512,6 +635,8 @@ export default function ContractReview() {
             onApplyRecommendation={handleApplyRecommendation}
             onEditDocument={handleEditDocument}
             onExport={handleExport}
+            decisions={decisions}
+            onDecision={handleDecision}
           />
         </div>
       </div>

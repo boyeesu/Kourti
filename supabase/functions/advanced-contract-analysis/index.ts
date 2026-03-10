@@ -55,8 +55,8 @@ function getCorsOptions(requestOrigin: string | null): CorsSecurityHeadersOption
   };
 }
 
-const DEFAULT_CHAT_MODEL = 'gpt-5.1';
-const DEFAULT_FALLBACK_MODEL = 'gpt-5.1';
+const DEFAULT_CHAT_MODEL = 'gpt-5.4-2026-03-05';
+const DEFAULT_FALLBACK_MODEL = 'gpt-4o';
 
 function getChatModelCandidates() {
   const configuredModel = Deno.env.get('OPENAI_CHAT_MODEL')?.trim();
@@ -335,191 +335,95 @@ RAG CONTEXT HANDLING:
 - Combine information from multiple sources when relevant
 - If information conflicts between sources, note the discrepancy
 
-CRITICAL OUTPUT FORMATTING RULES - STRICTLY ENFORCE:
-- NEVER use markdown headers (#, ##, ###, ####, #####, ######) - write section titles naturally within the text flow
-- NEVER use bullet points with - or * or • characters - use numbered lists (1., 2., 3.) written as complete sentences or integrate into paragraphs
-- NEVER use em dashes (—) or en dashes (–) - use regular hyphens (-), commas, or colons instead
-- NEVER use special unicode characters or symbols (—, –, •, →, ←, ↔, "", '', …, etc.)
-- NEVER use ** bold formatting or * italic formatting or __ underline formatting
-- NEVER use markdown formatting of any kind
-- Use plain text with clear sections separated by double line breaks
-- When listing items, integrate them naturally into paragraphs or use numbered lists (1., 2., 3.) written as complete sentences
-- Use regular hyphens (-) only for compound words, not for lists
-- Use regular quotes (") not smart quotes ("")
-- Use regular apostrophes (') not smart apostrophes ('')
-- Write section labels naturally within paragraphs, not as separate headers with colons
-- Be extremely detailed and comprehensive in your analysis - provide thorough explanations, context, and practical implications
-- Use structured paragraphs for readability with natural flow
-- Write in a conversational, professional tone
+CRITICAL OUTPUT FORMAT - YOU MUST RESPOND WITH A JSON CODE BLOCK:
+Your response MUST be a JSON object wrapped in a \`\`\`json code block. No text before or after the JSON block.
+
+The JSON structure must be:
+\`\`\`json
+{
+  "summary": "A detailed executive summary of the document (2-4 sentences)",
+  "riskScore": <number 0-100>,
+  "findings": [
+    {
+      "severity": "critical" | "warning" | "info" | "positive",
+      "title": "Short title of the finding (under 60 chars)",
+      "description": "Detailed explanation of the finding with context and implications",
+      "matchText": "Exact quoted text from the document this finding refers to",
+      "recommendation": "Specific actionable recommendation or suggested replacement text",
+      "section": "Section or clause reference (e.g. 'Section 5.2', 'Termination Clause')",
+      "category": "Category like 'Liability', 'Termination', 'Payment', 'IP', 'Compliance', 'Confidentiality', 'General'"
+    }
+  ]
+}
+\`\`\`
+
+FINDING RULES:
+- Include 8-20 findings covering all important aspects of the document
+- severity "critical": provisions that expose parties to significant legal/financial risk
+- severity "warning": areas of concern, ambiguous terms, missing protections
+- severity "info": neutral observations, standard provisions worth noting
+- severity "positive": well-drafted clauses, strong protections, good practices
+- matchText MUST be an exact quote from the document (copy verbatim, 10-100 chars)
+- recommendation should be specific and actionable; for critical/warning findings, suggest replacement text when possible
+- riskScore: 0-30 = low risk, 31-60 = moderate risk, 61-100 = high risk
 
 Your analysis should be:
 1. Based EXCLUSIVELY on the provided document content
 2. Reference specific sections and language from the document
 3. Legally accurate and practical
 4. Easy to understand for both legal professionals and non-lawyers
-5. Well-structured with clear sections written as flowing paragraphs
-6. Action-oriented with specific recommendations when appropriate
-7. Extremely detailed and comprehensive - provide thorough explanations, context, and practical implications
-
-When analyzing documents, always:
-- Quote or paraphrase relevant document language
-- Cite specific clauses or sections being discussed
-- Base conclusions on actual document text, not assumptions
-- Identify what IS and IS NOT present in the document
-- Provide context-specific insights based on the actual content
-- Be thorough and detailed in your explanations - cover all aspects comprehensively
-- Write in flowing paragraphs, not as lists or bullet points
-
-Respond directly to the user's question using ONLY the document content provided. Use simple, clean text formatting without any special characters or markdown. Write each section as detailed, flowing paragraphs that naturally transition between topics.`;
+5. Action-oriented with specific recommendations
+6. Comprehensive - cover all key aspects of the document`;
 
     let userPrompt = '';
 
     switch (analysisType) {
       case 'summarize':
       case 'general':
-        userPrompt = `Please provide a comprehensive analysis of this legal document:
+        userPrompt = `Analyze this legal document and return your findings as a JSON code block following the exact schema from your instructions.
 
+DOCUMENT:
 ${text}
 
-Your analysis should include:
-
-DOCUMENT OVERVIEW
-Provide a clear summary of what this document is and its primary purpose.
-
-KEY PROVISIONS
-Identify and explain the most important terms, conditions, and obligations.
-
-PARTIES AND ROLES
-Describe who the parties are and their respective responsibilities.
-
-FINANCIAL TERMS
-Outline any payment terms, amounts, or financial obligations.
-
-TIMEFRAMES AND DEADLINES
-Highlight important dates, deadlines, or duration terms.
-
-RISK ASSESSMENT
-Identify potential legal risks, liabilities, or areas of concern.
-
-COMPLIANCE CONSIDERATIONS
-Note any regulatory or legal compliance requirements.
-
-RECOMMENDATIONS
-Provide specific suggestions for improvement or areas that need attention.
-
-Please ensure your response is detailed, professional, and actionable.`;
+Cover these areas in your findings: document overview, key provisions, parties and roles, financial terms, timeframes, risk assessment, compliance, and recommendations. Include 10-20 findings with exact quotes from the document as matchText.`;
         break;
 
       case 'risk':
-        userPrompt = `Conduct a thorough risk analysis of this legal document:
+        userPrompt = `Conduct a thorough risk analysis of this legal document and return your findings as a JSON code block following the exact schema from your instructions.
 
+DOCUMENT:
 ${text}
 
-Focus on:
-
-HIGH RISK AREAS
-Identify provisions that could expose parties to significant legal or financial risk.
-
-LIABILITY CONCERNS
-Analyze liability clauses, indemnification terms, and limitation provisions.
-
-ENFORCEMENT ISSUES
-Evaluate the enforceability of key provisions and potential challenges.
-
-COMPLIANCE GAPS
-Identify any regulatory or legal compliance issues.
-
-MISSING PROTECTIONS
-Note important protective clauses that may be absent.
-
-AMBIGUOUS TERMS
-Highlight vague or unclear provisions that could lead to disputes.
-
-MITIGATION STRATEGIES
-Recommend specific actions to reduce identified risks.
-
-Provide a detailed risk assessment with specific recommendations.`;
+Focus on: high risk areas, liability concerns, enforcement issues, compliance gaps, missing protections, ambiguous terms, and mitigation strategies. Weight findings toward critical and warning severity. Include 10-20 findings with exact quotes from the document as matchText.`;
         break;
 
       case 'extract':
-        userPrompt = `Extract and organize the key legal elements from this document:
+        userPrompt = `Extract and organize the key legal elements from this document and return your findings as a JSON code block following the exact schema from your instructions.
 
+DOCUMENT:
 ${text}
 
-Please provide:
-
-PARTIES INVOLVED
-List all parties with their roles and contact information.
-
-CONTRACTUAL OBLIGATIONS
-Detail what each party must do or provide.
-
-PAYMENT TERMS
-Extract all financial terms, amounts, and payment schedules.
-
-IMPORTANT DATES
-List all deadlines, effective dates, and expiration dates.
-
-TERMINATION CONDITIONS
-Describe how and when the agreement can be terminated.
-
-GOVERNING LAW
-Identify applicable jurisdiction and governing law.
-
-DISPUTE RESOLUTION
-Outline procedures for handling disputes.
-
-CONFIDENTIALITY PROVISIONS
-Extract any non-disclosure or confidentiality terms.
-
-INTELLECTUAL PROPERTY
-Note any IP rights, licenses, or restrictions.
-
-REGULATORY REQUIREMENTS
-Identify any compliance or regulatory obligations.
-
-Present the information in a clear, organized format.`;
+Focus on extracting: parties involved, contractual obligations, payment terms, important dates, termination conditions, governing law, dispute resolution, confidentiality, IP rights, and regulatory requirements. Use "info" severity for extracted facts and "warning" for missing elements. Include 10-20 findings with exact quotes from the document as matchText.`;
         break;
 
       case 'compare':
-        userPrompt = `Analyze this document for comparison purposes:
+        userPrompt = `Analyze this document for comparison purposes and return your findings as a JSON code block following the exact schema from your instructions.
 
+DOCUMENT:
 ${text}
 
-Provide:
-
-DOCUMENT CLASSIFICATION
-Identify the type and purpose of this document.
-
-STANDARD PROVISIONS
-List common/standard clauses found in similar documents.
-
-UNIQUE TERMS
-Highlight unusual or non-standard provisions.
-
-MISSING ELEMENTS
-Note typical clauses that appear to be missing.
-
-STRUCTURAL ANALYSIS
-Evaluate the organization and flow of the document.
-
-LEGAL COMPLETENESS
-Assess whether the document covers all necessary legal aspects.
-
-INDUSTRY STANDARDS
-Compare against typical industry practices where applicable.
-
-This analysis will be used for document comparison purposes.`;
+Focus on: document classification, standard provisions, unique/non-standard terms, missing elements, structural analysis, legal completeness, and industry standards. Include 10-20 findings with exact quotes from the document as matchText.`;
         break;
 
       default:
         userPrompt =
           goal ||
-          `Please analyze this legal document and provide insights:
+          `Analyze this legal document and return your findings as a JSON code block following the exact schema from your instructions.
 
+DOCUMENT:
 ${text}
 
-Provide a comprehensive analysis covering key terms, risks, and recommendations.`;
+Provide a comprehensive analysis covering key terms, risks, and recommendations. Include 10-20 findings with exact quotes from the document as matchText.`;
     }
 
     // Build messages array with conversation history if provided

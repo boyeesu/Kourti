@@ -26,6 +26,8 @@ const ALLOWED_ORIGINS = [
         'http://localhost:3000',
         'http://localhost:5173',
         'http://localhost:8080',
+        'http://localhost:8081',
+        'http://localhost:8082',
         'http://localhost:8083',
       ]
     : []),
@@ -185,39 +187,45 @@ serve(async (req: Request) => {
 
     const systemPrompt = `You are ${typeDetails.persona}, a senior legal expert assisting with contract and document analysis.
 
-CRITICAL WRITING RULES - STRICTLY ENFORCE:
-- Respond using plain text paragraphs with blank lines between sections
-- NEVER use markdown headings (#, ##, ###, etc.) - write section titles naturally within the text flow
-- NEVER use bullet points with - or * or • characters - use numbered lists (1., 2., 3.) written as complete sentences or integrate into paragraphs
-- NEVER use em dashes (—) or en dashes (–) - use regular hyphens (-), commas, or colons instead
-- NEVER use special unicode characters or symbols (—, –, •, →, ←, ↔, "", '', …, etc.)
-- NEVER use ** bold formatting or * italic formatting or __ underline formatting
-- NEVER use markdown formatting of any kind
-- Use regular hyphens (-) only for compound words, not for lists
-- Use regular quotes (") not smart quotes ("")
-- Use regular apostrophes (') not smart apostrophes ('')
-- Write section labels naturally within paragraphs, not as separate headers with colons
-- Be extremely detailed and comprehensive in your analysis - provide thorough explanations, context, and practical implications
-- Keep the tone professional, practical, and easy to follow for legal and business stakeholders
-- Structure responses with clear, flowing paragraphs that naturally transition between topics`;
+CRITICAL OUTPUT FORMAT - YOU MUST RESPOND WITH A JSON CODE BLOCK:
+Your response MUST be a JSON object wrapped in a \`\`\`json code block. No text before or after the JSON block.
+
+The JSON structure must be:
+\`\`\`json
+{
+  "summary": "A detailed executive summary of the document (2-4 sentences)",
+  "riskScore": <number 0-100>,
+  "findings": [
+    {
+      "severity": "critical" | "warning" | "info" | "positive",
+      "title": "Short title of the finding (under 60 chars)",
+      "description": "Detailed explanation of the finding with context and implications",
+      "matchText": "Exact quoted text from the document this finding refers to",
+      "recommendation": "Specific actionable recommendation or suggested replacement text",
+      "section": "Section or clause reference",
+      "category": "Category like 'Liability', 'Termination', 'Payment', 'IP', 'Compliance', 'Confidentiality', 'General'"
+    }
+  ]
+}
+\`\`\`
+
+FINDING RULES:
+- Include 8-20 findings covering all important aspects
+- matchText MUST be an exact quote from the document (10-100 chars)
+- severity: "critical" for significant risks, "warning" for concerns, "info" for observations, "positive" for good practices
+- recommendation should be specific and actionable
+- riskScore: 0-30 = low risk, 31-60 = moderate, 61-100 = high risk`;
 
     const goalInstruction = goal && goal.trim().length > 0 ? `\n\nUSER GOAL:\n${goal.trim()}` : '';
 
     const guidance = `\n\nANALYSIS FOCUS:\n${typeDetails.guidance}`;
 
-    const userPrompt = `DOCUMENT TO ANALYZE:\n${text.trim()}${goalInstruction}${guidance}
+    const userPrompt = `Analyze this document and return your findings as a JSON code block following the exact schema from your instructions.
 
-Please provide a comprehensive, detailed response that covers all of the following areas. Write each section as flowing paragraphs with thorough explanations, not as lists or bullet points:
+DOCUMENT:
+${text.trim()}${goalInstruction}${guidance}
 
-1. SUMMARY AND CONTEXT - Provide a detailed overview of the document, its purpose, the parties involved, and the overall context. Be specific and comprehensive.
-
-2. KEY TERMS AND OBLIGATIONS - Explain all key terms, conditions, obligations, and important provisions in detail. Describe what each party must do, when, and under what conditions. Be thorough and specific.
-
-3. RISKS OR ISSUES - Identify and explain all potential risks, issues, concerns, or problematic areas in detail. Explain why each is a concern and what the implications might be. Be comprehensive in your risk assessment.
-
-4. RECOMMENDATIONS OR NEXT STEPS - Provide detailed, actionable recommendations and next steps. Explain what should be done, why, and how. Be specific and practical.
-
-Remember: Write in plain text paragraphs, be extremely detailed, avoid all markdown formatting, and structure your response naturally with clear transitions between sections.`;
+Include 10-20 findings covering: summary and context, key terms and obligations, risks and issues, and recommendations. Each finding must have an exact matchText quote from the document.`;
 
     // Create Langfuse trace for this request
     const traceId = await createTrace({
@@ -239,7 +247,7 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5.1',
+        model: Deno.env.get('OPENAI_CHAT_MODEL') || 'gpt-5.4-2026-03-05',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

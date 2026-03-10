@@ -21,14 +21,18 @@ const supabaseConfig: SupabaseClientOptions<'public'> = {
   },
   // Set global error handler and timeout handling
   global: {
-    fetch: (...args) => {
-      const [url, options = {}] = args;
-      // Increase timeout for auth operations to 60 seconds
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-      return fetch(url, {
-        ...options,
+      // Preserve any existing signal by chaining abort
+      const existingSignal = init?.signal;
+      if (existingSignal) {
+        existingSignal.addEventListener('abort', () => controller.abort());
+      }
+
+      return fetch(input, {
+        ...init,
         signal: controller.signal,
       }).finally(() => clearTimeout(timeoutId));
     },

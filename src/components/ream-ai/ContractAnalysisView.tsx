@@ -23,6 +23,9 @@ import {
   BarChart3,
   List,
   ArrowRight,
+  ThumbsUp,
+  ThumbsDown,
+  Undo2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +59,8 @@ export interface AnalysisRecap {
   categories: string[];
 }
 
+export type FindingDecision = 'accepted' | 'rejected' | 'pending';
+
 interface ContractAnalysisViewProps {
   documentContent: string;
   documentTitle: string;
@@ -65,6 +70,9 @@ interface ContractAnalysisViewProps {
   onApplyRecommendation?: (findingId: string, newText: string) => void;
   onEditDocument?: (updatedContent: string) => void;
   onExport?: () => void;
+  /** Map of finding ID -> decision. Managed by parent. */
+  decisions?: Record<string, FindingDecision>;
+  onDecision?: (findingId: string, decision: FindingDecision) => void;
 }
 
 // --- Helpers ---
@@ -160,11 +168,15 @@ function FindingCard({
   isActive,
   onClick,
   onApplyRecommendation,
+  decision = 'pending',
+  onDecision,
 }: {
   finding: AnalysisFinding;
   isActive: boolean;
   onClick: () => void;
   onApplyRecommendation?: (findingId: string, newText: string) => void;
+  decision?: FindingDecision;
+  onDecision?: (findingId: string, decision: FindingDecision) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -172,34 +184,61 @@ function FindingCard({
   const config = severityConfig[finding.severity];
   const Icon = config.icon;
 
-  const handleApply = () => {
-    if (onApplyRecommendation && editText.trim()) {
-      onApplyRecommendation(finding.id, editText.trim());
-      setIsEditing(false);
-    }
-  };
+  const hasRecommendation = !!finding.recommendation && !!finding.matchText;
 
   return (
     <div
       className={cn(
         'rounded-lg border transition-all cursor-pointer',
         config.borderColor,
-        isActive ? cn(config.bgColor, 'ring-2 ring-primary/30') : 'hover:bg-accent/50'
+        decision === 'accepted' &&
+          'bg-green-50/50 dark:bg-green-950/20 border-green-300 dark:border-green-700',
+        decision === 'rejected' && 'opacity-50',
+        isActive && decision === 'pending' && cn(config.bgColor, 'ring-2 ring-primary/30'),
+        decision === 'pending' && !isActive && 'hover:bg-accent/50'
       )}
       onClick={onClick}
     >
       <div className="p-3">
         <div className="flex items-start gap-2">
-          <Icon className={cn('h-4 w-4 mt-0.5 shrink-0', config.color)} />
+          {decision === 'accepted' ? (
+            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-green-600 dark:text-green-400" />
+          ) : decision === 'rejected' ? (
+            <X className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <Icon className={cn('h-4 w-4 mt-0.5 shrink-0', config.color)} />
+          )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <h4 className="text-sm font-medium truncate">{finding.title}</h4>
-              <Badge
-                variant="outline"
-                className={cn('text-[10px] shrink-0 px-1.5 py-0', config.color, config.borderColor)}
+              <h4
+                className={cn(
+                  'text-sm font-medium truncate',
+                  decision === 'rejected' && 'line-through text-muted-foreground'
+                )}
               >
-                {config.label}
-              </Badge>
+                {finding.title}
+              </h4>
+              <div className="flex items-center gap-1 shrink-0">
+                {decision !== 'pending' && (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-[10px] px-1.5 py-0',
+                      decision === 'accepted'
+                        ? 'text-green-600 border-green-300'
+                        : 'text-muted-foreground border-muted'
+                    )}
+                  >
+                    {decision === 'accepted' ? 'Accepted' : 'Dismissed'}
+                  </Badge>
+                )}
+                <Badge
+                  variant="outline"
+                  className={cn('text-[10px] px-1.5 py-0', config.color, config.borderColor)}
+                >
+                  {config.label}
+                </Badge>
+              </div>
             </div>
             {finding.section && (
               <p className="text-xs text-muted-foreground mt-0.5">{finding.section}</p>
@@ -207,13 +246,64 @@ function FindingCard({
           </div>
         </div>
 
+        {/* Accept/Reject buttons — always visible for findings with recommendations */}
+        {hasRecommendation && decision === 'pending' && (
+          <div className="flex gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+              size="sm"
+              className="h-7 text-xs px-3 bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => onDecision?.(finding.id, 'accepted')}
+            >
+              <ThumbsUp className="h-3 w-3 mr-1.5" />
+              Accept Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs px-3"
+              onClick={() => onDecision?.(finding.id, 'rejected')}
+            >
+              <ThumbsDown className="h-3 w-3 mr-1.5" />
+              Dismiss
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs px-2"
+              onClick={() => {
+                setIsEditing(true);
+                setEditText(finding.recommendation || '');
+                setIsExpanded(true);
+              }}
+            >
+              <Edit3 className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
+          </div>
+        )}
+
+        {/* Undo button for already decided findings */}
+        {decision !== 'pending' && (
+          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-[10px] px-2 text-muted-foreground"
+              onClick={() => onDecision?.(finding.id, 'pending')}
+            >
+              <Undo2 className="h-3 w-3 mr-1" />
+              Undo
+            </Button>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             setIsExpanded(!isExpanded);
           }}
-          className="flex items-center gap-1 text-xs text-muted-foreground mt-2 hover:text-foreground transition-colors"
+          className="flex items-center gap-1 text-xs text-muted-foreground mt-1 hover:text-foreground transition-colors"
         >
           {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           {isExpanded ? 'Less' : 'Details'}
@@ -235,30 +325,19 @@ function FindingCard({
               </div>
             )}
 
-            {finding.recommendation && !isEditing && (
-              <div className="rounded bg-primary/5 p-2 border-l-2 border-primary/30">
+            {finding.recommendation && (
+              <div
+                className={cn(
+                  'rounded p-2 border-l-2',
+                  decision === 'accepted'
+                    ? 'bg-green-50 dark:bg-green-950/30 border-green-400'
+                    : 'bg-primary/5 border-primary/30'
+                )}
+              >
                 <p className="text-[10px] font-medium text-primary mb-1 uppercase tracking-wider">
-                  Recommendation
+                  {decision === 'accepted' ? 'Accepted Recommendation' : 'Recommendation'}
                 </p>
                 <p className="text-xs">{finding.recommendation}</p>
-                <div className="flex gap-1.5 mt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-6 text-[10px] px-2"
-                    onClick={() => {
-                      setIsEditing(true);
-                      setEditText(finding.recommendation || '');
-                    }}
-                  >
-                    <Edit3 className="h-3 w-3 mr-1" />
-                    Edit
-                  </Button>
-                  <Button size="sm" className="h-6 text-[10px] px-2" onClick={handleApply}>
-                    <Check className="h-3 w-3 mr-1" />
-                    Apply
-                  </Button>
-                </div>
               </div>
             )}
 
@@ -268,12 +347,22 @@ function FindingCard({
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
                   className="text-xs min-h-[60px]"
-                  placeholder="Edit the recommendation..."
+                  placeholder="Edit the recommendation text..."
                 />
                 <div className="flex gap-1.5">
-                  <Button size="sm" className="h-6 text-[10px] px-2" onClick={handleApply}>
+                  <Button
+                    size="sm"
+                    className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => {
+                      if (editText.trim()) {
+                        onApplyRecommendation?.(finding.id, editText.trim());
+                        onDecision?.(finding.id, 'accepted');
+                        setIsEditing(false);
+                      }
+                    }}
+                  >
                     <Check className="h-3 w-3 mr-1" />
-                    Apply Change
+                    Accept with Edit
                   </Button>
                   <Button
                     size="sm"
@@ -379,14 +468,27 @@ function HighlightedDocument({
     return segments;
   }, [content, findings]);
 
-  // Scroll to active highlight
+  // Scroll to active highlight — works inside ScrollArea viewport
   useEffect(() => {
     if (activeFindingId && containerRef.current) {
-      // Sanitize ID to prevent CSS selector injection
       const safeId = CSS.escape(activeFindingId);
-      const el = containerRef.current.querySelector(`[data-finding-id="${safeId}"]`);
+      const el = containerRef.current.querySelector(`[data-finding-id="${safeId}"]`) as HTMLElement;
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Find the ScrollArea viewport (parent with overflow)
+        const viewport = containerRef.current.closest('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+          const elRect = el.getBoundingClientRect();
+          const viewportRect = viewport.getBoundingClientRect();
+          const offset =
+            elRect.top - viewportRect.top - viewportRect.height / 2 + elRect.height / 2;
+          viewport.scrollBy({ top: offset, behavior: 'smooth' });
+        } else {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Brief flash effect to draw attention
+        el.classList.add('animate-pulse');
+        setTimeout(() => el.classList.remove('animate-pulse'), 1500);
       }
     }
   }, [activeFindingId]);
@@ -537,12 +639,32 @@ export function ContractAnalysisView({
   onApplyRecommendation,
   onEditDocument,
   onExport,
+  decisions: externalDecisions,
+  onDecision: externalOnDecision,
 }: ContractAnalysisViewProps) {
   const [activeFindingId, setActiveFindingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('findings');
   const [filterSeverity, setFilterSeverity] = useState<FindingSeverity | 'all'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [internalDecisions, setInternalDecisions] = useState<Record<string, FindingDecision>>({});
   const findingsRef = useRef<HTMLDivElement>(null);
+
+  const decisions = externalDecisions || internalDecisions;
+  const handleDecision = useCallback(
+    (findingId: string, decision: FindingDecision) => {
+      if (externalOnDecision) {
+        externalOnDecision(findingId, decision);
+      } else {
+        setInternalDecisions((prev) => ({ ...prev, [findingId]: decision }));
+      }
+    },
+    [externalOnDecision]
+  );
+
+  const actionableFindings = findings.filter((f) => f.recommendation && f.matchText);
+  const acceptedCount = actionableFindings.filter((f) => decisions[f.id] === 'accepted').length;
+  const rejectedCount = actionableFindings.filter((f) => decisions[f.id] === 'rejected').length;
+  const pendingCount = actionableFindings.length - acceptedCount - rejectedCount;
 
   const filteredFindings = findings.filter((f) => {
     if (filterSeverity !== 'all' && f.severity !== filterSeverity) return false;
@@ -816,6 +938,32 @@ export function ContractAnalysisView({
                   </div>
                 )}
 
+                {/* Decisions summary bar */}
+                {actionableFindings.length > 0 && (
+                  <div className="flex items-center gap-3 px-3 py-2 border-b bg-muted/20">
+                    <span className="text-xs text-muted-foreground shrink-0">Review:</span>
+                    <div className="flex items-center gap-2 text-xs">
+                      {acceptedCount > 0 && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <CheckCircle2 className="h-3 w-3" />
+                          {acceptedCount} accepted
+                        </span>
+                      )}
+                      {rejectedCount > 0 && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <X className="h-3 w-3" />
+                          {rejectedCount} dismissed
+                        </span>
+                      )}
+                      {pendingCount > 0 && (
+                        <span className="flex items-center gap-1 text-amber-600">
+                          {pendingCount} pending
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Findings list */}
                 <ScrollArea className="flex-1">
                   <div ref={findingsRef} className="p-3 space-y-2">
@@ -840,10 +988,13 @@ export function ContractAnalysisView({
                           <FindingCard
                             finding={finding}
                             isActive={activeFindingId === finding.id}
-                            onClick={() =>
-                              setActiveFindingId(activeFindingId === finding.id ? null : finding.id)
-                            }
+                            onClick={() => {
+                              const newId = activeFindingId === finding.id ? null : finding.id;
+                              setActiveFindingId(newId);
+                            }}
                             onApplyRecommendation={handleApply}
+                            decision={decisions[finding.id] || 'pending'}
+                            onDecision={handleDecision}
                           />
                         </div>
                       ))
