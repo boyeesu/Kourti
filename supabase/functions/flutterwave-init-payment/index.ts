@@ -235,7 +235,7 @@ serve(async (req: Request) => {
         organization_id: organizationId,
         flutterwave_tx_ref: txRef,
         amount: amount,
-        currency: (plan.currency as string) || 'NGN',
+        currency: (plan.currency as string) || 'USD',
         status: 'pending',
         payment_type: 'subscription',
         metadata: {
@@ -261,7 +261,7 @@ serve(async (req: Request) => {
     const paymentPayload: Record<string, unknown> = {
       tx_ref: txRef,
       amount: amount,
-      currency: (plan.currency as string) || 'NGN',
+      currency: (plan.currency as string) || 'USD',
       redirect_url: paymentRedirectUrl,
       customer: {
         email: user.email,

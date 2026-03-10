@@ -89,7 +89,7 @@ function useAdminSubscriptions() {
             plan_name: plan?.name || 'unknown',
             price_monthly: plan?.price_monthly ?? null,
             price_yearly: plan?.price_yearly ?? null,
-            currency: plan?.currency || 'NGN',
+            currency: plan?.currency || 'USD',
           } as RawSubscription;
         });
       } catch (error) {
@@ -189,7 +189,7 @@ export function usePlatformAnalytics() {
       monthlyRevenue,
       yearlyRevenue,
       estimatedMRR: monthlyRevenue + yearlyRevenue / 12,
-      currency: 'NGN',
+      currency: activeSubs[0]?.currency || 'USD',
       byPlan,
     };
 

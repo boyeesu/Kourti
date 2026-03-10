@@ -78,7 +78,7 @@ export async function sendPlanConfirmationEmail(params: PlanConfirmationParams):
 
     const planName: string = plan?.display_name || plan?.plan_type || 'Selected Plan';
     const planPrice = billingInterval === 'yearly' ? plan?.price_yearly : plan?.price_monthly;
-    const planCurrency: string = currency || plan?.currency || 'NGN';
+    const planCurrency: string = currency || plan?.currency || 'USD';
     const displayAmount = amount ?? planPrice;
 
     // Fetch organization name

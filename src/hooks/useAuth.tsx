@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { logError, logInfo } from '@/lib/logger';
 import { env } from '@/lib/env';
 import { getAuthRedirectUrl } from '@/utils/auth-helpers';
 import { trackEvent, AnalyticsEvents, identifyUser, resetAnalytics } from '@/lib/analytics';
+import { clearCurrentUser } from '@/hooks/useCurrentUser';
 
 interface UserData {
   first_name?: string;
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     setLoading(true);
@@ -338,6 +341,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Clear CSRF token on sign out
       sessionStorage.removeItem('csrf_token');
+      // Clear cached user immediately so in-flight getCurrentUserId() calls return null
+      clearCurrentUser();
+      // Cancel all in-flight queries and clear cache BEFORE signing out
+      // This prevents queries from firing with null user_id after session is destroyed
+      queryClient.cancelQueries();
+      queryClient.clear();
       await supabase.auth.signOut();
     } catch (error) {
       logError('Sign out error', { error });

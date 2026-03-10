@@ -174,36 +174,24 @@ export function useUpdateUserRole() {
         throw new Error('Platform admin role cannot be assigned through the application.');
       }
 
-      const currentUserId = await getCurrentUserId();
-      if (!currentUserId) throw new Error('User not authenticated');
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', currentUserId as any)
-        .single();
-
-      if (!profile) throw new Error('Profile not found');
-
-      // Delete all existing role assignments for this user
-      await supabase
-        .from('user_role_assignments')
-        .delete()
-        .eq('user_id', userId as any)
-        .eq('organization_id', (profile as any).organization_id);
-
-      // Create new role assignment
-      const { error } = await supabase.from('user_role_assignments').insert({
-        user_id: userId,
-        role_name: role,
-        organization_id: (profile as any).organization_id,
-        assigned_by: currentUserId,
-      } as any);
+      // Use the atomic change_user_role RPC instead of manual delete+insert
+      const { data, error } = await supabase.rpc('change_user_role', {
+        p_target_user_id: userId,
+        p_new_role_name: role,
+      });
 
       if (error) throw error;
+
+      // The RPC returns a JSON object with either { success: true } or { error: '...' }
+      const result = data as { success?: boolean; error?: string } | null;
+      if (result && result.error) {
+        throw new Error(result.error);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['user-role-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['user-permission'] });
       toast.success('User role updated', {
         description: "The user's role has been updated successfully.",
       });

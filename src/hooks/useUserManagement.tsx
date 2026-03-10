@@ -108,12 +108,13 @@ export function useUserRole() {
     queryKey: ['user-role'],
     queryFn: async () => {
       const userId = await getCurrentUserId();
+      if (!userId) throw new Error('User not authenticated');
 
       // Get profile data
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id, is_organization_creator')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId)
         .single();
 
       if (profileError) throw profileError;
@@ -122,7 +123,7 @@ export function useUserRole() {
       const { data: roleAssignments, error: roleError } = await supabase
         .from('user_role_assignments')
         .select('role_name')
-        .eq('user_id', userId || '')
+        .eq('user_id', userId)
         .eq('organization_id', profile.organization_id);
 
       if (roleError) throw roleError;

@@ -60,6 +60,15 @@ async function fetchCurrentUser(refresh = false): Promise<User | null> {
   return fetchPromise;
 }
 
+/**
+ * Clear cached user state. Call this before signOut to prevent
+ * in-flight queries from using a stale/null user ID.
+ */
+export function clearCurrentUser() {
+  currentUser = null;
+  fetchPromise = null;
+}
+
 export function useCurrentUser() {
   const { user } = useAuth();
   return user;

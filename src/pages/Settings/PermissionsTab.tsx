@@ -53,29 +53,33 @@ export default function PermissionsTab() {
   });
 
   const getPermissionValue = (resource: Resource, action: Action): boolean => {
-    // Check pending changes first
     const key = `${resource}-${action}`;
+    // Check pending changes first
     if (pendingChanges.has(key)) {
       return pendingChanges.get(key) || false;
     }
 
-    // For global roles, use built-in logic (not stored in role_permissions)
-    if (['superadmin', 'admin', 'user'].includes(selectedRole || '')) {
-      if (selectedRole === 'superadmin') return true;
-      if (selectedRole === 'admin') return true;
-      if (selectedRole === 'user') return action !== 'delete' && action !== 'manage';
-      return false;
+    // Superadmin always has all permissions (not configurable)
+    if (selectedRole === 'superadmin') return true;
+
+    // For admin, user, and custom roles: check explicit permissions first
+    if (permissionMap.has(key)) {
+      return permissionMap.get(key) || false;
     }
 
-    // For custom roles, use explicit permissions or default to false
-    return permissionMap.get(key) || false;
+    // Fall back to built-in defaults if no explicit permission exists
+    if (selectedRole === 'admin') return true;
+    if (selectedRole === 'user') return action !== 'delete' && action !== 'manage';
+
+    // Custom roles with no explicit permission: deny
+    return false;
   };
 
   const handlePermissionChange = (resource: Resource, action: Action, granted: boolean) => {
     if (!selectedRole) return;
 
-    // Don't allow changing permissions for global roles
-    if (['superadmin', 'admin', 'user'].includes(selectedRole)) {
+    // Superadmin permissions cannot be modified (always has full access)
+    if (selectedRole === 'superadmin') {
       return;
     }
 
@@ -220,22 +224,21 @@ export default function PermissionsTab() {
                   </Badge>
                 )}
               </div>
-              {hasUnsavedChanges &&
-                !['superadmin', 'admin', 'user'].includes(selectedRole || '') && (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleDiscardChanges}>
-                      Discard
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSaveChanges}
-                      disabled={updatePermission.isPending}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Changes
-                    </Button>
-                  </div>
-                )}
+              {hasUnsavedChanges && selectedRole !== 'superadmin' && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleDiscardChanges}>
+                    Discard
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveChanges}
+                    disabled={updatePermission.isPending}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Permission matrix */}
@@ -256,7 +259,7 @@ export default function PermissionsTab() {
                           {/* Toggle entire column */}
                           <Switch
                             aria-label={`Toggle all ${action}`}
-                            disabled={['superadmin', 'admin', 'user'].includes(selectedRole || '')}
+                            disabled={selectedRole === 'superadmin'}
                             checked={RESOURCES.every((r) => getPermissionValue(r, action))}
                             onCheckedChange={(checked) => {
                               RESOURCES.forEach((r) => handlePermissionChange(r, action, checked));
@@ -280,9 +283,7 @@ export default function PermissionsTab() {
                             <Switch
                               aria-label={`Toggle all for ${resource}`}
                               className="ml-auto"
-                              disabled={['superadmin', 'admin', 'user'].includes(
-                                selectedRole || ''
-                              )}
+                              disabled={selectedRole === 'superadmin'}
                               checked={allActionsGranted}
                               onCheckedChange={(checked) => {
                                 ACTIONS.forEach((a) =>
@@ -299,9 +300,7 @@ export default function PermissionsTab() {
                               <Switch
                                 aria-label={`${action} ${resource}`}
                                 checked={hasPermission}
-                                disabled={['superadmin', 'admin', 'user'].includes(
-                                  selectedRole || ''
-                                )}
+                                disabled={selectedRole === 'superadmin'}
                                 onCheckedChange={(checked) =>
                                   handlePermissionChange(resource, action, checked)
                                 }
@@ -316,16 +315,21 @@ export default function PermissionsTab() {
               </table>
             </div>
 
-            {['superadmin', 'admin', 'user'].includes(selectedRole || '') && (
+            {selectedRole === 'superadmin' && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {selectedRole === 'superadmin' &&
-                    'Super Administrator has all permissions by default and cannot be modified.'}
-                  {selectedRole === 'admin' &&
-                    'Administrator has full CRUD permissions by default and cannot be modified.'}
-                  {selectedRole === 'user' &&
-                    'User has create, read, and update permissions by default (no delete) and cannot be modified.'}
+                  Super Administrator has all permissions by default and cannot be modified.
+                </AlertDescription>
+              </Alert>
+            )}
+            {selectedRole && ['admin', 'user'].includes(selectedRole) && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {selectedRole === 'admin'
+                    ? 'Administrator has full permissions by default. Toggle switches off to restrict specific access.'
+                    : 'User has create, read, and update permissions by default (no delete/manage). Adjust as needed.'}
                 </AlertDescription>
               </Alert>
             )}

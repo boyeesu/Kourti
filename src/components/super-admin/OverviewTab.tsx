@@ -14,7 +14,7 @@ import {
 import { PlatformAnalytics } from '@/hooks/usePlatformAnalytics';
 import { formatDistanceToNow } from 'date-fns';
 
-function formatCurrency(amount: number | null | undefined, currency = 'NGN') {
+function formatCurrency(amount: number | null | undefined, currency = 'USD') {
   if (amount == null) return '--';
   const symbol = currency === 'NGN' ? '\u20A6' : currency === 'USD' ? '$' : currency;
   return `${symbol}${Math.round(amount).toLocaleString()}`;

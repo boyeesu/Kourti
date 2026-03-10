@@ -79,7 +79,7 @@ function usePricingPlans() {
           features: (plan.features as string[]) || [],
           price_monthly: ((plan as Record<string, unknown>).price_monthly as number | null) ?? null,
           price_yearly: ((plan as Record<string, unknown>).price_yearly as number | null) ?? null,
-          currency: ((plan as Record<string, unknown>).currency as string) || 'NGN',
+          currency: ((plan as Record<string, unknown>).currency as string) || 'USD',
         })) as PricingPlan[];
       } catch (error) {
         logError('Error fetching pricing plans', error);
@@ -92,7 +92,7 @@ function usePricingPlans() {
 
 // ---------- Helpers ----------
 
-function formatPrice(amount: number | null | undefined, currency = 'NGN') {
+function formatPrice(amount: number | null | undefined, currency = 'USD') {
   if (amount == null || amount === 0) return null;
   const symbol = currency === 'NGN' ? '\u20A6' : currency === 'USD' ? '$' : `${currency} `;
   return `${symbol}${amount.toLocaleString()}`;

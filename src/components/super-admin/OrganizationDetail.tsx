@@ -106,7 +106,7 @@ function useOrgSubscriptions(orgId: string | null) {
             plan_type: plan?.plan_type || '--',
             price_monthly: plan?.price_monthly ?? null,
             price_yearly: plan?.price_yearly ?? null,
-            currency: plan?.currency || 'NGN',
+            currency: plan?.currency || 'USD',
             flutterwave_customer_email: row.flutterwave_customer_email as string,
           } as OrgSubscription;
         });
@@ -120,7 +120,7 @@ function useOrgSubscriptions(orgId: string | null) {
   });
 }
 
-function formatCurrency(amount: number | null | undefined, currency = 'NGN') {
+function formatCurrency(amount: number | null | undefined, currency = 'USD') {
   if (amount == null) return '--';
   const symbol = currency === 'NGN' ? '\u20A6' : currency === 'USD' ? '$' : currency;
   return `${symbol}${amount.toLocaleString()}`;

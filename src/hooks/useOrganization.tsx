@@ -29,10 +29,12 @@ export function useOrganization() {
     queryFn: async () => {
       // First get the user's organization ID from their profile
       const userId = await getCurrentUserId();
+      if (!userId) return null;
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (userId as any) || '')
+        .eq('user_id', userId)
         .single();
 
       if (!(profile as any)?.organization_id) {
@@ -60,10 +62,12 @@ export function useOrganizationMembers() {
     queryFn: async () => {
       // Get the user's organization ID first
       const userId = await getCurrentUserId();
+      if (!userId) return [];
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', (userId as any) || '')
+        .eq('user_id', userId)
         .single();
 
       if (!(profile as any)?.organization_id) {

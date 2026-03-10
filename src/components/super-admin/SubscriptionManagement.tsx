@@ -137,7 +137,7 @@ function useSubscriptions() {
             plan_display_name: plan?.display_name || '--',
             price_monthly: plan?.price_monthly ?? null,
             price_yearly: plan?.price_yearly ?? null,
-            currency: plan?.currency || 'NGN',
+            currency: plan?.currency || 'USD',
           } as Subscription;
         });
       } catch (error) {
@@ -168,7 +168,7 @@ function usePlanPricing() {
           plan_type: plan.plan_type,
           price_monthly: ((plan as Record<string, unknown>).price_monthly as number | null) ?? null,
           price_yearly: ((plan as Record<string, unknown>).price_yearly as number | null) ?? null,
-          currency: ((plan as Record<string, unknown>).currency as string) || 'NGN',
+          currency: ((plan as Record<string, unknown>).currency as string) || 'USD',
           flutterwave_plan_id_monthly:
             ((plan as Record<string, unknown>).flutterwave_plan_id_monthly as string | null) ??
             null,
@@ -280,7 +280,7 @@ function getSubscriptionStatusBadge(status: string) {
   return <Badge variant={c.variant}>{c.label}</Badge>;
 }
 
-function formatCurrency(amount: number | null | undefined, currency = 'NGN') {
+function formatCurrency(amount: number | null | undefined, currency = 'USD') {
   if (amount == null) return '--';
   const symbol = currency === 'NGN' ? '\u20A6' : currency === 'USD' ? '$' : currency;
   return `${symbol}${amount.toLocaleString()}`;
@@ -312,6 +312,9 @@ export function SubscriptionManagement() {
 
   // Estimated MRR: monthly revenue + (yearly revenue / 12)
   const estimatedMRR = monthlyRevenue + yearlyRevenue / 12;
+
+  // Derive currency from active subscriptions
+  const revenueCurrency = activeSubscriptions[0]?.currency || 'USD';
 
   // ---- Subscription filtering ----
   const filteredSubscriptions = subscriptions.filter((sub) => {
@@ -405,7 +408,9 @@ export function SubscriptionManagement() {
               <Skeleton className="h-8 w-28" />
             ) : (
               <>
-                <div className="text-2xl font-bold">{formatCurrency(monthlyRevenue)}</div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(monthlyRevenue, revenueCurrency)}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {activeSubscriptions.filter((s) => s.billing_interval === 'monthly').length}{' '}
                   monthly subscribers
@@ -425,7 +430,9 @@ export function SubscriptionManagement() {
               <Skeleton className="h-8 w-28" />
             ) : (
               <>
-                <div className="text-2xl font-bold">{formatCurrency(yearlyRevenue)}</div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(yearlyRevenue, revenueCurrency)}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {activeSubscriptions.filter((s) => s.billing_interval === 'yearly').length} yearly
                   subscribers
@@ -445,7 +452,9 @@ export function SubscriptionManagement() {
               <Skeleton className="h-8 w-28" />
             ) : (
               <>
-                <div className="text-2xl font-bold">{formatCurrency(Math.round(estimatedMRR))}</div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(Math.round(estimatedMRR), revenueCurrency)}
+                </div>
                 <p className="text-xs text-muted-foreground">Monthly + yearly/12</p>
               </>
             )}
@@ -655,7 +664,7 @@ export function SubscriptionManagement() {
                         <TableCell>
                           <Input
                             className="w-20"
-                            placeholder="NGN"
+                            placeholder="USD"
                             value={currencyVal ?? ''}
                             onChange={(e) => handlePriceChange(plan.id, 'currency', e.target.value)}
                           />
