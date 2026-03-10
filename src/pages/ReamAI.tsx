@@ -1104,18 +1104,6 @@ I'll answer based on the relevant information found above.`;
           content = contextInfo;
         }
 
-        // Build RAG context if we have RAG results
-        let ragContextString = '';
-        if (ragResults && ragResults.length > 0 && !selectedDoc) {
-          const topRAGResults = ragResults.slice(0, 8);
-          ragContextString = topRAGResults
-            .map(
-              (result, i) =>
-                `[SOURCE ${i + 1}] "${result.documentName}" (${result.documentType}, similarity: ${(result.similarity * 100).toFixed(1)}%):\n${result.content}`
-            )
-            .join('\n\n');
-        }
-
         // Build conversation history (exclude system message and current message)
         const conversationHistory = messages
           .filter((msg) => msg.role !== 'system')
