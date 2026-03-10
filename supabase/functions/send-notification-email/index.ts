@@ -18,6 +18,13 @@ import {
 } from '../_shared/rateLimiting.ts';
 import { createErrorResponse } from '../_shared/errorHandling.ts';
 import { escapeHtml } from '../_shared/htmlEscape.ts';
+import {
+  wrapInEmailTemplate,
+  buildGreeting,
+  buildParagraph,
+  buildCtaButton,
+  BRAND,
+} from '../_shared/emailTemplate.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -222,7 +229,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get organization name
-    let organizationName = 'Ream AI Legal';
+    let organizationName = 'Kourti AI';
     if (organizationId) {
       const { data: org } = await supabase
         .from('organizations')
@@ -409,90 +416,25 @@ interface EmailHtmlParams {
 }
 
 function buildEmailHtml(params: EmailHtmlParams): string {
-  const { type, title, message, recipientName, organizationName, actionUrl, actionText } = params;
+  const { title, message, recipientName, organizationName, actionUrl, actionText } = params;
 
-  const iconMap: Record<string, string> = {
-    task_assigned: '📋',
-    case_update: '⚖️',
-    document_shared: '📄',
-    calendar_reminder: '📅',
-    invoice_created: '💰',
-    general: '🔔',
-  };
+  const bodyHtml = `
+    ${buildGreeting(recipientName)}
 
-  const icon = iconMap[type] || '🔔';
+    <h2 style="color: ${BRAND.colors.primary}; font-size: 19px; margin: 0 0 14px; font-weight: 600;">
+      ${escapeHtml(title)}
+    </h2>
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
-                ${icon} ${escapeHtml(organizationName)}
-              </h1>
-            </td>
-          </tr>
+    ${buildParagraph(escapeHtml(message))}
 
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; font-size: 16px; margin: 0 0 20px;">
-                Hello ${escapeHtml(recipientName)},
-              </p>
-
-              <h2 style="color: #1a365d; font-size: 20px; margin: 0 0 15px;">
-                ${escapeHtml(title)}
-              </h2>
-
-              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
-                ${escapeHtml(message)}
-              </p>
-
-              ${
-                actionUrl
-                  ? `
-              <table cellpadding="0" cellspacing="0" style="margin: 25px 0;">
-                <tr>
-                  <td style="background-color: #1a365d; border-radius: 6px;">
-                    <a href="${escapeHtml(actionUrl)}" style="display: inline-block; padding: 14px 28px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-                      ${escapeHtml(actionText) || 'View Details'}
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              `
-                  : ''
-              }
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
-              <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
-                This is an automated notification from ${escapeHtml(organizationName)}.<br>
-                Please do not reply to this email.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+    ${actionUrl ? buildCtaButton(actionText || 'View Details', actionUrl) : ''}
   `;
+
+  return wrapInEmailTemplate(bodyHtml, {
+    preheader: title,
+    showUnsubscribe: true,
+    organizationName,
+  });
 }
 
 function checkTypePreference(preferences: any, type: string): boolean {

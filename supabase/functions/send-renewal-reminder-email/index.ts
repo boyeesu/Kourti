@@ -6,6 +6,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
 import { createJsonResponse, CorsSecurityHeadersOptions } from '../_shared/responseHeaders.ts';
 import { createErrorResponse } from '../_shared/errorHandling.ts';
+import {
+  wrapInEmailTemplate,
+  buildGreeting,
+  buildParagraph,
+  buildCtaButton,
+  buildInfoBox,
+  BRAND,
+} from '../_shared/emailTemplate.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -272,89 +280,41 @@ function buildRenewalEmailHtml(params: RenewalEmailParams): string {
 
   const urgencyColor =
     params.expiresIn === '1 day'
-      ? '#dc2626'
+      ? BRAND.colors.urgent
       : params.expiresIn === '3 days'
-        ? '#f59e0b'
-        : '#3b82f6';
+        ? BRAND.colors.warning
+        : BRAND.colors.accent;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Plan Renewal Reminder</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
-                ${organizationName}
-              </h1>
-            </td>
-          </tr>
+  const bodyHtml = `
+    ${buildGreeting(recipientName)}
 
-          <!-- Urgency Banner -->
-          <tr>
-            <td style="background-color: ${urgencyColor}; padding: 12px 30px;">
-              <p style="color: #ffffff; margin: 0; font-size: 14px; font-weight: 600; text-align: center;">
-                Your plan expires in ${expiresIn}
-              </p>
-            </td>
-          </tr>
+    ${buildInfoBox(
+      `<p style="color: ${urgencyColor}; font-size: 15px; font-weight: 600; margin: 0; text-align: center;">
+        Your plan expires in ${expiresIn}
+      </p>`,
+      urgencyColor
+    )}
 
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; font-size: 16px; margin: 0 0 20px;">
-                Hello ${recipientName},
-              </p>
+    ${buildParagraph(
+      `This is a friendly reminder that your <strong>${planName}</strong> plan is set to expire on <strong>${expirationDate}</strong>.`
+    )}
 
-              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">
-                This is a friendly reminder that your <strong>${planName}</strong> plan is set to expire on <strong>${expirationDate}</strong>.
-              </p>
+    ${buildParagraph(
+      `To continue enjoying uninterrupted access to all your features, please renew your subscription before it expires.`
+    )}
 
-              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
-                To continue enjoying uninterrupted access to all your features, please renew your subscription before it expires.
-              </p>
+    ${buildCtaButton('Renew Now', billingUrl)}
 
-              <table cellpadding="0" cellspacing="0" style="margin: 25px 0;">
-                <tr>
-                  <td style="background-color: #1a365d; border-radius: 6px;">
-                    <a href="${billingUrl}" style="display: inline-block; padding: 14px 28px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-                      Renew Now
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="color: #999999; font-size: 14px; line-height: 1.5; margin: 20px 0 0;">
-                If you have any questions about your plan or billing, please contact our support team.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
-              <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
-                This is an automated reminder from ${organizationName}.<br>
-                Please do not reply to this email.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+    ${buildParagraph(
+      `If you have any questions about your plan or billing, reach out to us at <a href="mailto:${BRAND.supportEmail}" style="color: ${BRAND.colors.accent}; text-decoration: none;">${BRAND.supportEmail}</a>.`
+    )}
   `;
+
+  return wrapInEmailTemplate(bodyHtml, {
+    preheader: `Your ${planName} plan expires in ${expiresIn}`,
+    organizationName,
+    showUnsubscribe: true,
+  });
 }
 
 serve(handler);

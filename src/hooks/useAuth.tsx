@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let lastError: any = null;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          const { error } = await supabase.auth.signUp({
+          const { data: signUpData, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
@@ -145,6 +145,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (!error) {
             logInfo('Sign up successful', { email, attempt });
+
+            // Fire welcome email asynchronously (non-blocking)
+            const newUserId = signUpData?.user?.id || '';
+            supabase.functions
+              .invoke('send-welcome-email', {
+                body: {
+                  userId: newUserId,
+                  email,
+                  firstName: userData?.first_name || '',
+                  lastName: userData?.last_name || '',
+                },
+              })
+              .catch((err) => logError('Welcome email dispatch failed', { err }));
+
             return { error: null, success: true };
           }
 

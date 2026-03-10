@@ -269,6 +269,28 @@ export function useNotificationTriggers() {
     });
   };
 
+  /**
+   * Send welcome email to a newly signed-up user via the send-welcome-email edge function.
+   * Called once after signup — the edge function deduplicates to prevent repeat sends.
+   */
+  const sendWelcomeEmail = async (params: {
+    userId: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  }) => {
+    try {
+      const { error } = await supabase.functions.invoke('send-welcome-email', {
+        body: params,
+      });
+      if (error) {
+        logError('Failed to send welcome email', error);
+      }
+    } catch (err) {
+      logError('Welcome email error', err);
+    }
+  };
+
   return {
     createCaseNotification,
     createClientNotification,
@@ -278,6 +300,7 @@ export function useNotificationTriggers() {
     createTaskNotification,
     createInvoiceNotification,
     createOnboardingNotification,
+    sendWelcomeEmail,
     sendEmailNotification,
   };
 }

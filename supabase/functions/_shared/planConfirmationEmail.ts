@@ -4,6 +4,14 @@ import { Resend } from 'https://esm.sh/resend@2.0.0';
 // @ts-expect-error: Deno module
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { escapeHtml } from './htmlEscape.ts';
+import {
+  wrapInEmailTemplate,
+  buildGreeting,
+  buildParagraph,
+  buildCtaButton,
+  buildInfoBox,
+  BRAND,
+} from './emailTemplate.ts';
 
 declare const Deno: {
   env: { get(key: string): string | undefined };
@@ -80,7 +88,7 @@ export async function sendPlanConfirmationEmail(params: PlanConfirmationParams):
       .eq('id', organizationId)
       .single();
 
-    const organizationName: string = org?.name || 'Ream AI Legal';
+    const organizationName: string = org?.name || 'Kourti AI';
 
     const action = isRenewal ? 'Renewed' : 'Activated';
     const emailSubject = `Plan ${action}: ${planName}`;
@@ -188,114 +196,59 @@ function buildConfirmationEmailHtml(params: ConfirmationEmailHtmlParams): string
 
   const amountRow = formattedAmount
     ? `<tr>
-        <td style="padding: 8px 0; color: #666666; font-size: 14px;">Amount</td>
-        <td style="padding: 8px 0; color: #1a365d; font-size: 14px; font-weight: 600; text-align: right;">${escapeHtml(formattedAmount)}</td>
+        <td style="padding: 8px 0; color: ${BRAND.colors.textSecondary}; font-size: 14px;">Amount</td>
+        <td style="padding: 8px 0; color: ${BRAND.colors.primary}; font-size: 14px; font-weight: 600; text-align: right;">${escapeHtml(formattedAmount)}</td>
       </tr>`
     : '';
 
   const refRow = transactionRef
     ? `<tr>
-        <td style="padding: 8px 0; color: #666666; font-size: 14px;">Reference</td>
-        <td style="padding: 8px 0; color: #1a365d; font-size: 14px; text-align: right; word-break: break-all;">${escapeHtml(transactionRef)}</td>
+        <td style="padding: 8px 0; color: ${BRAND.colors.textSecondary}; font-size: 14px;">Reference</td>
+        <td style="padding: 8px 0; color: ${BRAND.colors.primary}; font-size: 14px; text-align: right; word-break: break-all;">${escapeHtml(transactionRef)}</td>
       </tr>`
     : '';
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Plan ${escapeHtml(action)} Confirmation</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
-                ${escapeHtml(organizationName)}
-              </h1>
-            </td>
-          </tr>
+  const bodyHtml = `
+    ${buildGreeting(recipientName)}
 
-          <!-- Success Banner -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 20px 30px; text-align: center;">
-              <p style="color: #ffffff; margin: 0; font-size: 18px; font-weight: 600;">
-                Plan Successfully ${escapeHtml(action)}
-              </p>
-            </td>
-          </tr>
+    <p style="color: ${BRAND.colors.success}; font-size: 17px; font-weight: 600; margin: 0 0 16px;">
+      Plan Successfully ${escapeHtml(action)}
+    </p>
 
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; font-size: 16px; margin: 0 0 20px;">
-                Hello ${escapeHtml(recipientName)},
-              </p>
+    ${buildParagraph(
+      `Your <strong>${escapeHtml(planName)}</strong> plan has been successfully ${action.toLowerCase()}. You now have full access to all features included in your plan.`
+    )}
 
-              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
-                Your <strong>${escapeHtml(planName)}</strong> plan has been successfully ${action.toLowerCase()}. You now have full access to all features included in your plan.
-              </p>
+    ${buildInfoBox(
+      `
+      <p style="color: ${BRAND.colors.primary}; font-size: 15px; font-weight: 600; margin: 0 0 10px;">
+        Subscription Details
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding: 8px 0; color: ${BRAND.colors.textSecondary}; font-size: 14px;">Plan</td>
+          <td style="padding: 8px 0; color: ${BRAND.colors.primary}; font-size: 14px; font-weight: 600; text-align: right;">${escapeHtml(planName)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: ${BRAND.colors.textSecondary}; font-size: 14px;">Billing Cycle</td>
+          <td style="padding: 8px 0; color: ${BRAND.colors.primary}; font-size: 14px; font-weight: 600; text-align: right;">${escapeHtml(billingInterval.charAt(0).toUpperCase() + billingInterval.slice(1))} (per ${escapeHtml(periodLabel)})</td>
+        </tr>
+        ${amountRow}
+        ${refRow}
+      </table>
+    `,
+      BRAND.colors.success
+    )}
 
-              <!-- Order Summary -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 0 0 25px;">
-                <tr>
-                  <td>
-                    <p style="color: #1a365d; font-size: 16px; font-weight: 600; margin: 0 0 12px;">
-                      Subscription Details
-                    </p>
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding: 8px 0; color: #666666; font-size: 14px;">Plan</td>
-                        <td style="padding: 8px 0; color: #1a365d; font-size: 14px; font-weight: 600; text-align: right;">${escapeHtml(planName)}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0; color: #666666; font-size: 14px;">Billing Cycle</td>
-                        <td style="padding: 8px 0; color: #1a365d; font-size: 14px; font-weight: 600; text-align: right;">${escapeHtml(billingInterval.charAt(0).toUpperCase() + billingInterval.slice(1))} (per ${escapeHtml(periodLabel)})</td>
-                      </tr>
-                      ${amountRow}
-                      ${refRow}
-                    </table>
-                  </td>
-                </tr>
-              </table>
+    ${buildCtaButton('Go to Dashboard', `${appUrl}/dashboard`)}
 
-              <!-- CTA Button -->
-              <table cellpadding="0" cellspacing="0" style="margin: 25px 0;">
-                <tr>
-                  <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 6px;">
-                    <a href="${escapeHtml(appUrl)}/dashboard" style="display: inline-block; padding: 14px 28px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-                      Go to Dashboard
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="color: #999999; font-size: 14px; line-height: 1.5; margin: 0;">
-                If you have any questions about your subscription, please don't hesitate to reach out to our support team.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
-              <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
-                This is a confirmation email from ${escapeHtml(organizationName)}.<br>
-                Please do not reply to this email.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+    ${buildParagraph(
+      `If you have any questions about your subscription, reach out to us at <a href="mailto:${BRAND.supportEmail}" style="color: ${BRAND.colors.accent}; text-decoration: none;">${BRAND.supportEmail}</a>.`
+    )}
   `;
+
+  return wrapInEmailTemplate(bodyHtml, {
+    preheader: `Your ${escapeHtml(planName)} plan has been ${action.toLowerCase()}`,
+    organizationName,
+  });
 }

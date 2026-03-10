@@ -6,6 +6,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
 import { createJsonResponse, CorsSecurityHeadersOptions } from '../_shared/responseHeaders.ts';
 import { createErrorResponse } from '../_shared/errorHandling.ts';
+import {
+  wrapInEmailTemplate,
+  buildGreeting,
+  buildParagraph,
+  buildCtaButton,
+  buildFeatureList,
+  buildDivider,
+  BRAND,
+} from '../_shared/emailTemplate.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -27,7 +36,7 @@ const INACTIVITY_DAYS = 7;
  * Inactivity Email Function
  *
  * Checks for users who have not logged in for 7+ days and sends
- * a re-engagement email. Uses `last_login_at` from the profiles table.
+ * a warm re-engagement email from Kourti AI. Uses `last_login_at` from profiles.
  *
  * Designed to be invoked daily by a cron/scheduler.
  * Only sends one inactivity email per user per 7-day period to avoid spam.
@@ -122,12 +131,13 @@ const handler = async (req: Request): Promise<Response> => {
           if (org?.name) organizationName = org.name;
         }
 
-        const subject = `We miss you! It's been ${daysSinceLogin} days since your last visit`;
-        const htmlContent = buildInactivityEmailHtml({
-          recipientName,
-          daysSinceLogin,
+        const subject = `It's been a while — your workspace is waiting for you`;
+        const bodyHtml = buildInactivityBody(recipientName, daysSinceLogin, `${appUrl}/`);
+        const htmlContent = wrapInEmailTemplate(bodyHtml, {
+          preheader: `We noticed you haven't visited in ${daysSinceLogin} days. Your workspace is ready for you.`,
+          showSignature: true,
+          showUnsubscribe: true,
           organizationName,
-          dashboardUrl: `${appUrl}/`,
         });
 
         // Create delivery log
@@ -146,7 +156,7 @@ const handler = async (req: Request): Promise<Response> => {
 
         // Send email
         const { data: emailData, error: emailError } = await resend.emails.send({
-          from: `${organizationName} <${fromEmail}>`,
+          from: `Rachael from Kourti AI <${fromEmail}>`,
           to: [user.email],
           subject,
           html: htmlContent,
@@ -205,95 +215,37 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-interface InactivityEmailParams {
-  recipientName: string;
-  daysSinceLogin: number;
-  organizationName: string;
-  dashboardUrl: string;
-}
-
-function buildInactivityEmailHtml(params: InactivityEmailParams): string {
-  const { recipientName, daysSinceLogin, organizationName, dashboardUrl } = params;
-
+function buildInactivityBody(
+  recipientName: string,
+  daysSinceLogin: number,
+  dashboardUrl: string
+): string {
   return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>We miss you!</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
-                ${organizationName}
-              </h1>
-            </td>
-          </tr>
+    ${buildGreeting(recipientName)}
 
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; font-size: 16px; margin: 0 0 20px;">
-                Hello ${recipientName},
-              </p>
+    ${buildParagraph(
+      `It's been <strong>${daysSinceLogin} days</strong> since your last visit, and I wanted to check in. Your workspace is exactly as you left it — organized and ready whenever you are.`
+    )}
 
-              <h2 style="color: #1a365d; font-size: 20px; margin: 0 0 15px;">
-                We noticed you've been away
-              </h2>
+    ${buildParagraph(`While you were away, here's what might need your attention:`)}
 
-              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">
-                It's been <strong>${daysSinceLogin} days</strong> since you last logged in to ${organizationName}. Your workspace is ready and waiting for you.
-              </p>
+    ${buildFeatureList([
+      'Updates to your active matters and cases',
+      'Pending tasks and upcoming calendar events',
+      'New document activity and client messages',
+    ])}
 
-              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">
-                Here's what you might have missed:
-              </p>
+    ${buildCtaButton('Return to Your Dashboard', dashboardUrl)}
 
-              <ul style="color: #333333; font-size: 15px; line-height: 1.8; margin: 0 0 25px; padding-left: 20px;">
-                <li>New updates to your matters and cases</li>
-                <li>Pending tasks and calendar events</li>
-                <li>Client messages and document activity</li>
-              </ul>
+    ${buildDivider()}
 
-              <table cellpadding="0" cellspacing="0" style="margin: 25px 0;">
-                <tr>
-                  <td style="background-color: #1a365d; border-radius: 6px;">
-                    <a href="${dashboardUrl}" style="display: inline-block; padding: 14px 28px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-                      Return to Dashboard
-                    </a>
-                  </td>
-                </tr>
-              </table>
+    ${buildParagraph(
+      `If something about Kourti AI isn't working the way you'd like, I'd love to hear about it. We're constantly improving based on what our users tell us, and your experience matters to us.`
+    )}
 
-              <p style="color: #999999; font-size: 14px; line-height: 1.5; margin: 20px 0 0;">
-                If you're having trouble accessing your account, please don't hesitate to contact our support team.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
-              <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
-                This is an automated message from ${organizationName}.<br>
-                You're receiving this because you haven't logged in for ${daysSinceLogin} days.<br>
-                Please do not reply to this email.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+    ${buildParagraph(
+      `You can always reach our team at <a href="mailto:${BRAND.supportEmail}" style="color: ${BRAND.colors.accent}; text-decoration: none; font-weight: 500;">${BRAND.supportEmail}</a>.`
+    )}
   `;
 }
 

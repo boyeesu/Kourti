@@ -14,6 +14,15 @@ import {
   createRateLimitHeaders,
 } from '../_shared/rateLimiting.ts';
 import { createErrorResponse } from '../_shared/errorHandling.ts';
+import {
+  wrapInEmailTemplate,
+  buildGreeting,
+  buildParagraph,
+  buildCtaButton,
+  buildFallbackUrl,
+  buildInfoBox,
+  BRAND,
+} from '../_shared/emailTemplate.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 const fromEmail = Deno.env.get('SMTP_FROM_EMAIL') || 'onboarding@resend.dev';
@@ -261,106 +270,50 @@ function buildTempPasswordEmailHtml(params: TempPasswordEmailParams): string {
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'there';
   const roleDisplay = role.charAt(0).toUpperCase() + role.slice(1);
   const departmentLine = department
-    ? `<p style="color: #666666; font-size: 14px; margin: 8px 0 0;">Department: ${department}</p>`
+    ? `<p style="color: ${BRAND.colors.textSecondary}; font-size: 14px; margin: 4px 0 0;">Department: ${department}</p>`
     : '';
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invitation to ${organizationName}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 40px 30px; border-radius: 12px 12px 0 0; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">
-                🎉 You're Invited!
-              </h1>
-              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
-                Join ${organizationName}
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #333333; font-size: 18px; margin: 0 0 20px;">
-                Hello ${fullName},
-              </p>
-              <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
-                <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <strong>${roleDisplay}</strong>.
-              </p>
-              ${departmentLine}
-              
-              <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
-                Your account has been created! Use the credentials below to log in:
-              </p>
-              
-              <!-- Credentials Box -->
-              <table cellpadding="0" cellspacing="0" style="margin: 25px 0; width: 100%; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                <tr>
-                  <td style="padding: 20px;">
-                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <span style="color: #666666; font-size: 14px; font-weight: 500;">Email:</span>
-                          <span style="color: #1a365d; font-size: 16px; font-weight: 600; margin-left: 10px;">${email}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0; border-top: 1px solid #e9ecef;">
-                          <span style="color: #666666; font-size: 14px; font-weight: 500;">Temporary Password:</span>
-                          <span style="color: #1a365d; font-size: 16px; font-weight: 600; font-family: monospace; background-color: #e9ecef; padding: 4px 8px; border-radius: 4px; margin-left: 10px;">${tempPassword}</span>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              
-              <p style="color: #dc2626; font-size: 14px; margin: 15px 0; padding: 12px; background-color: #fef2f2; border-radius: 6px; border-left: 4px solid #dc2626;">
-                ⚠️ <strong>Important:</strong> You will be required to change your password after your first login.
-              </p>
-              
-              <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-                <tr>
-                  <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
-                    <a href="${loginUrl}" style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-                      Sign In
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              
-              <p style="color: #888888; font-size: 13px; margin: 25px 0 0;">
-                If the button doesn't work, copy and paste this link into your browser:<br>
-                <a href="${loginUrl}" style="color: #1a365d; word-break: break-all;">${loginUrl}</a>
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 12px 12px; border-top: 1px solid #e9ecef;">
-              <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
-                This invitation was sent by ${organizationName}.<br>
-                If you didn't expect this email, please contact your administrator.
-              </p>
-              <p style="color: #aaaaaa; font-size: 12px; margin: 15px 0 0; text-align: center;">
-                © ${new Date().getFullYear()} ${organizationName}. All rights reserved.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+  const bodyHtml = `
+    ${buildGreeting(fullName)}
+
+    ${buildParagraph(
+      `<strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <strong>${roleDisplay}</strong>.`
+    )}
+    ${departmentLine}
+
+    ${buildParagraph(`Your account has been created! Use the credentials below to log in:`)}
+
+    ${buildInfoBox(`
+      <table cellpadding="0" cellspacing="0" style="width: 100%;">
+        <tr>
+          <td style="padding: 6px 0;">
+            <span style="color: ${BRAND.colors.textSecondary}; font-size: 14px; font-weight: 500;">Email:</span>
+            <span style="color: ${BRAND.colors.primary}; font-size: 15px; font-weight: 600; margin-left: 10px;">${email}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; border-top: 1px solid ${BRAND.colors.border};">
+            <span style="color: ${BRAND.colors.textSecondary}; font-size: 14px; font-weight: 500;">Temporary Password:</span>
+            <span style="color: ${BRAND.colors.primary}; font-size: 15px; font-weight: 600; font-family: monospace; background-color: #E8ECF1; padding: 3px 8px; border-radius: 4px; margin-left: 10px;">${tempPassword}</span>
+          </td>
+        </tr>
+      </table>
+    `)}
+
+    <p style="color: ${BRAND.colors.urgent}; font-size: 14px; margin: 15px 0; padding: 12px 16px; background-color: #FEF2F2; border-radius: 8px; border-left: 4px solid ${BRAND.colors.urgent};">
+      <strong>Important:</strong> You will be required to change your password after your first login.
+    </p>
+
+    ${buildCtaButton('Sign In', loginUrl)}
+
+    ${buildFallbackUrl(loginUrl)}
   `;
+
+  return wrapInEmailTemplate(bodyHtml, {
+    preheader: `${inviterName} has invited you to join ${organizationName}`,
+    organizationName,
+    footerText: `This invitation was sent by ${organizationName}.<br>If you didn't expect this email, please contact your administrator.`,
+  });
 }
 
 function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
@@ -379,7 +332,7 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'there';
   const roleDisplay = role.charAt(0).toUpperCase() + role.slice(1);
   const departmentLine = department
-    ? `<p style="color: #666666; font-size: 14px; margin: 8px 0 0;">Department: ${department}</p>`
+    ? `<p style="color: ${BRAND.colors.textSecondary}; font-size: 14px; margin: 4px 0 0;">Department: ${department}</p>`
     : '';
 
   // Build SSO buttons HTML
@@ -392,8 +345,8 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
 
         return `
         <tr>
-          <td style="padding: 8px 0;">
-            <a href="${link.url}" style="display: inline-block; width: 100%; padding: 12px 24px; background-color: ${providerColor}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <td style="padding: 6px 0;">
+            <a href="${link.url}" style="display: inline-block; width: 100%; padding: 13px 24px; background-color: ${providerColor}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 15px; text-align: center;">
               Sign in with ${providerName}
             </a>
           </td>
@@ -412,116 +365,46 @@ function buildInvitationEmailHtml(params: InvitationEmailHtmlParams): string {
   // Build main CTA section
   let mainCtaHtml = '';
   if (ssoEnforced && ssoLinks.length > 0) {
-    // SSO is enforced - only show SSO buttons
     mainCtaHtml = `
-      <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
-        ${
-          ssoLinks.length === 1
-            ? 'Please sign in using your organization account:'
-            : 'Please sign in using one of your organization accounts:'
-        }
-      </p>
+      ${buildParagraph(
+        ssoLinks.length === 1
+          ? 'Please sign in using your organization account:'
+          : 'Please sign in using one of your organization accounts:'
+      )}
       ${ssoButtonsHtml}
     `;
   } else if (ssoLinks.length > 0) {
-    // SSO available but not enforced - show both options
     mainCtaHtml = `
-      <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
-        You can sign in using your organization account or create a new account:
-      </p>
+      ${buildParagraph('You can sign in using your organization account or create a new account:')}
       ${ssoButtonsHtml}
-      <div style="text-align: center; margin: 20px 0; color: #999999; font-size: 14px;">or</div>
-      <table cellpadding="0" cellspacing="0" style="margin: 20px 0;">
-        <tr>
-          <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
-            <a href="${signupUrl}" style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-              Create Account with Email
-            </a>
-          </td>
-        </tr>
-      </table>
+      <div style="text-align: center; margin: 16px 0; color: ${BRAND.colors.textLight}; font-size: 14px;">or</div>
+      ${buildCtaButton('Create Account with Email', signupUrl)}
     `;
   } else {
-    // No SSO - show regular signup button
     mainCtaHtml = `
-      <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 25px 0;">
-        Click the button below to create your account and set your password:
-      </p>
-      <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-        <tr>
-          <td style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
-            <a href="${signupUrl}" style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">
-              Accept Invitation
-            </a>
-          </td>
-        </tr>
-      </table>
+      ${buildParagraph('Click the button below to create your account and set your password:')}
+      ${buildCtaButton('Accept Invitation', signupUrl)}
     `;
   }
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invitation to ${organizationName}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%); padding: 40px 30px; border-radius: 12px 12px 0 0; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">
-                🎉 You're Invited!
-              </h1>
-              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
-                Join ${organizationName}
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #333333; font-size: 18px; margin: 0 0 20px;">
-                Hello ${fullName},
-              </p>
-              <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
-                <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <strong>${roleDisplay}</strong>.
-              </p>
-              ${departmentLine}
-              ${mainCtaHtml}
-              ${
-                !ssoEnforced
-                  ? `
-              <p style="color: #888888; font-size: 13px; margin: 25px 0 0;">
-                If the button doesn't work, copy and paste this link into your browser:<br>
-                <a href="${signupUrl}" style="color: #1a365d; word-break: break-all;">${signupUrl}</a>
-              </p>
-              `
-                  : ''
-              }
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 12px 12px; border-top: 1px solid #e9ecef;">
-              <p style="color: #999999; font-size: 13px; margin: 0; text-align: center;">
-                This invitation was sent by ${organizationName}.<br>
-                If you didn't expect this email, you can safely ignore it.
-              </p>
-              <p style="color: #aaaaaa; font-size: 12px; margin: 15px 0 0; text-align: center;">
-                © ${new Date().getFullYear()} ${organizationName}. All rights reserved.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+  const bodyHtml = `
+    ${buildGreeting(fullName)}
+
+    ${buildParagraph(
+      `<strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <strong>${roleDisplay}</strong>.`
+    )}
+    ${departmentLine}
+
+    ${mainCtaHtml}
+
+    ${!ssoEnforced ? buildFallbackUrl(signupUrl) : ''}
   `;
+
+  return wrapInEmailTemplate(bodyHtml, {
+    preheader: `${inviterName} has invited you to join ${organizationName}`,
+    organizationName,
+    footerText: `This invitation was sent by ${organizationName}.<br>If you didn't expect this email, you can safely ignore it.`,
+  });
 }
 
 serve(handler);
