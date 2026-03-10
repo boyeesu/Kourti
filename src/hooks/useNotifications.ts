@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
@@ -79,7 +79,6 @@ export function useUnreadNotificationsCount(userId?: string) {
  */
 export function useCreateNotification() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -110,11 +109,7 @@ export function useCreateNotification() {
     onError: (error: unknown) => {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to create notification.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }
@@ -124,7 +119,6 @@ export function useCreateNotification() {
  */
 export function useUpdateNotification() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ id, status }: UpdateNotificationData) => {
@@ -144,11 +138,7 @@ export function useUpdateNotification() {
     onError: (error: unknown) => {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to update notification.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }
@@ -158,7 +148,6 @@ export function useUpdateNotification() {
  */
 export function useMarkAllNotificationsAsRead() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async () => {
@@ -175,19 +164,12 @@ export function useMarkAllNotificationsAsRead() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      toast({
-        title: 'Success',
-        description: 'All notifications marked as read.',
-      });
+      toast.success('Success', { description: 'All notifications marked as read.' });
     },
     onError: (error: unknown) => {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to mark notifications as read.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }
@@ -197,7 +179,6 @@ export function useMarkAllNotificationsAsRead() {
  */
 export function useDeleteNotification() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
@@ -210,19 +191,12 @@ export function useDeleteNotification() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      toast({
-        title: 'Success',
-        description: 'Notification deleted successfully.',
-      });
+      toast.success('Success', { description: 'Notification deleted successfully.' });
     },
     onError: (error: unknown) => {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to delete notification.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }

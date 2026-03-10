@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useLogAdminAction } from './useAdminActions';
 import { logError } from '@/lib/logger';
 
@@ -9,7 +9,6 @@ import { logError } from '@/lib/logger';
  */
 export function useApproveUser() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const logAction = useLogAdminAction();
 
   return useMutation({
@@ -32,7 +31,7 @@ export function useApproveUser() {
     onSuccess: async (_, userId) => {
       queryClient.invalidateQueries({ queryKey: ['all-users'] });
       queryClient.invalidateQueries({ queryKey: ['platform-analytics'] });
-      
+
       await logAction.mutateAsync({
         action_type: 'user_approved',
         target_type: 'user',
@@ -40,16 +39,11 @@ export function useApproveUser() {
         details: { user_id: userId },
       });
 
-      toast({
-        title: 'Success',
-        description: 'User approved successfully',
-      });
+      toast.success('Success', { description: 'User approved successfully' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to approve user',
-        variant: 'destructive',
       });
     },
   });
@@ -60,7 +54,6 @@ export function useApproveUser() {
  */
 export function useDisableUser() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const logAction = useLogAdminAction();
 
   return useMutation({
@@ -84,7 +77,7 @@ export function useDisableUser() {
     onSuccess: async (_, params) => {
       queryClient.invalidateQueries({ queryKey: ['all-users'] });
       queryClient.invalidateQueries({ queryKey: ['platform-analytics'] });
-      
+
       await logAction.mutateAsync({
         action_type: 'user_disabled',
         target_type: 'user',
@@ -92,16 +85,11 @@ export function useDisableUser() {
         details: { user_id: params.userId, reason: params.reason },
       });
 
-      toast({
-        title: 'Success',
-        description: 'User disabled successfully',
-      });
+      toast.success('Success', { description: 'User disabled successfully' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to disable user',
-        variant: 'destructive',
       });
     },
   });
@@ -112,7 +100,6 @@ export function useDisableUser() {
  */
 export function useDeleteUser() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const logAction = useLogAdminAction();
 
   return useMutation({
@@ -136,7 +123,7 @@ export function useDeleteUser() {
     onSuccess: async (_, params) => {
       queryClient.invalidateQueries({ queryKey: ['all-users'] });
       queryClient.invalidateQueries({ queryKey: ['platform-analytics'] });
-      
+
       await logAction.mutateAsync({
         action_type: 'user_deleted',
         target_type: 'user',
@@ -144,16 +131,11 @@ export function useDeleteUser() {
         details: { user_id: params.userId, reason: params.reason },
       });
 
-      toast({
-        title: 'Success',
-        description: 'User deleted successfully',
-      });
+      toast.success('Success', { description: 'User deleted successfully' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to delete user',
-        variant: 'destructive',
       });
     },
   });
@@ -164,7 +146,6 @@ export function useDeleteUser() {
  */
 export function useCreateOrganization() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const logAction = useLogAdminAction();
 
   return useMutation({
@@ -199,7 +180,7 @@ export function useCreateOrganization() {
     onSuccess: async (orgId, params) => {
       queryClient.invalidateQueries({ queryKey: ['all-organizations'] });
       queryClient.invalidateQueries({ queryKey: ['platform-analytics'] });
-      
+
       await logAction.mutateAsync({
         action_type: 'org_created',
         target_type: 'organization',
@@ -207,16 +188,11 @@ export function useCreateOrganization() {
         details: { name: params.name, email: params.email },
       });
 
-      toast({
-        title: 'Success',
-        description: 'Organization created successfully',
-      });
+      toast.success('Success', { description: 'Organization created successfully' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to create organization',
-        variant: 'destructive',
       });
     },
   });

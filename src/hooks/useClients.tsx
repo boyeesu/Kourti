@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Client } from '@/types';
@@ -63,10 +63,9 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<ClientsQuery
 
       const { data, error, count } = await supabase
         .from('clients')
-        .select(
-          `*, cases!cases_client_id_fkey(count), contracts!fk_contracts_client_id(count)`,
-          { count: 'exact' }
-        )
+        .select(`*, cases!cases_client_id_fkey(count), contracts!fk_contracts_client_id(count)`, {
+          count: 'exact',
+        })
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -76,7 +75,7 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<ClientsQuery
       }
 
       const items = (data ?? []).map((client) => {
-        const typed = client as unknown as { cases: unknown[]; contracts: unknown[]; };
+        const typed = client as unknown as { cases: unknown[]; contracts: unknown[] };
         return {
           ...client,
           cases: typed.cases ?? [],
@@ -120,7 +119,7 @@ export function useClient(id: string) {
 
 export function useCreateClient() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { user } = useAuth();
   const { data: organizationId } = useUserOrganization();
 
@@ -141,11 +140,7 @@ export function useCreateClient() {
           user_id: user.id,
         };
 
-        const { data, error } = await supabase
-          .from('clients')
-          .insert(insertData)
-          .select()
-          .single();
+        const { data, error } = await supabase.from('clients').insert(insertData).select().single();
 
         if (error) throw error;
         return data;
@@ -159,24 +154,17 @@ export function useCreateClient() {
           exact: false,
         });
       }
-      toast({
-        title: "Success",
-        description: "Client created successfully.",
-      });
+      toast.success('Success', { description: 'Client created successfully.' });
     },
     onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create client.",
-      });
+      toast.error('Error', { description: error.message || 'Failed to create client.' });
     },
   });
 }
 
 export function useUpdateClient() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -219,11 +207,7 @@ export function useUpdateClient() {
       if (context?.previousClient) {
         queryClient.setQueryData(['client', id], context.previousClient);
       }
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to update client.",
-      });
+      toast.error('Error', { description: error.message || 'Failed to update client.' });
     },
     onSuccess: (data) => {
       // Granular invalidation
@@ -237,17 +221,14 @@ export function useUpdateClient() {
       if (data) {
         queryClient.setQueryData(['client', data.id], data);
       }
-      toast({
-        title: "Success",
-        description: "Client updated successfully.",
-      });
+      toast.success('Success', { description: 'Client updated successfully.' });
     },
   });
 }
 
 export function useDeleteClient() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -256,10 +237,7 @@ export function useDeleteClient() {
       const dedupeKey = `delete-client-${id}`;
 
       return deduplicateClientMutation(dedupeKey, async () => {
-        const { error } = await supabase
-          .from('clients')
-          .delete()
-          .eq('id', id);
+        const { error } = await supabase.from('clients').delete().eq('id', id);
 
         if (error) throw error;
         return id;
@@ -275,17 +253,14 @@ export function useDeleteClient() {
       });
 
       // Optimistically remove client from lists
-      queryClient.setQueriesData<ClientsQueryResult>(
-        { queryKey: ['clients'] },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            items: old.items.filter((c) => c.id !== id),
-            total: Math.max(0, old.total - 1),
-          };
-        }
-      );
+      queryClient.setQueriesData<ClientsQueryResult>({ queryKey: ['clients'] }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.filter((c) => c.id !== id),
+          total: Math.max(0, old.total - 1),
+        };
+      });
 
       return { previousClientsQueries };
     },
@@ -296,11 +271,7 @@ export function useDeleteClient() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to delete client.",
-      });
+      toast.error('Error', { description: error.message || 'Failed to delete client.' });
     },
     onSuccess: () => {
       // Granular invalidation
@@ -310,10 +281,7 @@ export function useDeleteClient() {
           exact: false,
         });
       }
-      toast({
-        title: "Success",
-        description: "Client deleted successfully.",
-      });
+      toast.success('Success', { description: 'Client deleted successfully.' });
     },
   });
 }

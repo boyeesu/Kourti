@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useUserOrganization } from './useUserOrganization';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
@@ -20,7 +20,6 @@ interface UseReamAIAssistantOptions {
 
 export function useReamAIAssistant() {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const { data: organizationId } = useUserOrganization();
 
   const sendMessage = useCallback(
@@ -88,9 +87,7 @@ export function useReamAIAssistant() {
 
         return data.response;
       } catch (error: any) {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
+        toast.error('Error', {
           description: error.message || 'Failed to get response from AI assistant',
         });
         throw error;
@@ -98,7 +95,7 @@ export function useReamAIAssistant() {
         setIsLoading(false);
       }
     },
-    [organizationId, toast]
+    [organizationId]
   );
 
   return {

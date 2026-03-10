@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { useEnhancedDocumentAnalysis } from '@/hooks/useEnhancedDocumentAnalysis';
 import { useReamAIAssistant } from '@/hooks/useReamAIAssistant';
 import { useUploadDocument } from '@/hooks/useDocuments';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentUserOrganization } from '@/hooks/useOrganization';
@@ -62,7 +62,6 @@ export function ReamAIChatWidget({
     file_path?: string;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
   const { streamAnalysis } = useEnhancedDocumentAnalysis();
   const { sendMessage: sendAssistantMessage, isLoading: assistantLoading } = useReamAIAssistant();
   const uploadDocument = useUploadDocument();
@@ -302,10 +301,7 @@ export function ReamAIChatWidget({
           },
         ]);
 
-        toast({
-          title: 'Document Uploaded',
-          description: 'The document is ready for chat.',
-        });
+        toast.success('Document Uploaded', { description: 'The document is ready for chat.' });
       } catch (error: unknown) {
         console.error('Upload error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -317,11 +313,7 @@ export function ReamAIChatWidget({
             timestamp: new Date(),
           },
         ]);
-        toast({
-          variant: 'destructive',
-          title: 'Upload Failed',
-          description: errorMessage,
-        });
+        toast.error('Upload Failed', { description: errorMessage });
       } finally {
         setIsUploading(false);
       }
@@ -532,11 +524,7 @@ CRITICAL INSTRUCTIONS:
         }
         return newMessages;
       });
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to send message',
-      });
+      toast.error('Error', { description: 'Failed to send message' });
     }
   };
 

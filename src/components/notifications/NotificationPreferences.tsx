@@ -1,21 +1,28 @@
 import { useState, useEffect } from 'react';
-import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/useNotificationsDb';
+import {
+  useNotificationPreferences,
+  useUpdateNotificationPreferences,
+} from '@/hooks/useNotificationsDb';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Bell, Mail, Smartphone, Save } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export function NotificationPreferences() {
   const { data: organizationId } = useUserOrganization();
   const { data: preferences, isLoading } = useNotificationPreferences(organizationId || '');
   const updatePreferences = useUpdateNotificationPreferences();
-  const { toast } = useToast();
-
   const [formData, setFormData] = useState({
     email_enabled: true,
     email_frequency: 'immediate' as 'immediate' | 'daily' | 'weekly' | 'never',
@@ -50,11 +57,7 @@ export function NotificationPreferences() {
 
   const handleSave = async () => {
     if (!organizationId) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Organization not found',
-      });
+      toast.error('Error', { description: 'Organization not found' });
       return;
     }
 
@@ -63,16 +66,9 @@ export function NotificationPreferences() {
         organization_id: organizationId,
         ...formData,
       });
-      toast({
-        title: 'Success',
-        description: 'Notification preferences saved',
-      });
+      toast.success('Success', { description: 'Notification preferences saved' });
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save preferences',
-      });
+      toast.error('Error', { description: 'Failed to save preferences' });
     }
   };
 
@@ -98,9 +94,7 @@ export function NotificationPreferences() {
           <Bell className="h-5 w-5" />
           Notification Preferences
         </CardTitle>
-        <CardDescription>
-          Manage how and when you receive notifications
-        </CardDescription>
+        <CardDescription>Manage how and when you receive notifications</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Email Settings */}
@@ -113,16 +107,12 @@ export function NotificationPreferences() {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="email-enabled">Enable email notifications</Label>
-                <p className="text-sm text-muted-foreground">
-                  Receive notifications via email
-                </p>
+                <p className="text-sm text-muted-foreground">Receive notifications via email</p>
               </div>
               <Switch
                 id="email-enabled"
                 checked={formData.email_enabled}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, email_enabled: checked })
-                }
+                onCheckedChange={(checked) => setFormData({ ...formData, email_enabled: checked })}
               />
             </div>
             {formData.email_enabled && (
@@ -168,9 +158,7 @@ export function NotificationPreferences() {
               <Switch
                 id="in-app-enabled"
                 checked={formData.in_app_enabled}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, in_app_enabled: checked })
-                }
+                onCheckedChange={(checked) => setFormData({ ...formData, in_app_enabled: checked })}
               />
             </div>
           </div>
@@ -189,65 +177,49 @@ export function NotificationPreferences() {
               label="Case notifications"
               description="Updates about cases"
               checked={formData.case_notifications}
-              onChange={(checked) =>
-                setFormData({ ...formData, case_notifications: checked })
-              }
+              onChange={(checked) => setFormData({ ...formData, case_notifications: checked })}
             />
             <NotificationTypeToggle
               label="Client notifications"
               description="Updates about clients"
               checked={formData.client_notifications}
-              onChange={(checked) =>
-                setFormData({ ...formData, client_notifications: checked })
-              }
+              onChange={(checked) => setFormData({ ...formData, client_notifications: checked })}
             />
             <NotificationTypeToggle
               label="Document notifications"
               description="Updates about documents"
               checked={formData.document_notifications}
-              onChange={(checked) =>
-                setFormData({ ...formData, document_notifications: checked })
-              }
+              onChange={(checked) => setFormData({ ...formData, document_notifications: checked })}
             />
             <NotificationTypeToggle
               label="Contract notifications"
               description="Updates about contracts"
               checked={formData.contract_notifications}
-              onChange={(checked) =>
-                setFormData({ ...formData, contract_notifications: checked })
-              }
+              onChange={(checked) => setFormData({ ...formData, contract_notifications: checked })}
             />
             <NotificationTypeToggle
               label="Calendar notifications"
               description="Updates about calendar events"
               checked={formData.calendar_notifications}
-              onChange={(checked) =>
-                setFormData({ ...formData, calendar_notifications: checked })
-              }
+              onChange={(checked) => setFormData({ ...formData, calendar_notifications: checked })}
             />
             <NotificationTypeToggle
               label="Task notifications"
               description="Updates about tasks"
               checked={formData.task_notifications}
-              onChange={(checked) =>
-                setFormData({ ...formData, task_notifications: checked })
-              }
+              onChange={(checked) => setFormData({ ...formData, task_notifications: checked })}
             />
             <NotificationTypeToggle
               label="Invoice notifications"
               description="Updates about invoices"
               checked={formData.invoice_notifications}
-              onChange={(checked) =>
-                setFormData({ ...formData, invoice_notifications: checked })
-              }
+              onChange={(checked) => setFormData({ ...formData, invoice_notifications: checked })}
             />
             <NotificationTypeToggle
               label="General notifications"
               description="General system notifications"
               checked={formData.general_notifications}
-              onChange={(checked) =>
-                setFormData({ ...formData, general_notifications: checked })
-              }
+              onChange={(checked) => setFormData({ ...formData, general_notifications: checked })}
             />
           </div>
         </div>
@@ -256,10 +228,7 @@ export function NotificationPreferences() {
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <Button
-            onClick={handleSave}
-            disabled={updatePreferences.isPending}
-          >
+          <Button onClick={handleSave} disabled={updatePreferences.isPending}>
             <Save className="h-4 w-4 mr-2" />
             {updatePreferences.isPending ? 'Saving...' : 'Save Preferences'}
           </Button>
@@ -290,4 +259,3 @@ function NotificationTypeToggle({
     </div>
   );
 }
-

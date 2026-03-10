@@ -1,70 +1,66 @@
 import { useState } from 'react';
-import { useNotificationsDb, archiveNotification, unarchiveNotification } from '@/hooks/useNotificationsDb';
-import { useUpdateNotification, useDeleteNotification, useMarkAllNotificationsAsRead } from '@/hooks/useNotifications';
+import {
+  useNotificationsDb,
+  archiveNotification,
+  unarchiveNotification,
+} from '@/hooks/useNotificationsDb';
+import {
+  useUpdateNotification,
+  useDeleteNotification,
+  useMarkAllNotificationsAsRead,
+} from '@/hooks/useNotifications';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Bell, Check, Trash2, Archive, ArchiveRestore, Search, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export function NotificationCenter() {
   const { data: organizationId } = useUserOrganization();
-  const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<'all' | 'read' | 'unread'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
 
-  const { data: notifications = [], isLoading } = useNotificationsDb(
-    organizationId || '',
-    {
-      status: statusFilter === 'all' ? undefined : statusFilter,
-      type: typeFilter === 'all' ? undefined : typeFilter,
-      archived: showArchived ? true : false,
-      search: searchTerm || undefined,
-    }
-  );
+  const { data: notifications = [], isLoading } = useNotificationsDb(organizationId || '', {
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    type: typeFilter === 'all' ? undefined : typeFilter,
+    archived: showArchived ? true : false,
+    search: searchTerm || undefined,
+  });
 
   const updateNotification = useUpdateNotification();
   const deleteNotification = useDeleteNotification();
   const markAllAsRead = useMarkAllNotificationsAsRead();
 
-  const unreadCount = notifications.filter(n => n.status === 'unread').length;
+  const unreadCount = notifications.filter((n) => n.status === 'unread').length;
 
   const handleArchive = async (id: string) => {
     try {
       await archiveNotification(id);
-      toast({
-        title: 'Success',
-        description: 'Notification archived',
-      });
+      toast.success('Success', { description: 'Notification archived' });
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to archive notification',
-      });
+      toast.error('Error', { description: 'Failed to archive notification' });
     }
   };
 
   const handleUnarchive = async (id: string) => {
     try {
       await unarchiveNotification(id);
-      toast({
-        title: 'Success',
-        description: 'Notification unarchived',
-      });
+      toast.success('Success', { description: 'Notification unarchived' });
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to unarchive notification',
-      });
+      toast.error('Error', { description: 'Failed to unarchive notification' });
     }
   };
 
@@ -108,15 +104,13 @@ export function NotificationCenter() {
               Notifications
             </CardTitle>
             <CardDescription>
-              {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
+              {unreadCount > 0
+                ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+                : 'All caught up!'}
             </CardDescription>
           </div>
           {unreadCount > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => markAllAsRead.mutate()}
-            >
+            <Button size="sm" variant="outline" onClick={() => markAllAsRead.mutate()}>
               Mark all as read
             </Button>
           )}
@@ -145,7 +139,10 @@ export function NotificationCenter() {
                 </Button>
               )}
             </div>
-            <Select value={statusFilter} onValueChange={(v: 'all' | 'unread' | 'read') => setStatusFilter(v)}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v: 'all' | 'unread' | 'read') => setStatusFilter(v)}
+            >
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
@@ -199,7 +196,9 @@ export function NotificationCenter() {
               {showArchived ? 'No archived notifications' : 'No notifications'}
             </p>
             <p className="text-xs text-muted-foreground/70 mt-1">
-              {showArchived ? 'You haven\'t archived any notifications yet' : 'You\'re all caught up!'}
+              {showArchived
+                ? "You haven't archived any notifications yet"
+                : "You're all caught up!"}
             </p>
           </div>
         ) : (
@@ -217,10 +216,14 @@ export function NotificationCenter() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className={cn(
-                        'font-medium text-sm',
-                        notification.status === 'unread' ? 'text-foreground' : 'text-muted-foreground'
-                      )}>
+                      <h4
+                        className={cn(
+                          'font-medium text-sm',
+                          notification.status === 'unread'
+                            ? 'text-foreground'
+                            : 'text-muted-foreground'
+                        )}
+                      >
                         {notification.title}
                       </h4>
                       <Badge className={cn('text-xs', getTypeColor(notification.type))}>
@@ -247,7 +250,9 @@ export function NotificationCenter() {
                         size="sm"
                         variant="ghost"
                         className="h-8 w-8 p-0"
-                        onClick={() => updateNotification.mutate({ id: notification.id, status: 'read' })}
+                        onClick={() =>
+                          updateNotification.mutate({ id: notification.id, status: 'read' })
+                        }
                         title="Mark as read"
                       >
                         <Check className="h-4 w-4" />
@@ -293,4 +298,3 @@ export function NotificationCenter() {
     </Card>
   );
 }
-

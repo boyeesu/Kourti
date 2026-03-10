@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { useCreateCaseType } from '@/features/cases/api/createCaseType';
 import { Switch } from '@/components/ui/switch';
@@ -43,10 +43,9 @@ interface AddCaseTypeModalProps {
  * Modal for adding a new case type
  */
 export function AddCaseTypeModal({ isOpen, onClose, onSuccess }: AddCaseTypeModalProps) {
-  const { toast } = useToast();
   const { data: organizationId } = useUserOrganization();
   const createCaseType = useCreateCaseType();
-  
+
   const form = useForm<CaseTypeFormValues>({
     resolver: zodResolver(caseTypeSchema),
     defaultValues: {
@@ -55,17 +54,13 @@ export function AddCaseTypeModal({ isOpen, onClose, onSuccess }: AddCaseTypeModa
       is_active: true,
     },
   });
-  
+
   const onSubmit = async (data: CaseTypeFormValues) => {
     if (!organizationId) {
-      toast({
-        title: 'Error',
-        description: 'Organization ID is required to create a case type',
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: 'Organization ID is required to create a case type' });
       return;
     }
-    
+
     try {
       const result = await createCaseType.mutateAsync({
         name: data.name,
@@ -73,36 +68,31 @@ export function AddCaseTypeModal({ isOpen, onClose, onSuccess }: AddCaseTypeModa
         organization_id: organizationId,
         is_active: data.is_active,
       });
-      
-      toast({
-        title: 'Success',
-        description: `Case type "${data.name}" created successfully`,
-      });
-      
+
+      toast.success('Success', { description: `Case type "${data.name}" created successfully` });
+
       form.reset();
       onClose();
-      
+
       // Call success callback with the new case type ID
       if (onSuccess && result.id) {
         onSuccess(result.id);
       }
     } catch (error) {
       console.error('Error creating case type:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to create case type',
-        variant: 'destructive',
       });
     }
   };
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add New Case Type</DialogTitle>
         </DialogHeader>
-        
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -112,17 +102,13 @@ export function AddCaseTypeModal({ isOpen, onClose, onSuccess }: AddCaseTypeModa
                 <FormItem>
                   <FormLabel>Name*</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Enter case type name" 
-                      {...field}
-                      autoFocus
-                    />
+                    <Input placeholder="Enter case type name" {...field} autoFocus />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="description"
@@ -130,17 +116,13 @@ export function AddCaseTypeModal({ isOpen, onClose, onSuccess }: AddCaseTypeModa
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Enter description (optional)" 
-                      {...field}
-                      rows={3}
-                    />
+                    <Textarea placeholder="Enter description (optional)" {...field} rows={3} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="is_active"
@@ -150,28 +132,22 @@ export function AddCaseTypeModal({ isOpen, onClose, onSuccess }: AddCaseTypeModa
                     <FormLabel>Active</FormLabel>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                 </FormItem>
               )}
             />
-            
+
             <DialogFooter className="pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={onClose}
                 disabled={createCaseType.isPending}
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit"
-                disabled={createCaseType.isPending}
-              >
+              <Button type="submit" disabled={createCaseType.isPending}>
                 {createCaseType.isPending ? 'Creating...' : 'Create Case Type'}
               </Button>
             </DialogFooter>

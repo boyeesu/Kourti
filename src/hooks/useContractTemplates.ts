@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 interface ContractTemplate {
@@ -31,7 +31,6 @@ export function useContractTemplates() {
 
 export function useCreateContractTemplate() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -60,17 +59,10 @@ export function useCreateContractTemplate() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract-templates'] });
-      toast({
-        title: 'Success',
-        description: 'Contract template created successfully',
-      });
+      toast.success('Success', { description: 'Contract template created successfully' });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to create template',
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: error.message || 'Failed to create template' });
     },
   });
 }

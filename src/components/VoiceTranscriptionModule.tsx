@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { useCases } from '@/hooks/useCases';
@@ -24,7 +24,6 @@ const MAX_RECORDING_SIZE = 25 * 1024 * 1024; // 25MB in bytes
 
 const VoiceTranscriptionModule: React.FC = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { data: casesData } = useCases();
   const cases = casesData?.cases || [];
   const createActivity = useCreateActivity();
@@ -114,10 +113,8 @@ const VoiceTranscriptionModule: React.FC = () => {
 
           // Check if size limit exceeded
           if (totalSize > MAX_RECORDING_SIZE) {
-            toast({
-              title: 'Recording Size Limit Reached',
+            toast.error('Recording Size Limit Reached', {
               description: `Maximum recording size of ${(MAX_RECORDING_SIZE / (1024 * 1024)).toFixed(0)}MB reached. Recording stopped automatically.`,
-              variant: 'destructive',
             });
 
             // Stop recording automatically
@@ -141,10 +138,7 @@ const VoiceTranscriptionModule: React.FC = () => {
         stream.getTracks().forEach((track) => track.stop());
 
         // Auto-transcribe immediately after recording ends
-        toast({
-          title: 'Recording Complete',
-          description: 'Starting transcription...',
-        });
+        toast.success('Recording Complete', { description: 'Starting transcription...' });
         await autoTranscribe(blob);
       };
 
@@ -152,16 +146,11 @@ const VoiceTranscriptionModule: React.FC = () => {
       setIsRecording(true);
       setIsPaused(false);
 
-      toast({
-        title: 'Recording Started',
-        description: 'Recording legal proceedings...',
-      });
+      toast.success('Recording Started', { description: 'Recording legal proceedings...' });
     } catch (error) {
       console.error('Error starting recording:', error);
-      toast({
-        title: 'Recording Error',
+      toast.error('Recording Error', {
         description: 'Could not access microphone. Please check permissions.',
-        variant: 'destructive',
       });
     }
   };
@@ -172,10 +161,7 @@ const VoiceTranscriptionModule: React.FC = () => {
       pauseStartTimeRef.current = Date.now();
       setIsPaused(true);
 
-      toast({
-        title: 'Recording Paused',
-        description: 'Click resume to continue recording',
-      });
+      toast.success('Recording Paused', { description: 'Click resume to continue recording' });
     }
   };
 
@@ -186,10 +172,7 @@ const VoiceTranscriptionModule: React.FC = () => {
       mediaRecorderRef.current.resume();
       setIsPaused(false);
 
-      toast({
-        title: 'Recording Resumed',
-        description: 'Recording continues...',
-      });
+      toast.success('Recording Resumed', { description: 'Recording continues...' });
     }
   };
 
@@ -199,10 +182,7 @@ const VoiceTranscriptionModule: React.FC = () => {
       setIsRecording(false);
       setIsPaused(false);
 
-      toast({
-        title: 'Recording Stopped',
-        description: 'Processing recording...',
-      });
+      toast.success('Recording Stopped', { description: 'Processing recording...' });
     }
   };
 
@@ -234,11 +214,7 @@ const VoiceTranscriptionModule: React.FC = () => {
 
       audioRef.current.onerror = () => {
         setIsPlaying(false);
-        toast({
-          title: 'Playback Error',
-          description: 'Failed to play audio recording',
-          variant: 'destructive',
-        });
+        toast.error('Playback Error', { description: 'Failed to play audio recording' });
         if (audioUrlRef.current) {
           URL.revokeObjectURL(audioUrlRef.current);
           audioUrlRef.current = null;
@@ -268,10 +244,8 @@ const VoiceTranscriptionModule: React.FC = () => {
   const autoTranscribe = async (blob: Blob) => {
     // Validate file size before transcription
     if (blob.size > MAX_RECORDING_SIZE) {
-      toast({
-        title: 'File Too Large',
+      toast.error('File Too Large', {
         description: `Audio file (${(blob.size / (1024 * 1024)).toFixed(2)}MB) exceeds Whisper API limit of ${(MAX_RECORDING_SIZE / (1024 * 1024)).toFixed(0)}MB. Please record a shorter audio.`,
-        variant: 'destructive',
       });
       return;
     }
@@ -313,8 +287,7 @@ const VoiceTranscriptionModule: React.FC = () => {
 
           setTranscript(data.transcript);
 
-          toast({
-            title: 'Transcription Complete',
+          toast.success('Transcription Complete', {
             description: 'Audio has been transcribed successfully',
           });
         } catch (innerError: unknown) {
@@ -322,11 +295,7 @@ const VoiceTranscriptionModule: React.FC = () => {
             innerError instanceof Error
               ? innerError.message
               : 'Failed to transcribe audio automatically';
-          toast({
-            title: 'Transcription Failed',
-            description: errorMessage,
-            variant: 'destructive',
-          });
+          toast.error('Transcription Failed', { description: errorMessage });
         } finally {
           setIsTranscribing(false);
         }
@@ -335,11 +304,7 @@ const VoiceTranscriptionModule: React.FC = () => {
       reader.onerror = () => {
         console.error('❌ FileReader error');
         setIsTranscribing(false);
-        toast({
-          title: 'File Processing Error',
-          description: 'Failed to process the audio file',
-          variant: 'destructive',
-        });
+        toast.error('File Processing Error', { description: 'Failed to process the audio file' });
       };
 
       reader.readAsDataURL(blob);
@@ -348,30 +313,20 @@ const VoiceTranscriptionModule: React.FC = () => {
       setIsTranscribing(false);
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to set up transcription';
-      toast({
-        title: 'Transcription Setup Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error('Transcription Setup Failed', { description: errorMessage });
     }
   };
 
   const transcribeAudio = async () => {
     if (!audioBlob) {
-      toast({
-        title: 'No Recording',
-        description: 'Please record audio first',
-        variant: 'destructive',
-      });
+      toast.error('No Recording', { description: 'Please record audio first' });
       return;
     }
 
     // Validate file size before transcription
     if (audioBlob.size > MAX_RECORDING_SIZE) {
-      toast({
-        title: 'File Too Large',
+      toast.error('File Too Large', {
         description: `Audio file (${(audioBlob.size / (1024 * 1024)).toFixed(2)}MB) exceeds Whisper API limit of ${(MAX_RECORDING_SIZE / (1024 * 1024)).toFixed(0)}MB. Please record a shorter audio.`,
-        variant: 'destructive',
       });
       return;
     }
@@ -408,8 +363,7 @@ const VoiceTranscriptionModule: React.FC = () => {
           setTranscript(data.transcript);
         }
 
-        toast({
-          title: 'Transcription Complete',
+        toast.success('Transcription Complete', {
           description: 'Audio has been transcribed successfully',
         });
       };
@@ -418,11 +372,7 @@ const VoiceTranscriptionModule: React.FC = () => {
     } catch (error: unknown) {
       console.error('Transcription error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to transcribe audio';
-      toast({
-        title: 'Transcription Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error('Transcription Failed', { description: errorMessage });
     } finally {
       setIsTranscribing(false);
     }
@@ -430,11 +380,7 @@ const VoiceTranscriptionModule: React.FC = () => {
 
   const generateSummary = async () => {
     if (!transcript.trim()) {
-      toast({
-        title: 'No Transcript',
-        description: 'Please transcribe audio first',
-        variant: 'destructive',
-      });
+      toast.error('No Transcript', { description: 'Please transcribe audio first' });
       return;
     }
 
@@ -461,18 +407,11 @@ const VoiceTranscriptionModule: React.FC = () => {
         setSummary(data.summary);
       }
 
-      toast({
-        title: 'Summary Generated',
-        description: 'Transcript summary has been generated',
-      });
+      toast.success('Summary Generated', { description: 'Transcript summary has been generated' });
     } catch (error: unknown) {
       console.error('Summary error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate summary';
-      toast({
-        title: 'Summary Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error('Summary Failed', { description: errorMessage });
     } finally {
       setIsSummarizing(false);
     }
@@ -482,10 +421,8 @@ const VoiceTranscriptionModule: React.FC = () => {
     const contentToSave = saveType === 'summary' ? summary : transcript;
 
     if (!title.trim() || !contentToSave.trim()) {
-      toast({
-        title: 'Missing Information',
+      toast.error('Missing Information', {
         description: 'Please provide a title and content to save',
-        variant: 'destructive',
       });
       return;
     }
@@ -519,10 +456,8 @@ const VoiceTranscriptionModule: React.FC = () => {
         // Validate audio file size (max 50MB for audio)
         const MAX_AUDIO_SIZE = 50 * 1024 * 1024; // 50MB
         if (audioBlob.size > MAX_AUDIO_SIZE) {
-          toast({
-            title: 'File Too Large',
+          toast.error('File Too Large', {
             description: `Audio file exceeds maximum size of ${(MAX_AUDIO_SIZE / (1024 * 1024)).toFixed(0)}MB`,
-            variant: 'destructive',
           });
           // Continue without audio file
         } else {
@@ -538,10 +473,8 @@ const VoiceTranscriptionModule: React.FC = () => {
 
           if (uploadError) {
             console.error('Error uploading audio:', uploadError);
-            toast({
-              title: 'Audio Upload Warning',
+            toast.error('Audio Upload Warning', {
               description: 'Audio file could not be saved, but transcription will be saved.',
-              variant: 'destructive',
             });
           } else {
             // Get signed URL for private bucket (1 hour expiry)
@@ -586,8 +519,7 @@ const VoiceTranscriptionModule: React.FC = () => {
         });
       }
 
-      toast({
-        title: 'Saved Successfully',
+      toast.success('Saved Successfully', {
         description: `${saveType === 'summary' ? 'Summary' : 'Transcript'} has been saved${selectedCaseId && selectedCaseId !== 'none' ? ' and linked to the matter' : ''}`,
       });
 
@@ -601,11 +533,7 @@ const VoiceTranscriptionModule: React.FC = () => {
     } catch (error: unknown) {
       console.error('Save error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to save transcription';
-      toast({
-        title: 'Save Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error('Save Failed', { description: errorMessage });
     } finally {
       setIsSaving(false);
     }

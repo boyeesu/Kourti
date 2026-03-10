@@ -1,12 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export function useAnalyzeDocument() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -53,13 +52,11 @@ export function useAnalyzeDocument() {
         .eq('id', docId)
         .eq('organization_id', organizationId);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      toast({ title: 'Document summarized', description: 'Summary saved.' });
+      toast.success('Document summarized', { description: 'Summary saved.' });
     },
     onError: (error: unknown) => {
-      toast({
-        title: 'Error summarizing document',
+      toast.error('Error summarizing document', {
         description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
       });
     },
   });

@@ -12,7 +12,7 @@ import { CalendarEvent, CalendarEventWithOwner } from '@/types';
 import { format } from 'date-fns';
 import { Clock, MapPin, Users, FileText, Edit, Trash2, User } from 'lucide-react';
 import { useDeleteCalendarEvent } from '@/hooks/useCalendar';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { EventEditDialog } from './EventEditDialog';
 
 interface EventViewDialogProps {
@@ -24,7 +24,6 @@ interface EventViewDialogProps {
 export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const deleteEvent = useDeleteCalendarEvent();
-  const { toast } = useToast();
 
   if (!event) return null;
 
@@ -52,10 +51,8 @@ export function EventViewDialog({ event, open, onOpenChange }: EventViewDialogPr
       await deleteEvent.mutateAsync(event.id);
       onOpenChange(false);
     } catch {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Failed to delete event',
-        variant: 'destructive',
       });
     }
   };

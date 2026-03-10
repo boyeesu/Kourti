@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { logError, logWarn } from '@/lib/logger';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
@@ -129,8 +129,6 @@ function preparePayload({
  * Enhanced hook for document analysis with streaming support and improved error handling
  */
 export function useEnhancedDocumentAnalysis() {
-  const { toast } = useToast();
-
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -196,9 +194,7 @@ export function useEnhancedDocumentAnalysis() {
       }
     },
     onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Analysis Failed',
+      toast.error('Analysis Failed', {
         description: error instanceof Error ? error.message : 'Failed to analyze document',
       });
     },
@@ -362,16 +358,14 @@ export function useEnhancedDocumentAnalysis() {
         setAbortController(null);
 
         logError('Document streaming analysis failed', error);
-        toast({
-          variant: 'destructive',
-          title: 'Analysis Failed',
+        toast.error('Analysis Failed', {
           description: error instanceof Error ? error.message : 'Failed to analyze document',
         });
 
         throw error;
       }
     },
-    [cancelStreaming, toast, streamingContent]
+    [cancelStreaming, streamingContent]
   );
 
   return {

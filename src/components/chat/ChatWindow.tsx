@@ -1,16 +1,42 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, Send, MessageCircle, Paperclip, X, FileText, Image, File, Loader2, Download, Reply, CornerDownRight } from 'lucide-react';
+import {
+  ArrowLeft,
+  Send,
+  MessageCircle,
+  Paperclip,
+  X,
+  FileText,
+  Image,
+  File,
+  Loader2,
+  Download,
+  Reply,
+  CornerDownRight,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useMessages, useSendMessage, useSendFileMessage, useMarkAsRead, Message, FileMetadata } from '@/hooks/useChat';
+import {
+  useMessages,
+  useSendMessage,
+  useSendFileMessage,
+  useMarkAsRead,
+  Message,
+  FileMetadata,
+} from '@/hooks/useChat';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { useDropzone } from 'react-dropzone';
-import { validateFile, formatFileSize, isImageFile, ALLOWED_CHAT_EXTENSIONS, MAX_CHAT_ATTACHMENT_SIZE } from '@/lib/fileValidation';
+import {
+  validateFile,
+  formatFileSize,
+  isImageFile,
+  ALLOWED_CHAT_EXTENSIONS,
+  MAX_CHAT_ATTACHMENT_SIZE,
+} from '@/lib/fileValidation';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ChatWindowProps {
@@ -21,13 +47,13 @@ interface ChatWindowProps {
 }
 
 // Component to load image preview with fresh signed URL
-function FileImagePreview({ 
-  metadata, 
-  isUploading, 
-  onDownload 
-}: { 
-  metadata: FileMetadata; 
-  isUploading: boolean; 
+function FileImagePreview({
+  metadata,
+  isUploading,
+  onDownload,
+}: {
+  metadata: FileMetadata;
+  isUploading: boolean;
   onDownload: () => void;
 }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -58,7 +84,9 @@ function FileImagePreview({
     };
 
     loadImage();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [metadata.file_path]);
 
   if (loading || isUploading) {
@@ -71,7 +99,7 @@ function FileImagePreview({
 
   if (!imageUrl) {
     return (
-      <div 
+      <div
         className="flex items-center gap-2 p-2 rounded-lg bg-background/50 cursor-pointer hover:bg-background/80"
         onClick={onDownload}
       >
@@ -92,9 +120,13 @@ function FileImagePreview({
   );
 }
 
-export function ChatWindow({ conversationId, onClose, recipientName, showBackButton = false }: ChatWindowProps) {
+export function ChatWindow({
+  conversationId,
+  onClose,
+  recipientName,
+  showBackButton = false,
+}: ChatWindowProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [message, setMessage] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -112,15 +144,11 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
   const handleFileSelect = useCallback((file: File) => {
     const validation = validateFile(file, { maxSize: MAX_CHAT_ATTACHMENT_SIZE });
     if (!validation.valid) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid file',
-        description: validation.error,
-      });
+      toast.error('Invalid file', { description: validation.error });
       return;
     }
     setPendingFile(file);
-  }, [toast]);
+  }, []);
 
   // Dropzone for drag-and-drop
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -158,9 +186,7 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
       await sendFileMessage.mutateAsync({ conversationId, file });
     } catch (error) {
       console.error('Failed to send file:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Failed to send file',
+      toast.error('Failed to send file', {
         description: error instanceof Error ? error.message : 'An error occurred while uploading.',
       });
     }
@@ -193,10 +219,10 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
           onError: (error) => {
             // Silently fail - this is a non-critical operation
             console.warn('Failed to mark conversation as read:', error);
-          }
+          },
         });
       }, 500);
-      
+
       return () => clearTimeout(timer);
     }
   }, [conversationId, markAsRead]);
@@ -216,14 +242,13 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
     } catch (error: unknown) {
       console.error('Failed to send message:', error);
       setMessage(content); // Restore message on error
-      
+
       // Show error toast
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred while sending your message. Please try again.';
-      toast({
-        variant: 'destructive',
-        title: 'Failed to send message',
-        description: errorMessage,
-      });
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'An error occurred while sending your message. Please try again.';
+      toast.error('Failed to send message', { description: errorMessage });
     }
   };
 
@@ -269,11 +294,7 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
     // Generate fresh signed URL on demand (handles expiration + RLS for receiver)
     const handleDownload = async () => {
       if (!metadata.file_path) {
-        toast({
-          variant: 'destructive',
-          title: 'File unavailable',
-          description: 'File path not found.',
-        });
+        toast.error('File unavailable', { description: 'File path not found.' });
         return;
       }
 
@@ -289,9 +310,7 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
         window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       } catch (err) {
         console.error('Download error:', err);
-        toast({
-          variant: 'destructive',
-          title: 'Download failed',
+        toast.error('Download failed', {
           description: err instanceof Error ? err.message : 'Could not access file.',
         });
       }
@@ -300,16 +319,16 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
     return (
       <div className="mt-1">
         {isImage ? (
-          <FileImagePreview 
-            metadata={metadata} 
-            isUploading={isUploading} 
-            onDownload={handleDownload} 
+          <FileImagePreview
+            metadata={metadata}
+            isUploading={isUploading}
+            onDownload={handleDownload}
           />
         ) : (
           <div
             className={cn(
-              "flex items-center gap-2 p-2 rounded-lg bg-background/50 cursor-pointer hover:bg-background/80 transition-colors",
-              isUploading && "opacity-70"
+              'flex items-center gap-2 p-2 rounded-lg bg-background/50 cursor-pointer hover:bg-background/80 transition-colors',
+              isUploading && 'opacity-70'
             )}
             onClick={!isUploading ? handleDownload : undefined}
           >
@@ -356,9 +375,7 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
           )}
           <MessageCircle className="h-5 w-5 text-primary" />
           <div>
-            <h3 className="font-semibold text-foreground">
-              {recipientName || 'Chat'}
-            </h3>
+            <h3 className="font-semibold text-foreground">{recipientName || 'Chat'}</h3>
             <p className="text-xs text-muted-foreground">
               {messages.length} message{messages.length !== 1 ? 's' : ''}
             </p>
@@ -369,123 +386,123 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
       {/* Messages with drag-drop zone */}
       <div {...getRootProps()} className="flex-1 min-h-0 relative">
         <input {...getInputProps()} />
-        
+
         {/* Drag overlay */}
         {(isDragActive || isDragging) && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg m-2">
             <div className="text-center">
               <Paperclip className="h-12 w-12 text-primary mx-auto mb-2" />
               <p className="text-lg font-medium text-primary">Drop file to attach</p>
-              <p className="text-sm text-muted-foreground">Max {MAX_CHAT_ATTACHMENT_SIZE / 1024 / 1024}MB</p>
+              <p className="text-sm text-muted-foreground">
+                Max {MAX_CHAT_ATTACHMENT_SIZE / 1024 / 1024}MB
+              </p>
             </div>
           </div>
         )}
 
         <ScrollArea className="h-full p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-sm text-muted-foreground">Loading messages...</div>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
-              <p className="text-sm text-muted-foreground">No messages yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Start the conversation!</p>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-sm text-muted-foreground">Loading messages...</div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((msg) => {
-              const isOwn = msg.sender_id === user?.id;
-              const isTemp = msg.id.startsWith('temp-');
-              return (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    "group flex gap-3",
-                    isOwn && "flex-row-reverse"
-                  )}
-                >
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarImage src={undefined} />
-                    <AvatarFallback className="text-xs">
-                      {getSenderInitials(msg)}
-                    </AvatarFallback>
-                  </Avatar>
-                      <div className={cn(
-                        "flex flex-col max-w-[85%] md:max-w-[70%]",
-                        isOwn && "items-end"
-                      )}>
-                    {/* Quoted message preview */}
-                    {msg.reply_to && (
-                      <div className={cn(
-                        "flex items-start gap-1.5 mb-1 px-2 py-1.5 rounded-md text-xs max-w-full",
-                        isOwn 
-                          ? "bg-primary/20 text-primary-foreground/80" 
-                          : "bg-muted/80 text-muted-foreground"
-                      )}>
-                        <CornerDownRight className="h-3 w-3 shrink-0 mt-0.5" />
-                        <div className="min-w-0 overflow-hidden">
-                          <span className="font-medium">{getSenderName(msg.reply_to)}: </span>
-                          <span className="line-clamp-2">{getQuotedContent(msg.reply_to)}</span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1">
-                      {/* Reply button - show on left for own messages */}
-                      {isOwn && !isTemp && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          onClick={() => setReplyTo(msg)}
-                          title="Reply"
-                        >
-                          <Reply className="h-3.5 w-3.5" />
-                        </Button>
+          ) : messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
+                <p className="text-sm text-muted-foreground">No messages yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Start the conversation!</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((msg) => {
+                const isOwn = msg.sender_id === user?.id;
+                const isTemp = msg.id.startsWith('temp-');
+                return (
+                  <div key={msg.id} className={cn('group flex gap-3', isOwn && 'flex-row-reverse')}>
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarImage src={undefined} />
+                      <AvatarFallback className="text-xs">{getSenderInitials(msg)}</AvatarFallback>
+                    </Avatar>
+                    <div
+                      className={cn(
+                        'flex flex-col max-w-[85%] md:max-w-[70%]',
+                        isOwn && 'items-end'
                       )}
-                      <div className={cn(
-                        "rounded-lg px-3 py-2",
-                        isOwn
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      )}>
-                        {msg.message_type === 'file' ? (
-                          renderFileAttachment(msg)
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {msg.content}
-                          </p>
+                    >
+                      {/* Quoted message preview */}
+                      {msg.reply_to && (
+                        <div
+                          className={cn(
+                            'flex items-start gap-1.5 mb-1 px-2 py-1.5 rounded-md text-xs max-w-full',
+                            isOwn
+                              ? 'bg-primary/20 text-primary-foreground/80'
+                              : 'bg-muted/80 text-muted-foreground'
+                          )}
+                        >
+                          <CornerDownRight className="h-3 w-3 shrink-0 mt-0.5" />
+                          <div className="min-w-0 overflow-hidden">
+                            <span className="font-medium">{getSenderName(msg.reply_to)}: </span>
+                            <span className="line-clamp-2">{getQuotedContent(msg.reply_to)}</span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        {/* Reply button - show on left for own messages */}
+                        {isOwn && !isTemp && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            onClick={() => setReplyTo(msg)}
+                            title="Reply"
+                          >
+                            <Reply className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <div
+                          className={cn(
+                            'rounded-lg px-3 py-2',
+                            isOwn
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-foreground'
+                          )}
+                        >
+                          {msg.message_type === 'file' ? (
+                            renderFileAttachment(msg)
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                          )}
+                        </div>
+                        {/* Reply button - show on right for others' messages */}
+                        {!isOwn && !isTemp && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            onClick={() => setReplyTo(msg)}
+                            title="Reply"
+                          >
+                            <Reply className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                       </div>
-                      {/* Reply button - show on right for others' messages */}
-                      {!isOwn && !isTemp && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          onClick={() => setReplyTo(msg)}
-                          title="Reply"
-                        >
-                          <Reply className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                    <div className={cn(
-                      "text-xs text-muted-foreground mt-1 px-1",
-                      isOwn && "text-right"
-                    )}>
-                      {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                      <div
+                        className={cn(
+                          'text-xs text-muted-foreground mt-1 px-1',
+                          isOwn && 'text-right'
+                        )}
+                      >
+                        {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-            {/* Scroll anchor */}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+                );
+              })}
+              {/* Scroll anchor */}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
         </ScrollArea>
       </div>
 
@@ -499,9 +516,7 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
               <p className="text-xs font-medium text-primary">
                 Replying to {getSenderName(replyTo)}
               </p>
-              <p className="text-sm text-muted-foreground truncate">
-                {getQuotedContent(replyTo)}
-              </p>
+              <p className="text-sm text-muted-foreground truncate">{getQuotedContent(replyTo)}</p>
             </div>
             <Button
               type="button"
@@ -568,7 +583,7 @@ export function ChatWindow({ conversationId, onClose, recipientName, showBackBut
             accept={ALLOWED_CHAT_EXTENSIONS.join(',')}
             className="hidden"
           />
-          
+
           {/* Attachment button */}
           <Button
             type="button"

@@ -31,7 +31,7 @@ import {
   Menu,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAIConversations, useConversationMessages } from '@/hooks/useAIConversations';
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 import { DocumentSuggestions } from '@/components/DocumentSuggestions';
@@ -305,7 +305,6 @@ export default function ReamAI() {
   const [extractedContent, setExtractedContent] = useState<string | null>(null);
   const [isDocSelectorOpen, setIsDocSelectorOpen] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
 
   // Load document from sessionStorage if passed from Documents page (by ID only)
   const handleSelectDocRef = useRef(handleSelectDoc);
@@ -662,9 +661,7 @@ export default function ReamAI() {
               : msg
           )
         );
-        toast({
-          variant: 'destructive',
-          title: 'Upload Failed',
+        toast.error('Upload Failed', {
           description: error instanceof Error ? error.message : 'Failed to upload document.',
         });
       }
@@ -750,10 +747,8 @@ export default function ReamAI() {
 
         if (extractError) {
           console.error('Content extraction error:', extractError);
-          toast({
-            title: 'Extraction Warning',
+          toast.success('Extraction Warning', {
             description: 'Could not extract text from the file. Analysis may be limited.',
-            variant: 'default',
           });
         } else if (extractResult?.content) {
           contentToProcess = extractResult.content;
@@ -864,10 +859,8 @@ export default function ReamAI() {
 
     // Check if extraction is still in progress
     if (isExtracting) {
-      toast({
-        title: 'Please wait',
+      toast.success('Please wait', {
         description: 'Document extraction is still in progress. Please wait a moment.',
-        variant: 'default',
       });
       return;
     }
@@ -1028,11 +1021,9 @@ CRITICAL INSTRUCTIONS:
 - If information isn't in the document, say so clearly rather than guessing`;
         } else if (selectedFile && !extractedContent) {
           // File selected but no content extracted yet
-          toast({
-            title: 'Content not available',
+          toast.success('Content not available', {
             description:
               'Please wait for document extraction to complete, or select a different document.',
-            variant: 'default',
           });
           return;
         } else if (ragResults && ragResults.length > 0) {
@@ -1266,24 +1257,21 @@ I'll answer based on the relevant information found above.`;
 
   const handleQuickAction = (action: QuickAction) => {
     if (isStreaming || isTyping) {
-      toast({
-        title: 'Please wait',
+      toast.success('Please wait', {
         description: 'Allow the current analysis to finish before starting a new one.',
       });
       return;
     }
 
     if (action.requiresDocument && !selectedDoc && !selectedFile) {
-      toast({
-        title: 'Document required',
+      toast.success('Document required', {
         description: 'This action requires a document. Please select or upload a document first.',
       });
       return;
     }
 
     if (action.requiresDocument && documentContent && !documentContent.fullContent) {
-      toast({
-        title: 'No extracted text',
+      toast.success('No extracted text', {
         description:
           "This file doesn't have extracted text yet. Try selecting a different document or ask a general question.",
       });

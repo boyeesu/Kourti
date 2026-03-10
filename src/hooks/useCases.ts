@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Case } from '@/types';
@@ -146,7 +146,6 @@ export function useCase(id: string) {
  */
 export function useCreateCase() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { user } = useAuth();
   const { data: organizationId } = useUserOrganization();
 
@@ -173,17 +172,10 @@ export function useCreateCase() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      toast({
-        title: 'Success',
-        description: 'Matter created successfully.',
-      });
+      toast.success('Success', { description: 'Matter created successfully.' });
     },
     onError: (error: Error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to create matter.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to create matter.' });
     },
   });
 }
@@ -193,7 +185,6 @@ export function useCreateCase() {
  */
 export function useUpdateCase() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -214,17 +205,10 @@ export function useUpdateCase() {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       queryClient.invalidateQueries({ queryKey: ['case', data.id] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      toast({
-        title: 'Success',
-        description: 'Matter updated successfully.',
-      });
+      toast.success('Success', { description: 'Matter updated successfully.' });
     },
     onError: (error: Error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to update matter.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to update matter.' });
     },
   });
 }
@@ -234,7 +218,6 @@ export function useUpdateCase() {
  */
 export function useDeleteCase() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -251,17 +234,10 @@ export function useDeleteCase() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      toast({
-        title: 'Success',
-        description: 'Matter deleted successfully.',
-      });
+      toast.success('Success', { description: 'Matter deleted successfully.' });
     },
     onError: (error: Error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to delete matter.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to delete matter.' });
     },
   });
 }

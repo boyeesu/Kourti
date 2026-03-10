@@ -1,55 +1,80 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { HelpCircle, Search, FileText, MessageCircle, Book, ExternalLink, Send, Mail, History } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
+import {
+  HelpCircle,
+  Search,
+  FileText,
+  MessageCircle,
+  Book,
+  ExternalLink,
+  Send,
+  Mail,
+  History,
+} from 'lucide-react';
 
 export default function HelpCenter() {
-  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [supportForm, setSupportForm] = React.useState({
-    name: "",
-    email: "",
-    subject: "",
-    category: "",
-    message: "",
+    name: '',
+    email: '',
+    subject: '',
+    category: '',
+    message: '',
   });
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const faqs = [
     {
-      question: "How do I create a new matter?",
-      answer: "You can create a new matter by navigating to the 'Matters' page and clicking on the 'New Matter' button in the top-right corner. Fill in the required details in the form and click 'Create Matter'."
+      question: 'How do I create a new matter?',
+      answer:
+        "You can create a new matter by navigating to the 'Matters' page and clicking on the 'New Matter' button in the top-right corner. Fill in the required details in the form and click 'Create Matter'.",
     },
     {
-      question: "How do I upload documents to a matter?",
-      answer: "Navigate to the matter details page by clicking on a matter from the Matters list. Then, click on the 'Documents' tab and use the 'Upload Document' button to add files to the matter."
+      question: 'How do I upload documents to a matter?',
+      answer:
+        "Navigate to the matter details page by clicking on a matter from the Matters list. Then, click on the 'Documents' tab and use the 'Upload Document' button to add files to the matter.",
     },
     {
-      question: "Can I share documents with clients?",
-      answer: "Yes, you can share documents with clients by navigating to the document, clicking the 'Share' button, and entering the client's email address. They will receive a secure link to access the document."
+      question: 'Can I share documents with clients?',
+      answer:
+        "Yes, you can share documents with clients by navigating to the document, clicking the 'Share' button, and entering the client's email address. They will receive a secure link to access the document.",
     },
     {
-      question: "How do I generate a contract?",
-      answer: "Go to the 'Contracts' page, click 'New Contract', and select a template. Fill in the required fields and click 'Generate'. You can then preview, edit, and finalize the contract."
+      question: 'How do I generate a contract?',
+      answer:
+        "Go to the 'Contracts' page, click 'New Contract', and select a template. Fill in the required fields and click 'Generate'. You can then preview, edit, and finalize the contract.",
     },
     {
-      question: "How does the AI assistant work?",
-      answer: "The Ream AI assistant can help with legal research, document analysis, and contract review. Navigate to the 'Ream AI' page, type your question or upload a document, and the AI will provide relevant information and insights."
-    }
+      question: 'How does the AI assistant work?',
+      answer:
+        "The Ream AI assistant can help with legal research, document analysis, and contract review. Navigate to the 'Ream AI' page, type your question or upload a document, and the AI will provide relevant information and insights.",
+    },
   ];
 
   const guides = [
     {
-      title: "Getting Started with Kourti Legal",
-      description: "Learn the basics of navigating and using Kourti Legal platform",
+      title: 'Getting Started with Kourti Legal',
+      description: 'Learn the basics of navigating and using Kourti Legal platform',
       content: `# Getting Started with Kourti Legal
 
 ## Welcome to Kourti Legal
@@ -89,11 +114,11 @@ Kourti Legal is a comprehensive legal practice management platform designed to s
 2. Create your first matter or case
 3. Add clients to your system
 4. Upload and organize documents
-5. Explore Ream AI for document analysis`
+5. Explore Ream AI for document analysis`,
     },
     {
-      title: "Matters Management Guide",
-      description: "Complete guide to creating, managing, and tracking legal matters",
+      title: 'Matters Management Guide',
+      description: 'Complete guide to creating, managing, and tracking legal matters',
       content: `# Matters Management Guide
 
 ## Overview
@@ -150,11 +175,11 @@ Track all important events:
 - Keep matter descriptions up-to-date
 - Regularly update matter status
 - Link all related documents to the matter
-- Use activities to maintain a complete audit trail`
+- Use activities to maintain a complete audit trail`,
     },
     {
-      title: "Client Management Guide",
-      description: "How to manage client information, contacts, and relationships",
+      title: 'Client Management Guide',
+      description: 'How to manage client information, contacts, and relationships',
       content: `# Client Management Guide
 
 ## Overview
@@ -215,11 +240,11 @@ Access comprehensive client information:
 - Regularly update communication logs
 - Link all related matters to the client
 - Use notes to track important client preferences
-- Maintain confidentiality of client information`
+- Maintain confidentiality of client information`,
     },
     {
-      title: "Document Management Guide",
-      description: "Upload, organize, and analyze documents with AI-powered tools",
+      title: 'Document Management Guide',
+      description: 'Upload, organize, and analyze documents with AI-powered tools',
       content: `# Document Management Guide
 
 ## Overview
@@ -295,11 +320,11 @@ Click on any document to:
 - Link documents to matters and clients
 - Regularly review and organize documents
 - Use AI features to quickly understand document content
-- Keep document metadata up-to-date`
+- Keep document metadata up-to-date`,
     },
     {
-      title: "Contract Management Guide",
-      description: "Create, review, and manage contracts with AI assistance",
+      title: 'Contract Management Guide',
+      description: 'Create, review, and manage contracts with AI assistance',
       content: `# Contract Management Guide
 
 ## Overview
@@ -384,11 +409,11 @@ The Contracts module provides comprehensive contract lifecycle management with A
 - Maintain version history for all contracts
 - Use comparison tools before signing
 - Keep contracts linked to matters and clients
-- Regularly review contract templates`
+- Regularly review contract templates`,
     },
     {
-      title: "Calendar & Tasks Guide",
-      description: "Manage your schedule, deadlines, and tasks effectively",
+      title: 'Calendar & Tasks Guide',
+      description: 'Manage your schedule, deadlines, and tasks effectively',
       content: `# Calendar & Tasks Guide
 
 ## Overview
@@ -460,11 +485,11 @@ The Calendar module helps you manage hearings, meetings, deadlines, and tasks in
 - Review calendar daily
 - Keep task lists updated
 - Set realistic deadlines
-- Prioritize tasks appropriately`
+- Prioritize tasks appropriately`,
     },
     {
-      title: "Ream AI Assistant Guide",
-      description: "Leverage AI for research, document analysis, and legal assistance",
+      title: 'Ream AI Assistant Guide',
+      description: 'Leverage AI for research, document analysis, and legal assistance',
       content: `# Ream AI Assistant Guide
 
 ## Overview
@@ -535,11 +560,11 @@ Ream AI has access to:
 - Ream AI only accesses data within your organization
 - All queries are processed securely
 - No data is shared outside your system
-- Responses are based on your organization's data only`
+- Responses are based on your organization's data only`,
     },
     {
-      title: "Voice Recorder & Transcriptions Guide",
-      description: "Record meetings and automatically transcribe audio",
+      title: 'Voice Recorder & Transcriptions Guide',
+      description: 'Record meetings and automatically transcribe audio',
       content: `# Voice Recorder & Transcriptions Guide
 
 ## Overview
@@ -612,11 +637,11 @@ The Voice Recorder feature allows you to record audio (meetings, interviews, not
 - Review and edit transcriptions for accuracy
 - Link transcriptions to relevant matters
 - Add descriptive titles and tags
-- Regularly review and organize transcriptions`
+- Regularly review and organize transcriptions`,
     },
     {
-      title: "Invoicing Guide",
-      description: "Create, manage, and track invoices for your legal services",
+      title: 'Invoicing Guide',
+      description: 'Create, manage, and track invoices for your legal services',
       content: `# Invoicing Guide
 
 ## Overview
@@ -716,11 +741,11 @@ Click on any invoice to:
 - Follow up on overdue invoices
 - Keep detailed payment records
 - Link invoices to relevant matters
-- Regularly review invoice status`
+- Regularly review invoice status`,
     },
     {
-      title: "Settings & User Management Guide",
-      description: "Configure your account, organization, and user permissions",
+      title: 'Settings & User Management Guide',
+      description: 'Configure your account, organization, and user permissions',
       content: `# Settings & User Management Guide
 
 ## Overview
@@ -825,11 +850,11 @@ The Settings section allows you to manage your profile, organization settings, u
 - Assign appropriate roles
 - Configure permissions carefully
 - Test SSO before enabling
-- Keep organization settings updated`
+- Keep organization settings updated`,
     },
     {
-      title: "Security & Privacy Best Practices",
-      description: "Keep your data secure and maintain client confidentiality",
+      title: 'Security & Privacy Best Practices',
+      description: 'Keep your data secure and maintain client confidentiality',
       content: `# Security & Privacy Best Practices
 
 ## Overview
@@ -908,15 +933,16 @@ If you notice any security concerns:
 1. Report immediately to your administrator
 2. Change passwords if compromised
 3. Review account activity
-4. Contact support@kourti.com for assistance`
-    }
+4. Contact support@kourti.com for assistance`,
+    },
   ];
 
   // Filter FAQs based on search query
-  const filteredFaqs = faqs.filter(faq =>
-    searchQuery === "" ||
-    faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredFaqs = faqs.filter(
+    (faq) =>
+      searchQuery === '' ||
+      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSupportSubmit = async (e: React.FormEvent) => {
@@ -924,18 +950,17 @@ If you notice any security concerns:
 
     // Here you would typically send the form data to your support system
     // For now, we'll just show a success toast
-    toast({
-      title: "Support request submitted",
+    toast.success('Support request submitted', {
       description: "We'll get back to you within 24 hours via email.",
     });
 
     // Reset form
     setSupportForm({
-      name: "",
-      email: "",
-      subject: "",
-      category: "",
-      message: "",
+      name: '',
+      email: '',
+      subject: '',
+      category: '',
+      message: '',
     });
   };
 
@@ -945,8 +970,8 @@ If you notice any security concerns:
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Help Center</h1>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          Find answers to common questions and comprehensive guides
-          to help you make the most of Kourti Legal
+          Find answers to common questions and comprehensive guides to help you make the most of
+          Kourti Legal
         </p>
       </div>
 
@@ -995,7 +1020,9 @@ If you notice any security concerns:
                 <Accordion type="single" collapsible className="w-full">
                   {filteredFaqs.map((faq, index) => (
                     <AccordionItem key={index} value={`faq-${index}`}>
-                      <AccordionTrigger className="text-left font-medium">{faq.question}</AccordionTrigger>
+                      <AccordionTrigger className="text-left font-medium">
+                        {faq.question}
+                      </AccordionTrigger>
                       <AccordionContent>
                         <p className="text-muted-foreground">{faq.answer}</p>
                       </AccordionContent>
@@ -1009,7 +1036,7 @@ If you notice any security concerns:
                   <p className="text-sm text-muted-foreground/70 mt-1 mb-4">
                     Try searching with different keywords or browse other sections
                   </p>
-                  <Button variant="outline" onClick={() => setSearchQuery("")}>
+                  <Button variant="outline" onClick={() => setSearchQuery('')}>
                     Clear Search
                   </Button>
                 </div>
@@ -1073,10 +1100,15 @@ If you notice any security concerns:
                       <Mail className="h-5 w-5 text-primary" />
                       <div>
                         <div className="font-medium">Email Support</div>
-                        <a href="mailto:support@kourti.com" className="text-sm text-primary hover:underline">
+                        <a
+                          href="mailto:support@kourti.com"
+                          className="text-sm text-primary hover:underline"
+                        >
                           support@kourti.com
                         </a>
-                        <div className="text-xs text-muted-foreground">Response within 24 hours</div>
+                        <div className="text-xs text-muted-foreground">
+                          Response within 24 hours
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1106,7 +1138,9 @@ If you notice any security concerns:
                           type="email"
                           placeholder="your@email.com"
                           value={supportForm.email}
-                          onChange={(e) => setSupportForm({ ...supportForm, email: e.target.value })}
+                          onChange={(e) =>
+                            setSupportForm({ ...supportForm, email: e.target.value })
+                          }
                           required
                         />
                       </div>
@@ -1116,7 +1150,9 @@ If you notice any security concerns:
                       <Label htmlFor="support-category">Category</Label>
                       <Select
                         value={supportForm.category}
-                        onValueChange={(value) => setSupportForm({ ...supportForm, category: value })}
+                        onValueChange={(value) =>
+                          setSupportForm({ ...supportForm, category: value })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a category" />
@@ -1138,7 +1174,9 @@ If you notice any security concerns:
                         id="support-subject"
                         placeholder="Brief description of your issue"
                         value={supportForm.subject}
-                        onChange={(e) => setSupportForm({ ...supportForm, subject: e.target.value })}
+                        onChange={(e) =>
+                          setSupportForm({ ...supportForm, subject: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -1150,7 +1188,9 @@ If you notice any security concerns:
                         placeholder="Please provide detailed information about your question or issue..."
                         rows={4}
                         value={supportForm.message}
-                        onChange={(e) => setSupportForm({ ...supportForm, message: e.target.value })}
+                        onChange={(e) =>
+                          setSupportForm({ ...supportForm, message: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -1178,7 +1218,11 @@ If you notice any security concerns:
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Button variant="outline" className="flex items-center gap-2" onClick={() => navigate('/changelog')}>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => navigate('/changelog')}
+              >
                 <History className="h-4 w-4" />
                 <span>Changelog</span>
               </Button>

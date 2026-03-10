@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { logError, logInfo, logWarn } from '@/lib/logger';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
@@ -195,8 +195,6 @@ async function performTextFallbackSearch(query: string): Promise<RAGSearchResult
  * Hook for processing a document into chunks and embeddings
  */
 export function useProcessDocument() {
-  const { toast } = useToast();
-
   return useMutation({
     mutationFn: async ({
       documentId,
@@ -241,15 +239,12 @@ export function useProcessDocument() {
       return data;
     },
     onSuccess: (data) => {
-      toast({
-        title: 'Document Processed',
+      toast.success('Document Processed', {
         description: `Successfully processed ${data.chunksProcessed} chunks for RAG search.`,
       });
     },
     onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Processing Failed',
+      toast.error('Processing Failed', {
         description: error instanceof Error ? error.message : 'Failed to process document',
       });
     },

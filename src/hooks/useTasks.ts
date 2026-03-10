@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Task } from '@/types';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
@@ -40,13 +40,13 @@ export function useTasks(caseId: string) {
           .select('*')
           .eq('case_id', caseId)
           .order('due_date', { ascending: true });
-        
+
         if (error) throw error;
         return data || [];
       });
-      
+
       if (error) throw error;
-      
+
       // Transform data to include organization_id (tasks table doesn't have this field)
       return data!.map((task: TaskRow) => ({
         ...task,
@@ -63,50 +63,42 @@ export function useTasks(caseId: string) {
  */
 export function useCreateTask() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { createTaskNotification } = useNotificationTriggers();
-  
+
   return useMutation<TaskRow, AppError, CreateTaskData>({
     mutationFn: async (data: CreateTaskData) => {
       const userId = await getCurrentUserId();
-      
+
       // Create properly typed task data
       const taskData: TablesInsert<'tasks'> = {
-        ...data, 
+        ...data,
         created_by: userId,
         completed: false,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
-      
+
       const [result, error] = await tryCatch(async () => {
-        const { data, error } = await supabase
-          .from('tasks')
-          .insert(taskData)
-          .select()
-          .single();
-          
+        const { data, error } = await supabase.from('tasks').insert(taskData).select().single();
+
         if (error) throw error;
         return data;
       });
-      
+
       if (error) throw error;
       return result!;
     },
     onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', variables.case_id] });
-      toast({ title: 'Task created', description: 'Task successfully added.' });
-      
+      toast.success('Task created', { description: 'Task successfully added.' });
+
       // Track and notify
       trackEvent(AnalyticsEvents.TASK_CREATED, { priority: variables.priority });
       createTaskNotification(result, 'created', variables.assigned_to);
     },
     onError: (error: AppError) => {
-      toast({ 
-        title: 'Task creation failed', 
-        description: error.getUserMessage(), 
-        variant: 'destructive' 
-      });
-    }
+      toast.error('Task creation failed', { description: error.getUserMessage() });
+    },
   });
 }
 
@@ -115,16 +107,15 @@ export function useCreateTask() {
  */
 export function useUpdateTask() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
+
   return useMutation<TaskRow, AppError, UpdateTaskData>({
     mutationFn: async ({ id, ...data }: UpdateTaskData) => {
       // Create properly typed update data
       const updateData: Partial<TablesInsert<'tasks'>> = {
         ...data,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
-      
+
       const [result, error] = await tryCatch(async () => {
         const { data, error } = await supabase
           .from('tasks')
@@ -132,11 +123,11 @@ export function useUpdateTask() {
           .eq('id', id)
           .select()
           .single();
-          
+
         if (error) throw error;
         return data;
       });
-      
+
       if (error) throw error;
       return result!;
     },
@@ -145,15 +136,11 @@ export function useUpdateTask() {
       if (updated.case_id) {
         queryClient.invalidateQueries({ queryKey: ['tasks', updated.case_id] });
       }
-      toast({ title: 'Task updated', description: 'Task changes saved.' });
+      toast.success('Task updated', { description: 'Task changes saved.' });
     },
     onError: (error: AppError) => {
-      toast({ 
-        title: 'Update failed', 
-        description: error.getUserMessage(), 
-        variant: 'destructive' 
-      });
-    }
+      toast.error('Update failed', { description: error.getUserMessage() });
+    },
   });
 }
 
@@ -162,38 +149,30 @@ export function useUpdateTask() {
  */
 export function useDeleteTask() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
+
   interface DeleteParams {
     id: string;
     case_id: string;
   }
-  
+
   return useMutation<DeleteParams, AppError, DeleteParams>({
     mutationFn: async ({ id, case_id }: DeleteParams) => {
       const [, error] = await tryCatch(async () => {
-        const { error } = await supabase
-          .from('tasks')
-          .delete()
-          .eq('id', id);
-          
+        const { error } = await supabase.from('tasks').delete().eq('id', id);
+
         if (error) throw error;
         return true;
       });
-      
+
       if (error) throw error;
       return { id, case_id };
     },
     onSuccess: ({ case_id }) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', case_id] });
-      toast({ title: 'Task deleted', description: 'Task removed.' });
+      toast.success('Task deleted', { description: 'Task removed.' });
     },
     onError: (error: AppError) => {
-      toast({ 
-        title: 'Delete failed', 
-        description: error.getUserMessage(), 
-        variant: 'destructive' 
-      });
-    }
+      toast.error('Delete failed', { description: error.getUserMessage() });
+    },
   });
 }

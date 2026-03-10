@@ -1,5 +1,5 @@
 // src/components/layout/AppLayout.tsx
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -43,11 +43,9 @@ import {
   ChevronRight,
   MonitorSmartphone,
   MessageCircle,
-  Crown,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   CommandDialog,
   CommandInput,
@@ -57,14 +55,11 @@ import {
   CommandItem,
 } from '@/components/ui/command';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
-import { useUserPermission } from '@/hooks/usePermissions';
 import { PermissionGate } from '@/components/PermissionGate';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { KeyboardShortcutsDialog } from '@/hooks/useKeyboardShortcuts';
 import { useTotalUnreadCount } from '@/hooks/useChat';
-import { useCurrentUserPlan } from '@/hooks/useUserPlans';
-
 // Navigation item type
 export type NavItem = {
   title: string;
@@ -74,130 +69,6 @@ export type NavItem = {
   badge?: string;
   badgeVariant?: 'default' | 'outline' | 'destructive' | 'secondary';
 };
-
-// Types - can be removed as we're using the database-backed notifications now
-
-// Legacy notification components - can be removed as we're using database-backed notifications
-
-// Command palette for quick navigation
-function CommandPalette() {
-  const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
-  const { data: canManageSettings } = useUserPermission('settings', 'manage');
-
-  // Register keyboard shortcut (Cmd+K or Ctrl+K)
-  useKeyboardShortcut(['Meta+k', 'Control+k'], () => {
-    setOpen(true);
-  });
-
-  // Navigation options
-  const navigationOptions = useMemo(() => {
-    const base = [
-      { label: 'Dashboard', icon: <Home className="h-4 w-4 mr-2" />, href: '/' },
-      { label: 'Matters', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/matters' },
-      { label: 'Clients', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients' },
-      { label: 'Calendar', icon: <Calendar className="h-4 w-4 mr-2" />, href: '/calendar' },
-      { label: 'Documents', icon: <FileText className="h-4 w-4 mr-2" />, href: '/documents' },
-      { label: 'Settings', icon: <Settings className="h-4 w-4 mr-2" />, href: '/settings' },
-    ];
-
-    if (canManageSettings) {
-      base.push({
-        label: 'Settings – SSO',
-        icon: <Settings className="h-4 w-4 mr-2" />,
-        href: '/settings?tab=sso',
-      });
-    }
-
-    return base;
-  }, [canManageSettings]);
-
-  const actionOptions = [
-    { label: 'New Case', icon: <Briefcase className="h-4 w-4 mr-2" />, href: '/cases/create' },
-    { label: 'New Client', icon: <UserCheck className="h-4 w-4 mr-2" />, href: '/clients/create' },
-    {
-      label: 'Upload Document',
-      icon: <FileText className="h-4 w-4 mr-2" />,
-      href: '/documents/upload',
-    },
-  ];
-
-  return (
-    <>
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Type a command or search..." />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Navigation">
-            {navigationOptions.map((option) => (
-              <CommandItem
-                key={option.href}
-                onSelect={() => {
-                  navigate(option.href);
-                  setOpen(false);
-                }}
-              >
-                {option.icon}
-                <span>{option.label}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandGroup heading="Actions">
-            {actionOptions.map((option) => (
-              <CommandItem
-                key={option.href}
-                onSelect={() => {
-                  navigate(option.href);
-                  setOpen(false);
-                }}
-              >
-                {option.icon}
-                <span>{option.label}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
-    </>
-  );
-}
-
-// Plan badge shown in the top bar
-function PlanBadge() {
-  const { data: currentPlan, isLoading } = useCurrentUserPlan();
-  const navigate = useNavigate();
-
-  if (isLoading || !currentPlan) return null;
-
-  const planColors: Record<string, string> = {
-    free: 'bg-muted text-muted-foreground',
-    starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    professional: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-    enterprise: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  };
-
-  const colorClass = planColors[currentPlan.plan_type] || planColors.free;
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => navigate('/settings?tab=billing')}
-            className={cn(
-              'hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-opacity hover:opacity-80 sm:inline-flex',
-              colorClass
-            )}
-          >
-            <Crown className="h-3 w-3" />
-            {currentPlan.plan_display_name}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>Current plan – click to manage billing</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 // Trigger initial reminders from insights
 function DeadlineReminders() {
@@ -258,35 +129,20 @@ function MobileAccessNotice() {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-background/95 px-6 text-center backdrop-blur-sm"
-      onClick={() => setDismissed(true)}
-    >
-      <div
-        className="max-w-sm space-y-4 rounded-2xl border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
-          <MonitorSmartphone className="h-6 w-6" aria-hidden="true" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-foreground">Optimized for larger screens</h2>
-          <p className="text-sm text-muted-foreground">
-            For the best experience, please use Kourti Legal Hub on a tablet or desktop computer.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          className="w-full pointer-events-auto"
-          onClick={() => setDismissed(true)}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            setDismissed(true);
-          }}
-        >
-          Continue on mobile
-        </Button>
+    <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 bg-primary/10 border-b border-primary/20 px-4 py-2.5 text-sm backdrop-blur-sm md:hidden">
+      <div className="flex items-center gap-2 text-foreground">
+        <MonitorSmartphone className="h-4 w-4 flex-shrink-0 text-primary" aria-hidden="true" />
+        <span>Best experienced on desktop or tablet.</span>
       </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 flex-shrink-0 hover:bg-primary/10"
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss mobile notice"
+      >
+        <X className="h-3.5 w-3.5" />
+      </Button>
     </div>
   );
 }
@@ -301,9 +157,9 @@ function MobileNavigation() {
   const isAdmin = role === 'superadmin' || role === 'admin';
   const totalUnreadCount = useTotalUnreadCount();
 
-  // Sidebar navigation groups and filtering (from AppSidebar)
-  const primaryNavigation = {
-    label: 'Main',
+  // Sidebar navigation groups (matching AppSidebar structure)
+  const coreNavigation = {
+    label: 'Core',
     items: [
       { title: 'Dashboard', url: '/', icon: LayoutDashboard, end: true },
       { title: 'Matters', url: '/matters', icon: Briefcase, end: false },
@@ -311,27 +167,31 @@ function MobileNavigation() {
       { title: 'Calendar', url: '/calendar', icon: Calendar, end: false },
     ],
   };
-  const documentsNavigation = {
-    label: 'Legal Documents',
+  const legalToolsNavigation = {
+    label: 'Legal Tools',
     items: [
       { title: 'Documents', url: '/documents', icon: FileText, end: false },
       { title: 'Contracts', url: '/contracts', icon: FileCheck, end: false },
+      {
+        title: 'AI Assistant',
+        url: '/ream-ai',
+        icon: Bot,
+        end: false,
+        badge: 'New',
+        badgeVariant: 'default' as const,
+      },
+      { title: 'Voice & Transcriptions', url: '/voice-recorder', icon: Mic, end: false },
     ],
   };
-  const toolsNavigation = {
-    label: 'Tools',
+  const mobileWorkspaceNavigation = {
+    label: 'Workspace',
     items: [
       {
         title: 'Live Chat',
         url: '/live-chat',
         icon: MessageCircle,
         end: false,
-        badge: 'New',
-        badgeVariant: 'default' as const,
       },
-      { title: 'Ream AI', url: '/ream-ai', icon: Bot, end: false },
-      { title: 'Voice Recorder', url: '/voice-recorder', icon: Mic, end: false },
-      { title: 'Transcriptions', url: '/transcriptions', icon: FileText, end: false },
       {
         title: 'Invoicing',
         url: '/invoices',
@@ -342,38 +202,34 @@ function MobileNavigation() {
       },
     ],
   };
-  const managementNavigation = {
-    label: 'Management',
-    items: [
-      { title: 'Users', url: '/users', icon: Users, end: false },
-      { title: 'Analytics', url: '/analytics', icon: Gauge, end: false },
-      { title: 'Settings', url: '/settings', icon: Settings, end: false },
-    ],
-  };
+
+  // Footer items
+  const footerItems: NavItem[] = [
+    { title: 'Settings', url: '/settings', icon: Settings, end: false },
+    ...(isAdmin
+      ? [
+          { title: 'Admin Panel', url: '/analytics', icon: Gauge, end: false },
+          { title: 'Users', url: '/users', icon: Users, end: false },
+        ]
+      : []),
+  ];
+
   // Filter logic
   const getFilteredNavigation = () => {
     const navigation: { label: string; items: NavItem[] }[] = [
-      primaryNavigation,
-      documentsNavigation,
+      coreNavigation,
+      legalToolsNavigation,
     ];
-    const filteredTools = {
-      ...toolsNavigation,
-      items: toolsNavigation.items.filter((item) => {
+    const filteredWorkspace = {
+      ...mobileWorkspaceNavigation,
+      items: mobileWorkspaceNavigation.items.filter((item) => {
         if (item.url === '/invoices' && !isAdmin) {
           return false;
         }
         return true;
       }),
     };
-    if (filteredTools.items.length > 0) navigation.push(filteredTools);
-    if (isAdmin) {
-      navigation.push(managementNavigation);
-    } else {
-      navigation.push({
-        label: 'Management',
-        items: [managementNavigation.items.find((i) => i.url === '/settings')!],
-      });
-    }
+    if (filteredWorkspace.items.length > 0) navigation.push(filteredWorkspace);
     return navigation;
   };
 
@@ -482,17 +338,27 @@ function MobileNavigation() {
                 <span className="text-sm text-muted-foreground">Theme</span>
                 <ThemeToggle />
               </div>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => {
-                  setOpen(false);
-                  navigate('/settings');
-                }}
-              >
-                <Settings className="h-5 w-5 mr-3" />
-                Settings
-              </Button>
+              <nav className="space-y-1">
+                {footerItems.map((item) => (
+                  <Button
+                    key={item.url}
+                    variant="ghost"
+                    className={cn(
+                      'w-full justify-start gap-3 rounded-lg border border-transparent px-3 py-2 text-sm font-medium',
+                      isActive(item.url, item.end)
+                        ? 'bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]'
+                        : 'text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground'
+                    )}
+                    onClick={() => {
+                      setOpen(false);
+                      navigate(item.url);
+                    }}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.title}</span>
+                  </Button>
+                ))}
+              </nav>
             </div>
           </div>
         </SheetContent>
@@ -534,7 +400,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   // Handle keyboard shortcut for search
-  useKeyboardShortcut(['/', 'Meta+f', 'Control+f'], (e) => {
+  useKeyboardShortcut(['/', 'Meta+f', 'Control+f', 'Meta+k', 'Control+k'], (e) => {
     e.preventDefault();
     setSearchDialogOpen(true);
   });
@@ -566,12 +432,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return segment.replace(/[-_]/g, ' ').replace(/\b\w/g, (char: string) => char.toUpperCase());
   });
 
-  const headerTimestamp = useMemo(
-    () =>
-      new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date()),
-    []
-  );
-
   return (
     <SidebarProvider>
       <AppLayoutInner
@@ -586,7 +446,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         globalSearchError={globalSearchError}
         moduleMeta={moduleMeta}
         breadcrumbLabels={breadcrumbLabels}
-        headerTimestamp={headerTimestamp}
         navigate={navigate}
         user={user}
         userInitials={userInitials}
@@ -643,7 +502,6 @@ interface AppLayoutInnerProps {
   globalSearchError: Error | null;
   moduleMeta: ModuleMeta | null;
   breadcrumbLabels: string[];
-  headerTimestamp: string;
   navigate: (path: string) => void;
   user: { email?: string; user_metadata?: { avatar_url?: string; name?: string } } | null;
   userInitials: string;
@@ -662,7 +520,6 @@ function AppLayoutInner({
   globalSearchError,
   moduleMeta,
   breadcrumbLabels,
-  headerTimestamp,
   navigate,
   user,
   userInitials,
@@ -679,7 +536,6 @@ function AppLayoutInner({
 
   return (
     <>
-      <CommandPalette />
       <KeyboardShortcutsDialog />
       <MobileAccessNotice />
       <div className="app-shell flex min-h-screen w-full bg-[hsl(var(--background))]">
@@ -690,147 +546,142 @@ function AppLayoutInner({
         </aside>
 
         <div className="flex flex-col flex-1 min-w-0 gap-3 px-3 py-3 sm:px-4 lg:gap-4 lg:px-6">
-          <header className="workspace-header surface-panel px-3 py-3 sm:px-4 lg:px-5">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <MobileNavigation />
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                      Workspace
+          <header className="workspace-header surface-panel px-3 py-2.5 sm:px-4 lg:px-5">
+            <div className="flex items-center gap-3">
+              <MobileNavigation />
+
+              {/* Breadcrumbs - left side */}
+              <div className="hidden md:flex items-center gap-1 text-sm">
+                {breadcrumbLabels.map((label, index) => (
+                  <span key={`${label}-${index}`} className="flex items-center gap-1">
+                    {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />}
+                    <span
+                      className={
+                        index === breadcrumbLabels.length - 1
+                          ? 'font-semibold text-foreground'
+                          : 'text-muted-foreground'
+                      }
+                    >
+                      {label}
                     </span>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-semibold text-foreground">
-                        {moduleMeta?.label}
-                      </span>
-                      <span className="hidden text-xs text-muted-foreground/80 sm:inline-flex">
-                        {moduleMeta?.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <PlanBadge />
+                  </span>
+                ))}
+              </div>
+
+              {/* Module label for mobile */}
+              <span className="text-lg font-semibold text-foreground md:hidden">
+                {moduleMeta?.label}
+              </span>
+
+              <div className="flex-1" />
+
+              {/* Search trigger - compact */}
+              <div
+                className="hidden sm:flex items-center gap-2 rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--background))] px-3 py-1.5 text-sm text-muted-foreground cursor-pointer transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground w-[280px]"
+                onClick={() => setSearchDialogOpen(true)}
+              >
+                <SearchIcon className="h-4 w-4 flex-shrink-0" />
+                <span className="flex-1 truncate text-xs">Search...</span>
+                <kbd className="rounded border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </div>
+
+              {/* Search icon for mobile */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="sm:hidden h-9 w-9"
+                onClick={() => setSearchDialogOpen(true)}
+              >
+                <SearchIcon className="h-4 w-4" />
+              </Button>
+
+              {/* Context action button */}
+              <Button
+                variant="default"
+                className="hidden sm:flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium shadow-sm"
+                onClick={() => navigate('/cases/create')}
+              >
+                <Plus className="h-4 w-4" />
+                New Case
+              </Button>
+
+              <NotificationsDropdown />
+              <DeadlineReminders />
+
+              {/* User menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    variant="default"
-                    className="hidden items-center gap-2 rounded-md bg-[hsl(var(--primary))] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[hsl(var(--primary))/0.9] sm:flex"
-                    onClick={() => navigate('/cases/create')}
+                    variant="ghost"
+                    size="icon"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-0 text-foreground transition-colors hover:border-[hsl(var(--primary))]"
                   >
-                    <Plus className="h-4 w-4" />
-                    New Case
-                  </Button>
-                  <NotificationsDropdown />
-                  <DeadlineReminders />
-                  <TooltipProvider>
-                    <ThemeToggle />
-                  </TooltipProvider>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="ml-1 flex h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] p-0 text-foreground transition-colors hover:border-[hsl(var(--primary))]"
-                      >
-                        <Avatar className="h-7 w-7">
-                          <AvatarImage
-                            src={
-                              (user as { user_metadata?: { avatar_url?: string } })?.user_metadata
-                                ?.avatar_url
-                            }
-                            alt={user?.email || 'User'}
-                          />
-                          <AvatarFallback className="bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))] text-sm">
-                            {userInitials}
-                          </AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="mt-1 w-56">
-                      <DropdownMenuLabel>
-                        <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none">
-                            {(user as { user_metadata?: { name?: string } })?.user_metadata?.name ||
-                              user?.email}
-                          </p>
-                          <p className="text-xs leading-none text-muted-foreground">
-                            {user?.email}
-                          </p>
-                        </div>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem asChild>
-                          <Link to="/settings?tab=profile">
-                            <User className="mr-2 h-4 w-4" />
-                            <span>Profile</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link to="/settings?tab=general">
-                            <Settings className="mr-2 h-4 w-4" />
-                            <span>Settings</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <PermissionGate resource="settings" action="manage">
-                          <DropdownMenuItem asChild>
-                            <Link to="/settings?tab=sso">
-                              <ShieldCheck className="mr-2 h-4 w-4" />
-                              <span>SSO</span>
-                            </Link>
-                          </DropdownMenuItem>
-                        </PermissionGate>
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={handleSignOut}
-                      >
-                        Sign Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div
-                  className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--background))] px-3 py-1.5 text-sm text-muted-foreground shadow-sm transition-colors hover:border-[hsl(var(--primary))] hover:text-foreground"
-                  onClick={() => setSearchDialogOpen(true)}
-                >
-                  <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                  <span className="flex-1 truncate">
-                    Search cases, clients, calendar events, voice notes...
-                  </span>
-                  <span className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:flex">
-                    Press
-                    <kbd className="rounded-md border border-[hsl(var(--surface-border))] bg-[hsl(var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-foreground">
-                      ⌘K
-                    </kbd>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground md:justify-end">
-                  <span className="font-medium text-foreground">Updated {headerTimestamp}</span>
-                </div>
-              </div>
-
-              {breadcrumbLabels && breadcrumbLabels.length > 1 && (
-                <nav className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                  {breadcrumbLabels.map((label, index) => (
-                    <span key={`${label}-${index}`} className="flex items-center gap-1">
-                      {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/60" />}
-                      <span
-                        className={
-                          index === breadcrumbLabels.length - 1
-                            ? 'font-medium text-foreground'
-                            : 'text-muted-foreground'
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage
+                        src={
+                          (user as { user_metadata?: { avatar_url?: string } })?.user_metadata
+                            ?.avatar_url
                         }
-                      >
-                        {label}
-                      </span>
-                    </span>
-                  ))}
-                </nav>
-              )}
+                        alt={user?.email || 'User'}
+                      />
+                      <AvatarFallback className="bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))] text-sm">
+                        {userInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="mt-1 w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {(user as { user_metadata?: { name?: string } })?.user_metadata?.name ||
+                          user?.email}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link to="/settings?tab=profile">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/settings?tab=general">
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Settings</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <PermissionGate resource="settings" action="manage">
+                      <DropdownMenuItem asChild>
+                        <Link to="/settings?tab=sso">
+                          <ShieldCheck className="mr-2 h-4 w-4" />
+                          <span>SSO</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    </PermissionGate>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="flex items-center justify-between"
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    <span>Theme</span>
+                    <ThemeToggle />
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={handleSignOut}
+                  >
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <CommandDialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
@@ -840,6 +691,87 @@ function AppLayoutInner({
                 onValueChange={setTerm}
               />
               <CommandList>
+                {!hasSearchTerm && (
+                  <>
+                    <CommandGroup heading="Quick Navigation">
+                      {[
+                        { label: 'Dashboard', icon: <Home className="h-4 w-4 mr-2" />, href: '/' },
+                        {
+                          label: 'Matters',
+                          icon: <Briefcase className="h-4 w-4 mr-2" />,
+                          href: '/matters',
+                        },
+                        {
+                          label: 'Clients',
+                          icon: <UserCheck className="h-4 w-4 mr-2" />,
+                          href: '/clients',
+                        },
+                        {
+                          label: 'Calendar',
+                          icon: <Calendar className="h-4 w-4 mr-2" />,
+                          href: '/calendar',
+                        },
+                        {
+                          label: 'Documents',
+                          icon: <FileText className="h-4 w-4 mr-2" />,
+                          href: '/documents',
+                        },
+                        {
+                          label: 'Contracts',
+                          icon: <FileCheck className="h-4 w-4 mr-2" />,
+                          href: '/contracts',
+                        },
+                        {
+                          label: 'Settings',
+                          icon: <Settings className="h-4 w-4 mr-2" />,
+                          href: '/settings',
+                        },
+                      ].map((option) => (
+                        <CommandItem
+                          key={option.href}
+                          onSelect={() => {
+                            navigate(option.href);
+                            setSearchDialogOpen(false);
+                          }}
+                        >
+                          {option.icon}
+                          <span>{option.label}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                    <CommandGroup heading="Quick Actions">
+                      {[
+                        {
+                          label: 'New Matter',
+                          icon: <Briefcase className="h-4 w-4 mr-2" />,
+                          href: '/cases/create',
+                        },
+                        {
+                          label: 'New Client',
+                          icon: <UserCheck className="h-4 w-4 mr-2" />,
+                          href: '/clients/create',
+                        },
+                        {
+                          label: 'Upload Document',
+                          icon: <FileText className="h-4 w-4 mr-2" />,
+                          href: '/documents/upload',
+                        },
+                      ].map((option) => (
+                        <CommandItem
+                          key={option.href}
+                          onSelect={() => {
+                            navigate(option.href);
+                            setSearchDialogOpen(false);
+                          }}
+                        >
+                          {option.icon}
+                          <span>{option.label}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </>
+                )}
+
                 {hasSearchTerm && searchResults && searchResults.cases.length > 0 && (
                   <CommandGroup heading="Matters">
                     {searchResults.cases.map((item) => (
@@ -1019,9 +951,7 @@ function AppLayoutInner({
                     );
                   })()}
                 <CommandEmpty>
-                  {!hasSearchTerm ? (
-                    'Type at least 2 characters to search across the workspace.'
-                  ) : globalSearchError ? (
+                  {!hasSearchTerm ? null : globalSearchError ? (
                     'Unable to search the workspace. Please try again.'
                   ) : isGlobalSearchLoading ? (
                     <div className="flex items-center gap-2 py-4">

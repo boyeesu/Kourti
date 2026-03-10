@@ -26,7 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useCreateContract } from '@/hooks/useContracts';
 import {
   ContractAnalysisView,
@@ -65,7 +65,6 @@ export default function ContractReview() {
   const [isLoadingSource, setIsLoadingSource] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
   const createContractMutation = useCreateContract();
 
   const hasResults = findings.length > 0 && recap;
@@ -85,18 +84,13 @@ export default function ContractReview() {
         .single()
         .then(({ data, error }) => {
           if (error || !data) {
-            toast({
-              title: 'Failed to load contract',
+            toast.error('Failed to load contract', {
               description: error?.message || 'Contract not found.',
-              variant: 'destructive',
             });
           } else if (data.terms) {
             setTextContent(data.terms);
             setDocumentContent(data.terms);
-            toast({
-              title: 'Contract Loaded',
-              description: `Loaded "${data.title}" for review.`,
-            });
+            toast.success('Contract Loaded', { description: `Loaded "${data.title}" for review.` });
           }
           setIsLoadingSource(false);
         });
@@ -110,10 +104,8 @@ export default function ContractReview() {
         .single()
         .then(async ({ data, error }) => {
           if (error || !data) {
-            toast({
-              title: 'Failed to load document',
+            toast.error('Failed to load document', {
               description: error?.message || 'Document not found.',
-              variant: 'destructive',
             });
             setIsLoadingSource(false);
             return;
@@ -122,10 +114,7 @@ export default function ContractReview() {
           if (data.content && data.content.length > 10) {
             setTextContent(data.content);
             setDocumentContent(data.content);
-            toast({
-              title: 'Document Loaded',
-              description: `Loaded "${data.name}" for review.`,
-            });
+            toast.success('Document Loaded', { description: `Loaded "${data.name}" for review.` });
             setIsLoadingSource(false);
             return;
           }
@@ -161,110 +150,94 @@ export default function ContractReview() {
                 if (extracted && extracted.length > 10) {
                   setTextContent(extracted);
                   setDocumentContent(extracted);
-                  toast({
-                    title: 'Document Loaded',
+                  toast.success('Document Loaded', {
                     description: `Loaded "${data.name}" for review.`,
                   });
                 } else {
-                  toast({
-                    title: 'Could not extract text',
+                  toast.success('Could not extract text', {
                     description:
                       'The document format is not supported for automatic extraction. Please paste the text manually.',
-                    variant: 'default',
                   });
                 }
               }
             } catch {
-              toast({
-                title: 'Download Failed',
+              toast.error('Download Failed', {
                 description: 'Could not download the document from storage.',
-                variant: 'destructive',
               });
             }
           }
           setIsLoadingSource(false);
         });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [searchParams]);
 
   // Extract text from uploaded file
-  const handleFileUpload = useCallback(
-    async (uploadedFile: File) => {
-      const { validateFile, MAX_CONTRACT_FILE_SIZE } = await import('@/lib/fileValidation');
-      const validation = validateFile(uploadedFile, { maxSize: MAX_CONTRACT_FILE_SIZE });
-      if (!validation.valid) {
-        toast({ title: 'Invalid File', description: validation.error, variant: 'destructive' });
-        return;
+  const handleFileUpload = useCallback(async (uploadedFile: File) => {
+    const { validateFile, MAX_CONTRACT_FILE_SIZE } = await import('@/lib/fileValidation');
+    const validation = validateFile(uploadedFile, { maxSize: MAX_CONTRACT_FILE_SIZE });
+    if (!validation.valid) {
+      toast.error('Invalid File', { description: validation.error });
+      return;
+    }
+
+    setFile(uploadedFile);
+    setIsExtracting(true);
+
+    try {
+      let extracted = '';
+
+      if (uploadedFile.type === 'text/plain' || uploadedFile.name.toLowerCase().endsWith('.txt')) {
+        extracted = await uploadedFile.text();
+      } else if (uploadedFile.name.toLowerCase().endsWith('.docx')) {
+        try {
+          const mammoth = await import('mammoth');
+          const arrayBuffer = await uploadedFile.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          extracted = result.value;
+        } catch (e) {
+          console.error('DOCX extraction failed:', e);
+        }
       }
 
-      setFile(uploadedFile);
-      setIsExtracting(true);
-
-      try {
-        let extracted = '';
-
-        if (
-          uploadedFile.type === 'text/plain' ||
-          uploadedFile.name.toLowerCase().endsWith('.txt')
-        ) {
-          extracted = await uploadedFile.text();
-        } else if (uploadedFile.name.toLowerCase().endsWith('.docx')) {
-          try {
-            const mammoth = await import('mammoth');
-            const arrayBuffer = await uploadedFile.arrayBuffer();
-            const result = await mammoth.extractRawText({ arrayBuffer });
-            extracted = result.value;
-          } catch (e) {
-            console.error('DOCX extraction failed:', e);
-          }
-        }
-
-        if (!extracted || extracted.length < 10) {
-          const reader = new FileReader();
-          const textPromise = new Promise<string>((resolve) => {
-            reader.onload = () => {
-              const text = reader.result as string;
-              resolve(text);
-            };
-            reader.onerror = () => resolve('');
-            reader.readAsText(uploadedFile);
-          });
-
-          const rawText = await textPromise;
-          if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
-            extracted = rawText;
-          }
-        }
-
-        if (extracted && extracted.length > 10) {
-          setTextContent(extracted);
-          setDocumentContent(extracted);
-          toast({
-            title: 'Text Extracted',
-            description: `Extracted ${extracted.length.toLocaleString()} characters from "${uploadedFile.name}".`,
-          });
-        } else {
-          toast({
-            title: 'Extraction Limited',
-            description:
-              'Could not extract text automatically. Please paste the contract text manually.',
-            variant: 'default',
-          });
-        }
-      } catch (error) {
-        console.error('File extraction error:', error);
-        toast({
-          title: 'Extraction Failed',
-          description: 'Could not read the file. Please paste the text manually.',
-          variant: 'destructive',
+      if (!extracted || extracted.length < 10) {
+        const reader = new FileReader();
+        const textPromise = new Promise<string>((resolve) => {
+          reader.onload = () => {
+            const text = reader.result as string;
+            resolve(text);
+          };
+          reader.onerror = () => resolve('');
+          reader.readAsText(uploadedFile);
         });
-      } finally {
-        setIsExtracting(false);
+
+        const rawText = await textPromise;
+        if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
+          extracted = rawText;
+        }
       }
-    },
-    [toast]
-  );
+
+      if (extracted && extracted.length > 10) {
+        setTextContent(extracted);
+        setDocumentContent(extracted);
+        toast.success('Text Extracted', {
+          description: `Extracted ${extracted.length.toLocaleString()} characters from "${uploadedFile.name}".`,
+        });
+      } else {
+        toast.success('Extraction Limited', {
+          description:
+            'Could not extract text automatically. Please paste the contract text manually.',
+        });
+      }
+    } catch (error) {
+      console.error('File extraction error:', error);
+      toast.error('Extraction Failed', {
+        description: 'Could not read the file. Please paste the text manually.',
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  }, []);
 
   const handleGoalToggle = (suggestion: string) => {
     setSelectedGoals((prev) =>
@@ -287,19 +260,15 @@ export default function ContractReview() {
   const handleAnalyze = async () => {
     const content = textContent.trim();
     if (!content && !file) {
-      toast({
-        title: 'Missing Content',
+      toast.error('Missing Content', {
         description: 'Please upload a document or paste text to analyze.',
-        variant: 'destructive',
       });
       return;
     }
 
     if (!content || content.length < 50) {
-      toast({
-        title: 'Insufficient Content',
+      toast.error('Insufficient Content', {
         description: 'Please provide more text content for a meaningful analysis.',
-        variant: 'destructive',
       });
       return;
     }
@@ -369,15 +338,12 @@ export default function ContractReview() {
       setAnalysisProgress(100);
       setProgressLabel('Analysis complete!');
 
-      toast({
-        title: 'Analysis Complete',
+      toast.success('Analysis Complete', {
         description: `Found ${parsed.findings.length} findings across ${parsed.recap.categories.length} categories.`,
       });
     } catch (error: unknown) {
-      toast({
-        title: 'Analysis Failed',
+      toast.error('Analysis Failed', {
         description: error instanceof Error ? error.message : 'Failed to analyze document',
-        variant: 'destructive',
       });
     } finally {
       setTimeout(() => {
@@ -395,8 +361,7 @@ export default function ContractReview() {
     if (updated !== documentContent) {
       setDocumentContent(updated);
       setTextContent(updated);
-      toast({
-        title: 'Recommendation Applied',
+      toast.success('Recommendation Applied', {
         description: `Updated the contract text for: ${finding.title.substring(0, 40)}...`,
       });
     }
@@ -405,7 +370,7 @@ export default function ContractReview() {
   const handleEditDocument = (updatedContent: string) => {
     setDocumentContent(updatedContent);
     setTextContent(updatedContent);
-    toast({ title: 'Document Updated', description: 'Your changes have been saved.' });
+    toast.success('Document Updated', { description: 'Your changes have been saved.' });
   };
 
   const handleExport = async () => {
@@ -442,7 +407,7 @@ export default function ContractReview() {
 
     try {
       await navigator.clipboard.writeText(exportText);
-      toast({ title: 'Exported', description: 'Analysis report copied to clipboard.' });
+      toast.success('Exported', { description: 'Analysis report copied to clipboard.' });
     } catch {
       const blob = new Blob([exportText], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -467,7 +432,7 @@ export default function ContractReview() {
         status: 'active',
         contract_type: analysisType === 'contract_review' ? 'service' : 'general',
       });
-      toast({ title: 'Contract Saved', description: 'Contract has been saved successfully.' });
+      toast.success('Contract Saved', { description: 'Contract has been saved successfully.' });
     } catch {
       // Error toast handled by mutation
     }

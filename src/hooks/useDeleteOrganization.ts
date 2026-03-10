@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export function useDeleteOrganization() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ orgId, reason }: { orgId: string; reason?: string }) => {
@@ -25,17 +24,12 @@ export function useDeleteOrganization() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-organizations'] });
       queryClient.invalidateQueries({ queryKey: ['platform-analytics'] });
-      toast({
-        title: 'Organization deleted',
+      toast.success('Organization deleted', {
         description: 'Organization and all associated data have been deleted successfully',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to delete organization',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Failed to delete organization', { description: error.message });
     },
   });
 }

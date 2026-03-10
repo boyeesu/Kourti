@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCreateCalendarEvent } from '@/hooks/useCalendar';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface QuickEventCreateProps {
   slotTime: Date;
@@ -23,7 +23,6 @@ export function QuickEventCreate({
   const [eventType, setEventType] = useState('meeting');
   const inputRef = useRef<HTMLInputElement>(null);
   const createEvent = useCreateCalendarEvent();
-  const { toast } = useToast();
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -50,9 +49,7 @@ export function QuickEventCreate({
 
       onSuccess();
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
+      toast.error('Error', {
         description: 'Failed to create event',
       });
     }

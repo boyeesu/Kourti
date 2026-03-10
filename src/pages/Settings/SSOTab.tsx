@@ -25,7 +25,7 @@ import {
   useTestSsoConfig,
 } from '@/hooks/useOrganizationSsoConfig';
 import { useUserRoleAssignments } from '@/hooks/useUserRoleAssignments';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 const urlValidator = (value: string | undefined | null) => {
   if (!value) return true;
@@ -130,9 +130,7 @@ const HelperLabel = ({ label, tooltip }: { label: string; tooltip?: string }) =>
         <TooltipTrigger type="button" className="text-muted-foreground">
           <Info className="h-3.5 w-3.5" aria-hidden />
         </TooltipTrigger>
-        <TooltipContent className="max-w-xs text-sm">
-          {tooltip}
-        </TooltipContent>
+        <TooltipContent className="max-w-xs text-sm">{tooltip}</TooltipContent>
       </Tooltip>
     </div>
   );
@@ -144,8 +142,6 @@ export default function SSOTab() {
   const testMutation = useTestSsoConfig();
   const [googleSecretStored, setGoogleSecretStored] = useState(false);
   const [microsoftSecretStored, setMicrosoftSecretStored] = useState(false);
-  const { toast } = useToast();
-  
   // Check if user is superadmin - MUST be before any conditional returns
   const { data: roleData } = useUserRoleAssignments();
   const isSuperAdmin = roleData?.isSuperAdmin || false;
@@ -222,70 +218,58 @@ export default function SSOTab() {
   // Test connection handlers
   const handleTestGoogle = async () => {
     if (!googleConfig?.id) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Please save your Google Workspace configuration first.',
-        variant: 'destructive',
       });
       return;
     }
 
     try {
       const result = await testMutation.mutateAsync(googleConfig.id);
-      
+
       if (result.success) {
-        toast({
-          title: 'Connection Successful',
+        toast.success('Connection Successful', {
           description: result.message,
         });
       } else {
-        toast({
-          title: 'Configuration Issues',
+        toast.error('Configuration Issues', {
           description: result.errors?.join(', ') || result.message,
-          variant: 'destructive',
         });
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to test Google SSO connection.';
-      toast({
-        title: 'Test Failed',
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to test Google SSO connection.';
+      toast.error('Test Failed', {
         description: errorMessage,
-        variant: 'destructive',
       });
     }
   };
 
   const handleTestMicrosoft = async () => {
     if (!microsoftConfig?.id) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Please save your Microsoft Entra ID configuration first.',
-        variant: 'destructive',
       });
       return;
     }
 
     try {
       const result = await testMutation.mutateAsync(microsoftConfig.id);
-      
+
       if (result.success) {
-        toast({
-          title: 'Connection Successful',
+        toast.success('Connection Successful', {
           description: result.message,
         });
       } else {
-        toast({
-          title: 'Configuration Issues',
+        toast.error('Configuration Issues', {
           description: result.errors?.join(', ') || result.message,
-          variant: 'destructive',
         });
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to test Microsoft SSO connection.';
-      toast({
-        title: 'Test Failed',
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to test Microsoft SSO connection.';
+      toast.error('Test Failed', {
         description: errorMessage,
-        variant: 'destructive',
       });
     }
   };
@@ -296,7 +280,8 @@ export default function SSOTab() {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Only super administrators can configure Single Sign-On settings. Contact your organization administrator for access.
+          Only super administrators can configure Single Sign-On settings. Contact your organization
+          administrator for access.
         </AlertDescription>
       </Alert>
     );
@@ -334,18 +319,18 @@ export default function SSOTab() {
         setGoogleSecretStored(true);
         googleForm.setValue('clientSecret', '');
       }
-      
-      toast({
-        title: 'Success',
+
+      toast.success('Success', {
         description: 'Google Workspace SSO configuration saved successfully.',
       });
     } catch (error: unknown) {
       console.error('Google SSO update error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save Google SSO configuration. Please try again.';
-      toast({
-        title: 'Error',
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to save Google SSO configuration. Please try again.';
+      toast.error('Error', {
         description: errorMessage,
-        variant: 'destructive',
       });
     }
   };
@@ -392,18 +377,18 @@ export default function SSOTab() {
         setMicrosoftSecretStored(true);
         microsoftForm.setValue('clientSecret', '');
       }
-      
-      toast({
-        title: 'Success',
+
+      toast.success('Success', {
         description: 'Microsoft Entra ID SSO configuration saved successfully.',
       });
     } catch (error: unknown) {
       console.error('Microsoft SSO update error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save Microsoft SSO configuration. Please try again.';
-      toast({
-        title: 'Error',
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to save Microsoft SSO configuration. Please try again.';
+      toast.error('Error', {
         description: errorMessage,
-        variant: 'destructive',
       });
     }
   };
@@ -414,7 +399,8 @@ export default function SSOTab() {
         <div>
           <h3 className="text-lg font-medium">Single Sign-On</h3>
           <p className="text-sm text-muted-foreground">
-            Connect your identity provider so members of your organization can access Kourti Legal with familiar credentials.
+            Connect your identity provider so members of your organization can access Kourti Legal
+            with familiar credentials.
           </p>
         </div>
 
@@ -430,12 +416,16 @@ export default function SSOTab() {
               <CardHeader>
                 <CardTitle>Google Workspace</CardTitle>
                 <CardDescription>
-                  Enable OAuth-based sign-in for users managed in Google Workspace. Collect the credentials from the Google Cloud Console.
+                  Enable OAuth-based sign-in for users managed in Google Workspace. Collect the
+                  credentials from the Google Cloud Console.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Form {...googleForm}>
-                  <form onSubmit={googleForm.handleSubmit(handleGoogleSubmit)} className="space-y-6">
+                  <form
+                    onSubmit={googleForm.handleSubmit(handleGoogleSubmit)}
+                    className="space-y-6"
+                  >
                     <FormField
                       control={googleForm.control}
                       name="enabled"
@@ -444,7 +434,8 @@ export default function SSOTab() {
                           <div className="space-y-0.5">
                             <FormLabel>Enable Google Workspace SSO</FormLabel>
                             <FormDescription>
-                              Users will be redirected to Google for authentication when this is enabled.
+                              Users will be redirected to Google for authentication when this is
+                              enabled.
                             </FormDescription>
                           </div>
                           <FormControl>
@@ -485,7 +476,10 @@ export default function SSOTab() {
                               />
                             </FormLabel>
                             <FormControl>
-                              <Input placeholder="https://app.example.com/auth/google/callback" {...field} />
+                              <Input
+                                placeholder="https://app.example.com/auth/google/callback"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -508,7 +502,11 @@ export default function SSOTab() {
                             <div className="flex gap-2">
                               <Input
                                 type="password"
-                                placeholder={googleSecretStored ? 'Stored securely — enter a new secret to rotate' : 'Paste the client secret'}
+                                placeholder={
+                                  googleSecretStored
+                                    ? 'Stored securely — enter a new secret to rotate'
+                                    : 'Paste the client secret'
+                                }
                                 {...field}
                               />
                               <Button
@@ -527,7 +525,8 @@ export default function SSOTab() {
                           </FormControl>
                           {googleSecretStored && (
                             <FormDescription>
-                              A client secret is already stored. Provide a new secret only when you want to rotate credentials.
+                              A client secret is already stored. Provide a new secret only when you
+                              want to rotate credentials.
                             </FormDescription>
                           )}
                           <FormMessage />
@@ -569,7 +568,9 @@ export default function SSOTab() {
                           {testMutation.isPending ? 'Testing...' : 'Test Connection'}
                         </Button>
                         <Button type="submit" disabled={updateMutation.isPending}>
-                          {updateMutation.isPending ? 'Saving...' : 'Save Google Workspace settings'}
+                          {updateMutation.isPending
+                            ? 'Saving...'
+                            : 'Save Google Workspace settings'}
                         </Button>
                       </div>
                     </div>
@@ -582,12 +583,16 @@ export default function SSOTab() {
               <CardHeader>
                 <CardTitle>Microsoft Entra ID</CardTitle>
                 <CardDescription>
-                  Connect Azure Active Directory (Entra ID) to allow users to authenticate with Microsoft accounts.
+                  Connect Azure Active Directory (Entra ID) to allow users to authenticate with
+                  Microsoft accounts.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Form {...microsoftForm}>
-                  <form onSubmit={microsoftForm.handleSubmit(handleMicrosoftSubmit)} className="space-y-6">
+                  <form
+                    onSubmit={microsoftForm.handleSubmit(handleMicrosoftSubmit)}
+                    className="space-y-6"
+                  >
                     <FormField
                       control={microsoftForm.control}
                       name="enabled"
@@ -619,7 +624,10 @@ export default function SSOTab() {
                               />
                             </FormLabel>
                             <FormControl>
-                              <Input placeholder="00000000-0000-0000-0000-000000000000" {...field} />
+                              <Input
+                                placeholder="00000000-0000-0000-0000-000000000000"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -637,7 +645,10 @@ export default function SSOTab() {
                               />
                             </FormLabel>
                             <FormControl>
-                              <Input placeholder="00000000-0000-0000-0000-000000000000" {...field} />
+                              <Input
+                                placeholder="00000000-0000-0000-0000-000000000000"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -657,7 +668,10 @@ export default function SSOTab() {
                             />
                           </FormLabel>
                           <FormControl>
-                            <Input placeholder="https://app.example.com/auth/microsoft/callback" {...field} />
+                            <Input
+                              placeholder="https://app.example.com/auth/microsoft/callback"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -679,7 +693,11 @@ export default function SSOTab() {
                             <div className="flex gap-2">
                               <Input
                                 type="password"
-                                placeholder={microsoftSecretStored ? 'Stored securely — enter a new secret to rotate' : 'Paste the client secret'}
+                                placeholder={
+                                  microsoftSecretStored
+                                    ? 'Stored securely — enter a new secret to rotate'
+                                    : 'Paste the client secret'
+                                }
                                 {...field}
                               />
                               <Button
@@ -698,7 +716,8 @@ export default function SSOTab() {
                           </FormControl>
                           {microsoftSecretStored && (
                             <FormDescription>
-                              A client secret is already stored. Provide a new secret only when you want to rotate credentials.
+                              A client secret is already stored. Provide a new secret only when you
+                              want to rotate credentials.
                             </FormDescription>
                           )}
                           <FormMessage />
@@ -740,7 +759,9 @@ export default function SSOTab() {
                           {testMutation.isPending ? 'Testing...' : 'Test Connection'}
                         </Button>
                         <Button type="submit" disabled={updateMutation.isPending}>
-                          {updateMutation.isPending ? 'Saving...' : 'Save Microsoft Entra ID settings'}
+                          {updateMutation.isPending
+                            ? 'Saving...'
+                            : 'Save Microsoft Entra ID settings'}
                         </Button>
                       </div>
                     </div>

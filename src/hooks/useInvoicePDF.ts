@@ -1,12 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { logError } from '@/lib/logger';
 
 export function useInvoicePDF() {
-  const { toast } = useToast();
-
   return useMutation({
     mutationFn: async (invoiceId: string) => {
       const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
@@ -20,24 +18,15 @@ export function useInvoicePDF() {
       return data;
     },
     onSuccess: () => {
-      toast({
-        title: 'Success',
-        description: 'Invoice PDF generated successfully',
-      });
+      toast.success('Success', { description: 'Invoice PDF generated successfully' });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to generate PDF',
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: error.message || 'Failed to generate PDF' });
     },
   });
 }
 
 export function useDownloadInvoicePDF() {
-  const { toast } = useToast();
-
   return useMutation({
     mutationFn: async (invoiceId: string) => {
       try {
@@ -66,17 +55,10 @@ export function useDownloadInvoicePDF() {
       }
     },
     onSuccess: () => {
-      toast({
-        title: 'Success',
-        description: 'Invoice PDF downloaded successfully',
-      });
+      toast.success('Success', { description: 'Invoice PDF downloaded successfully' });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to download PDF',
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: error.message || 'Failed to download PDF' });
     },
   });
 }

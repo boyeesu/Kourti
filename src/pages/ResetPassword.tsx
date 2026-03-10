@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { validatePassword, PASSWORD_REQUIREMENTS } from '@/lib/passwordValidation';
@@ -18,7 +18,6 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,9 +45,7 @@ export default function ResetPassword() {
           if (error) {
             if (mounted) {
               setTokenValid(false);
-              toast({
-                variant: 'destructive',
-                title: 'Invalid reset link',
+              toast.error('Invalid reset link', {
                 description: error.message || 'This password reset link is invalid or has expired.',
               });
               setTimeout(() => navigate('/forgot-password'), 3000);
@@ -84,9 +81,7 @@ export default function ResetPassword() {
         if (!accessToken || type !== 'recovery') {
           if (mounted) {
             setTokenValid(false);
-            toast({
-              variant: 'destructive',
-              title: 'Invalid reset link',
+            toast.error('Invalid reset link', {
               description: 'This password reset link is invalid or has expired.',
             });
             setTimeout(() => navigate('/forgot-password'), 3000);
@@ -96,11 +91,7 @@ export default function ResetPassword() {
       } catch {
         if (mounted) {
           setTokenValid(false);
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Failed to verify password reset link.',
-          });
+          toast.error('Error', { description: 'Failed to verify password reset link.' });
           setTimeout(() => navigate('/forgot-password'), 3000);
         }
       } finally {
@@ -136,15 +127,13 @@ export default function ResetPassword() {
         authStateSubscription.unsubscribe();
       }
     };
-  }, [navigate, toast]);
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      toast({
-        variant: 'destructive',
-        title: "Passwords don't match",
+      toast.error("Passwords don't match", {
         description: 'Please ensure both passwords are the same.',
       });
       return;
@@ -152,11 +141,7 @@ export default function ResetPassword() {
 
     const passwordCheck = validatePassword(password);
     if (!passwordCheck.valid) {
-      toast({
-        variant: 'destructive',
-        title: 'Password too weak',
-        description: passwordCheck.error!,
-      });
+      toast.error('Password too weak', { description: passwordCheck.error! });
       return;
     }
 
@@ -174,8 +159,7 @@ export default function ResetPassword() {
       setPassword('');
       setConfirmPassword('');
 
-      toast({
-        title: 'Password reset successfully!',
+      toast.success('Password reset successfully!', {
         description: 'Your password has been updated. You can now sign in with your new password.',
       });
 
@@ -189,11 +173,7 @@ export default function ResetPassword() {
       setConfirmPassword('');
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to reset password. Please try again.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     } finally {
       setLoading(false);
     }

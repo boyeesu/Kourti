@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useProfile } from '@/hooks/useProfile';
 import { env } from '@/lib/env';
@@ -40,7 +40,7 @@ export function useOrganizationUsers() {
       }
 
       const { data, error } = await supabase.rpc('get_organization_users', {
-        org_id: organizationId
+        org_id: organizationId,
       });
 
       if (error) throw error;
@@ -53,17 +53,16 @@ export function useOrganizationUsers() {
 
 export function useToggleUserStatus() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ userId, disable }: { userId: string; disable: boolean }) => {
       const { data, error } = await supabase.rpc('toggle_user_status', {
         target_user_id: userId,
-        disable: disable
+        disable: disable,
       });
 
       if (error) throw error;
-      
+
       // Check if the response contains an error
       if (data && typeof data === 'object' && 'error' in data) {
         throw new Error(data.error as string);
@@ -73,69 +72,54 @@ export function useToggleUserStatus() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] });
-      toast({
-        title: variables.disable ? "User disabled" : "User enabled",
-        description: variables.disable 
-          ? "User has been disabled and cannot access the system" 
-          : "User has been enabled and can now access the system",
+      toast.success(variables.disable ? 'User disabled' : 'User enabled', {
+        description: variables.disable
+          ? 'User has been disabled and cannot access the system'
+          : 'User has been enabled and can now access the system',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to update user status",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error('Failed to update user status', { description: error.message });
     },
   });
 }
 
 export function useDeleteInvitation() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (invitationId: string) => {
-      const { error } = await supabase
-        .from('invitations')
-        .delete()
-        .eq('id', invitationId);
+      const { error } = await supabase.from('invitations').delete().eq('id', invitationId);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] });
-      toast({
-        title: "Invitation deleted",
-        description: "The invitation has been removed successfully",
+      toast.success('Invitation deleted', {
+        description: 'The invitation has been removed successfully',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to delete invitation",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error('Failed to delete invitation', { description: error.message });
     },
   });
 }
 
 export function useResendInvitation() {
-  const { toast } = useToast();
   const { data: organization } = useCurrentUserOrganization();
   const { data: profile } = useProfile();
 
   return useMutation({
     mutationFn: async (user: OrganizationUser) => {
       const organizationName = organization?.name || 'Organization';
-      const inviterName = buildDisplayName(
-        profile?.first_name,
-        profile?.last_name,
-        profile?.email
-      );
+      const inviterName = buildDisplayName(profile?.first_name, profile?.last_name, profile?.email);
       const invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
 
-      const ssoLinks: Array<{ provider: ProviderName; url: string; mode: 'supabase_managed' | 'federated' }> = [];
+      const ssoLinks: Array<{
+        provider: ProviderName;
+        url: string;
+        mode: 'supabase_managed' | 'federated';
+      }> = [];
       let ssoEnforced = false;
       const ssoRedirect = getAuthRedirectUrl('/auth/callback', env.APP_URL);
 
@@ -198,40 +182,34 @@ export function useResendInvitation() {
           invitationUrl,
           ssoEnforced,
           ssoLinks,
-        }
+        },
       });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({
-        title: "Invitation resent",
-        description: "The invitation email has been sent again",
+      toast.success('Invitation resent', {
+        description: 'The invitation email has been sent again',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to resend invitation",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error('Failed to resend invitation', { description: error.message });
     },
   });
 }
 
 export function useChangeUserRole() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
       const { data, error } = await supabase.rpc('change_user_role', {
         p_target_user_id: userId,
-        p_new_role_name: newRole
+        p_new_role_name: newRole,
       });
 
       if (error) throw error;
-      
+
       // Check if the response contains an error
       if (data && typeof data === 'object' && 'error' in data) {
         throw new Error(data.error as string);
@@ -241,17 +219,10 @@ export function useChangeUserRole() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] });
-      toast({
-        title: "Role changed",
-        description: "User role has been updated successfully",
-      });
+      toast.success('Role changed', { description: 'User role has been updated successfully' });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to change role",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error('Failed to change role', { description: error.message });
     },
   });
 }

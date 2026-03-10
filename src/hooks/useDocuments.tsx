@@ -1,7 +1,6 @@
- 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Document } from '@/types';
 import { logDebug, logError } from '@/lib/logger';
@@ -299,7 +298,6 @@ export function useDocumentsByCase(caseId: string) {
 
 export function useCreateDocument() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (documentData: CreateDocumentData) => {
@@ -333,25 +331,17 @@ export function useCreateDocument() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      toast({
-        title: 'Success',
-        description: 'Document created successfully.',
-      });
+      toast.success('Success', { description: 'Document created successfully.' });
     },
     onError: (error: Error) => {
       logError('Failed to create document', { error });
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to create document.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to create document.' });
     },
   });
 }
 
 export function useUploadDocument() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({
@@ -439,18 +429,11 @@ export function useUploadDocument() {
       if (variables.case_id) {
         queryClient.invalidateQueries({ queryKey: ['documents', 'case', variables.case_id] });
       }
-      toast({
-        title: 'Success',
-        description: 'Document uploaded successfully.',
-      });
+      toast.success('Success', { description: 'Document uploaded successfully.' });
     },
     onError: (error: Error) => {
       logError('Failed to upload document', { error });
-      toast({
-        variant: 'destructive',
-        title: 'Upload Failed',
-        description: error.message || 'Failed to upload document.',
-      });
+      toast.error('Upload Failed', { description: error.message || 'Failed to upload document.' });
     },
   });
 }

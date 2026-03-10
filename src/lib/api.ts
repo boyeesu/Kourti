@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface FetchDataOptions {
   table: string;
@@ -154,7 +154,6 @@ export function useUpdateItem<T = unknown>(options: {
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (updateData: { id: string; [key: string]: unknown }) => {
@@ -173,11 +172,7 @@ export function useUpdateItem<T = unknown>(options: {
       options.onSuccess?.();
     },
     onError: (error: Error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to update item.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to update item.' });
       options.onError?.(error);
     },
   });

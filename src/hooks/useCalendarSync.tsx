@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
@@ -27,7 +27,6 @@ export interface SyncSettings {
 
 export function useCalendarSync() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { data: organizationId } = useUserOrganization();
 
   // Fetch calendar integrations
@@ -86,10 +85,7 @@ export function useCalendarSync() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-integrations'] });
-      toast({
-        title: 'Disconnected',
-        description: 'Calendar disconnected successfully',
-      });
+      toast.success('Disconnected', { description: 'Calendar disconnected successfully' });
     },
   });
 

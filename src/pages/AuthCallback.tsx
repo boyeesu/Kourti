@@ -1,15 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import { logWarn } from '@/lib/logger';
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { AppLogo } from '@/components/ui/AppLogo';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [statusMessage, setStatusMessage] = useState("Finishing your sign-in...");
+  const [statusMessage, setStatusMessage] = useState('Finishing your sign-in...');
 
   useEffect(() => {
     let isMounted = true;
@@ -17,7 +16,7 @@ export default function AuthCallback() {
     const finalizeAuth = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
+        const code = params.get('code');
 
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -33,16 +32,16 @@ export default function AuthCallback() {
 
         const sessionUser = sessionData.session?.user;
         if (!sessionUser) {
-          throw new Error("No active session found. Please sign in again.");
+          throw new Error('No active session found. Please sign in again.');
         }
 
-        setStatusMessage("Checking your workspace...");
+        setStatusMessage('Checking your workspace...');
 
         // Check for pending invitation and apply it if exists (async, non-blocking)
         try {
           await supabase.rpc('check_and_apply_invitation', {
             p_user_id: sessionUser.id,
-            p_email: sessionUser.email || ''
+            p_email: sessionUser.email || '',
           });
         } catch (inviteError) {
           // Non-critical - log but don't block
@@ -50,9 +49,9 @@ export default function AuthCallback() {
         }
 
         const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("organization_id")
-          .eq("user_id", sessionUser.id)
+          .from('profiles')
+          .select('organization_id')
+          .eq('user_id', sessionUser.id)
           .maybeSingle();
 
         if (profileError) {
@@ -62,19 +61,16 @@ export default function AuthCallback() {
         if (!isMounted) return;
 
         if (profile?.organization_id) {
-          navigate("/dashboard", { replace: true });
+          navigate('/dashboard', { replace: true });
         } else {
-          navigate("/onboarding", { replace: true });
+          navigate('/onboarding', { replace: true });
         }
       } catch (error: unknown) {
         if (!isMounted) return;
-        const errorMessage = error instanceof Error ? error.message : "Unable to complete sign-in. Please try again.";
-        toast({
-          variant: "destructive",
-          title: "Sign-in failed",
-          description: errorMessage,
-        });
-        navigate("/auth", { replace: true });
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unable to complete sign-in. Please try again.';
+        toast.error('Sign-in failed', { description: errorMessage });
+        navigate('/auth', { replace: true });
       }
     };
 
@@ -83,7 +79,7 @@ export default function AuthCallback() {
     return () => {
       isMounted = false;
     };
-  }, [navigate, toast]);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
@@ -100,7 +96,9 @@ export default function AuthCallback() {
         <CardContent>
           <div className="flex flex-col items-center gap-4">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <p className="text-sm text-muted-foreground">Please wait while we prepare your account.</p>
+            <p className="text-sm text-muted-foreground">
+              Please wait while we prepare your account.
+            </p>
           </div>
         </CardContent>
       </Card>

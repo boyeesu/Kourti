@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { logError } from '@/lib/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -187,7 +187,6 @@ function usePlanPricing() {
 
 function useSavePrices() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (
@@ -232,13 +231,11 @@ function useSavePrices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-plan-pricing'] });
       queryClient.invalidateQueries({ queryKey: ['user-plans'] });
-      toast({ title: 'Success', description: 'Plan prices updated successfully' });
+      toast.success('Success', { description: 'Plan prices updated successfully' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to save prices',
-        variant: 'destructive',
       });
     },
   });
@@ -246,7 +243,6 @@ function useSavePrices() {
 
 function useSyncFlutterwave() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async () => {
@@ -256,13 +252,11 @@ function useSyncFlutterwave() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-plan-pricing'] });
-      toast({ title: 'Success', description: 'Plans synced with Flutterwave successfully' });
+      toast.success('Success', { description: 'Plans synced with Flutterwave successfully' });
     },
     onError: (error) => {
-      toast({
-        title: 'Sync Failed',
+      toast.error('Sync Failed', {
         description: error instanceof Error ? error.message : 'Failed to sync with Flutterwave',
-        variant: 'destructive',
       });
     },
   });

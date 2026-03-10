@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 
 export interface ProfileData {
@@ -51,7 +51,6 @@ export function useProfile() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (profileData: ProfileData) => {
@@ -70,24 +69,17 @@ export function useUpdateProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-      toast({
-        title: 'Profile updated successfully',
+      toast.success('Profile updated successfully', {
         description: 'Your profile information has been saved.',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to update profile',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Failed to update profile', { description: error.message });
     },
   });
 }
 
 export function useChangePassword() {
-  const { toast } = useToast();
-
   return useMutation({
     mutationFn: async ({ newPassword }: PasswordChangeData) => {
       const { error } = await supabase.auth.updateUser({
@@ -97,17 +89,12 @@ export function useChangePassword() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({
-        title: 'Password changed successfully',
+      toast.success('Password changed successfully', {
         description: 'Your password has been updated.',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to change password',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Failed to change password', { description: error.message });
     },
   });
 }

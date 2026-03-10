@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useForm, UseFormProps, UseFormReturn, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { sanitizeErrorForLogging } from '@/lib/utils';
 import { logError } from '@/lib/logger';
 
@@ -38,7 +38,6 @@ export function useFormWithValidation<
   resetWithValues: (values: z.infer<TSchema>) => void;
 } {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
 
   const form = useForm<z.infer<TSchema>, TContext>({
     resolver: zodResolver(schema) as any,
@@ -55,19 +54,12 @@ export function useFormWithValidation<
       await onSubmit(values);
 
       if (successMessage) {
-        toast({
-          title: 'Success',
-          description: successMessage,
-        });
+        toast.success('Success', { description: successMessage });
       }
     } catch (error) {
       logError('Form submission error', sanitizeErrorForLogging(error));
 
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage || 'An error occurred. Please try again.',
-      });
+      toast.error('Error', { description: errorMessage || 'An error occurred. Please try again.' });
 
       if (onError) {
         onError(form.formState.errors, form.formState);

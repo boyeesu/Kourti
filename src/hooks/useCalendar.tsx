@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { CalendarEvent } from '@/types';
@@ -161,7 +161,7 @@ export function useCalendarEventsByClient(clientId: string) {
  */
 export function useCreateCalendarEvent() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -213,17 +213,10 @@ export function useCreateCalendarEvent() {
       queryClient.invalidateQueries({
         queryKey: ['calendar-events', { organizationId }],
       });
-      toast({
-        title: 'Success',
-        description: 'Calendar event created successfully.',
-      });
+      toast.success('Success', { description: 'Calendar event created successfully.' });
     },
     onError: (error: any) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to create calendar event.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to create calendar event.' });
     },
   });
 }
@@ -234,7 +227,7 @@ export function useCreateCalendarEvent() {
  */
 export function useUpdateCalendarEvent() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -259,17 +252,10 @@ export function useUpdateCalendarEvent() {
       queryClient.invalidateQueries({
         queryKey: ['calendar-events', { organizationId }],
       });
-      toast({
-        title: 'Success',
-        description: 'Calendar event updated successfully.',
-      });
+      toast.success('Success', { description: 'Calendar event updated successfully.' });
     },
     onError: (error: any) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to update calendar event.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to update calendar event.' });
     },
   });
 }
@@ -280,7 +266,7 @@ export function useUpdateCalendarEvent() {
  */
 export function useDeleteCalendarEvent() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
@@ -296,17 +282,10 @@ export function useDeleteCalendarEvent() {
       queryClient.invalidateQueries({
         queryKey: ['calendar-events', { organizationId }],
       });
-      toast({
-        title: 'Success',
-        description: 'Calendar event deleted successfully.',
-      });
+      toast.success('Success', { description: 'Calendar event deleted successfully.' });
     },
     onError: (error: any) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to delete calendar event.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to delete calendar event.' });
     },
   });
 }

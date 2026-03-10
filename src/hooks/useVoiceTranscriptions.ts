@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 interface VoiceTranscription {
@@ -134,7 +134,6 @@ export function useVoiceTranscription(id: string) {
  * Hook for creating voice transcription
  */
 export function useCreateVoiceTranscription() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -176,17 +175,10 @@ export function useCreateVoiceTranscription() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-transcriptions'] });
-      toast({
-        title: 'Success',
-        description: 'Voice transcription saved successfully',
-      });
+      toast.success('Success', { description: 'Voice transcription saved successfully' });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save voice transcription',
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: error.message || 'Failed to save voice transcription' });
     },
   });
 }
@@ -195,7 +187,6 @@ export function useCreateVoiceTranscription() {
  * Hook for updating voice transcription
  */
 export function useUpdateVoiceTranscription() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: organizationId } = useUserOrganization();
 
@@ -216,16 +207,11 @@ export function useUpdateVoiceTranscription() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['voice-transcriptions'] });
       queryClient.invalidateQueries({ queryKey: ['voice-transcription', data.id] });
-      toast({
-        title: 'Success',
-        description: 'Voice transcription updated successfully',
-      });
+      toast.success('Success', { description: 'Voice transcription updated successfully' });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.message || 'Failed to update voice transcription',
-        variant: 'destructive',
       });
     },
   });
@@ -235,7 +221,6 @@ export function useUpdateVoiceTranscription() {
  * Hook for deleting voice transcription
  */
 export function useDeleteVoiceTranscription() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: organizationId } = useUserOrganization();
 
@@ -252,16 +237,11 @@ export function useDeleteVoiceTranscription() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-transcriptions'] });
-      toast({
-        title: 'Success',
-        description: 'Voice transcription deleted successfully',
-      });
+      toast.success('Success', { description: 'Voice transcription deleted successfully' });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.message || 'Failed to delete voice transcription',
-        variant: 'destructive',
       });
     },
   });

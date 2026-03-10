@@ -47,7 +47,7 @@ import {
 } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
-import { useEnhancedToast } from '@/components/ui/enhanced-toast';
+import { toast } from 'sonner';
 import { env } from '@/lib/env';
 import {
   DropdownMenu,
@@ -94,7 +94,6 @@ export default function Calendar() {
   const [hasSsoConfig, setHasSsoConfig] = useState(false);
   const [showSyncSettings, setShowSyncSettings] = useState(false);
   const [showFindTimeDialog, setShowFindTimeDialog] = useState(false);
-  const { success, error: showError } = useEnhancedToast();
   const calendarFeedUrl = `${env.APP_URL}/api/calendar/ics`;
   const calendarSubscribeUrl = calendarFeedUrl.replace(/^https?:\/\//, 'webcal://');
 
@@ -250,14 +249,12 @@ export default function Calendar() {
       }
 
       if (syncedCount > 0) {
-        success({
-          title: 'Calendar Synced',
+        toast.success('Calendar Synced', {
           description: 'External calendars have been synchronized.',
         });
       }
     } catch {
-      showError({
-        title: 'Sync Failed',
+      toast.error('Sync Failed', {
         description: 'Unable to sync external calendars. Please try again.',
       });
     } finally {

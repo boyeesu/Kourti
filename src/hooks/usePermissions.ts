@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { logError, logWarn } from '@/lib/logger';
 
@@ -91,7 +91,6 @@ export function useAllRolePermissions() {
 
 export function useUpdatePermission() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (permissionData: UpdatePermissionData) => {
@@ -131,17 +130,12 @@ export function useUpdatePermission() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['role-permissions'] });
       queryClient.invalidateQueries({ queryKey: ['all-role-permissions'] });
-      toast({
-        title: 'Permission updated',
+      toast.success('Permission updated', {
         description: 'Role permission has been updated successfully.',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to update permission',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Failed to update permission', { description: error.message });
     },
   });
 }

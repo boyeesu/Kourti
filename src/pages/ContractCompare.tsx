@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, FileText, AlertCircle, Eye, Download, Zap } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ComparisonResult {
@@ -32,8 +32,6 @@ export default function ContractCompare() {
   const [comparisonFile, setComparisonFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<ComparisonResult | null>(null);
-  const { toast } = useToast();
-
   const handleFileUpload = (file: File, type: 'primary' | 'comparison') => {
     if (type === 'primary') {
       setPrimaryFile(file);
@@ -53,11 +51,9 @@ export default function ContractCompare() {
       const comparisonText = await extractTextFromFile(comparisonFile);
 
       if (!primaryText || !comparisonText) {
-        toast({
-          title: 'Extraction Failed',
+        toast.error('Extraction Failed', {
           description:
             'Could not extract text from one or both documents. Please use .txt or .docx formats. PDF files are not yet supported for comparison.',
-          variant: 'destructive',
         });
         setIsAnalyzing(false);
         return;
@@ -73,27 +69,20 @@ export default function ContractCompare() {
 
       if (error) {
         logError('Comparison error', error);
-        toast({
-          title: 'Comparison Failed',
+        toast.error('Comparison Failed', {
           description: error.message || 'Failed to compare contracts. Please try again.',
-          variant: 'destructive',
         });
         setIsAnalyzing(false);
         return;
       }
 
       setResults(data as ComparisonResult);
-      toast({
-        title: 'Comparison Complete',
+      toast.success('Comparison Complete', {
         description: `Identified ${data.summary.totalChanges} differences between the contracts.`,
       });
     } catch (error) {
       logError('Comparison error', error);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred during comparison.',
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: 'An unexpected error occurred during comparison.' });
     } finally {
       setIsAnalyzing(false);
     }

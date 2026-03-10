@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from './useAuth';
 import { usePlatformAdmin } from './usePlatformAdmin';
 import type { Json } from '@/integrations/supabase/types';
@@ -80,7 +80,6 @@ export function useAdminActions(filters?: AdminActionFilters) {
 export function useLogAdminAction() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (params: {
@@ -120,10 +119,8 @@ export function useLogAdminAction() {
       queryClient.invalidateQueries({ queryKey: ['admin-actions'] });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to log admin action',
-        variant: 'destructive',
       });
     },
   });

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 
 export interface UserRole {
@@ -35,7 +35,6 @@ export function useUserRoles() {
 
 export function useCreateUserRole() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (roleData: CreateUserRoleData) => {
@@ -67,24 +66,18 @@ export function useCreateUserRole() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles'] });
-      toast({
-        title: 'Role created successfully',
+      toast.success('Role created successfully', {
         description: 'The new role has been added to your organization.',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to create role',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Failed to create role', { description: error.message });
     },
   });
 }
 
 export function useDeleteUserRole() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (roleId: string) => {
@@ -97,17 +90,12 @@ export function useDeleteUserRole() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles'] });
-      toast({
-        title: 'Role deleted successfully',
+      toast.success('Role deleted successfully', {
         description: 'The role has been removed from your organization.',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to delete role',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Failed to delete role', { description: error.message });
     },
   });
 }
@@ -171,7 +159,6 @@ export function useUsersWithRoles() {
 
 export function useUpdateUserRole() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
@@ -205,17 +192,12 @@ export function useUpdateUserRole() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
-      toast({
-        title: 'User role updated',
+      toast.success('User role updated', {
         description: "The user's role has been updated successfully.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to update user role',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Failed to update user role', { description: error.message });
     },
   });
 }

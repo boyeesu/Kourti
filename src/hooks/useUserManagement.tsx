@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { logError, logInfo } from '@/lib/logger';
 import type { Profile } from '@/lib/types/database';
@@ -17,7 +17,6 @@ export interface InviteUserData {
 
 export function useInviteUser() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (userData: InviteUserData) => {
@@ -56,7 +55,11 @@ export function useInviteUser() {
       // NEW FLOW: Create the user with temp password via edge function
       logInfo('Creating invited user with temp password', { email: userData.email });
 
-      const { data: createResult, error: createError } = await invokeFunctionWithCsrf<{ success?: boolean; error?: string; userId?: string }>('create-invited-user', {
+      const { data: createResult, error: createError } = await invokeFunctionWithCsrf<{
+        success?: boolean;
+        error?: string;
+        userId?: string;
+      }>('create-invited-user', {
         body: {
           email: userData.email,
           firstName: userData.firstName,
@@ -65,7 +68,7 @@ export function useInviteUser() {
           department: userData.department,
           organizationId: typedProfile.organization_id,
           invitedBy: currentUserId,
-        }
+        },
       });
 
       if (createError) {
@@ -88,19 +91,14 @@ export function useInviteUser() {
       queryClient.invalidateQueries({ queryKey: ['organization-members'] });
       queryClient.invalidateQueries({ queryKey: ['organization-users'] });
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
-      toast({
-        title: "User added successfully",
-        description: "The user has been created and will receive an email with login credentials.",
+      toast.success('User added successfully', {
+        description: 'The user has been created and will receive an email with login credentials.',
       });
       return data;
     },
     onError: (error: Error) => {
       logError('Failed to invite user', { error });
-      toast({
-        title: "Failed to invite user",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error('Failed to invite user', { description: error.message });
     },
   });
 }
@@ -130,16 +128,19 @@ export function useUserRole() {
       if (roleError) throw roleError;
 
       // Get primary role (prioritize superadmin > admin > user > custom roles)
-      const roles = roleAssignments?.map(r => r.role_name) || [];
-      const primaryRole = roles.includes('superadmin') ? 'superadmin'
-        : roles.includes('admin') ? 'admin'
-          : roles.includes('user') ? 'user'
+      const roles = roleAssignments?.map((r) => r.role_name) || [];
+      const primaryRole = roles.includes('superadmin')
+        ? 'superadmin'
+        : roles.includes('admin')
+          ? 'admin'
+          : roles.includes('user')
+            ? 'user'
             : roles[0] || 'user';
 
       return {
         role: primaryRole,
         roles: roles, // All roles for the user
-        is_organization_creator: profile.is_organization_creator
+        is_organization_creator: profile.is_organization_creator,
       };
     },
     staleTime: 5 * 60 * 1000,

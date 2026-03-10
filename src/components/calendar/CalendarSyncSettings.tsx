@@ -14,20 +14,13 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, Settings, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { CalendarConnectDialog } from './CalendarConnectDialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export function CalendarSyncSettings() {
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<'google' | 'microsoft' | null>(null);
-  const {
-    integrations,
-    updateSyncSettings,
-    disconnectCalendar,
-    triggerSync,
-    isLoading,
-  } = useCalendarSync();
-  const { toast } = useToast();
-
+  const { integrations, updateSyncSettings, disconnectCalendar, triggerSync, isLoading } =
+    useCalendarSync();
   const handleConnect = (provider: 'google' | 'microsoft') => {
     setSelectedProvider(provider);
     setConnectDialogOpen(true);
@@ -36,39 +29,29 @@ export function CalendarSyncSettings() {
   const handleDisconnect = async (provider: 'google' | 'microsoft') => {
     try {
       await disconnectCalendar.mutateAsync(provider);
-      toast({
-        title: 'Disconnected',
+      toast.success('Disconnected', {
         description: `${provider === 'google' ? 'Google' : 'Microsoft'} calendar disconnected`,
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to disconnect calendar';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     }
   };
 
   const handleSyncNow = async (provider: 'google' | 'microsoft') => {
     try {
       await triggerSync.mutateAsync(provider);
-      toast({
-        title: 'Sync Started',
+      toast.success('Sync Started', {
         description: `Syncing ${provider === 'google' ? 'Google' : 'Microsoft'} calendar...`,
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to start sync';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     }
   };
 
-  const googleIntegration = integrations?.find(i => i.provider === 'google');
-  const microsoftIntegration = integrations?.find(i => i.provider === 'microsoft');
+  const googleIntegration = integrations?.find((i) => i.provider === 'google');
+  const microsoftIntegration = integrations?.find((i) => i.provider === 'microsoft');
 
   return (
     <Card>
@@ -77,9 +60,7 @@ export function CalendarSyncSettings() {
           <Settings className="h-5 w-5" />
           Calendar Sync Settings
         </CardTitle>
-        <CardDescription>
-          Connect and manage your calendar integrations
-        </CardDescription>
+        <CardDescription>Connect and manage your calendar integrations</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Google Calendar */}

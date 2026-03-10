@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
@@ -30,7 +30,6 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const validatePasswordLocal = (password: string): string | null => {
@@ -43,10 +42,8 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
 
     // Validate passwords match
     if (newPassword !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
+      toast.error("Passwords don't match", {
         description: 'Please make sure both passwords are the same.',
-        variant: 'destructive',
       });
       return;
     }
@@ -54,11 +51,7 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
     // Validate password strength
     const passwordError = validatePasswordLocal(newPassword);
     if (passwordError) {
-      toast({
-        title: 'Password too weak',
-        description: passwordError,
-        variant: 'destructive',
-      });
+      toast.error('Password too weak', { description: passwordError });
       return;
     }
 
@@ -88,8 +81,7 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
 
       logInfo('Password changed successfully');
 
-      toast({
-        title: 'Password updated!',
+      toast.success('Password updated!', {
         description: 'Your password has been changed successfully. Welcome to the team!',
       });
 
@@ -102,11 +94,7 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
       logError('Password change failed', { error });
       const errorMessage =
         error instanceof Error ? error.message : 'An error occurred. Please try again.';
-      toast({
-        title: 'Failed to update password',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error('Failed to update password', { description: errorMessage });
     } finally {
       setIsLoading(false);
     }

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { AppLogo } from '@/components/ui/AppLogo';
 
 export default function Auth() {
@@ -50,7 +50,6 @@ export default function Auth() {
   }, []);
 
   const { signIn, user } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -78,9 +77,7 @@ export default function Auth() {
     e.preventDefault();
 
     if (isLockedOut) {
-      toast({
-        variant: 'destructive',
-        title: 'Too many failed attempts',
+      toast.error('Too many failed attempts', {
         description: `Please wait ${lockoutRemaining} seconds before trying again.`,
       });
       return;
@@ -103,10 +100,7 @@ export default function Auth() {
           lockoutTimerRef.current = null;
         }
 
-        toast({
-          title: 'Welcome back!',
-          description: 'You have successfully signed in.',
-        });
+        toast.success('Welcome back!', { description: 'You have successfully signed in.' });
         navigate('/dashboard', { replace: true });
       } else {
         const newFailedAttempts = failedAttempts + 1;
@@ -115,26 +109,18 @@ export default function Auth() {
         if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
           startLockout();
           setFailedAttempts(0);
-          toast({
-            variant: 'destructive',
-            title: 'Too many failed attempts',
+          toast.error('Too many failed attempts', {
             description: `Account temporarily locked. Please wait ${LOCKOUT_DURATION} seconds before trying again.`,
           });
         } else if (
           result.error.message?.includes('timeout') ||
           result.error.message?.includes('504')
         ) {
-          toast({
-            variant: 'destructive',
-            title: 'Server busy',
+          toast.error('Server busy', {
             description: 'The server is taking too long to respond. Please try again in a moment.',
           });
         } else {
-          toast({
-            variant: 'destructive',
-            title: 'Authentication Error',
-            description: result.error.message,
-          });
+          toast.error('Authentication Error', { description: result.error.message });
         }
       }
     } catch {
@@ -146,11 +132,7 @@ export default function Auth() {
         setFailedAttempts(0);
       }
 
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-      });
+      toast.error('Error', { description: 'An unexpected error occurred. Please try again.' });
     } finally {
       setLoading(false);
     }

@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useOrganizationMembers } from '@/hooks/useOrganization';
 import { useGetOrCreateDirectConversation } from '@/hooks/useChat';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface OrganizationMember {
@@ -37,7 +37,6 @@ export function NewChatDialog({ open, onOpenChange, onConversationCreated }: New
   const { data: members = [], isLoading: membersLoading } = useOrganizationMembers();
   const createConversation = useGetOrCreateDirectConversation();
   const [searchQuery, setSearchQuery] = useState('');
-  const { toast } = useToast();
 
   // Filter out current user and filter by search query
   const availableMembers = members.filter((member: any) => {
@@ -60,19 +59,14 @@ export function NewChatDialog({ open, onOpenChange, onConversationCreated }: New
       onConversationCreated(conversationId, recipientName);
       onOpenChange(false);
       setSearchQuery('');
-      toast({
-        title: 'Conversation started',
+      toast.success('Conversation started', {
         description: `Started a conversation with ${recipientName}`,
       });
     } catch (error: unknown) {
       console.error('Failed to create conversation:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to create conversation. Please try again.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     }
   };
 

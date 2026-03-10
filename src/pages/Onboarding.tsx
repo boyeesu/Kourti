@@ -1,56 +1,74 @@
-import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { logError, logWarn } from '@/lib/logger';
-import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Building, Users, FileText, CheckCircle, ArrowRight, ArrowLeft, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { buildDisplayName, getAuthRedirectUrl } from "@/utils/auth-helpers";
-import { env } from "@/lib/env";
-import { AppLogo } from "@/components/ui/AppLogo";
-import { useNotificationTriggers } from "@/hooks/useNotificationTriggers";
-import { trackEvent, AnalyticsEvents, identifyUser } from "@/lib/analytics";
-import { useOnboardingSteps } from "@/hooks/useOnboardingSteps";
-import { AlertCircle, Info } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNavigate } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Building,
+  Users,
+  FileText,
+  CheckCircle,
+  ArrowRight,
+  ArrowLeft,
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
+import { env } from '@/lib/env';
+import { AppLogo } from '@/components/ui/AppLogo';
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
+import { trackEvent, AnalyticsEvents, identifyUser } from '@/lib/analytics';
+import { useOnboardingSteps } from '@/hooks/useOnboardingSteps';
+import { AlertCircle, Info } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const steps = [
   {
     id: 0,
-    title: "Create Your Account",
-    description: "Set up your account to get started",
+    title: 'Create Your Account',
+    description: 'Set up your account to get started',
     icon: User,
   },
   {
     id: 1,
-    title: "Organization Setup",
-    description: "Tell us about your organization",
+    title: 'Organization Setup',
+    description: 'Tell us about your organization',
     icon: Building,
   },
   {
     id: 2,
-    title: "Team Configuration",
-    description: "Set up your team structure",
+    title: 'Team Configuration',
+    description: 'Set up your team structure',
     icon: Users,
   },
   {
     id: 3,
-    title: "Practice Areas",
-    description: "Configure your practice areas",
+    title: 'Practice Areas',
+    description: 'Configure your practice areas',
     icon: FileText,
   },
   {
     id: 4,
-    title: "Welcome!",
+    title: 'Welcome!',
     description: "You're all set to get started",
     icon: CheckCircle,
   },
@@ -71,7 +89,7 @@ const countries = [
   { value: 'KM', label: 'Comoros' },
   { value: 'CG', label: 'Congo' },
   { value: 'CD', label: 'Congo (DRC)' },
-  { value: 'CI', label: 'Côte d\'Ivoire' },
+  { value: 'CI', label: "Côte d'Ivoire" },
   { value: 'DJ', label: 'Djibouti' },
   { value: 'EG', label: 'Egypt' },
   { value: 'GQ', label: 'Equatorial Guinea' },
@@ -129,32 +147,31 @@ export default function Onboarding() {
 
   const [formData, setFormData] = useState({
     account: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
     },
     organization: {
-      name: "",
-      type: "",
-      size: "",
-      description: "",
-      address: "",
-      state: "",
-      country: "",
-      phone: "",
-      email: "",
+      name: '',
+      type: '',
+      size: '',
+      description: '',
+      address: '',
+      state: '',
+      country: '',
+      phone: '',
+      email: '',
     },
     team: {
-      inviteEmails: [""],
+      inviteEmails: [''],
       defaultRoles: [] as string[],
     },
     practiceAreas: [] as string[],
   });
 
   const { user, signUp } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { createOnboardingNotification } = useNotificationTriggers();
   const { markStepComplete } = useOnboardingSteps();
@@ -167,14 +184,14 @@ export default function Onboarding() {
       const firstName = user.user_metadata?.first_name || user.user_metadata?.firstName;
       const lastName = user.user_metadata?.last_name || user.user_metadata?.lastName;
       if (firstName || lastName) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           account: {
             ...prev.account,
             firstName: firstName || '',
             lastName: lastName || '',
             email: user.email || prev.account.email,
-          }
+          },
         }));
         // Auto-advance to step 1 since account is already created
         setCurrentStep(1);
@@ -183,21 +200,21 @@ export default function Onboarding() {
   }, [user, currentStep, formData.account.firstName, formData.account.lastName]);
 
   const practiceAreaOptions = [
-    "Corporate Law",
-    "Litigation",
-    "Real Estate",
-    "Employment Law",
-    "Intellectual Property",
-    "Family Law",
-    "Criminal Law",
-    "Tax Law",
-    "Immigration Law",
-    "Environmental Law",
-    "Banking & Finance",
-    "Healthcare Law",
-    "Insurance Law",
-    "International Law",
-    "Contract Law",
+    'Corporate Law',
+    'Litigation',
+    'Real Estate',
+    'Employment Law',
+    'Intellectual Property',
+    'Family Law',
+    'Criminal Law',
+    'Tax Law',
+    'Immigration Law',
+    'Environmental Law',
+    'Banking & Finance',
+    'Healthcare Law',
+    'Insurance Law',
+    'International Law',
+    'Contract Law',
   ];
 
   const progress = ((currentStep + 1) / steps.length) * 100;
@@ -207,61 +224,61 @@ export default function Onboarding() {
 
     if (step === 0) {
       if (!formData.account.firstName.trim()) {
-        errors.firstName = "First name is required";
+        errors.firstName = 'First name is required';
       }
       if (!formData.account.lastName.trim()) {
-        errors.lastName = "Last name is required";
+        errors.lastName = 'Last name is required';
       }
       if (!formData.account.email.trim()) {
-        errors.email = "Email is required";
+        errors.email = 'Email is required';
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.account.email)) {
-        errors.email = "Please enter a valid email address";
+        errors.email = 'Please enter a valid email address';
       }
       if (!formData.account.password) {
-        errors.password = "Password is required";
+        errors.password = 'Password is required';
       } else if (formData.account.password.length < 8) {
-        errors.password = "Password must be at least 8 characters";
+        errors.password = 'Password must be at least 8 characters';
       }
       if (formData.account.password !== formData.account.confirmPassword) {
-        errors.confirmPassword = "Passwords do not match";
+        errors.confirmPassword = 'Passwords do not match';
       }
     }
 
     if (step === 1) {
       if (!formData.organization.name.trim()) {
-        errors.orgName = "Organization name is required";
+        errors.orgName = 'Organization name is required';
       }
       if (!formData.organization.type) {
-        errors.orgType = "Organization type is required";
+        errors.orgType = 'Organization type is required';
       }
       if (!formData.organization.size) {
-        errors.orgSize = "Organization size is required";
+        errors.orgSize = 'Organization size is required';
       }
       if (!formData.organization.address.trim()) {
-        errors.orgAddress = "Business address is required";
+        errors.orgAddress = 'Business address is required';
       }
       if (!formData.organization.state.trim()) {
-        errors.orgState = "State/Province is required";
+        errors.orgState = 'State/Province is required';
       }
       if (!formData.organization.country) {
-        errors.orgCountry = "Country is required";
+        errors.orgCountry = 'Country is required';
       }
       if (!formData.organization.phone.trim()) {
-        errors.orgPhone = "Phone number is required";
+        errors.orgPhone = 'Phone number is required';
       }
       if (!formData.organization.email.trim()) {
-        errors.orgEmail = "Organization email is required";
+        errors.orgEmail = 'Organization email is required';
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.organization.email)) {
-        errors.orgEmail = "Please enter a valid email address";
+        errors.orgEmail = 'Please enter a valid email address';
       }
     }
 
     if (step === 2) {
       // Team step is optional, but validate emails if provided
-      const validEmails = formData.team.inviteEmails.filter(email => email.trim());
+      const validEmails = formData.team.inviteEmails.filter((email) => email.trim());
       for (let i = 0; i < validEmails.length; i++) {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(validEmails[i])) {
-          errors[`teamEmail${i}`] = "Please enter a valid email address";
+          errors[`teamEmail${i}`] = 'Please enter a valid email address';
         }
       }
     }
@@ -272,10 +289,8 @@ export default function Onboarding() {
 
   const handleNext = async () => {
     if (!validateStep(currentStep)) {
-      toast({
-        variant: "destructive",
-        title: "Please complete all required fields",
-        description: "Some required information is missing or invalid.",
+      toast.error('Please complete all required fields', {
+        description: 'Some required information is missing or invalid.',
       });
       return;
     }
@@ -308,7 +323,11 @@ export default function Onboarding() {
       // Create account first if not already authenticated
       if (!user) {
         // Retry signup up to 3 times for timeout errors
-        let signUpError: { message?: string; name?: string; constructor?: { name?: string } } | null = null;
+        let signUpError: {
+          message?: string;
+          name?: string;
+          constructor?: { name?: string };
+        } | null = null;
         let retryCount = 0;
         const maxRetries = 3;
 
@@ -346,24 +365,23 @@ export default function Onboarding() {
             if (isRetryableError) {
               retryCount++;
               if (retryCount < maxRetries) {
-                toast({
-                  title: `Retrying signup... (${retryCount}/${maxRetries})`,
-                  description: "The signup service is busy. Trying again...",
+                toast.success(`Retrying signup... (${retryCount}/${maxRetries})`, {
+                  description: 'The signup service is busy. Trying again...',
                 });
                 // Wait before retrying (exponential backoff)
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+                await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
                 continue;
               }
             }
 
             // Not a retryable error, or we've exhausted retries
             break;
-
           } catch (error: unknown) {
             signUpError = error instanceof Error ? error : { message: String(error) };
             // Handle network errors and timeouts
             const catchErrorMessage = error instanceof Error ? error.message : '';
-            const catchErrorName = error instanceof Error ? (error.name || error.constructor?.name || '') : '';
+            const catchErrorName =
+              error instanceof Error ? error.name || error.constructor?.name || '' : '';
             const isCatchRetryable =
               catchErrorMessage.includes('fetch') ||
               catchErrorMessage.includes('timeout') ||
@@ -375,12 +393,11 @@ export default function Onboarding() {
             if (isCatchRetryable) {
               retryCount++;
               if (retryCount < maxRetries) {
-                toast({
-                  title: `Retrying signup... (${retryCount}/${maxRetries})`,
-                  description: "Network issue detected. Trying again...",
+                toast.success(`Retrying signup... (${retryCount}/${maxRetries})`, {
+                  description: 'Network issue detected. Trying again...',
                 });
                 // Wait before retrying
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+                await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
                 continue;
               }
             }
@@ -402,30 +419,28 @@ export default function Onboarding() {
             finalErrorName === 'AuthRetryableFetchError';
 
           if (isTimeoutError) {
-            toast({
-              variant: "destructive",
-              title: "Connection timeout",
-              description: "The signup is taking longer than usual. Please try again in a moment.",
+            toast.error('Connection timeout', {
+              description: 'The signup is taking longer than usual. Please try again in a moment.',
             });
-          } else if (finalErrorMessage.includes('rate limit') || finalErrorMessage.includes('too many')) {
-            toast({
-              variant: "destructive",
-              title: "Too many attempts",
-              description: "Please wait a few minutes before trying again.",
+          } else if (
+            finalErrorMessage.includes('rate limit') ||
+            finalErrorMessage.includes('too many')
+          ) {
+            toast.error('Too many attempts', {
+              description: 'Please wait a few minutes before trying again.',
             });
           } else if (finalErrorMessage.includes('email') && finalErrorMessage.includes('already')) {
-            toast({
-              variant: "destructive",
-              title: "Email already registered",
-              description: "This email address is already associated with an account. Please try signing in instead.",
+            toast.error('Email already registered', {
+              description:
+                'This email address is already associated with an account. Please try signing in instead.',
             });
           } else {
             // Log the actual error for debugging
             logError('Signup error details', signUpError);
-            toast({
-              variant: "destructive",
-              title: "Account creation failed",
-              description: finalErrorMessage || "Unable to create your account. Please check your information and try again.",
+            toast.error('Account creation failed', {
+              description:
+                finalErrorMessage ||
+                'Unable to create your account. Please check your information and try again.',
             });
           }
           return;
@@ -445,17 +460,19 @@ export default function Onboarding() {
             session = sessionData.session;
             break;
           }
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
           sessionRetries++;
         }
 
         if (!session?.user) {
           // Try one more time with getUser
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          const {
+            data: { user: currentUser },
+          } = await supabase.auth.getUser();
           if (!currentUser) {
-            toast({
-              title: "Email verification required",
-              description: "Please check your email to verify your account, then refresh this page to continue.",
+            toast.success('Email verification required', {
+              description:
+                'Please check your email to verify your account, then refresh this page to continue.',
             });
             return;
           }
@@ -463,7 +480,9 @@ export default function Onboarding() {
       }
 
       // Get current user (should be authenticated now)
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
       if (!currentUser) {
         throw new Error('User not authenticated. Please try again.');
       }
@@ -538,7 +557,7 @@ export default function Onboarding() {
           user_id: currentUser.id,
           role_name: 'superadmin',
           organization_id: orgData.id,
-          assigned_by: currentUser.id
+          assigned_by: currentUser.id,
         } as never)
         .select()
         .single();
@@ -551,11 +570,21 @@ export default function Onboarding() {
 
       // Seed default permissions for the superadmin role in this organization
       try {
-        const resources = ['cases', 'clients', 'documents', 'contracts', 'calendars', 'invoices', 'tasks', 'settings', 'users'];
+        const resources = [
+          'cases',
+          'clients',
+          'documents',
+          'contracts',
+          'calendars',
+          'invoices',
+          'tasks',
+          'settings',
+          'users',
+        ];
         const actions = ['create', 'read', 'update', 'delete', 'manage'];
 
-        const permissionsToInsert = resources.flatMap(resource =>
-          actions.map(action => ({
+        const permissionsToInsert = resources.flatMap((resource) =>
+          actions.map((action) => ({
             role_name: 'superadmin',
             organization_id: orgData.id,
             resource,
@@ -599,8 +628,8 @@ export default function Onboarding() {
 
           if (profileDetails) {
             inviterName = buildDisplayName(
-              (profileDetails as Record<string, unknown>)?.first_name as string ?? null,
-              (profileDetails as Record<string, unknown>)?.last_name as string ?? null,
+              ((profileDetails as Record<string, unknown>)?.first_name as string) ?? null,
+              ((profileDetails as Record<string, unknown>)?.last_name as string) ?? null,
               currentUser.email ?? undefined
             );
           }
@@ -626,34 +655,42 @@ export default function Onboarding() {
         if (invitationUrl) {
           for (const email of inviteEmails) {
             try {
-              const { data: inviteData, error: inviteError } = await supabase.rpc('invite_user_to_organization', {
-                p_email: email,
-                p_first_name: email.split('@')[0],
-                p_last_name: 'User',
-                p_role: 'user',
-                p_department: undefined,
-              });
+              const { data: inviteData, error: inviteError } = await supabase.rpc(
+                'invite_user_to_organization',
+                {
+                  p_email: email,
+                  p_first_name: email.split('@')[0],
+                  p_last_name: 'User',
+                  p_role: 'user',
+                  p_department: undefined,
+                }
+              );
 
               if (inviteError) {
                 throw inviteError;
               }
 
               if (inviteData && typeof inviteData === 'object' && 'error' in inviteData) {
-                throw new Error((inviteData as { error?: string }).error || 'Unknown invitation error');
+                throw new Error(
+                  (inviteData as { error?: string }).error || 'Unknown invitation error'
+                );
               }
 
               try {
-                const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
-                  body: {
-                    email,
-                    firstName: email.split('@')[0],
-                    lastName: 'User',
-                    role: 'user',
-                    organizationName: orgData.name,
-                    inviterName,
-                    invitationUrl,
-                  },
-                });
+                const { data: emailResult, error: emailError } = await supabase.functions.invoke(
+                  'send-invitation-email',
+                  {
+                    body: {
+                      email,
+                      firstName: email.split('@')[0],
+                      lastName: 'User',
+                      role: 'user',
+                      organizationName: orgData.name,
+                      inviterName,
+                      invitationUrl,
+                    },
+                  }
+                );
 
                 if (emailError) {
                   warningMessages.push(
@@ -661,7 +698,11 @@ export default function Onboarding() {
                       ? `Invitation email to ${email} could not be sent: ${emailError.message}`
                       : `Invitation email to ${email} could not be sent.`
                   );
-                } else if (emailResult && typeof emailResult === 'object' && 'error' in emailResult) {
+                } else if (
+                  emailResult &&
+                  typeof emailResult === 'object' &&
+                  'error' in emailResult
+                ) {
                   warningMessages.push(
                     `Invitation email to ${email} returned an error: ${(emailResult as { error?: string }).error || 'Unknown error'}`
                   );
@@ -701,21 +742,19 @@ export default function Onboarding() {
       // Track onboarding completion and send welcome notification
       trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED, {
         orgSize: formData.organization.size,
-        practiceAreas: formData.practiceAreas.length
+        practiceAreas: formData.practiceAreas.length,
       });
       identifyUser(currentUser.id, orgData.id);
 
       // Create welcome notification
       await createOnboardingNotification(formData.organization.name);
 
-      toast({
-        title: "Onboarding completed!",
+      toast.success('Onboarding completed!', {
         description: "Welcome to Kourti Legal. You're all set to get started.",
       });
 
       if (warningMessages.length > 0) {
-        toast({
-          title: "Onboarding completed with warnings",
+        toast.success('Onboarding completed with warnings', {
           description: warningMessages.join(' '),
         });
       }
@@ -727,12 +766,13 @@ export default function Onboarding() {
         queryClient.invalidateQueries({ queryKey: ['user-organization'] }),
       ]);
 
-      navigate("/dashboard", { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to complete onboarding. Please try again.",
+      toast.error('Error', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to complete onboarding. Please try again.',
       });
     } finally {
       setIsSubmitting(false);
@@ -744,7 +784,7 @@ export default function Onboarding() {
       ...formData,
       team: {
         ...formData.team,
-        inviteEmails: [...formData.team.inviteEmails, ""],
+        inviteEmails: [...formData.team.inviteEmails, ''],
       },
     });
   };
@@ -763,7 +803,7 @@ export default function Onboarding() {
 
   const togglePracticeArea = (area: string) => {
     const newAreas = formData.practiceAreas.includes(area)
-      ? formData.practiceAreas.filter(a => a !== area)
+      ? formData.practiceAreas.filter((a) => a !== area)
       : [...formData.practiceAreas, area];
     setFormData({ ...formData, practiceAreas: newAreas });
   };
@@ -782,7 +822,9 @@ export default function Onboarding() {
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2.5">
-                <Label htmlFor="firstName" className="text-sm font-medium">First Name *</Label>
+                <Label htmlFor="firstName" className="text-sm font-medium">
+                  First Name *
+                </Label>
                 <div className="relative">
                   <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
@@ -795,7 +837,7 @@ export default function Onboarding() {
                     onChange={(e) => {
                       setFormData({
                         ...formData,
-                        account: { ...formData.account, firstName: e.target.value }
+                        account: { ...formData.account, firstName: e.target.value },
                       });
                       if (validationErrors.firstName) {
                         setValidationErrors({ ...validationErrors, firstName: '' });
@@ -813,7 +855,9 @@ export default function Onboarding() {
               </div>
 
               <div className="space-y-2.5">
-                <Label htmlFor="lastName" className="text-sm font-medium">Last Name *</Label>
+                <Label htmlFor="lastName" className="text-sm font-medium">
+                  Last Name *
+                </Label>
                 <div className="relative">
                   <User className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
@@ -826,7 +870,7 @@ export default function Onboarding() {
                     onChange={(e) => {
                       setFormData({
                         ...formData,
-                        account: { ...formData.account, lastName: e.target.value }
+                        account: { ...formData.account, lastName: e.target.value },
                       });
                       if (validationErrors.lastName) {
                         setValidationErrors({ ...validationErrors, lastName: '' });
@@ -845,7 +889,9 @@ export default function Onboarding() {
             </div>
 
             <div className="space-y-2.5">
-              <Label htmlFor="email" className="text-sm font-medium">Work Email *</Label>
+              <Label htmlFor="email" className="text-sm font-medium">
+                Work Email *
+              </Label>
               <div className="relative">
                 <Mail className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                 <Input
@@ -859,7 +905,7 @@ export default function Onboarding() {
                   onChange={(e) => {
                     setFormData({
                       ...formData,
-                      account: { ...formData.account, email: e.target.value }
+                      account: { ...formData.account, email: e.target.value },
                     });
                     if (validationErrors.email) {
                       setValidationErrors({ ...validationErrors, email: '' });
@@ -878,13 +924,15 @@ export default function Onboarding() {
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2.5">
-                <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Password *
+                </Label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="password"
                     name="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="Create a password"
                     className={`pl-12 pr-12 h-12 text-base ${validationErrors.password ? 'border-destructive' : ''}`}
                     autoComplete="new-password"
@@ -892,7 +940,7 @@ export default function Onboarding() {
                     onChange={(e) => {
                       setFormData({
                         ...formData,
-                        account: { ...formData.account, password: e.target.value }
+                        account: { ...formData.account, password: e.target.value },
                       });
                       if (validationErrors.password) {
                         setValidationErrors({ ...validationErrors, password: '' });
@@ -906,7 +954,7 @@ export default function Onboarding() {
                     size="sm"
                     className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5 text-muted-foreground" />
@@ -924,13 +972,15 @@ export default function Onboarding() {
               </div>
 
               <div className="space-y-2.5">
-                <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password *</Label>
+                <Label htmlFor="confirmPassword" className="text-sm font-medium">
+                  Confirm Password *
+                </Label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm your password"
                     className={`pl-12 pr-12 h-12 text-base ${validationErrors.confirmPassword ? 'border-destructive' : ''}`}
                     autoComplete="new-password"
@@ -938,7 +988,7 @@ export default function Onboarding() {
                     onChange={(e) => {
                       setFormData({
                         ...formData,
-                        account: { ...formData.account, confirmPassword: e.target.value }
+                        account: { ...formData.account, confirmPassword: e.target.value },
                       });
                       if (validationErrors.confirmPassword) {
                         setValidationErrors({ ...validationErrors, confirmPassword: '' });
@@ -952,7 +1002,7 @@ export default function Onboarding() {
                     size="sm"
                     className="absolute right-0 top-0 h-full px-4 py-2 hover:bg-transparent"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-5 w-5 text-muted-foreground" />
@@ -996,7 +1046,8 @@ export default function Onboarding() {
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                This information helps us customize your experience. You can update these details later in Settings.
+                This information helps us customize your experience. You can update these details
+                later in Settings.
               </AlertDescription>
             </Alert>
 
@@ -1009,7 +1060,7 @@ export default function Onboarding() {
                 onChange={(e) => {
                   setFormData({
                     ...formData,
-                    organization: { ...formData.organization, name: e.target.value }
+                    organization: { ...formData.organization, name: e.target.value },
                   });
                   if (validationErrors.orgName) {
                     setValidationErrors({ ...validationErrors, orgName: '' });
@@ -1034,7 +1085,7 @@ export default function Onboarding() {
                   onValueChange={(value) => {
                     setFormData({
                       ...formData,
-                      organization: { ...formData.organization, type: value }
+                      organization: { ...formData.organization, type: value },
                     });
                     if (validationErrors.orgType) {
                       setValidationErrors({ ...validationErrors, orgType: '' });
@@ -1070,7 +1121,7 @@ export default function Onboarding() {
                   onValueChange={(value) => {
                     setFormData({
                       ...formData,
-                      organization: { ...formData.organization, size: value }
+                      organization: { ...formData.organization, size: value },
                     });
                     if (validationErrors.orgSize) {
                       setValidationErrors({ ...validationErrors, orgSize: '' });
@@ -1106,7 +1157,7 @@ export default function Onboarding() {
                 onChange={(e) => {
                   setFormData({
                     ...formData,
-                    organization: { ...formData.organization, address: e.target.value }
+                    organization: { ...formData.organization, address: e.target.value },
                   });
                   if (validationErrors.orgAddress) {
                     setValidationErrors({ ...validationErrors, orgAddress: '' });
@@ -1133,7 +1184,7 @@ export default function Onboarding() {
                   onChange={(e) => {
                     setFormData({
                       ...formData,
-                      organization: { ...formData.organization, state: e.target.value }
+                      organization: { ...formData.organization, state: e.target.value },
                     });
                     if (validationErrors.orgState) {
                       setValidationErrors({ ...validationErrors, orgState: '' });
@@ -1157,14 +1208,16 @@ export default function Onboarding() {
                   onValueChange={(value) => {
                     setFormData({
                       ...formData,
-                      organization: { ...formData.organization, country: value }
+                      organization: { ...formData.organization, country: value },
                     });
                     if (validationErrors.orgCountry) {
                       setValidationErrors({ ...validationErrors, orgCountry: '' });
                     }
                   }}
                 >
-                  <SelectTrigger className={validationErrors.orgCountry ? 'border-destructive' : ''}>
+                  <SelectTrigger
+                    className={validationErrors.orgCountry ? 'border-destructive' : ''}
+                  >
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[200px]">
@@ -1195,7 +1248,7 @@ export default function Onboarding() {
                   onChange={(e) => {
                     setFormData({
                       ...formData,
-                      organization: { ...formData.organization, phone: e.target.value }
+                      organization: { ...formData.organization, phone: e.target.value },
                     });
                     if (validationErrors.orgPhone) {
                       setValidationErrors({ ...validationErrors, orgPhone: '' });
@@ -1222,7 +1275,7 @@ export default function Onboarding() {
                   onChange={(e) => {
                     setFormData({
                       ...formData,
-                      organization: { ...formData.organization, email: e.target.value }
+                      organization: { ...formData.organization, email: e.target.value },
                     });
                     if (validationErrors.orgEmail) {
                       setValidationErrors({ ...validationErrors, orgEmail: '' });
@@ -1246,10 +1299,12 @@ export default function Onboarding() {
                 id="orgDescription"
                 placeholder="Brief description of your organization"
                 value={formData.organization.description}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  organization: { ...formData.organization, description: e.target.value }
-                })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    organization: { ...formData.organization, description: e.target.value },
+                  })
+                }
               />
             </div>
           </div>
@@ -1261,14 +1316,16 @@ export default function Onboarding() {
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                You can skip this step and invite team members later. Invitations will be sent via email.
+                You can skip this step and invite team members later. Invitations will be sent via
+                email.
               </AlertDescription>
             </Alert>
 
             <div>
               <Label className="text-base font-medium">Invite Team Members (Optional)</Label>
               <p className="text-sm text-muted-foreground mb-4">
-                Add email addresses to invite your team members. They'll receive an invitation email with setup instructions.
+                Add email addresses to invite your team members. They'll receive an invitation email
+                with setup instructions.
               </p>
 
               <div className="space-y-3">
@@ -1294,12 +1351,7 @@ export default function Onboarding() {
                     )}
                   </div>
                 ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addEmailField}
-                  className="w-full"
-                >
+                <Button type="button" variant="outline" onClick={addEmailField} className="w-full">
                   Add Another Email
                 </Button>
               </div>
@@ -1313,7 +1365,8 @@ export default function Onboarding() {
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Select all practice areas that apply to your organization. This helps us customize features and templates for you.
+                Select all practice areas that apply to your organization. This helps us customize
+                features and templates for you.
               </AlertDescription>
             </Alert>
 
@@ -1326,7 +1379,8 @@ export default function Onboarding() {
               {formData.practiceAreas.length > 0 && (
                 <div className="mb-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
                   <p className="text-sm font-medium text-primary mb-1">
-                    {formData.practiceAreas.length} practice area{formData.practiceAreas.length !== 1 ? 's' : ''} selected
+                    {formData.practiceAreas.length} practice area
+                    {formData.practiceAreas.length !== 1 ? 's' : ''} selected
                   </p>
                 </div>
               )}
@@ -1358,7 +1412,8 @@ export default function Onboarding() {
             <div>
               <h3 className="text-2xl font-semibold">Welcome to Kourti Legal!</h3>
               <p className="text-muted-foreground mt-2">
-                Your organization has been set up successfully. You can now start managing your cases, documents, and team.
+                Your organization has been set up successfully. You can now start managing your
+                cases, documents, and team.
               </p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
@@ -1414,20 +1469,22 @@ export default function Onboarding() {
                   return (
                     <div
                       key={step.id}
-                      className={`flex items-start gap-3 rounded-lg border p-3 ${isActive
-                        ? "border-primary/50 bg-primary/5 text-foreground"
-                        : isComplete
-                          ? "border-border/60 bg-background text-muted-foreground"
-                          : "border-border/30 bg-background/60 text-muted-foreground"
-                        }`}
+                      className={`flex items-start gap-3 rounded-lg border p-3 ${
+                        isActive
+                          ? 'border-primary/50 bg-primary/5 text-foreground'
+                          : isComplete
+                            ? 'border-border/60 bg-background text-muted-foreground'
+                            : 'border-border/30 bg-background/60 text-muted-foreground'
+                      }`}
                     >
                       <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-full ${isActive
-                          ? "bg-primary text-primary-foreground"
-                          : isComplete
-                            ? "bg-primary/20 text-primary"
-                            : "bg-muted text-muted-foreground"
-                          }`}
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : isComplete
+                              ? 'bg-primary/20 text-primary'
+                              : 'bg-muted text-muted-foreground'
+                        }`}
                       >
                         <Icon className="h-4 w-4" />
                       </div>
@@ -1452,18 +1509,12 @@ export default function Onboarding() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-x-2">
                   {currentStep === 0 ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate("/auth")}
-                    >
+                    <Button variant="outline" onClick={() => navigate('/auth')}>
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back to Login
                     </Button>
                   ) : (
-                    <Button
-                      variant="outline"
-                      onClick={handlePrevious}
-                    >
+                    <Button variant="outline" onClick={handlePrevious}>
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Previous
                     </Button>
@@ -1472,7 +1523,7 @@ export default function Onboarding() {
 
                 {currentStep === steps.length - 1 ? (
                   <Button onClick={handleFinish} disabled={isSubmitting} className="min-w-[120px]">
-                    {isSubmitting ? "Creating Account..." : "Get Started"}
+                    {isSubmitting ? 'Creating Account...' : 'Get Started'}
                     {isSubmitting ? (
                       <div className="w-4 h-4 ml-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : (

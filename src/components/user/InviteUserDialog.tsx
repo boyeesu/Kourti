@@ -35,7 +35,7 @@ import { UserPlus2Icon, CheckCircle2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAllRoles } from '@/hooks/useAllRoles';
 import { useInviteUser } from '@/hooks/useUserManagement';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 const inviteSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -64,8 +64,7 @@ export function InviteUserDialog() {
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const { data: allRoles = [] } = useAllRoles();
   const inviteUser = useInviteUser();
-  const { toast } = useToast();
-  
+
   const form = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
     defaultValues: {
@@ -79,17 +78,17 @@ export function InviteUserDialog() {
 
   const availableRoles = [
     ...allRoles
-      .filter(role => role.source === 'global')
-      .map(role => ({
+      .filter((role) => role.source === 'global')
+      .map((role) => ({
         value: role.role || role.role_name,
         label: role.display_name || role.role_name || role.role,
       })),
     ...allRoles
-      .filter(role => role.source === 'custom')
-      .map(role => ({
+      .filter((role) => role.source === 'custom')
+      .map((role) => ({
         value: role.role || role.role_name,
         label: role.display_name || role.role_name || role.role,
-      }))
+      })),
   ];
 
   const handleSubmit = async (data: InviteFormData) => {
@@ -103,27 +102,20 @@ export function InviteUserDialog() {
       });
       form.reset();
       setOpen(false);
-      toast({
-        title: 'Success',
-        description: 'Invitation sent successfully',
-      });
+      toast.success('Success', { description: 'Invitation sent successfully' });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to send invitation';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     }
   };
 
   const handleBulkImport = (text: string) => {
     // Parse CSV-like format: email,firstName,lastName,role,department
-    const lines = text.split('\n').filter(line => line.trim());
+    const lines = text.split('\n').filter((line) => line.trim());
     const rows: BulkInviteRow[] = [];
 
     for (const line of lines) {
-      const parts = line.split(',').map(p => p.trim());
+      const parts = line.split(',').map((p) => p.trim());
       if (parts.length >= 4) {
         rows.push({
           email: parts[0],
@@ -168,11 +160,10 @@ export function InviteUserDialog() {
     setBulkData(results);
     setBulkProcessing(false);
 
-    const successCount = results.filter(r => r.status === 'success').length;
-    const errorCount = results.filter(r => r.status === 'error').length;
+    const successCount = results.filter((r) => r.status === 'success').length;
+    const errorCount = results.filter((r) => r.status === 'error').length;
 
-    toast({
-      title: 'Bulk Invite Complete',
+    toast.success('Bulk Invite Complete', {
       description: `${successCount} successful, ${errorCount} failed`,
     });
   };
@@ -189,10 +180,11 @@ export function InviteUserDialog() {
         <DialogHeader>
           <DialogTitle>Invite Team Member</DialogTitle>
           <DialogDescription>
-            Send an invitation to join your organization. They'll receive an email with setup instructions.
+            Send an invitation to join your organization. They'll receive an email with setup
+            instructions.
           </DialogDescription>
         </DialogHeader>
-        
+
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'single' | 'bulk')}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="single">Single Invite</TabsTrigger>
@@ -216,7 +208,7 @@ export function InviteUserDialog() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="lastName"
@@ -320,16 +312,18 @@ export function InviteUserDialog() {
                       className="flex items-center justify-between p-2 rounded text-sm"
                     >
                       <div className="flex-1">
-                        <span className="font-medium">{row.firstName} {row.lastName}</span>
+                        <span className="font-medium">
+                          {row.firstName} {row.lastName}
+                        </span>
                         <span className="text-muted-foreground ml-2">({row.email})</span>
-                        <Badge variant="secondary" className="ml-2">{row.role}</Badge>
+                        <Badge variant="secondary" className="ml-2">
+                          {row.role}
+                        </Badge>
                       </div>
                       {row.status === 'success' && (
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                       )}
-                      {row.status === 'error' && (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
+                      {row.status === 'error' && <XCircle className="h-4 w-4 text-red-500" />}
                     </div>
                   ))}
                 </div>
@@ -340,10 +334,7 @@ export function InviteUserDialog() {
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleBulkInvite}
-                disabled={bulkProcessing || bulkData.length === 0}
-              >
+              <Button onClick={handleBulkInvite} disabled={bulkProcessing || bulkData.length === 0}>
                 {bulkProcessing ? 'Processing...' : `Invite ${bulkData.length} Users`}
               </Button>
             </DialogFooter>
@@ -353,4 +344,3 @@ export function InviteUserDialog() {
     </Dialog>
   );
 }
-

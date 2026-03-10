@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export interface InvoiceItem {
@@ -69,7 +69,7 @@ export function useInvoices() {
 
 export function useCreateInvoice() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   return useMutation({
     mutationFn: async (data: CreateInvoiceData) => {
       const userId = await getCurrentUserId();
@@ -149,12 +149,10 @@ export function useCreateInvoice() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast({ title: 'Invoice Created', description: 'Invoice was successfully created.' });
+      toast.success('Invoice Created', { description: 'Invoice was successfully created.' });
     },
     onError: (error: unknown) => {
-      toast({
-        title: 'Error Creating Invoice',
-        variant: 'destructive',
+      toast.error('Error Creating Invoice', {
         description: error instanceof Error ? error.message : 'Failed to create invoice.',
       });
     },
@@ -163,7 +161,7 @@ export function useCreateInvoice() {
 
 export function useUpdateInvoice() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<CreateInvoiceData> & { id: string }) => {
       // Calculate totals from items if provided
@@ -237,12 +235,10 @@ export function useUpdateInvoice() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast({ title: 'Invoice Updated', description: 'Invoice was updated.' });
+      toast.success('Invoice Updated', { description: 'Invoice was updated.' });
     },
     onError: (error: unknown) => {
-      toast({
-        title: 'Error Updating Invoice',
-        variant: 'destructive',
+      toast.error('Error Updating Invoice', {
         description: error instanceof Error ? error.message : 'Failed to update invoice.',
       });
     },
@@ -251,7 +247,7 @@ export function useUpdateInvoice() {
 
 export function useDeleteInvoice() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   return useMutation({
     mutationFn: async (id: string) => {
       const userId = await getCurrentUserId();
@@ -273,12 +269,10 @@ export function useDeleteInvoice() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast({ title: 'Invoice Deleted', description: 'Invoice was removed.' });
+      toast.success('Invoice Deleted', { description: 'Invoice was removed.' });
     },
     onError: (error: unknown) => {
-      toast({
-        title: 'Error Deleting Invoice',
-        variant: 'destructive',
+      toast.error('Error Deleting Invoice', {
         description: error instanceof Error ? error.message : 'Failed to delete invoice.',
       });
     },

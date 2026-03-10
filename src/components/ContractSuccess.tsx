@@ -1,22 +1,21 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle, Eye, Edit, Share, Bot, FileText, Download, Save, X } from "lucide-react";
-import { Link } from "react-router-dom";
-import { RichTextEditor } from "@/components/RichTextEditor";
-import { exportAsDocx, exportContractAsPdf } from "@/lib/documentExport";
-import { useUpdateContract } from "@/hooks/useContracts";
-import { useToast } from "@/hooks/use-toast";
-import { sanitizeHTML } from "@/lib/sanitize";
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CheckCircle, Eye, Edit, Share, Bot, FileText, Download, Save, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RichTextEditor } from '@/components/RichTextEditor';
+import { exportAsDocx, exportContractAsPdf } from '@/lib/documentExport';
+import { useUpdateContract } from '@/hooks/useContracts';
+import { toast } from 'sonner';
+import { sanitizeHTML } from '@/lib/sanitize';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
+} from '@/components/ui/dropdown-menu';
 
 interface ContractSuccessProps {
   contract: {
@@ -34,10 +33,9 @@ interface ContractSuccessProps {
 }
 
 export function ContractSuccess({ contract, onViewContract }: ContractSuccessProps) {
-  const [editedContent, setEditedContent] = useState(contract.terms || "");
-  const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
+  const [editedContent, setEditedContent] = useState(contract.terms || '');
+  const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
   const updateContract = useUpdateContract();
-  const { toast } = useToast();
 
   const handleSaveEdit = async () => {
     try {
@@ -45,32 +43,24 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
         id: contract.id,
         terms: editedContent,
       });
-      setActiveTab("preview");
-      toast({
-        title: "Success",
-        description: "Contract updated successfully.",
-      });
+      setActiveTab('preview');
+      toast.success('Success', { description: 'Contract updated successfully.' });
     } catch {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to save changes.",
-      });
+      toast.error('Error', { description: 'Failed to save changes.' });
     }
   };
 
   const handleCancelEdit = () => {
-    setEditedContent(contract.terms || "");
-    setActiveTab("preview");
+    setEditedContent(contract.terms || '');
+    setActiveTab('preview');
   };
-
 
   const handleDownloadPdf = async () => {
     try {
       await exportContractAsPdf(
         {
           title: contract.title,
-          content: contract.terms || "",
+          content: contract.terms || '',
           type: contract.contract_type,
           value: contract.value,
           currency: contract.currency,
@@ -79,35 +69,21 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
         },
         contract.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()
       );
-      toast({
-        title: "Success",
-        description: "Contract downloaded as PDF.",
-      });
+      toast.success('Success', { description: 'Contract downloaded as PDF.' });
     } catch {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to download PDF.",
-      });
+      toast.error('Error', { description: 'Failed to download PDF.' });
     }
   };
 
   const handleDownloadDocx = async () => {
     try {
       await exportAsDocx(
-        contract.terms || "",
+        contract.terms || '',
         contract.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()
       );
-      toast({
-        title: "Success",
-        description: "Contract downloaded as DOCX.",
-      });
+      toast.success('Success', { description: 'Contract downloaded as DOCX.' });
     } catch {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to download DOCX.",
-      });
+      toast.error('Error', { description: 'Failed to download DOCX.' });
     }
   };
 
@@ -118,7 +94,9 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
           <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
-          <CardTitle className="text-2xl text-green-700">Contract Successfully Generated!</CardTitle>
+          <CardTitle className="text-2xl text-green-700">
+            Contract Successfully Generated!
+          </CardTitle>
           <p className="text-muted-foreground mt-2">
             Your contract has been created using AI. You can review, edit, and download it below.
           </p>
@@ -155,9 +133,7 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem onClick={handleDownloadPdf}>
-                      Download as PDF
-                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadPdf}>Download as PDF</DropdownMenuItem>
                     <DropdownMenuItem onClick={handleDownloadDocx}>
                       Download as DOCX
                     </DropdownMenuItem>
@@ -176,15 +152,15 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
               <div>
                 <h4 className="font-medium text-amber-800 mb-1">Review Required</h4>
                 <p className="text-sm text-amber-700">
-                  This contract was generated by AI and should be reviewed by legal counsel before use.
-                  Please verify all terms, conditions, and details are accurate.
+                  This contract was generated by AI and should be reviewed by legal counsel before
+                  use. Please verify all terms, conditions, and details are accurate.
                 </p>
               </div>
             </div>
           </div>
 
           {/* Contract Content with Tabs */}
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "preview" | "edit")}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'preview' | 'edit')}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="preview">
                 <Eye className="h-4 w-4 mr-2" />
@@ -210,7 +186,7 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
                 </CardContent>
               </Card>
               <div className="flex justify-end">
-                <Button onClick={() => setActiveTab("edit")}>
+                <Button onClick={() => setActiveTab('edit')}>
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Contract
                 </Button>
@@ -234,7 +210,7 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
                 </Button>
                 <Button onClick={handleSaveEdit} disabled={updateContract.isPending}>
                   <Save className="h-4 w-4 mr-2" />
-                  {updateContract.isPending ? "Saving..." : "Save Changes"}
+                  {updateContract.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
             </TabsContent>
@@ -242,11 +218,7 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-            <Button
-              onClick={onViewContract}
-              variant="outline"
-              className="flex-1"
-            >
+            <Button onClick={onViewContract} variant="outline" className="flex-1">
               <Eye className="h-4 w-4 mr-2" />
               View Full Contract
             </Button>
@@ -262,14 +234,10 @@ export function ContractSuccess({ contract, onViewContract }: ContractSuccessPro
             <p className="text-sm text-muted-foreground mb-3">Quick Actions:</p>
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" size="sm" asChild>
-                <Link to="/contracts/create">
-                  Create Another Contract
-                </Link>
+                <Link to="/contracts/create">Create Another Contract</Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
-                <Link to="/contracts">
-                  Back to Contracts
-                </Link>
+                <Link to="/contracts">Back to Contracts</Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
                 <Link to={`/ream-ai?contract=${contract.id}`}>

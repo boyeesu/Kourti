@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { logError } from '@/lib/logger';
@@ -178,8 +178,6 @@ export function usePaymentHistory(limit = 20) {
  * returns a payment link the caller can redirect to.
  */
 export function useInitiatePayment() {
-  const { toast } = useToast();
-
   return useMutation({
     mutationFn: async (params: InitiatePaymentParams) => {
       try {
@@ -200,11 +198,9 @@ export function useInitiatePayment() {
       }
     },
     onError: (error) => {
-      toast({
-        title: 'Payment Error',
+      toast.error('Payment Error', {
         description:
           error instanceof Error ? error.message : 'Failed to initiate payment. Please try again.',
-        variant: 'destructive',
       });
     },
   });
@@ -216,7 +212,7 @@ export function useInitiatePayment() {
  */
 export function useManageSubscription() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { data: organization } = useCurrentUserOrganization();
 
   return useMutation({
@@ -246,16 +242,11 @@ export function useManageSubscription() {
           'Subscription cancelled. It will remain active until the end of the billing period.',
       };
 
-      toast({
-        title: 'Success',
-        description: messages[params.action] || 'Subscription updated',
-      });
+      toast.success('Success', { description: messages[params.action] || 'Subscription updated' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to update subscription',
-        variant: 'destructive',
       });
     },
   });
@@ -268,7 +259,7 @@ export function useManageSubscription() {
  */
 export function useVerifyPayment() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const { data: organization } = useCurrentUserOrganization();
 
   return useMutation({
@@ -292,18 +283,15 @@ export function useVerifyPayment() {
         queryClient.invalidateQueries({ queryKey: ['payment-history', orgId] });
         queryClient.invalidateQueries({ queryKey: ['organization-billing', orgId] });
         queryClient.invalidateQueries({ queryKey: ['current-user-plan'] });
-        toast({
-          title: 'Payment Verified',
+        toast.success('Payment Verified', {
           description: 'Your subscription has been activated successfully.',
         });
       }
     },
     onError: (error) => {
-      toast({
-        title: 'Verification Error',
+      toast.error('Verification Error', {
         description:
           error instanceof Error ? error.message : 'Failed to verify payment. Please try again.',
-        variant: 'destructive',
       });
     },
   });

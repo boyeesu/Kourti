@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { logError } from '@/lib/logger';
 
@@ -11,7 +11,6 @@ import { logError } from '@/lib/logger';
  */
 export function useCreateDefaultOrganization() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (organizationName?: string) => {
@@ -91,17 +90,12 @@ export function useCreateDefaultOrganization() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user-organization'] });
-      toast({
-        title: 'Organization Created',
+      toast.success('Organization Created', {
         description: `'${(data as any)?.name || 'Organization'}' has been created. Please sign in again to continue.`,
       });
     },
     onError: (error: any) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to create organization.',
-      });
+      toast.error('Error', { description: error.message || 'Failed to create organization.' });
     },
   });
 }

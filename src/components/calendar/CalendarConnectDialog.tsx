@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Loader2, Calendar, CheckCircle2 } from 'lucide-react';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface CalendarConnectDialogProps {
   open: boolean;
@@ -24,8 +24,6 @@ export function CalendarConnectDialog({
 }: CalendarConnectDialogProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const { connectCalendar, isConnected } = useCalendarSync();
-  const { toast } = useToast();
-
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
@@ -34,12 +32,9 @@ export function CalendarConnectDialog({
         window.location.href = authUrl;
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to initiate calendar connection';
-      toast({
-        variant: 'destructive',
-        title: 'Connection Failed',
-        description: errorMessage,
-      });
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to initiate calendar connection';
+      toast.error('Connection Failed', { description: errorMessage });
       setIsConnecting(false);
     }
   };
@@ -55,7 +50,8 @@ export function CalendarConnectDialog({
             Connect {provider === 'google' ? 'Google Calendar' : 'Microsoft Teams'}
           </DialogTitle>
           <DialogDescription>
-            Connect your {provider === 'google' ? 'Google Calendar' : 'Microsoft Teams'} account to sync events.
+            Connect your {provider === 'google' ? 'Google Calendar' : 'Microsoft Teams'} account to
+            sync events.
           </DialogDescription>
         </DialogHeader>
 
@@ -70,20 +66,14 @@ export function CalendarConnectDialog({
               <p className="text-sm text-muted-foreground">
                 You'll be redirected to authorize access to your calendar.
               </p>
-              <Button
-                onClick={handleConnect}
-                disabled={isConnecting}
-                className="w-full"
-              >
+              <Button onClick={handleConnect} disabled={isConnecting} className="w-full">
                 {isConnecting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Connecting...
                   </>
                 ) : (
-                  <>
-                    Connect {provider === 'google' ? 'Google' : 'Microsoft'} Calendar
-                  </>
+                  <>Connect {provider === 'google' ? 'Google' : 'Microsoft'} Calendar</>
                 )}
               </Button>
             </div>

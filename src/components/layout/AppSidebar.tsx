@@ -15,12 +15,8 @@ import {
   Gauge,
   Mic,
   LucideIcon,
-  HelpCircle,
   MessageCircle,
   Shield,
-  CreditCard,
-  ChevronRight,
-  ScanSearch,
 } from 'lucide-react';
 import {
   Dialog,
@@ -41,7 +37,6 @@ import {
   SidebarHeader,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { PermissionGate } from '@/components/PermissionGate';
 import { Resource, Action, useCanPerformAction } from '@/hooks/usePermissions';
 import { useUserRole } from '@/hooks/useUserManagement';
@@ -51,7 +46,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { KourtiKLogo } from '@/components/ui/KourtiKLogo';
 import { cn } from '@/lib/utils';
 import { useTotalUnreadCount } from '@/hooks/useChat';
@@ -74,8 +69,8 @@ interface NavigationGroup {
   collapsible?: boolean;
 }
 
-const primaryNavigation: NavigationGroup = {
-  label: 'Main',
+const coreNavigation: NavigationGroup = {
+  label: 'Core',
   items: [
     { title: 'Dashboard', url: '/', icon: LayoutDashboard, end: true },
     {
@@ -99,8 +94,8 @@ const primaryNavigation: NavigationGroup = {
   ],
 };
 
-const documentsNavigation: NavigationGroup = {
-  label: 'Legal',
+const legalToolsNavigation: NavigationGroup = {
+  label: 'Legal Tools',
   items: [
     {
       title: 'Documents',
@@ -114,6 +109,20 @@ const documentsNavigation: NavigationGroup = {
       icon: FileCheck,
       permission: { resource: 'contracts', action: 'read' },
     },
+    {
+      title: 'AI Assistant',
+      url: '/ream-ai',
+      icon: Bot,
+      badge: 'New',
+      badgeVariant: 'default',
+      permission: { resource: 'documents', action: 'read' },
+    },
+    {
+      title: 'Voice & Transcriptions',
+      url: '/voice-recorder',
+      icon: Mic,
+      permission: { resource: 'documents', action: 'create' },
+    },
   ],
 };
 
@@ -124,40 +133,6 @@ const workspaceNavigation: NavigationGroup = {
       title: 'Live Chat',
       url: '/live-chat',
       icon: MessageCircle,
-      badge: 'New',
-      badgeVariant: 'default',
-    },
-    {
-      title: 'AI Review',
-      url: '/contracts/review',
-      icon: ScanSearch,
-      permission: { resource: 'documents', action: 'read' },
-    },
-    {
-      title: 'Ream AI',
-      url: '/ream-ai',
-      icon: Bot,
-      permission: { resource: 'documents', action: 'read' },
-    },
-  ],
-};
-
-const moreToolsNavigation: NavigationGroup = {
-  label: 'More Tools',
-  icon: Mic,
-  collapsible: true,
-  items: [
-    {
-      title: 'Voice Recorder',
-      url: '/voice-recorder',
-      icon: Mic,
-      permission: { resource: 'documents', action: 'create' },
-    },
-    {
-      title: 'Transcriptions',
-      url: '/transcriptions',
-      icon: FileText,
-      permission: { resource: 'documents', action: 'read' },
     },
     {
       title: 'Invoicing',
@@ -170,56 +145,35 @@ const moreToolsNavigation: NavigationGroup = {
   ],
 };
 
-const accountNavigation: NavigationGroup = {
-  label: 'Account',
-  items: [
-    {
-      title: 'Settings',
-      url: '/settings',
-      icon: Settings,
-    },
-    {
-      title: 'Billing',
-      url: '/settings?tab=billing',
-      icon: CreditCard,
-    },
-  ],
+// Footer navigation items (rendered outside the scrollable area)
+const footerSettingsItem: NavigationItem = {
+  title: 'Settings',
+  url: '/settings',
+  icon: Settings,
 };
 
-const adminNavigation: NavigationGroup = {
-  label: 'Admin',
-  icon: Users,
-  collapsible: true,
-  items: [
-    {
-      title: 'Users',
-      url: '/users',
-      icon: Users,
-      permission: { resource: 'users', action: 'manage' },
-    },
-    {
-      title: 'Analytics',
-      url: '/analytics',
-      icon: Gauge,
-      permission: { resource: 'cases', action: 'manage' },
-    },
-  ],
-};
-
-const platformAdminNavigation: NavigationGroup = {
-  label: 'Platform Admin',
-  items: [{ title: 'Platform Admin', url: '/thanos', icon: Shield }],
-};
-
-const groups = [
-  primaryNavigation,
-  documentsNavigation,
-  workspaceNavigation,
-  moreToolsNavigation,
-  accountNavigation,
-  adminNavigation,
-  platformAdminNavigation,
+const footerAdminItems: NavigationItem[] = [
+  {
+    title: 'Admin Panel',
+    url: '/analytics',
+    icon: Gauge,
+    permission: { resource: 'cases', action: 'manage' },
+  },
+  {
+    title: 'Users',
+    url: '/users',
+    icon: Users,
+    permission: { resource: 'users', action: 'manage' },
+  },
 ];
+
+const footerPlatformAdminItem: NavigationItem = {
+  title: 'Platform Admin',
+  url: '/thanos',
+  icon: Shield,
+};
+
+const groups = [coreNavigation, legalToolsNavigation, workspaceNavigation];
 
 const AppSidebar: React.FC = () => {
   const { state } = useSidebar();
@@ -227,7 +181,6 @@ const AppSidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
-  const { toast } = useToast();
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
   const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
   const totalUnreadCount = useTotalUnreadCount();
@@ -240,7 +193,7 @@ const AppSidebar: React.FC = () => {
   const filteredGroups = React.useMemo(() => {
     return groups
       .map((group) => {
-        if (group === moreToolsNavigation) {
+        if (group === workspaceNavigation) {
           const filteredItems = group.items.filter((item: NavigationItem) => {
             if (item.url === '/invoices' && !isAdmin) {
               return false;
@@ -249,16 +202,10 @@ const AppSidebar: React.FC = () => {
           });
           return { ...group, items: filteredItems };
         }
-        if (group === adminNavigation && !isAdmin) {
-          return null; // Hide admin group for non-admins
-        }
-        if (group === platformAdminNavigation && !isPlatformAdmin) {
-          return null;
-        }
         return group;
       })
       .filter((group): group is NavigationGroup => group !== null && group.items.length > 0);
-  }, [isAdmin, isPlatformAdmin]);
+  }, [isAdmin]);
 
   const isActive = React.useCallback(
     (path: string, end?: boolean) => {
@@ -273,17 +220,10 @@ const AppSidebar: React.FC = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      toast({
-        title: 'Signed out',
-        description: 'You have been successfully signed out.',
-      });
+      toast.success('Signed out', { description: 'You have been successfully signed out.' });
       navigate('/auth', { replace: true });
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to sign out. Please try again.',
-      });
+      toast.error('Error', { description: 'Failed to sign out. Please try again.' });
     }
   };
 
@@ -410,43 +350,10 @@ const AppSidebar: React.FC = () => {
           </div>
         </SidebarHeader>
         <SidebarContent className="flex h-full flex-col px-3 py-2">
-          <div className="flex-1 space-y-1">
+          <div className="flex-1 space-y-1 overflow-y-auto">
             {filteredGroups.map((group) => {
               if (!group) return null;
 
-              // Collapsible groups
-              if (group.collapsible && !collapsed) {
-                const groupHasActiveItem = group.items.some((item) => isActive(item.url, item.end));
-                return (
-                  <SidebarGroup key={group.label} className="p-0">
-                    <Collapsible defaultOpen={groupHasActiveItem}>
-                      <CollapsibleTrigger className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground hover:bg-[hsl(var(--primary))/0.05] hover:text-foreground transition-colors">
-                        {group.icon && <group.icon className="h-4 w-4" />}
-                        <span className="flex-1 text-left">{group.label}</span>
-                        <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarGroupContent>
-                          <SidebarMenu className="mt-0.5 space-y-0.5 pl-2">
-                            {group.items.map((item) => (
-                              <Tooltip key={item.url} disableHoverableContent={!collapsed}>
-                                <TooltipTrigger asChild>
-                                  <NavItemWithPermission item={item} />
-                                </TooltipTrigger>
-                                {collapsed && (
-                                  <TooltipContent side="right">{item.title}</TooltipContent>
-                                )}
-                              </Tooltip>
-                            ))}
-                          </SidebarMenu>
-                        </SidebarGroupContent>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </SidebarGroup>
-                );
-              }
-
-              // Flat groups (Main, Platform Admin)
               return (
                 <SidebarGroup key={group.label} className="p-0">
                   {!collapsed && (
@@ -473,38 +380,38 @@ const AppSidebar: React.FC = () => {
 
           <div className="mt-auto space-y-2 border-t border-[hsl(var(--sidebar-border))] pt-2">
             <SidebarMenu className="space-y-0.5">
+              {/* Settings - always visible */}
               <Tooltip disableHoverableContent={!collapsed}>
                 <TooltipTrigger asChild>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      className={cn('h-10 px-0', collapsed && 'justify-center')}
-                    >
-                      <NavLink
-                        to="/help-center"
-                        className={cn(
-                          'flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
-                          collapsed && 'justify-center px-0 gap-0',
-                          isActive('/help-center')
-                            ? 'bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]'
-                            : 'text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground'
-                        )}
-                      >
-                        <HelpCircle
-                          className={cn(
-                            'h-5 w-5',
-                            isActive('/help-center')
-                              ? 'text-[hsl(var(--primary))]'
-                              : 'text-muted-foreground'
-                          )}
-                        />
-                        {!collapsed && <span>Help Center</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <NavItemContent item={footerSettingsItem} />
                 </TooltipTrigger>
-                {collapsed && <TooltipContent side="right">Help Center</TooltipContent>}
+                {collapsed && (
+                  <TooltipContent side="right">{footerSettingsItem.title}</TooltipContent>
+                )}
               </Tooltip>
+
+              {/* Admin Panel & Users - admin only */}
+              {isAdmin &&
+                footerAdminItems.map((item) => (
+                  <Tooltip key={item.url} disableHoverableContent={!collapsed}>
+                    <TooltipTrigger asChild>
+                      <NavItemWithPermission item={item} />
+                    </TooltipTrigger>
+                    {collapsed && <TooltipContent side="right">{item.title}</TooltipContent>}
+                  </Tooltip>
+                ))}
+
+              {/* Platform Admin - super admin only */}
+              {isPlatformAdmin && (
+                <Tooltip disableHoverableContent={!collapsed}>
+                  <TooltipTrigger asChild>
+                    <NavItemContent item={footerPlatformAdminItem} />
+                  </TooltipTrigger>
+                  {collapsed && (
+                    <TooltipContent side="right">{footerPlatformAdminItem.title}</TooltipContent>
+                  )}
+                </Tooltip>
+              )}
             </SidebarMenu>
             <div className="flex items-center gap-3 rounded-lg border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--surface))] px-3 py-3">
               <Avatar className="h-9 w-9">

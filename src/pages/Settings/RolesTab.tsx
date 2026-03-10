@@ -42,12 +42,12 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserRole } from '@/hooks/useUserManagement';
-import { 
-  useUserRoles, 
+import {
+  useUserRoles,
   useUsersWithRoles,
   useUpdateUserRole,
   useCreateUserRole,
-  useDeleteUserRole
+  useDeleteUserRole,
 } from '@/hooks/useUserRoles';
 import { useInviteUser } from '@/hooks/useUserManagement';
 import { Badge } from '@/components/ui/badge';
@@ -64,7 +64,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { InviteUserDialog } from '@/components/InviteUserDialog';
 
 const roleSchema = z.object({
-  role_name: z.string().min(3, "Role name must be at least 3 characters"),
+  role_name: z.string().min(3, 'Role name must be at least 3 characters'),
   description: z.string().optional(),
 });
 
@@ -75,14 +75,12 @@ export default function RolesTab() {
   const { data: roles = [], isLoading: rolesLoading } = useUserRoles();
   const { data: users = [], isLoading: usersLoading, error: usersError } = useUsersWithRoles();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("roles");
-  // const { toast } = useToast();
-  
+  const [activeSection, setActiveSection] = useState('roles');
   const form = useForm<RoleFormData>({
     resolver: zodResolver(roleSchema),
     defaultValues: {
-      role_name: "",
-      description: "",
+      role_name: '',
+      description: '',
     },
   });
 
@@ -97,7 +95,7 @@ export default function RolesTab() {
       form.reset();
       setDialogOpen(false);
     } catch (error) {
-      console.error("Error creating role:", error);
+      console.error('Error creating role:', error);
     }
   };
 
@@ -121,14 +119,14 @@ export default function RolesTab() {
     { value: 'superadmin', label: 'Super Admin' },
     { value: 'admin', label: 'Admin' },
     { value: 'user', label: 'Regular User' },
-    ...roles.map(role => ({ value: role.role_name, label: role.role_name }))
+    ...roles.map((role) => ({ value: role.role_name, label: role.role_name })),
   ];
 
   // Check roles from user_role_assignments
   const { data: userRoleData } = useUserRole();
   const isCurrentUserSuperAdmin = userRoleData?.role === 'superadmin';
   const isCurrentUserAdmin = userRoleData?.role === 'admin' || isCurrentUserSuperAdmin;
-  
+
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName && !lastName) return 'U';
     return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`;
@@ -153,16 +151,15 @@ export default function RolesTab() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium">User Roles</h3>
-        <p className="text-sm text-muted-foreground">
-          Manage user roles in your organization
-        </p>
+        <p className="text-sm text-muted-foreground">Manage user roles in your organization</p>
       </div>
 
       {!isCurrentUserAdmin && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Only administrators can manage roles. Contact your organization administrator for access.
+            Only administrators can manage roles. Contact your organization administrator for
+            access.
           </AlertDescription>
         </Alert>
       )}
@@ -170,15 +167,15 @@ export default function RolesTab() {
       {/* Section Toggle Buttons */}
       <div className="flex gap-2 border-b">
         <Button
-          variant={activeSection === "roles" ? "default" : "ghost"}
-          onClick={() => setActiveSection("roles")}
+          variant={activeSection === 'roles' ? 'default' : 'ghost'}
+          onClick={() => setActiveSection('roles')}
           className="rounded-b-none"
         >
           Roles
         </Button>
         <Button
-          variant={activeSection === "users" ? "default" : "ghost"}
-          onClick={() => setActiveSection("users")}
+          variant={activeSection === 'users' ? 'default' : 'ghost'}
+          onClick={() => setActiveSection('users')}
           className="rounded-b-none"
         >
           Users
@@ -186,14 +183,12 @@ export default function RolesTab() {
       </div>
 
       {/* Roles Section */}
-      {activeSection === "roles" && (
+      {activeSection === 'roles' && (
         <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>System Roles</CardTitle>
-              <CardDescription>
-                Default roles provided by the system
-              </CardDescription>
+              <CardDescription>Default roles provided by the system</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -227,11 +222,9 @@ export default function RolesTab() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Custom Roles</CardTitle>
-                <CardDescription>
-                  Organization-specific roles
-                </CardDescription>
+                <CardDescription>Organization-specific roles</CardDescription>
               </div>
-              
+
               {isCurrentUserSuperAdmin && (
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                   <DialogTrigger asChild>
@@ -243,11 +236,9 @@ export default function RolesTab() {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Create New Role</DialogTitle>
-                      <DialogDescription>
-                        Add a new role to your organization
-                      </DialogDescription>
+                      <DialogDescription>Add a new role to your organization</DialogDescription>
                     </DialogHeader>
-                    
+
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                         <FormField
@@ -259,14 +250,12 @@ export default function RolesTab() {
                               <FormControl>
                                 <Input {...field} placeholder="e.g. Legal Assistant" />
                               </FormControl>
-                              <FormDescription>
-                                A unique name for this role
-                              </FormDescription>
+                              <FormDescription>A unique name for this role</FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name="description"
@@ -284,7 +273,7 @@ export default function RolesTab() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <DialogFooter>
                           <Button type="submit">Create Role</Button>
                         </DialogFooter>
@@ -294,15 +283,13 @@ export default function RolesTab() {
                 </Dialog>
               )}
             </CardHeader>
-            
+
             <CardContent>
               {roles.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
                   No custom roles have been created yet.
                   {isCurrentUserSuperAdmin && (
-                    <p className="mt-2">
-                      Click "Add Role" to create your first custom role.
-                    </p>
+                    <p className="mt-2">Click "Add Role" to create your first custom role.</p>
                   )}
                 </div>
               ) : (
@@ -336,10 +323,11 @@ export default function RolesTab() {
                 </Table>
               )}
             </CardContent>
-            
+
             <CardFooter>
               <p className="text-xs text-muted-foreground">
-                Custom roles allow you to create organization-specific access levels beyond the standard system roles.
+                Custom roles allow you to create organization-specific access levels beyond the
+                standard system roles.
               </p>
             </CardFooter>
           </Card>
@@ -347,21 +335,19 @@ export default function RolesTab() {
       )}
 
       {/* Users Section */}
-      {activeSection === "users" && (
+      {activeSection === 'users' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Team Members</CardTitle>
-              <CardDescription>
-                Manage user roles for your team members
-              </CardDescription>
+              <CardDescription>Manage user roles for your team members</CardDescription>
             </div>
-            
+
             {isCurrentUserAdmin && (
               <InviteUserDialog onInvite={(data) => inviteUser.mutateAsync(data)} />
             )}
           </CardHeader>
-          
+
           <CardContent>
             {users.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground">
@@ -384,13 +370,22 @@ export default function RolesTab() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={user.avatar_url || undefined} alt={`${user.first_name} ${user.last_name}`} />
-                            <AvatarFallback>{getInitials(user.first_name || '', user.last_name || '')}</AvatarFallback>
+                            <AvatarImage
+                              src={user.avatar_url || undefined}
+                              alt={`${user.first_name} ${user.last_name}`}
+                            />
+                            <AvatarFallback>
+                              {getInitials(user.first_name || '', user.last_name || '')}
+                            </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium">{user.first_name} {user.last_name}</div>
+                            <div className="font-medium">
+                              {user.first_name} {user.last_name}
+                            </div>
                             {user.user_id === profile?.user_id && (
-                              <Badge variant="outline" className="text-xs">You</Badge>
+                              <Badge variant="outline" className="text-xs">
+                                You
+                              </Badge>
                             )}
                           </div>
                         </div>
@@ -401,8 +396,8 @@ export default function RolesTab() {
                       {isCurrentUserAdmin && (
                         <TableCell>
                           {isCurrentUserSuperAdmin || user.user_id !== profile?.user_id ? (
-                            <Select 
-                              value={user.role} 
+                            <Select
+                              value={user.role}
                               onValueChange={(value) => handleRoleChange(user.user_id, value)}
                               disabled={!isCurrentUserSuperAdmin && user.role === 'superadmin'}
                             >
@@ -410,7 +405,7 @@ export default function RolesTab() {
                                 <SelectValue placeholder="Select role" />
                               </SelectTrigger>
                               <SelectContent>
-                                {allRoleOptions.map(option => (
+                                {allRoleOptions.map((option) => (
                                   <SelectItem key={option.value} value={option.value}>
                                     {option.label}
                                   </SelectItem>
@@ -428,12 +423,12 @@ export default function RolesTab() {
               </Table>
             )}
           </CardContent>
-          
+
           <CardFooter>
             <p className="text-xs text-muted-foreground">
               {isCurrentUserAdmin
-                ? "As an administrator, you can change user roles to control access levels."
-                : "Contact an administrator to change user roles."}
+                ? 'As an administrator, you can change user roles to control access levels.'
+                : 'Contact an administrator to change user roles.'}
             </p>
           </CardFooter>
         </Card>

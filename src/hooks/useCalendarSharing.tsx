@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import {
   CalendarShare,
   SharedCalendar,
@@ -75,7 +75,6 @@ export function useOrganizationCalendarShares() {
  */
 export function useShareCalendar() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (shareData: CreateCalendarShareData) => {
@@ -119,18 +118,11 @@ export function useShareCalendar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-viewers'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-shares'] });
-      toast({
-        title: 'Success',
-        description: 'Calendar shared successfully.',
-      });
+      toast.success('Success', { description: 'Calendar shared successfully.' });
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to share calendar.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }
@@ -140,7 +132,6 @@ export function useShareCalendar() {
  */
 export function useUpdateCalendarShare() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({
@@ -164,19 +155,12 @@ export function useUpdateCalendarShare() {
       queryClient.invalidateQueries({ queryKey: ['calendar-viewers'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-shares'] });
       queryClient.invalidateQueries({ queryKey: ['shared-calendars'] });
-      toast({
-        title: 'Success',
-        description: 'Calendar share updated successfully.',
-      });
+      toast.success('Success', { description: 'Calendar share updated successfully.' });
     },
     onError: (error: unknown) => {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to update calendar share.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }
@@ -186,7 +170,6 @@ export function useUpdateCalendarShare() {
  */
 export function useRevokeCalendarShare() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (shareId: string) => {
@@ -204,19 +187,12 @@ export function useRevokeCalendarShare() {
       queryClient.invalidateQueries({ queryKey: ['calendar-viewers'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-shares'] });
       queryClient.invalidateQueries({ queryKey: ['shared-calendars'] });
-      toast({
-        title: 'Success',
-        description: 'Calendar access revoked.',
-      });
+      toast.success('Success', { description: 'Calendar access revoked.' });
     },
     onError: (error: unknown) => {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to revoke calendar access.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }

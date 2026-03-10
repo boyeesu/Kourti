@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useLogAdminAction } from './useAdminActions';
 import { useAuth } from './useAuth';
 import { logError } from '@/lib/logger';
@@ -154,7 +154,7 @@ export function useAllUserPlanAssignments() {
  */
 export function useAssignUserPlan() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const logAction = useLogAdminAction();
 
   return useMutation({
@@ -199,16 +199,11 @@ export function useAssignUserPlan() {
         },
       });
 
-      toast({
-        title: 'Success',
-        description: 'Plan assigned successfully',
-      });
+      toast.success('Success', { description: 'Plan assigned successfully' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to assign plan',
-        variant: 'destructive',
       });
     },
   });
@@ -219,7 +214,7 @@ export function useAssignUserPlan() {
  */
 export function useRevokeUserPlan() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+
   const logAction = useLogAdminAction();
 
   return useMutation({
@@ -255,16 +250,11 @@ export function useRevokeUserPlan() {
         },
       });
 
-      toast({
-        title: 'Success',
-        description: 'Plan revoked successfully',
-      });
+      toast.success('Success', { description: 'Plan revoked successfully' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to revoke plan',
-        variant: 'destructive',
       });
     },
   });

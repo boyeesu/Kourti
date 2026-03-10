@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export function useToggleOrganizationStatus() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ orgId, isActive }: { orgId: string; isActive: boolean }) => {
@@ -24,19 +23,14 @@ export function useToggleOrganizationStatus() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['all-organizations'] });
-      toast({
-        title: variables.isActive ? 'Organization enabled' : 'Organization disabled',
+      toast.success(variables.isActive ? 'Organization enabled' : 'Organization disabled', {
         description: variables.isActive
           ? 'Organization has been enabled and users can access the system'
           : 'Organization has been disabled and users cannot access the system',
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to update organization status',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Failed to update organization status', { description: error.message });
     },
   });
 }

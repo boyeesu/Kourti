@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { logError } from '@/lib/logger';
 
 interface ContractGenerationData {
@@ -31,8 +31,6 @@ interface ContractGenerationData {
 }
 
 export function useAIContractGenerator() {
-  const { toast } = useToast();
-
   return useMutation({
     mutationFn: async (data: ContractGenerationData) => {
       const { data: result, error } = await supabase.functions.invoke('ai-contract-generator', {
@@ -50,17 +48,14 @@ export function useAIContractGenerator() {
       return result;
     },
     onSuccess: (result) => {
-      toast({
-        title: 'Contract Generated',
+      toast.success('Contract Generated', {
         description: 'Your contract has been successfully generated using AI.',
       });
       return result;
     },
     onError: (error: any) => {
       logError('Contract generation failed', error);
-      toast({
-        variant: 'destructive',
-        title: 'Generation Failed',
+      toast.error('Generation Failed', {
         description: error.message || 'Failed to generate contract. Please try again.',
       });
     },

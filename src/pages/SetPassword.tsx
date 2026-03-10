@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { validatePassword, PASSWORD_REQUIREMENTS } from '@/lib/passwordValidation';
@@ -18,7 +18,6 @@ export default function SetPassword() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,9 +42,7 @@ export default function SetPassword() {
 
         if (!accessToken || type !== 'invite') {
           setTokenValid(false);
-          toast({
-            variant: 'destructive',
-            title: 'Invalid invitation',
+          toast.error('Invalid invitation', {
             description: 'This invitation link is invalid or has expired.',
           });
           setTimeout(() => navigate('/auth'), 3000);
@@ -63,9 +60,7 @@ export default function SetPassword() {
 
         if (error || !newSession) {
           setTokenValid(false);
-          toast({
-            variant: 'destructive',
-            title: 'Invalid invitation',
+          toast.error('Invalid invitation', {
             description: 'This invitation link is invalid or has expired.',
           });
           setTimeout(() => navigate('/auth'), 3000);
@@ -76,11 +71,7 @@ export default function SetPassword() {
       } catch (error) {
         console.error('Error verifying token:', error);
         setTokenValid(false);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to verify invitation link.',
-        });
+        toast.error('Error', { description: 'Failed to verify invitation link.' });
         setTimeout(() => navigate('/auth'), 3000);
       } finally {
         setVerifying(false);
@@ -88,15 +79,13 @@ export default function SetPassword() {
     };
 
     verifyToken();
-  }, [navigate, toast]);
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      toast({
-        variant: 'destructive',
-        title: "Passwords don't match",
+      toast.error("Passwords don't match", {
         description: 'Please ensure both passwords are the same.',
       });
       return;
@@ -104,11 +93,7 @@ export default function SetPassword() {
 
     const passwordCheck = validatePassword(password);
     if (!passwordCheck.valid) {
-      toast({
-        variant: 'destructive',
-        title: 'Password too weak',
-        description: passwordCheck.error!,
-      });
+      toast.error('Password too weak', { description: passwordCheck.error! });
       return;
     }
 
@@ -122,10 +107,7 @@ export default function SetPassword() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Password set successfully!',
-        description: 'Welcome to Kourti Legal!',
-      });
+      toast.success('Password set successfully!', { description: 'Welcome to Kourti Legal!' });
 
       // Clear password from state
       setPassword('');
@@ -139,11 +121,7 @@ export default function SetPassword() {
       setConfirmPassword('');
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to set password. Please try again.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     } finally {
       setLoading(false);
     }

@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PageSkeleton } from "@/components/ui/loading-states";
-import { ErrorState } from "@/components/ui/error-state";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageSkeleton } from '@/components/ui/loading-states';
+import { ErrorState } from '@/components/ui/error-state';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ResponsiveContainer,
   PieChart,
@@ -18,38 +18,37 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
   BarChart as RechartBarChart,
-  Bar
-} from "recharts";
+  Bar,
+} from 'recharts';
 import {
   FileText,
   Users,
   Briefcase,
   TrendingUp,
   Clock,
-  DollarSign,
   ArrowRight,
   ArrowUpRight,
   Calendar,
   Eye,
   FileCheck,
   Activity,
-  Plus
-} from "lucide-react";
-import { useInsights } from "@/hooks/useInsights";
-import { useDashboard } from "@/hooks/useDashboard";
-import { useUserRole } from "@/hooks/useUserManagement";
-import { useProfile } from "@/hooks/useProfile";
-import { useCases } from "@/hooks/useCases";
-import { useContracts } from "@/hooks/useContracts";
-import { Case, Contract } from "@/types";
-import { formatDate, formatCurrency, cn } from "@/lib/utils";
-import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
-import { useNavigate } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
-import { calculateCaseStatusData } from "@/lib/analyticsUtils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, startOfMonth, subMonths } from "date-fns";
+  Plus,
+} from 'lucide-react';
+import { useInsights } from '@/hooks/useInsights';
+import { useDashboard } from '@/hooks/useDashboard';
+
+import { useProfile } from '@/hooks/useProfile';
+import { useCases } from '@/hooks/useCases';
+import { useContracts } from '@/hooks/useContracts';
+import { Case, Contract } from '@/types';
+import { formatDate, formatCurrency, cn } from '@/lib/utils';
+import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
+import { useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { calculateCaseStatusData } from '@/lib/analyticsUtils';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { format, startOfMonth, subMonths } from 'date-fns';
 
 // Components
 const StatCard = ({
@@ -59,8 +58,8 @@ const StatCard = ({
   description,
   trend,
   loading,
-  iconColor = "text-primary",
-  iconBgColor = "bg-primary/10"
+  iconColor = 'text-primary',
+  iconBgColor = 'bg-primary/10',
 }: {
   title: string;
   value: string | number;
@@ -82,23 +81,26 @@ const StatCard = ({
             ) : (
               <h3 className="text-2xl font-bold">{value}</h3>
             )}
-            {description && (
-              <p className="text-xs text-muted-foreground mt-1">{description}</p>
-            )}
+            {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
             {trend && (
               <div className="flex items-center mt-2">
-                <Badge variant={trend.value > 0 ? "secondary" : "destructive"} className="px-1.5 h-5">
-                  {trend.value > 0 ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowRight className="h-3 w-3 mr-1" />}
+                <Badge
+                  variant={trend.value > 0 ? 'secondary' : 'destructive'}
+                  className="px-1.5 h-5"
+                >
+                  {trend.value > 0 ? (
+                    <ArrowUpRight className="h-3 w-3 mr-1" />
+                  ) : (
+                    <ArrowRight className="h-3 w-3 mr-1" />
+                  )}
                   {Math.abs(trend.value)}%
                 </Badge>
                 <span className="text-xs text-muted-foreground ml-2">{trend.label}</span>
               </div>
             )}
           </div>
-          <div className={cn("p-3 rounded-full", iconBgColor)}>
-            <div className={cn("h-5 w-5", iconColor)}>
-              {icon}
-            </div>
+          <div className={cn('p-3 rounded-full', iconBgColor)}>
+            <div className={cn('h-5 w-5', iconColor)}>{icon}</div>
           </div>
         </div>
       </CardContent>
@@ -146,19 +148,21 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 // Main Dashboard Component
 export default function Dashboard() {
   const [windowDays] = useState(7);
-  const [chartView, setChartView] = useState("monthly");
+  const [chartView, setChartView] = useState('monthly');
   const navigate = useNavigate();
 
   // Get data for different dashboard sections
   const { upcomingCases, upcomingContracts } = useInsights(windowDays);
-  const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard } = useDashboard();
-  const { data: userRoleData } = useUserRole();
+  const {
+    data: dashboardData,
+    isLoading: dashboardLoading,
+    error: dashboardError,
+    refetch: refetchDashboard,
+  } = useDashboard();
   const { data: casesData, isLoading: casesLoading } = useCases();
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
   const { data: profileData } = useProfile();
 
-  const role = userRoleData?.role;
-  const isAdmin = role === "superadmin" || role === "admin";
   const welcomeName = profileData?.first_name?.trim();
 
   // Process case status data for pie chart
@@ -174,18 +178,18 @@ export default function Dashboard() {
       const currentMonth = startOfMonth(new Date());
       const monthLabels = Array.from({ length: 12 }, (_, index) => {
         const monthDate = subMonths(currentMonth, 11 - index);
-        return format(monthDate, "MMM yyyy");
+        return format(monthDate, 'MMM yyyy');
       });
 
       // Initialize all months to zero
-      monthLabels.forEach(monthLabel => {
+      monthLabels.forEach((monthLabel) => {
         monthlyData[monthLabel] = { cases: 0, contracts: 0 };
       });
 
       // Count cases by month
       casesData.cases.forEach((c: Case) => {
         if (c.created_at) {
-          const monthKey = format(startOfMonth(new Date(c.created_at)), "MMM yyyy");
+          const monthKey = format(startOfMonth(new Date(c.created_at)), 'MMM yyyy');
           if (monthlyData[monthKey]) {
             monthlyData[monthKey].cases += 1;
           }
@@ -193,10 +197,12 @@ export default function Dashboard() {
       });
 
       // Count contracts by month - handle both array and object formats
-      const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
+      const contractsList = Array.isArray(contractsData)
+        ? contractsData
+        : contractsData?.contracts || [];
       contractsList.forEach((contract: Contract) => {
         if (contract.created_at) {
-          const monthKey = format(startOfMonth(new Date(contract.created_at)), "MMM yyyy");
+          const monthKey = format(startOfMonth(new Date(contract.created_at)), 'MMM yyyy');
           if (monthlyData[monthKey]) {
             monthlyData[monthKey].contracts += 1;
           }
@@ -204,10 +210,10 @@ export default function Dashboard() {
       });
 
       // Transform to array format for the chart
-      return monthLabels.map(monthLabel => ({
+      return monthLabels.map((monthLabel) => ({
         month: monthLabel,
         cases: monthlyData[monthLabel].cases,
-        contracts: monthlyData[monthLabel].contracts
+        contracts: monthlyData[monthLabel].contracts,
       }));
     }
 
@@ -223,7 +229,8 @@ export default function Dashboard() {
 
     const weeksToShow = 8;
     const now = new Date();
-    const normalizeDate = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const normalizeDate = (date: Date) =>
+      new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const getWeekStart = (date: Date) => {
       const normalized = normalizeDate(date);
       const dayOfWeek = normalized.getDay();
@@ -243,14 +250,14 @@ export default function Dashboard() {
     weekStarts.forEach((start) => {
       const key = start.toISOString().slice(0, 10);
       weeklyBuckets.set(key, {
-        day: formatDate(start, { month: "short", day: "numeric" }),
+        day: formatDate(start, { month: 'short', day: 'numeric' }),
         cases: 0,
-        contracts: 0
+        contracts: 0,
       });
     });
 
     const earliestWeekStart = weekStarts[0];
-    const incrementBucket = (dateValue: string | null | undefined, type: "cases" | "contracts") => {
+    const incrementBucket = (dateValue: string | null | undefined, type: 'cases' | 'contracts') => {
       if (!dateValue) return;
       const date = new Date(dateValue);
       if (Number.isNaN(date.getTime())) return;
@@ -264,21 +271,23 @@ export default function Dashboard() {
     };
 
     casesData?.cases?.forEach((caseItem: Case) => {
-      incrementBucket(caseItem.created_at, "cases");
+      incrementBucket(caseItem.created_at, 'cases');
     });
 
-    const contractsList = Array.isArray(contractsData) ? contractsData : contractsData?.contracts || [];
+    const contractsList = Array.isArray(contractsData)
+      ? contractsData
+      : contractsData?.contracts || [];
     contractsList.forEach((contract: Contract) => {
-      incrementBucket(contract.created_at, "contracts");
+      incrementBucket(contract.created_at, 'contracts');
     });
 
     return weekStarts.map((start) => {
       const key = start.toISOString().slice(0, 10);
       const bucket = weeklyBuckets.get(key);
       return {
-        day: bucket?.day ?? formatDate(start, { month: "short", day: "numeric" }),
+        day: bucket?.day ?? formatDate(start, { month: 'short', day: 'numeric' }),
         cases: bucket?.cases ?? 0,
-        contracts: bucket?.contracts ?? 0
+        contracts: bucket?.contracts ?? 0,
       };
     });
   }, [casesData, contractsData]);
@@ -287,26 +296,45 @@ export default function Dashboard() {
   const recentCases = useMemo(() => {
     if (casesData?.cases) {
       return casesData.cases
-        .slice().sort((a: Case, b: Case) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+        .slice()
+        .sort((a: Case, b: Case) => {
+          const dateA = new Date(a.updated_at || a.created_at || '').getTime();
+          const dateB = new Date(b.updated_at || b.created_at || '').getTime();
+          return dateB - dateA;
+        })
         .slice(0, 5);
     }
     return [];
   }, [casesData]);
 
-
-
   // Get status badge styles
   function getStatusBadge(status: string) {
     switch (status?.toLowerCase()) {
       case 'active':
-        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200">Active</Badge>;
+        return (
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200">
+            Active
+          </Badge>
+        );
       case 'pending':
       case 'in_progress':
-        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200">Pending</Badge>;
+        return (
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200">
+            Pending
+          </Badge>
+        );
       case 'closed':
-        return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">Closed</Badge>;
+        return (
+          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">
+            Closed
+          </Badge>
+        );
       case 'expired':
-        return <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-200">Expired</Badge>;
+        return (
+          <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-200">
+            Expired
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status || 'Unknown'}</Badge>;
     }
@@ -337,18 +365,22 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
-            Welcome back{welcomeName ? `, ${welcomeName}` : ""}
+            Welcome back{welcomeName ? `, ${welcomeName}` : ''}
           </h1>
           <p className="text-muted-foreground mt-1">
             Here's what's happening with your legal practice today
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="shadow-sm" onClick={() => navigate("/matters/create")}>
+          <Button
+            variant="outline"
+            className="shadow-sm"
+            onClick={() => navigate('/matters/create')}
+          >
             <Briefcase className="h-4 w-4 mr-2" />
             New Matter
           </Button>
-          <Button className="shadow-sm" onClick={() => navigate("/calendar")}>
+          <Button className="shadow-sm" onClick={() => navigate('/calendar')}>
             <Calendar className="h-4 w-4 mr-2" />
             Calendar
           </Button>
@@ -356,13 +388,12 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards (Live Data) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           title="Active Matters"
-          value={dashboardLoading ? "—" : dashboardData?.activeCases ?? "0"}
+          value={dashboardLoading ? '—' : (dashboardData?.activeCases ?? '0')}
           icon={<Briefcase className="h-5 w-5" />}
           description="Currently in progress"
-          trend={{ value: 12, label: "from last month" }}
           loading={dashboardLoading}
           iconColor="text-blue-500"
           iconBgColor="bg-blue-500/10"
@@ -370,9 +401,8 @@ export default function Dashboard() {
 
         <StatCard
           title="Total Clients"
-          value={dashboardLoading ? "—" : dashboardData?.totalClients ?? "0"}
+          value={dashboardLoading ? '—' : (dashboardData?.totalClients ?? '0')}
           icon={<Users className="h-5 w-5" />}
-          trend={{ value: 8, label: "new this month" }}
           loading={dashboardLoading}
           iconColor="text-green-500"
           iconBgColor="bg-green-500/10"
@@ -380,32 +410,69 @@ export default function Dashboard() {
 
         <StatCard
           title="Documents"
-          value={dashboardLoading ? "—" : dashboardData?.totalDocuments ?? "0"}
+          value={dashboardLoading ? '—' : (dashboardData?.totalDocuments ?? '0')}
           icon={<FileText className="h-5 w-5" />}
           description="Across all matters"
           loading={dashboardLoading}
           iconColor="text-amber-500"
           iconBgColor="bg-amber-500/10"
         />
+      </div>
 
-        {isAdmin && (
-          <div className="relative">
-            <StatCard
-              title="Revenue"
-              value="Coming Soon"
-              icon={<DollarSign className="h-5 w-5" />}
-              trend={{ value: 0, label: "increase" }}
-              loading={dashboardLoading}
-              iconColor="text-purple-500"
-              iconBgColor="bg-purple-500/10"
-            />
-            <div className="absolute inset-0 bg-card/50 backdrop-blur-sm rounded-lg pointer-events-none flex items-center justify-center">
-              <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
-                Coming Soon
-              </span>
+      {/* Today's Focus */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card
+          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-blue-500"
+          onClick={() => navigate('/matters')}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-full bg-blue-500/10">
+                <Briefcase className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{upcomingCases.length}</p>
+                <p className="text-sm text-muted-foreground">Hearings This Week</p>
+              </div>
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
+
+        <Card
+          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-amber-500"
+          onClick={() => navigate('/contracts')}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-full bg-amber-500/10">
+                <FileCheck className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{upcomingContracts.length}</p>
+                <p className="text-sm text-muted-foreground">Contracts Expiring Soon</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-green-500"
+          onClick={() => navigate('/calendar')}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-full bg-green-500/10">
+                <Calendar className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">
+                  {formatDate(new Date(), { weekday: 'short', month: 'short', day: 'numeric' })}
+                </p>
+                <p className="text-sm text-muted-foreground">View Today's Calendar</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Charts */}
@@ -419,9 +486,7 @@ export default function Dashboard() {
                   Activity Overview
                 </CardTitle>
               </div>
-              <CardDescription>
-                Track new matters and contracts over time
-              </CardDescription>
+              <CardDescription>Track new matters and contracts over time</CardDescription>
             </CardHeader>
             <CardContent className="px-1">
               <Tabs value={chartView} onValueChange={setChartView} className="w-full">
@@ -433,24 +498,15 @@ export default function Dashboard() {
                 </div>
                 <TabsContent value="monthly" className="mt-0">
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={recentActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                    <LineChart
+                      data={recentActivity}
+                      margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                      <XAxis
-                        dataKey="month"
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        width={30}
-                      />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} />
+                      <YAxis axisLine={false} tickLine={false} width={30} />
                       <RechartsTooltip content={<CustomTooltip />} />
-                      <Legend
-                        verticalAlign="top"
-                        height={36}
-                        iconType="circle"
-                      />
+                      <Legend verticalAlign="top" height={36} iconType="circle" />
                       <Line
                         type="monotone"
                         dataKey="cases"
@@ -474,26 +530,22 @@ export default function Dashboard() {
                 </TabsContent>
                 <TabsContent value="weekly" className="mt-0">
                   <ResponsiveContainer width="100%" height={300}>
-                    <RechartBarChart data={weeklyActivity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                    <RechartBarChart
+                      data={weeklyActivity}
+                      margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="#888" opacity={0.1} />
-                      <XAxis
-                        dataKey="day"
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        width={30}
-                      />
+                      <XAxis dataKey="day" axisLine={false} tickLine={false} />
+                      <YAxis axisLine={false} tickLine={false} width={30} />
                       <RechartsTooltip content={<CustomTooltip />} />
-                      <Legend
-                        verticalAlign="top"
-                        height={36}
-                        iconType="circle"
-                      />
+                      <Legend verticalAlign="top" height={36} iconType="circle" />
                       <Bar dataKey="cases" name="Matters" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="contracts" name="Contracts" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      <Bar
+                        dataKey="contracts"
+                        name="Contracts"
+                        fill="#10b981"
+                        radius={[4, 4, 0, 0]}
+                      />
                     </RechartBarChart>
                   </ResponsiveContainer>
                 </TabsContent>
@@ -509,9 +561,7 @@ export default function Dashboard() {
                 <TrendingUp className="h-5 w-5 text-primary" />
                 Matters by Status
               </CardTitle>
-              <CardDescription>
-                Distribution of matters by their current status
-              </CardDescription>
+              <CardDescription>Distribution of matters by their current status</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -524,7 +574,9 @@ export default function Dashboard() {
                     outerRadius={120}
                     paddingAngle={2}
                     dataKey="value"
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent! * 100).toFixed(0)}%)`}
+                    label={({ name, value, percent }) =>
+                      `${name}: ${value} (${(percent! * 100).toFixed(0)}%)`
+                    }
                     labelLine={true}
                   >
                     {casesByStatus.map((entry, index) => (
@@ -532,11 +584,7 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <RechartsTooltip content={<CustomTooltip />} />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    iconType="circle"
-                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -554,9 +602,7 @@ export default function Dashboard() {
                   <Briefcase className="h-5 w-5 text-primary" />
                   Recent Matters
                 </CardTitle>
-                <CardDescription>
-                  Latest matter activities
-                </CardDescription>
+                <CardDescription>Latest matter activities</CardDescription>
               </div>
               <Button
                 variant="ghost"
@@ -603,22 +649,61 @@ export default function Dashboard() {
                             <TooltipContent>View Matter</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                        {c.assigned_to && (c as Case & { assigned_user?: { id: string; first_name: string | null; last_name: string | null } }).assigned_user && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Avatar className="h-8 w-8 ml-2">
-                                  <AvatarFallback>
-                                    {(c as Case & { assigned_user?: { id: string; first_name: string | null; last_name: string | null } }).assigned_user?.first_name?.charAt(0) || 'U'}
-                                  </AvatarFallback>
-                                </Avatar>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Assigned to {(c as Case & { assigned_user?: { id: string; first_name: string | null; last_name: string | null } }).assigned_user?.first_name} {(c as Case & { assigned_user?: { id: string; first_name: string | null; last_name: string | null } }).assigned_user?.last_name}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
+                        {c.assigned_to &&
+                          (
+                            c as Case & {
+                              assigned_user?: {
+                                id: string;
+                                first_name: string | null;
+                                last_name: string | null;
+                              };
+                            }
+                          ).assigned_user && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Avatar className="h-8 w-8 ml-2">
+                                    <AvatarFallback>
+                                      {(
+                                        c as Case & {
+                                          assigned_user?: {
+                                            id: string;
+                                            first_name: string | null;
+                                            last_name: string | null;
+                                          };
+                                        }
+                                      ).assigned_user?.first_name?.charAt(0) || 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Assigned to{' '}
+                                  {
+                                    (
+                                      c as Case & {
+                                        assigned_user?: {
+                                          id: string;
+                                          first_name: string | null;
+                                          last_name: string | null;
+                                        };
+                                      }
+                                    ).assigned_user?.first_name
+                                  }{' '}
+                                  {
+                                    (
+                                      c as Case & {
+                                        assigned_user?: {
+                                          id: string;
+                                          first_name: string | null;
+                                          last_name: string | null;
+                                        };
+                                      }
+                                    ).assigned_user?.last_name
+                                  }
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                       </div>
                     </div>
                   ))}
@@ -627,7 +712,12 @@ export default function Dashboard() {
                 <div className="text-center py-8 bg-muted/10 rounded-md">
                   <Briefcase className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground text-sm">No recent matters found.</p>
-                  <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/matters/create')}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => navigate('/matters/create')}
+                  >
                     <Plus className="h-4 w-4 mr-1" /> Create a Matter
                   </Button>
                 </div>
@@ -694,7 +784,9 @@ export default function Dashboard() {
                           <FileCheck className="h-5 w-5 text-red-500" />
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm">Contract Expiring: {contract.title}</h4>
+                          <h4 className="font-medium text-sm">
+                            Contract Expiring: {contract.title}
+                          </h4>
                           <p className="text-xs text-muted-foreground mt-1">
                             {formatDate(contract.end_date)}
                             {contract.value && <span> • {formatCurrency(contract.value)}</span>}
@@ -710,8 +802,15 @@ export default function Dashboard() {
               ) : (
                 <div className="text-center py-8 bg-muted/10 rounded-md">
                   <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm">No upcoming events in the next {windowDays} days.</p>
-                  <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/calendar')}>
+                  <p className="text-muted-foreground text-sm">
+                    No upcoming events in the next {windowDays} days.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => navigate('/calendar')}
+                  >
                     View Calendar
                   </Button>
                 </div>

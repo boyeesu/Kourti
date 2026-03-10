@@ -17,7 +17,7 @@ import { Upload, FileText, X, Loader2 } from 'lucide-react';
 import { useCreateContract } from '@/hooks/useContracts';
 import { useCases } from '@/hooks/useCases';
 import { useClients } from '@/hooks/useClients';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
@@ -39,7 +39,6 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
     currency: 'USD',
   });
 
-  const { toast } = useToast();
   const createContract = useCreateContract();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
@@ -104,28 +103,22 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
     e.preventDefault();
 
     if (!uploadedFile) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Please select a file to upload',
-        variant: 'destructive',
       });
       return;
     }
 
     if (!contractData.title || !contractData.contract_type) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Title and contract type are required',
-        variant: 'destructive',
       });
       return;
     }
 
     if (!organizationId) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Organization not found',
-        variant: 'destructive',
       });
       return;
     }
@@ -178,8 +171,7 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
 
       await createContract.mutateAsync(contractPayload);
 
-      toast({
-        title: 'Success',
+      toast.success('Success', {
         description: 'Contract uploaded successfully',
       });
 
@@ -198,10 +190,8 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
       onOpenChange(false);
     } catch (error) {
       console.error('Upload error:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to upload contract',
-        variant: 'destructive',
       });
     } finally {
       setIsUploading(false);

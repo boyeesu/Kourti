@@ -14,7 +14,7 @@ import {
 import { KourtiKLogo } from '@/components/ui/KourtiKLogo';
 import { BarChart3, Building2, Users, LogOut, Home, Crown, CreditCard } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -36,7 +36,6 @@ export function ThanosSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { toast } = useToast();
 
   const isActive = (path: string) => {
     if (path === '/thanos') {
@@ -48,15 +47,12 @@ export function ThanosSidebar() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      toast({
-        title: 'Signed out',
+      toast.success('Signed out', {
         description: 'You have been successfully signed out.',
       });
       navigate('/auth', { replace: true });
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
+      toast.error('Error', {
         description: 'Failed to sign out. Please try again.',
       });
     }

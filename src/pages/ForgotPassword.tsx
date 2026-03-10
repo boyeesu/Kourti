@@ -9,12 +9,11 @@ import { Separator } from '@/components/ui/separator';
 import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const { resetPassword } = useAuth();
-  const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -27,11 +26,7 @@ export default function ForgotPassword() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please enter a valid email address.',
-      });
+      toast.error('Error', { description: 'Please enter a valid email address.' });
       setLoading(false);
       return;
     }
@@ -56,11 +51,7 @@ export default function ForgotPassword() {
         errorMessage = 'Unable to process your request. Please contact your administrator.';
       }
 
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
       setLoading(false);
       return;
     }

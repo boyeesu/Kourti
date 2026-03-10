@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useForm } from 'react-hook-form';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationMembers } from '@/hooks/useOrganization';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -29,7 +29,6 @@ interface FormData {
 }
 
 export function InternalShareDialog({ open, onOpenChange, document }: InternalShareDialogProps) {
-  const { toast } = useToast();
   const { data: orgMembers = [] } = useOrganizationMembers();
   const [selectedRecipients, setSelectedRecipients] = React.useState<string[]>([]);
 
@@ -84,8 +83,7 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
         });
       }
 
-      toast({
-        title: 'Document shared successfully',
+      toast.success('Document shared successfully', {
         description: `Shared with ${data.recipients.length} team member(s).`,
       });
 
@@ -94,11 +92,7 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
       setSelectedRecipients([]);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to share document.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     }
   }
 

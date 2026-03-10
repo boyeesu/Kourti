@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Contract } from '@/types';
@@ -196,7 +196,6 @@ export function useContractsByClient(clientId: string, page = 1, pageSize = 5) {
  */
 export function useCreateContract() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (contractData: CreateContractData) => {
@@ -238,18 +237,11 @@ export function useCreateContract() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
-      toast({
-        title: 'Success',
-        description: 'Contract created successfully.',
-      });
+      toast.success('Success', { description: 'Contract created successfully.' });
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create contract.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }
@@ -259,7 +251,6 @@ export function useCreateContract() {
  */
 export function useUpdateContract() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ id, ...updateData }: { id: string } & Partial<CreateContractData>) => {
@@ -279,18 +270,11 @@ export function useUpdateContract() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
       queryClient.invalidateQueries({ queryKey: ['contract', (data as any).id] });
-      toast({
-        title: 'Success',
-        description: 'Contract updated successfully.',
-      });
+      toast.success('Success', { description: 'Contract updated successfully.' });
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update contract.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }
@@ -300,7 +284,6 @@ export function useUpdateContract() {
  */
 export function useDeleteContract() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -313,18 +296,11 @@ export function useDeleteContract() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
-      toast({
-        title: 'Success',
-        description: 'Contract deleted successfully.',
-      });
+      toast.success('Success', { description: 'Contract deleted successfully.' });
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete contract.';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      toast.error('Error', { description: errorMessage });
     },
   });
 }

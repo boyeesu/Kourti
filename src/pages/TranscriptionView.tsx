@@ -4,38 +4,46 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { useVoiceTranscription, useUpdateVoiceTranscription, useDeleteVoiceTranscription } from '@/hooks/useVoiceTranscriptions';
+import { toast } from 'sonner';
+import {
+  useVoiceTranscription,
+  useUpdateVoiceTranscription,
+  useDeleteVoiceTranscription,
+} from '@/hooks/useVoiceTranscriptions';
 import { useCases } from '@/hooks/useCases';
 import { useCreateActivity } from '@/features/activities/api/useCreateActivity';
-import { 
-  ArrowLeft, 
-  FileText, 
-  Edit3, 
-  Trash2, 
-  Calendar, 
-  Clock, 
-  Save, 
-  Loader2, 
-  Volume2 
+import {
+  ArrowLeft,
+  FileText,
+  Edit3,
+  Trash2,
+  Calendar,
+  Clock,
+  Save,
+  Loader2,
+  Volume2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const TranscriptionView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  
   const { data: transcription, isLoading, error } = useVoiceTranscription(id!);
   const { data: casesData } = useCases();
   const cases = casesData?.cases || [];
-  
+
   const updateTranscription = useUpdateVoiceTranscription();
   const deleteTranscription = useDeleteVoiceTranscription();
   const createActivity = useCreateActivity();
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [editedTranscript, setEditedTranscript] = useState('');
@@ -53,11 +61,7 @@ const TranscriptionView: React.FC = () => {
 
   const handleSave = async () => {
     if (!transcription || !editedTitle.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Title is required",
-        variant: "destructive",
-      });
+      toast.error('Validation Error', { description: 'Title is required' });
       return;
     }
 
@@ -68,8 +72,8 @@ const TranscriptionView: React.FC = () => {
           title: editedTitle,
           transcript: editedTranscript,
           summary: editedSummary,
-          case_id: selectedCaseId === 'none' ? undefined : selectedCaseId
-        }
+          case_id: selectedCaseId === 'none' ? undefined : selectedCaseId,
+        },
       });
 
       // Create activity if case is linked and changed
@@ -78,43 +82,37 @@ const TranscriptionView: React.FC = () => {
           caseId: selectedCaseId,
           payload: {
             title: `Voice Recording Updated: ${editedTitle}`,
-            description: "Transcription was updated and linked to this case",
+            description: 'Transcription was updated and linked to this case',
             activity_type: 'voice_recording',
-            status: 'completed'
-          }
+            status: 'completed',
+          },
         });
       }
 
       setIsEditing(false);
-      toast({
-        title: "Success",
-        description: "Transcription updated successfully",
-      });
+      toast.success('Success', { description: 'Transcription updated successfully' });
     } catch (error: unknown) {
-      toast({
-        title: "Update Failed",
-        description: error instanceof Error ? error.message : "Failed to update transcription",
-        variant: "destructive",
+      toast.error('Update Failed', {
+        description: error instanceof Error ? error.message : 'Failed to update transcription',
       });
     }
   };
 
   const handleDelete = async () => {
     if (!transcription) return;
-    
-    if (window.confirm("Are you sure you want to delete this transcription? This action cannot be undone.")) {
+
+    if (
+      window.confirm(
+        'Are you sure you want to delete this transcription? This action cannot be undone.'
+      )
+    ) {
       try {
         await deleteTranscription.mutateAsync(transcription.id);
         navigate('/voice-recorder');
-        toast({
-          title: "Deleted",
-          description: "Transcription deleted successfully",
-        });
+        toast.success('Deleted', { description: 'Transcription deleted successfully' });
       } catch (error: unknown) {
-        toast({
-          title: "Delete Failed",
-          description: error instanceof Error ? error.message : "Failed to delete transcription",
-          variant: "destructive",
+        toast.error('Delete Failed', {
+          description: error instanceof Error ? error.message : 'Failed to delete transcription',
         });
       }
     }
@@ -139,23 +137,30 @@ const TranscriptionView: React.FC = () => {
             <div className="text-center">
               <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">
-                {error?.message === 'User not authenticated' 
+                {error?.message === 'User not authenticated'
                   ? 'Authentication Required'
-                  : error 
+                  : error
                     ? 'Error Loading Transcription'
                     : 'Transcription Not Found'}
               </h3>
               <p className="text-muted-foreground mb-4">
                 {error?.message === 'User not authenticated'
                   ? 'Please log in to view your transcriptions.'
-                  : error 
-                    ? 'There was an error loading this transcription.' 
-                    : "The transcription you're looking for doesn't exist or has been deleted."
-                }
+                  : error
+                    ? 'There was an error loading this transcription.'
+                    : "The transcription you're looking for doesn't exist or has been deleted."}
               </p>
-              <Button onClick={() => navigate(error?.message === 'User not authenticated' ? '/auth' : '/voice-recorder')}>
+              <Button
+                onClick={() =>
+                  navigate(
+                    error?.message === 'User not authenticated' ? '/auth' : '/voice-recorder'
+                  )
+                }
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                {error?.message === 'User not authenticated' ? 'Go to Login' : 'Back to Voice Recorder'}
+                {error?.message === 'User not authenticated'
+                  ? 'Go to Login'
+                  : 'Back to Voice Recorder'}
               </Button>
             </div>
           </CardContent>
@@ -164,7 +169,9 @@ const TranscriptionView: React.FC = () => {
     );
   }
 
-  const linkedCase = cases.find(c => c.id === (selectedCaseId !== 'none' ? selectedCaseId : transcription?.case_id));
+  const linkedCase = cases.find(
+    (c) => c.id === (selectedCaseId !== 'none' ? selectedCaseId : transcription?.case_id)
+  );
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -175,26 +182,29 @@ const TranscriptionView: React.FC = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-        <div>
-          <h1 className="text-3xl font-bold">{transcription?.title}</h1>
-          <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-            <div className="flex items-center space-x-1">
-              <Calendar className="h-4 w-4" />
-              <span>{transcription && format(new Date(transcription.created_at), 'MMM d, yyyy at h:mm a')}</span>
-            </div>
-            {transcription?.duration_seconds && (
+          <div>
+            <h1 className="text-3xl font-bold">{transcription?.title}</h1>
+            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
               <div className="flex items-center space-x-1">
-                <Clock className="h-4 w-4" />
-                <span>{transcription.duration_seconds}s</span>
+                <Calendar className="h-4 w-4" />
+                <span>
+                  {transcription &&
+                    format(new Date(transcription.created_at), 'MMM d, yyyy at h:mm a')}
+                </span>
               </div>
-            )}
-            <Badge variant={transcription?.status === 'completed' ? 'default' : 'secondary'}>
-              {transcription?.status}
-            </Badge>
+              {transcription?.duration_seconds && (
+                <div className="flex items-center space-x-1">
+                  <Clock className="h-4 w-4" />
+                  <span>{transcription.duration_seconds}s</span>
+                </div>
+              )}
+              <Badge variant={transcription?.status === 'completed' ? 'default' : 'secondary'}>
+                {transcription?.status}
+              </Badge>
+            </div>
           </div>
         </div>
-        </div>
-        
+
         <div className="flex items-center space-x-2">
           {!isEditing ? (
             <>
@@ -250,17 +260,18 @@ const TranscriptionView: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <audio 
-              controls 
-              className="w-full"
-              preload="metadata"
-            >
+            <audio controls className="w-full" preload="metadata">
               <source src={transcription.audio_file_url} type="audio/webm" />
               <source src={transcription.audio_file_url} type="audio/mp3" />
               Your browser does not support the audio element.
             </audio>
             <div className="flex justify-between text-sm text-muted-foreground mt-2">
-              <span>Duration: {transcription.duration_seconds ? `${Math.floor(transcription.duration_seconds / 60)}:${(transcription.duration_seconds % 60).toString().padStart(2, '0')}` : 'Unknown'}</span>
+              <span>
+                Duration:{' '}
+                {transcription.duration_seconds
+                  ? `${Math.floor(transcription.duration_seconds / 60)}:${(transcription.duration_seconds % 60).toString().padStart(2, '0')}`
+                  : 'Unknown'}
+              </span>
               <span>Recorded: {format(new Date(transcription.created_at), 'PPP')}</span>
             </div>
           </CardContent>
@@ -283,7 +294,7 @@ const TranscriptionView: React.FC = () => {
                 placeholder="Enter transcription title"
               />
             </div>
-            
+
             <div>
               <label className="text-sm font-medium">Link to Case (Optional)</label>
               <Select value={selectedCaseId} onValueChange={setSelectedCaseId}>

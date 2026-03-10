@@ -17,7 +17,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 interface AnalysisResult {
@@ -142,79 +142,66 @@ export default function DocumentReview() {
   const [progressLabel, setProgressLabel] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const { toast } = useToast();
+  const handleFileUpload = useCallback(async (uploadedFile: File) => {
+    // Validate file before processing
+    const { validateFile } = await import('@/lib/fileValidation');
+    const validation = validateFile(uploadedFile);
+    if (!validation.valid) {
+      toast.error('Invalid File', { description: validation.error });
+      return;
+    }
 
-  const handleFileUpload = useCallback(
-    async (uploadedFile: File) => {
-      // Validate file before processing
-      const { validateFile } = await import('@/lib/fileValidation');
-      const validation = validateFile(uploadedFile);
-      if (!validation.valid) {
-        toast({ title: 'Invalid File', description: validation.error, variant: 'destructive' });
-        return;
+    setFile(uploadedFile);
+    setIsExtracting(true);
+
+    try {
+      let extracted = '';
+
+      if (uploadedFile.type === 'text/plain' || uploadedFile.name.toLowerCase().endsWith('.txt')) {
+        extracted = await uploadedFile.text();
+      } else if (uploadedFile.name.toLowerCase().endsWith('.docx')) {
+        try {
+          const mammoth = await import('mammoth');
+          const arrayBuffer = await uploadedFile.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          extracted = result.value;
+        } catch (e) {
+          console.error('DOCX extraction failed:', e);
+        }
       }
 
-      setFile(uploadedFile);
-      setIsExtracting(true);
-
-      try {
-        let extracted = '';
-
-        if (
-          uploadedFile.type === 'text/plain' ||
-          uploadedFile.name.toLowerCase().endsWith('.txt')
-        ) {
-          extracted = await uploadedFile.text();
-        } else if (uploadedFile.name.toLowerCase().endsWith('.docx')) {
-          try {
-            const mammoth = await import('mammoth');
-            const arrayBuffer = await uploadedFile.arrayBuffer();
-            const result = await mammoth.extractRawText({ arrayBuffer });
-            extracted = result.value;
-          } catch (e) {
-            console.error('DOCX extraction failed:', e);
-          }
-        }
-
-        // Fallback: try reading as text
-        if (!extracted || extracted.length < 10) {
-          const rawText = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => resolve('');
-            reader.readAsText(uploadedFile);
-          });
-          if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
-            extracted = rawText;
-          }
-        }
-
-        if (extracted && extracted.length > 10) {
-          setTextContent(extracted);
-          toast({
-            title: 'Text Extracted',
-            description: `Extracted ${extracted.length.toLocaleString()} characters from "${uploadedFile.name}".`,
-          });
-        } else {
-          toast({
-            title: 'Extraction Limited',
-            description: 'Could not extract text. Please paste the document text manually.',
-            variant: 'default',
-          });
-        }
-      } catch (error) {
-        console.error('File extraction error:', error);
-        toast({
-          title: 'Extraction Failed',
-          description: 'Could not read the file. Please paste the text manually.',
-          variant: 'destructive',
+      // Fallback: try reading as text
+      if (!extracted || extracted.length < 10) {
+        const rawText = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => resolve('');
+          reader.readAsText(uploadedFile);
         });
-      } finally {
-        setIsExtracting(false);
+        if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
+          extracted = rawText;
+        }
       }
-    },
-    [toast]
-  );
+
+      if (extracted && extracted.length > 10) {
+        setTextContent(extracted);
+        toast.success('Text Extracted', {
+          description: `Extracted ${extracted.length.toLocaleString()} characters from "${uploadedFile.name}".`,
+        });
+      } else {
+        toast.success('Extraction Limited', {
+          description: 'Could not extract text. Please paste the document text manually.',
+        });
+      }
+    } catch (error) {
+      console.error('File extraction error:', error);
+      toast.error('Extraction Failed', {
+        description: 'Could not read the file. Please paste the text manually.',
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  }, []);
 
   const handleGoalSelect = (selectedValue: string) => {
     setSelectedGoal(selectedValue);
@@ -224,19 +211,15 @@ export default function DocumentReview() {
   const handleAnalyze = async () => {
     const content = textContent.trim();
     if (!content && !file) {
-      toast({
-        title: 'Missing Content',
+      toast.error('Missing Content', {
         description: 'Please upload a document or paste text to analyze.',
-        variant: 'destructive',
       });
       return;
     }
 
     if (!content || content.length < 50) {
-      toast({
-        title: 'Insufficient Content',
+      toast.error('Insufficient Content', {
         description: 'Please provide more text for meaningful analysis.',
-        variant: 'destructive',
       });
       return;
     }
@@ -289,17 +272,12 @@ export default function DocumentReview() {
       setAnalysisProgress(100);
       setProgressLabel('Analysis complete!');
 
-      toast({
-        title: 'Analysis Complete',
+      toast.success('Analysis Complete', {
         description: 'REAM AI has finished analyzing your document.',
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to analyze document';
-      toast({
-        title: 'Analysis Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error('Analysis Failed', { description: errorMessage });
     } finally {
       setTimeout(() => {
         setIsAnalyzing(false);
@@ -334,13 +312,9 @@ export default function DocumentReview() {
     if (!result?.analysis) return;
     try {
       await navigator.clipboard.writeText(result.analysis);
-      toast({ title: 'Copied', description: 'Analysis copied to clipboard.' });
+      toast.success('Copied', { description: 'Analysis copied to clipboard.' });
     } catch {
-      toast({
-        title: 'Copy Failed',
-        description: 'Could not copy to clipboard.',
-        variant: 'destructive',
-      });
+      toast.error('Copy Failed', { description: 'Could not copy to clipboard.' });
     }
   };
 

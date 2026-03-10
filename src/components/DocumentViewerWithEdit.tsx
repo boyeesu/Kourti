@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Download, Eye, Edit, Save, X } from 'lucide-react';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { sanitizeHTML } from '@/lib/sanitize';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -37,7 +37,6 @@ export function DocumentViewerWithEdit({
   const [activeTab, setActiveTab] = useState<'view' | 'edit'>('view');
   const [editedContent, setEditedContent] = useState(document.content || '');
   const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -50,18 +49,11 @@ export function DocumentViewerWithEdit({
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Document updated successfully.',
-      });
+      toast.success('Success', { description: 'Document updated successfully.' });
       setActiveTab('view');
       if (onUpdate) onUpdate();
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save document.',
-      });
+      toast.error('Error', { description: 'Failed to save document.' });
     } finally {
       setIsSaving(false);
     }
@@ -79,16 +71,9 @@ export function DocumentViewerWithEdit({
         document.name.replace(/[^a-z0-9]/gi, '_').toLowerCase(),
         document.name
       );
-      toast({
-        title: 'Success',
-        description: 'Document downloaded as PDF.',
-      });
+      toast.success('Success', { description: 'Document downloaded as PDF.' });
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to download PDF.',
-      });
+      toast.error('Error', { description: 'Failed to download PDF.' });
     }
   };
 
@@ -98,16 +83,9 @@ export function DocumentViewerWithEdit({
         document.content || '',
         document.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()
       );
-      toast({
-        title: 'Success',
-        description: 'Document downloaded as DOCX.',
-      });
+      toast.success('Success', { description: 'Document downloaded as DOCX.' });
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to download DOCX.',
-      });
+      toast.error('Error', { description: 'Failed to download DOCX.' });
     }
   };
 

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Loader2, Palette } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -25,7 +25,6 @@ const CALENDAR_COLORS = [
 export function CalendarColorSettings() {
   const [selectedColor, setSelectedColor] = useState<string>('#3b82f6');
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const handleSave = async () => {
@@ -48,14 +47,11 @@ export function CalendarColorSettings() {
       queryClient.invalidateQueries({ queryKey: ['calendar-viewers'] });
       queryClient.invalidateQueries({ queryKey: ['organization-members'] });
 
-      toast({
-        title: 'Success',
+      toast.success('Success', {
         description: 'Calendar color updated successfully.',
       });
     } catch (error: unknown) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
+      toast.error('Error', {
         description: error instanceof Error ? error.message : 'Failed to update calendar color.',
       });
     } finally {

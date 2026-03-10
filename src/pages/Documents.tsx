@@ -45,7 +45,7 @@ import { Document } from '@/types';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { InternalShareDialog } from '@/components/InternalShareDialog';
 import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function Documents() {
   const navigate = useNavigate();
@@ -55,8 +55,6 @@ export default function Documents() {
   const [shareDocument, setShareDocument] = useState<Document | null>(null);
   const { term: globalSearch } = useSearch();
   const { data: documents = [], isLoading } = useDocuments();
-  const { toast } = useToast();
-
   // Compute filtered documents before any early returns (Rules of Hooks)
   const filteredDocuments = useMemo(() => {
     if (!documents || !Array.isArray(documents)) {
@@ -392,13 +390,11 @@ export default function Documents() {
                                 (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase(),
                                 doc.name || 'Document'
                               );
-                              toast({ title: 'Success', description: 'Document exported as PDF.' });
-                            } catch {
-                              toast({
-                                variant: 'destructive',
-                                title: 'Error',
-                                description: 'Failed to export PDF.',
+                              toast.success('Success', {
+                                description: 'Document exported as PDF.',
                               });
+                            } catch {
+                              toast.error('Error', { description: 'Failed to export PDF.' });
                             }
                           }}
                         >
@@ -412,16 +408,11 @@ export default function Documents() {
                                 doc.content || '',
                                 (doc.name || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase()
                               );
-                              toast({
-                                title: 'Success',
+                              toast.success('Success', {
                                 description: 'Document exported as DOCX.',
                               });
                             } catch {
-                              toast({
-                                variant: 'destructive',
-                                title: 'Error',
-                                description: 'Failed to export DOCX.',
-                              });
+                              toast.error('Error', { description: 'Failed to export DOCX.' });
                             }
                           }}
                         >

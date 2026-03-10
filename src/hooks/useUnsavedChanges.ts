@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface UseUnsavedChangesOptions {
   hasUnsavedChanges: boolean;
@@ -11,10 +11,9 @@ interface UseUnsavedChangesOptions {
 export function useUnsavedChanges({
   hasUnsavedChanges,
   message = 'You have unsaved changes. Are you sure you want to leave?',
-  enabled = true
+  enabled = true,
 }: UseUnsavedChangesOptions) {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
 
   useEffect(() => {
@@ -52,19 +51,13 @@ export function useUnsavedChanges({
 
   const showUnsavedWarning = () => {
     if (hasUnsavedChanges && enabled) {
-      toast({
-        variant: 'default',
-        title: 'Unsaved Changes',
-        description: message,
-        duration: 5000
-      });
+      toast.success('Unsaved Changes', { description: message, duration: 5000 });
     }
   };
 
   return {
     handleNavigation,
     showUnsavedWarning,
-    hasUnsavedChanges: hasUnsavedChangesRef.current
+    hasUnsavedChanges: hasUnsavedChangesRef.current,
   };
 }
-
