@@ -26,9 +26,9 @@
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
       })(window, document, "clarity", "script", "udomddggn8");
       
-      // Mask all text inputs for legal data protection
-      window.clarity && window.clarity("set", "mask-all-inputs", true);
-      window.clarity && window.clarity("set", "mask-text", true);
+      // Mask all text inputs for legal data protection (use queue pattern)
+      clarity("set", "mask-all-inputs", true);
+      clarity("set", "mask-text", true);
     </script>
 
     <!-- Mixpanel - Safe autocapture with privacy controls -->

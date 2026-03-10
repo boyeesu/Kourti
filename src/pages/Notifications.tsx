@@ -1,20 +1,26 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNotifications as useNotificationsHook } from "@/hooks/useNotifications";
-import { 
-  Bell, 
-  CheckCircle, 
-  Clock, 
-  AlertTriangle, 
-  Calendar, 
-  FileText, 
-  Briefcase, 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  useNotifications as useNotificationsHook,
+  useUpdateNotification,
+  useDeleteNotification,
+  useMarkAllNotificationsAsRead,
+} from '@/hooks/useNotifications';
+import {
+  Bell,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Calendar,
+  FileText,
+  Briefcase,
   Info,
-  CheckCheck
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+  CheckCheck,
+  Trash2,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 // Define local notification type to match database
 interface Notification {
@@ -29,12 +35,12 @@ interface Notification {
 }
 
 // Transform database notification to local type
-function transformNotification(n: { 
-  id: string; 
-  title: string | null; 
-  description: string | null; 
-  type: string | null; 
-  status: string | null; 
+function transformNotification(n: {
+  id: string;
+  title: string | null;
+  description: string | null;
+  type: string | null;
+  status: string | null;
   created_at: string | null;
 }): Notification {
   return {
@@ -47,31 +53,32 @@ function transformNotification(n: {
 export default function Notifications() {
   const { data: rawNotifications = [] } = useNotificationsHook();
   const notifications = rawNotifications.map(transformNotification);
-  
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const markAsRead = (_id: string) => {
-    // TODO: Implement mark as read functionality
+  const updateNotification = useUpdateNotification();
+  const deleteNotification = useDeleteNotification();
+  const markAllAsRead = useMarkAllNotificationsAsRead();
+
+  const markAsRead = (id: string) => {
+    updateNotification.mutate({ id, status: 'read' });
   };
-  
-  const clearAll = () => {
-    // TODO: Implement clear all functionality
+
+  const handleDelete = (id: string) => {
+    deleteNotification.mutate(id);
   };
-  const [activeTab, setActiveTab] = useState("all");
-  
+
+  const [activeTab, setActiveTab] = useState('all');
+
   // Group notifications by type
   const allNotifications = [...notifications];
   const unreadNotifications = notifications.filter((n) => n.status === 'unread');
   const caseNotifications = notifications.filter((n) => n.type === 'case');
   const documentNotifications = notifications.filter((n) => n.type === 'document');
   const eventNotifications = notifications.filter((n) => n.type === 'calendar');
-  
+
   // Sort notifications by date (newest first)
   const sortedNotifications = (notifs: Notification[]) => {
-    return [...notifs].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    return [...notifs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
-  
+
   // Get the icon based on notification type
   const getIcon = (type: string) => {
     switch (type) {
@@ -87,7 +94,7 @@ export default function Notifications() {
         return <Bell className="h-5 w-5 text-gray-500" />;
     }
   };
-  
+
   // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -96,7 +103,7 @@ export default function Notifications() {
     const diffMins = Math.round(diffMs / 60000);
     const diffHours = Math.round(diffMs / 3600000);
     const diffDays = Math.round(diffMs / 86400000);
-    
+
     if (diffMins < 60) {
       return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
     } else if (diffHours < 24) {
@@ -104,97 +111,82 @@ export default function Notifications() {
     } else if (diffDays < 7) {
       return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
     } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
       });
     }
   };
-  
-  // Handle marking all as read
+
   const handleMarkAllRead = () => {
-    let notificationsToMark;
-    
-    switch (activeTab) {
-      case 'unread':
-        notificationsToMark = unreadNotifications;
-        break;
-      case 'cases':
-        notificationsToMark = caseNotifications.filter((n) => n.status === 'unread');
-        break;
-      case 'documents':
-        notificationsToMark = documentNotifications.filter((n) => n.status === 'unread');
-        break;
-      case 'events':
-        notificationsToMark = eventNotifications.filter((n) => n.status === 'unread');
-        break;
-      default:
-        notificationsToMark = unreadNotifications;
-    }
-    
-    notificationsToMark.forEach(n => markAsRead(n.id));
+    markAllAsRead.mutate();
   };
-  
+
   // Render notification list
   const renderNotificationList = (notificationList: Notification[]) => {
     const sorted = sortedNotifications(notificationList);
-    
+
     if (sorted.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Bell className="h-12 w-12 text-muted-foreground/30 mb-4" />
           <h3 className="text-lg font-medium">No notifications</h3>
           <p className="text-muted-foreground mt-1 max-w-md">
-            {activeTab === 'unread' 
+            {activeTab === 'unread'
               ? "You've read all your notifications. Check back later for updates."
               : "You don't have any notifications in this category yet."}
           </p>
         </div>
       );
     }
-    
+
     return (
       <div className="space-y-3">
         {sorted.map((notification) => (
-          <div 
-            key={notification.id} 
+          <div
+            key={notification.id}
             className={`flex p-4 rounded-lg border ${notification.read ? 'bg-card' : 'bg-primary/5 border-primary/20'}`}
           >
-            <div className="mr-4 mt-1">
-              {getIcon(notification.type ?? 'system')}
-            </div>
+            <div className="mr-4 mt-1">{getIcon(notification.type ?? 'system')}</div>
             <div className="flex-1">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className={`font-medium ${notification.read ? '' : 'text-primary'}`}>
                     {notification.title}
                   </h3>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    {notification.description}
-                  </p>
+                  <p className="text-muted-foreground text-sm mt-1">{notification.description}</p>
                 </div>
-                {!notification.read && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 text-xs"
-                    onClick={() => markAsRead(notification.id)}
+                <div className="flex items-center gap-1">
+                  {!notification.read && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => markAsRead(notification.id)}
+                    >
+                      <CheckCheck className="h-3 w-3 mr-1" />
+                      Mark read
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(notification.id)}
+                    title="Delete notification"
                   >
-                    <CheckCheck className="h-3 w-3 mr-1" />
-                    Mark read
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
-                )}
+                </div>
               </div>
               <div className="flex items-center mt-2">
                 <span className="text-xs text-muted-foreground">
                   {formatDate(notification.date)}
                 </span>
-                <Badge 
-                  variant="outline" 
-                  className="ml-2 text-xs py-0 px-1.5 h-5"
-                >
-                  {(notification.type ?? 'system').charAt(0).toUpperCase() + (notification.type ?? 'system').slice(1)}
+                <Badge variant="outline" className="ml-2 text-xs py-0 px-1.5 h-5">
+                  {(notification.type ?? 'system').charAt(0).toUpperCase() +
+                    (notification.type ?? 'system').slice(1)}
                 </Badge>
               </div>
             </div>
@@ -213,7 +205,7 @@ export default function Notifications() {
           Stay updated with important events, cases, and document activities
         </p>
       </div>
-      
+
       {/* Main content */}
       <Card className="shadow-sm">
         <CardHeader className="border-b pb-3">
@@ -223,9 +215,9 @@ export default function Notifications() {
               Your Notifications
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="h-8"
                 onClick={handleMarkAllRead}
                 disabled={!unreadNotifications.length}
@@ -233,11 +225,11 @@ export default function Notifications() {
                 <CheckCircle className="h-4 w-4 mr-1.5" />
                 Mark all as read
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="h-8"
-                onClick={clearAll}
+                onClick={() => notifications.forEach((n) => handleDelete(n.id))}
                 disabled={!notifications.length}
               >
                 Clear all
@@ -287,30 +279,22 @@ export default function Notifications() {
                 </Badge>
               </TabsTrigger>
             </TabsList>
-            
-            <TabsContent value="all">
-              {renderNotificationList(allNotifications)}
-            </TabsContent>
-            
-            <TabsContent value="unread">
-              {renderNotificationList(unreadNotifications)}
-            </TabsContent>
-            
-            <TabsContent value="cases">
-              {renderNotificationList(caseNotifications)}
-            </TabsContent>
-            
+
+            <TabsContent value="all">{renderNotificationList(allNotifications)}</TabsContent>
+
+            <TabsContent value="unread">{renderNotificationList(unreadNotifications)}</TabsContent>
+
+            <TabsContent value="cases">{renderNotificationList(caseNotifications)}</TabsContent>
+
             <TabsContent value="documents">
               {renderNotificationList(documentNotifications)}
             </TabsContent>
-            
-            <TabsContent value="events">
-              {renderNotificationList(eventNotifications)}
-            </TabsContent>
+
+            <TabsContent value="events">{renderNotificationList(eventNotifications)}</TabsContent>
           </Tabs>
         </CardContent>
       </Card>
-      
+
       {/* Notification Settings */}
       <Card className="shadow-sm">
         <CardHeader>
@@ -318,9 +302,7 @@ export default function Notifications() {
             <Clock className="h-5 w-5 text-primary" />
             Notification Settings
           </CardTitle>
-          <CardDescription>
-            Customize how and when you receive notifications
-          </CardDescription>
+          <CardDescription>Customize how and when you receive notifications</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -337,7 +319,7 @@ export default function Notifications() {
                 </Button>
               </CardContent>
             </Card>
-            
+
             <Card className="border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Browser Notifications</CardTitle>
@@ -351,7 +333,7 @@ export default function Notifications() {
                 </Button>
               </CardContent>
             </Card>
-            
+
             <Card className="border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Notification Filters</CardTitle>

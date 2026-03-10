@@ -5,7 +5,6 @@ import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Task } from '@/types';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { AppError, tryCatch } from '@/lib/error-handling';
-import { trackEvent, AnalyticsEvents } from '@/lib/analytics';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 // Use Database type for type safety with Supabase
@@ -92,8 +91,7 @@ export function useCreateTask() {
       queryClient.invalidateQueries({ queryKey: ['tasks', variables.case_id] });
       toast.success('Task created', { description: 'Task successfully added.' });
 
-      // Track and notify
-      trackEvent(AnalyticsEvents.TASK_CREATED, { priority: variables.priority });
+      // Notify (tracking is handled inside createTaskNotification)
       createTaskNotification(result, 'created', variables.assigned_to);
     },
     onError: (error: AppError) => {

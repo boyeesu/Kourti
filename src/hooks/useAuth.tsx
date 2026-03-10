@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { logError, logInfo } from '@/lib/logger';
 import { env } from '@/lib/env';
 import { getAuthRedirectUrl } from '@/utils/auth-helpers';
+import { trackEvent, AnalyticsEvents, identifyUser, resetAnalytics } from '@/lib/analytics';
 
 interface UserData {
   first_name?: string;
@@ -69,6 +70,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 
+      // Identify user and track login
+      if (event === 'SIGNED_IN' && currentSession?.user) {
+        identifyUser(currentSession.user.id);
+        trackEvent(AnalyticsEvents.LOGIN);
+      }
+
+      // Reset analytics and track logout
+      if (event === 'SIGNED_OUT') {
+        trackEvent(AnalyticsEvents.LOGOUT);
+        resetAnalytics();
+      }
+
       // Fetch CSRF token when user signs in
       if (event === 'SIGNED_IN' && currentSession?.access_token) {
         try {
@@ -90,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Clear CSRF token on sign out
+      // Clear CSRF token on sign out (also handled in signOut method)
       if (event === 'SIGNED_OUT') {
         sessionStorage.removeItem('csrf_token');
       }
@@ -145,6 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (!error) {
             logInfo('Sign up successful', { email, attempt });
+            trackEvent(AnalyticsEvents.SIGNUP);
 
             // Fire welcome email asynchronously (non-blocking)
             const newUserId = signUpData?.user?.id || '';

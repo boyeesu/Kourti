@@ -83,7 +83,12 @@ export function useNotificationTriggers() {
       user_id: userId,
     });
 
-    trackEvent(AnalyticsEvents.CASE_CREATED, { action });
+    const caseEventMap = {
+      created: AnalyticsEvents.CASE_CREATED,
+      updated: AnalyticsEvents.CASE_UPDATED,
+      deleted: AnalyticsEvents.CASE_DELETED,
+    };
+    trackEvent(caseEventMap[action], { action });
   };
 
   const createClientNotification = async (
@@ -100,7 +105,12 @@ export function useNotificationTriggers() {
       user_id: userId,
     });
 
-    trackEvent(AnalyticsEvents.CLIENT_CREATED, { action });
+    const clientEventMap = {
+      created: AnalyticsEvents.CLIENT_CREATED,
+      updated: AnalyticsEvents.CLIENT_UPDATED,
+      deleted: AnalyticsEvents.CLIENT_DELETED,
+    };
+    trackEvent(clientEventMap[action], { action });
   };
 
   const createDocumentNotification = async (
@@ -165,7 +175,12 @@ export function useNotificationTriggers() {
       user_id: userId,
     });
 
-    trackEvent(AnalyticsEvents.EVENT_CREATED, { action });
+    const calendarEventMap = {
+      created: AnalyticsEvents.EVENT_CREATED,
+      updated: AnalyticsEvents.EVENT_UPDATED,
+      deleted: AnalyticsEvents.EVENT_CREATED,
+    };
+    trackEvent(calendarEventMap[action], { action });
 
     // Notify attendees via email
     if (attendeeUserIds && action === 'created') {
@@ -238,7 +253,12 @@ export function useNotificationTriggers() {
       user_id: userId,
     });
 
-    trackEvent(AnalyticsEvents.INVOICE_CREATED, { action });
+    const invoiceEventMap = {
+      created: AnalyticsEvents.INVOICE_CREATED,
+      sent: AnalyticsEvents.INVOICE_SENT,
+      paid: AnalyticsEvents.INVOICE_CREATED,
+    };
+    trackEvent(invoiceEventMap[action], { action });
 
     // Send email to client when invoice is sent
     if (clientUserId && action === 'sent') {
