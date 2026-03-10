@@ -196,7 +196,11 @@ serve(async (req: Request) => {
     // -----------------------------------------------------------------------
 
     const flwSubId = subscription.flutterwave_subscription_id as string | undefined;
-    if (!flwSubId) {
+
+    // For activate/deactivate we require a Flutterwave subscription ID.
+    // For cancel we can proceed without one – we just mark the local DB so
+    // the subscription expires at the end of the current billing period.
+    if (!flwSubId && body.action !== 'cancel') {
       throw new HttpError(
         'No Flutterwave subscription ID associated with this subscription',
         400,
@@ -208,18 +212,26 @@ serve(async (req: Request) => {
     // 5. Call Flutterwave API based on action
     // -----------------------------------------------------------------------
 
-    let flwResult;
+    let flwResult: { status: string; message: string } | undefined;
 
-    switch (body.action) {
-      case 'activate':
-        flwResult = await activateSubscription(flwSubId);
-        break;
-      case 'deactivate':
-        flwResult = await deactivateSubscription(flwSubId);
-        break;
-      case 'cancel':
-        flwResult = await cancelSubscription(flwSubId);
-        break;
+    if (flwSubId) {
+      switch (body.action) {
+        case 'activate':
+          flwResult = await activateSubscription(flwSubId);
+          break;
+        case 'deactivate':
+          flwResult = await deactivateSubscription(flwSubId);
+          break;
+        case 'cancel':
+          flwResult = await cancelSubscription(flwSubId);
+          break;
+      }
+    } else {
+      console.log(
+        `No Flutterwave subscription ID for subscription ${body.subscription_id}. ` +
+          'Skipping Flutterwave API call and updating local DB only.'
+      );
+      flwResult = { status: 'skipped', message: 'No Flutterwave subscription to cancel' };
     }
 
     console.log(`Flutterwave ${body.action} response:`, flwResult.status, flwResult.message);

@@ -15,7 +15,6 @@ import {
 } from '../_shared/rateLimiting.ts';
 import { createErrorResponse } from '../_shared/errorHandling.ts';
 import { requireOrganizationAccess } from '../_shared/organizationValidation.ts';
-import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
 import {
   createTrace,
   traceOpenAIChatCompletion,
@@ -236,9 +235,6 @@ serve(async (req: Request): Promise<Response> => {
     // Validate organization access
     await requireOrganizationAccess(supabase, userId, organizationId);
 
-    // CSRF Protection - validate token for authenticated mutation
-    await requireCsrfTokenForUser(supabase, userId, req);
-
     // Create Langfuse trace for this request (non-blocking to avoid added latency)
     const tracePromise = createTrace({
       name: 'ream-ai-assistant',
@@ -410,10 +406,9 @@ IMPORTANT: This question is about the document above. Extract information direct
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5.3',
+        model: 'gpt-5.3-chat-latest',
         messages,
-        max_tokens: 4000,
-        temperature: 0.3,
+        max_completion_tokens: 4000,
         stream: false,
       }),
     });
@@ -430,7 +425,7 @@ IMPORTANT: This question is about the document above. Extract information direct
 
     // Trace the OpenAI chat completion (non-blocking)
     traceOpenAIChatCompletion(traceId, {
-      model: 'gpt-5.3',
+      model: 'gpt-5.3-chat-latest',
       messages,
       response: data,
       userId,
