@@ -15,7 +15,7 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
         defaultProps={{
-          title: 'Kourti Legal',
+          title: 'Kourti AI',
           tagline: 'AI-Powered Legal Operations',
         }}
       />

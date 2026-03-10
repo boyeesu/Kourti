@@ -1,14 +1,21 @@
-import { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { InvoiceForm } from "@/components/invoices/InvoiceForm";
-import { useInvoiceItems } from "@/hooks/useInvoiceItems";
-import { useGetItemById, useUpdateItem } from "@/lib/api";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { formatDate, formatCurrency, getStatusColor } from "@/lib/utils";
+import { useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { InvoiceForm } from '@/components/invoices/InvoiceForm';
+import { useInvoiceItems } from '@/hooks/useInvoiceItems';
+import { useGetItemById, useUpdateItem } from '@/lib/api';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils';
 
 interface Invoice {
   id: string;
@@ -47,9 +54,9 @@ interface Invoice {
     email?: string;
   } | null;
 }
-import { 
-  Download, 
-  Edit, 
+import {
+  Download,
+  Edit,
   ArrowLeft,
   Clock,
   Calendar,
@@ -60,8 +67,8 @@ import {
   CheckCircle2,
   XCircle,
   RefreshCw,
-  AlertCircle
-} from "lucide-react";
+  AlertCircle,
+} from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,20 +79,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+} from '@/components/ui/alert-dialog';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 export default function InvoiceDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  
+
   // Fetch the invoice
-  const { 
-    data: invoice, 
-    isLoading, 
-    error, 
-    refetch 
+  const {
+    data: invoice,
+    isLoading,
+    error,
+    refetch,
   } = useGetItemById<Invoice>({
     table: 'invoices',
     id: id || '',
@@ -99,7 +106,7 @@ export default function InvoiceDetails() {
 
   // Fetch invoice items using new hook
   const { data: invoiceItems = [], isLoading: itemsLoading } = useInvoiceItems(id || '');
-  
+
   // Update invoice mutation
   const updateInvoice = useUpdateItem({
     table: 'invoices',
@@ -111,20 +118,31 @@ export default function InvoiceDetails() {
   // Handle status updates
   const handleStatusUpdate = async (newStatus: string) => {
     if (!invoice) return;
-    
+
     await updateInvoice.mutateAsync({
       id: invoice.id,
-      status: newStatus
+      status: newStatus,
     });
   };
 
   // Handle form submission for edits
-  const handleSubmitEdit = async (formData: { title: string; client_id: string; case_id?: string; vat: number; status: string; issue_date: Date; due_date: Date; notes?: string; items: Array<{ description: string; quantity: number; unit_price: number }> }) => {
+  const handleSubmitEdit = async (formData: {
+    title: string;
+    client_id: string;
+    case_id?: string;
+    vat: number;
+    status: string;
+    issue_date: Date;
+    due_date: Date;
+    notes?: string;
+    items: Array<{ description: string; quantity: number; unit_price: number }>;
+  }) => {
     if (!invoice) return;
 
     // Calculate totals
     const subtotal = formData.items.reduce(
-      (sum: number, item: { quantity: number; unit_price: number }) => sum + (item.quantity * item.unit_price),
+      (sum: number, item: { quantity: number; unit_price: number }) =>
+        sum + item.quantity * item.unit_price,
       0
     );
 
@@ -138,12 +156,12 @@ export default function InvoiceDetails() {
       total_amount: subtotal + formData.vat,
       // Items will be handled via a trigger or edge function
     };
-    
+
     await updateInvoice.mutateAsync({
       id: invoice.id,
-      ...payload
+      ...payload,
     });
-    
+
     setIsEditDialogOpen(false);
   };
 
@@ -163,10 +181,10 @@ export default function InvoiceDetails() {
         <AlertCircle className="h-12 w-12 text-destructive" />
         <h2 className="text-xl font-semibold">Error Loading Invoice</h2>
         <p className="text-muted-foreground">
-          {error instanceof Error ? error.message : "Invoice not found"}
+          {error instanceof Error ? error.message : 'Invoice not found'}
         </p>
         <div className="flex gap-4">
-          <Button onClick={() => navigate("/invoices")}>
+          <Button onClick={() => navigate('/invoices')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Invoices
           </Button>
@@ -182,17 +200,17 @@ export default function InvoiceDetails() {
   // Format the invoice dates
   const issueDate = formatDate(invoice.issue_date);
   const dueDate = formatDate(invoice.due_date);
-  
+
   // Determine if invoice is overdue
   const isOverdue = invoice.status !== 'paid' && new Date(invoice.due_date) < new Date();
-  
+
   // Format the status
   const status = isOverdue && invoice.status !== 'overdue' ? 'overdue' : invoice.status;
 
   return (
     <div className="px-4 py-6 space-y-6">
       <Breadcrumbs />
-      
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -200,7 +218,7 @@ export default function InvoiceDetails() {
           <p className="text-muted-foreground">{invoice.title}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => navigate("/invoices")}>
+          <Button variant="outline" onClick={() => navigate('/invoices')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -224,7 +242,7 @@ export default function InvoiceDetails() {
           )}
         </div>
       </div>
-      
+
       {/* Status & Key Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="shadow-card">
@@ -234,10 +252,15 @@ export default function InvoiceDetails() {
           <CardContent>
             <div className="flex flex-col items-center">
               <Badge className={`${getStatusColor(status)} px-3 py-1.5 text-base`}>
-                {status === 'draft' ? 'Draft' : 
-                  status === 'sent' ? 'Sent' : 
-                  status === 'paid' ? 'Paid' : 
-                  status === 'overdue' ? 'Overdue' : 'Unknown'}
+                {status === 'draft'
+                  ? 'Draft'
+                  : status === 'sent'
+                    ? 'Sent'
+                    : status === 'paid'
+                      ? 'Paid'
+                      : status === 'overdue'
+                        ? 'Overdue'
+                        : 'Unknown'}
               </Badge>
               {status !== 'paid' && (
                 <div className="flex gap-2 mt-4">
@@ -256,7 +279,7 @@ export default function InvoiceDetails() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Dates</CardTitle>
@@ -275,15 +298,15 @@ export default function InvoiceDetails() {
                   <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
                   <span>Due Date:</span>
                 </div>
-                <span className={isOverdue ? "text-destructive font-medium" : ""}>
+                <span className={isOverdue ? 'text-destructive font-medium' : ''}>
                   {dueDate}
-                  {isOverdue && " (Overdue)"}
+                  {isOverdue && ' (Overdue)'}
                 </span>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Amount</CardTitle>
@@ -307,7 +330,7 @@ export default function InvoiceDetails() {
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Main Invoice Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Invoice Details */}
@@ -322,7 +345,7 @@ export default function InvoiceDetails() {
                 <div>
                   <h3 className="font-medium mb-2">From</h3>
                   <div className="space-y-1 text-sm">
-                    <p className="font-medium">Kourti Legal</p>
+                    <p className="font-medium">Kourti AI</p>
                     <p>123 Legal Street</p>
                     <p>Suite 500</p>
                     <p>New York, NY 10001</p>
@@ -331,7 +354,7 @@ export default function InvoiceDetails() {
                     <p>+1 (555) 123-4567</p>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="font-medium mb-2">Bill To</h3>
                   {invoice.client ? (
@@ -347,12 +370,12 @@ export default function InvoiceDetails() {
                   )}
                 </div>
               </div>
-              
+
               {/* Related Case */}
               {invoice.case && (
                 <div>
                   <h3 className="font-medium mb-2">Related Case</h3>
-                  <Link 
+                  <Link
                     to={`/cases/${invoice.case.id}`}
                     className="flex items-center gap-2 p-2 border rounded-md hover:bg-accent"
                   >
@@ -366,7 +389,7 @@ export default function InvoiceDetails() {
                   </Link>
                 </div>
               )}
-              
+
               {/* Invoice Items */}
               <div>
                 <h3 className="font-medium mb-2">Items</h3>
@@ -394,8 +417,12 @@ export default function InvoiceDetails() {
                           <TableRow key={item.id}>
                             <TableCell>{item.description}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(item.rate)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(item.amount)}
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -409,7 +436,7 @@ export default function InvoiceDetails() {
                   </Table>
                 </div>
               </div>
-              
+
               {/* Totals */}
               <div className="border-t pt-4 flex justify-end">
                 <div className="w-64 space-y-2">
@@ -428,7 +455,7 @@ export default function InvoiceDetails() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Notes */}
               {invoice.notes && (
                 <div className="mt-4 pt-4 border-t">
@@ -436,7 +463,7 @@ export default function InvoiceDetails() {
                   <p className="text-sm whitespace-pre-wrap">{invoice.notes}</p>
                 </div>
               )}
-              
+
               {/* Terms & Conditions */}
               {invoice.terms_conditions && (
                 <div className="mt-4 pt-4 border-t">
@@ -447,7 +474,7 @@ export default function InvoiceDetails() {
             </CardContent>
           </Card>
         </div>
-        
+
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Created By */}
@@ -480,7 +507,7 @@ export default function InvoiceDetails() {
               </div>
             </CardContent>
           </Card>
-          
+
           {/* Actions */}
           <Card className="shadow-card">
             <CardHeader className="pb-2">
@@ -499,23 +526,23 @@ export default function InvoiceDetails() {
                 <Printer className="h-4 w-4 mr-2" />
                 Print Invoice
               </Button>
-              
+
               <Separator className="my-2" />
-              
+
               {invoice.status !== 'paid' && (
                 <Button className="w-full justify-start" size="sm" variant="outline">
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Mark as Paid
                 </Button>
               )}
-              
+
               {invoice.status === 'paid' && (
                 <Button className="w-full justify-start" size="sm" variant="outline">
                   <XCircle className="h-4 w-4 mr-2" />
                   Mark as Unpaid
                 </Button>
               )}
-              
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button className="w-full justify-start" size="sm" variant="destructive">
@@ -527,7 +554,8 @@ export default function InvoiceDetails() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Cancel Invoice</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to cancel this invoice? This action will mark the invoice as cancelled.
+                      Are you sure you want to cancel this invoice? This action will mark the
+                      invoice as cancelled.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -542,7 +570,7 @@ export default function InvoiceDetails() {
           </Card>
         </div>
       </div>
-      
+
       {/* Edit Invoice Dialog */}
       <InvoiceForm
         isOpen={isEditDialogOpen}
@@ -557,11 +585,14 @@ export default function InvoiceDetails() {
           notes: invoice.notes || undefined,
           vat: invoice.tax_amount || 0,
           currency: invoice.currency || 'USD',
-          items: invoiceItems && invoiceItems.length > 0 ? invoiceItems.map((item) => ({
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.rate
-          })) : []
+          items:
+            invoiceItems && invoiceItems.length > 0
+              ? invoiceItems.map((item) => ({
+                  description: item.description,
+                  quantity: item.quantity,
+                  unit_price: item.rate,
+                }))
+              : [],
         }}
         onSubmit={handleSubmitEdit}
         isLoading={updateInvoice.isPending}

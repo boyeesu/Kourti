@@ -150,7 +150,7 @@ const handler = async (req: Request): Promise<Response> => {
           });
 
           // Get organization name
-          let organizationName = 'Kourti Legal';
+          let organizationName = 'Kourti AI';
           if (profile.organization_id) {
             const { data: org } = await supabase
               .from('organizations')

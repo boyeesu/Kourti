@@ -17,14 +17,18 @@ export const USER_ROLES = {
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 
 /**
- * Check if a role has admin privileges
+ * Roles that cannot be assigned through the application UI.
+ * Platform admin can only be set via direct database access.
+ */
+export const PROTECTED_ROLES = [USER_ROLES.PLATFORM_ADMIN] as const;
+
+/**
+ * Check if a role has organization-level admin privileges.
+ * Note: platform_admin is NOT included — it's a separate, DB-only role
+ * checked via the is_platform_admin() database function.
  */
 export function isAdminRole(role?: string): boolean {
-  return (
-    role === USER_ROLES.ADMIN ||
-    role === USER_ROLES.SUPERADMIN ||
-    role === USER_ROLES.PLATFORM_ADMIN
-  );
+  return role === USER_ROLES.ADMIN || role === USER_ROLES.SUPERADMIN;
 }
 
 /**

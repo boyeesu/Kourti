@@ -38,6 +38,13 @@ export function useCreateUserRole() {
 
   return useMutation({
     mutationFn: async (roleData: CreateUserRoleData) => {
+      // Prevent creating a custom role named platform_admin
+      if (roleData.role_name === 'platform_admin') {
+        throw new Error(
+          'Cannot create a role named "platform_admin". This is a reserved system role.'
+        );
+      }
+
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('User not authenticated');
 
@@ -162,6 +169,11 @@ export function useUpdateUserRole() {
 
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      // Platform admin can only be assigned via direct DB access
+      if (role === 'platform_admin') {
+        throw new Error('Platform admin role cannot be assigned through the application.');
+      }
+
       const currentUserId = await getCurrentUserId();
       if (!currentUserId) throw new Error('User not authenticated');
 

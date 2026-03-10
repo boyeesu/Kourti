@@ -207,6 +207,13 @@ const handler = async (req: Request): Promise<Response> => {
       organizationId,
     }: CreateInvitedUserRequest = await req.json();
 
+    // Block platform_admin role assignment - this role can only be set via direct DB access
+    if (role === 'platform_admin') {
+      throw new Error(
+        'platform_admin role cannot be assigned through the application. Contact the platform administrator.'
+      );
+    }
+
     // Validate organization access using shared helper
     await requireOrganizationAccess(supabaseAdmin, callerUser.id, organizationId);
 

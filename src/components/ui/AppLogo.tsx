@@ -9,7 +9,7 @@ interface AppLogoProps {
   alt?: string;
 }
 
-export function AppLogo({ className, size = 'md', alt = 'Kourti Legal' }: AppLogoProps) {
+export function AppLogo({ className, size = 'md', alt = 'Kourti AI' }: AppLogoProps) {
   const { theme } = useTheme();
   const [isDark, setIsDark] = React.useState(false);
 
@@ -22,8 +22,7 @@ export function AppLogo({ className, size = 'md', alt = 'Kourti Legal' }: AppLog
       } else {
         // System theme
         setIsDark(
-          typeof window !== 'undefined' &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches
+          typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
         );
       }
     };
@@ -45,21 +44,8 @@ export function AppLogo({ className, size = 'md', alt = 'Kourti Legal' }: AppLog
   };
 
   if (isDark) {
-    return (
-      <img
-        src="/kouti-light.png"
-        alt={alt}
-        className={cn(sizeClasses[size], className)}
-      />
-    );
+    return <img src="/kouti-light.png" alt={alt} className={cn(sizeClasses[size], className)} />;
   }
 
-  return (
-    <img
-      src={logoLight}
-      alt={alt}
-      className={cn(sizeClasses[size], className)}
-    />
-  );
+  return <img src={logoLight} alt={alt} className={cn(sizeClasses[size], className)} />;
 }
-

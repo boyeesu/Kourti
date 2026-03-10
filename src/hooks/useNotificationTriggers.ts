@@ -258,7 +258,7 @@ export function useNotificationTriggers() {
     if (!userId) return;
 
     createNotification.mutate({
-      title: 'Welcome to Kourti Legal!',
+      title: 'Welcome to Kourti AI!',
       description: `Your organization "${organizationName}" has been set up successfully. Get started by creating your first case or inviting team members.`,
       type: 'success' as any,
       user_id: userId,

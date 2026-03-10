@@ -155,7 +155,7 @@ export default function Auth() {
             <p className="text-muted-foreground mt-2">
               {isInvited
                 ? 'Set your password to complete your account setup'
-                : 'Sign in to your Kourti Legal account'}
+                : 'Sign in to your Kourti AI account'}
             </p>
           </div>
         </CardHeader>

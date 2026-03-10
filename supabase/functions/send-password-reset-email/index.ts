@@ -119,7 +119,7 @@ const handler = async (req: Request): Promise<Response> => {
     const {
       email,
       redirectUrl,
-      organizationName = 'Kourti Legal',
+      organizationName = 'Kourti AI',
     }: PasswordResetEmailRequest = await req.json();
 
     console.log('Processing password reset email for:', email);

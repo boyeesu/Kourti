@@ -268,7 +268,7 @@ serve(async (req: Request) => {
         name: customerName,
       },
       customizations: {
-        title: 'Kourti Legal',
+        title: 'Kourti AI',
         description: `Subscription to ${plan.display_name as string} (${billing_interval})`,
       },
     };

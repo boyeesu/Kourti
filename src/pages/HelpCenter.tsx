@@ -73,13 +73,13 @@ export default function HelpCenter() {
 
   const guides = [
     {
-      title: 'Getting Started with Kourti Legal',
-      description: 'Learn the basics of navigating and using Kourti Legal platform',
-      content: `# Getting Started with Kourti Legal
+      title: 'Getting Started with Kourti AI',
+      description: 'Learn the basics of navigating and using Kourti AI platform',
+      content: `# Getting Started with Kourti AI
 
-## Welcome to Kourti Legal
+## Welcome to Kourti AI
 
-Kourti Legal is a comprehensive legal practice management platform designed to streamline your legal operations with AI-powered tools and intuitive workflows.
+Kourti AI is a comprehensive legal practice management platform designed to streamline your legal operations with AI-powered tools and intuitive workflows.
 
 ## First Steps
 
@@ -123,7 +123,7 @@ Kourti Legal is a comprehensive legal practice management platform designed to s
 
 ## Overview
 
-Matters (also called Cases) are the central organizing unit in Kourti Legal. Each matter represents a legal case, project, or engagement.
+Matters (also called Cases) are the central organizing unit in Kourti AI. Each matter represents a legal case, project, or engagement.
 
 ## Creating a New Matter
 
@@ -971,7 +971,7 @@ If you notice any security concerns:
         <h1 className="text-3xl font-bold text-foreground mb-2">Help Center</h1>
         <p className="text-muted-foreground max-w-2xl mx-auto">
           Find answers to common questions and comprehensive guides to help you make the most of
-          Kourti Legal
+          Kourti AI
         </p>
       </div>
 
@@ -1012,7 +1012,7 @@ If you notice any security concerns:
                 Frequently Asked Questions
               </CardTitle>
               <CardDescription>
-                Quick answers to common questions about using Kourti Legal
+                Quick answers to common questions about using Kourti AI
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1053,7 +1053,7 @@ If you notice any security concerns:
                 User Guides &amp; Documentation
               </CardTitle>
               <CardDescription>
-                Comprehensive documentation and guides for Kourti Legal
+                Comprehensive documentation and guides for Kourti AI
               </CardDescription>
             </CardHeader>
             <CardContent>

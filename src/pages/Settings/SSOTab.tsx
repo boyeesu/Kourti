@@ -399,8 +399,8 @@ export default function SSOTab() {
         <div>
           <h3 className="text-lg font-medium">Single Sign-On</h3>
           <p className="text-sm text-muted-foreground">
-            Connect your identity provider so members of your organization can access Kourti Legal
-            with familiar credentials.
+            Connect your identity provider so members of your organization can access Kourti AI with
+            familiar credentials.
           </p>
         </div>
 
@@ -472,7 +472,7 @@ export default function SSOTab() {
                             <FormLabel>
                               <HelperLabel
                                 label="Redirect URI"
-                                tooltip="Copy the callback URL provided by Kourti Legal into the Authorized redirect URIs list in Google Cloud."
+                                tooltip="Copy the callback URL provided by Kourti AI into the Authorized redirect URIs list in Google Cloud."
                               />
                             </FormLabel>
                             <FormControl>

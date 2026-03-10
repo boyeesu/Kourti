@@ -9,7 +9,7 @@
     outline-offset: 2px;
     border-radius: 2px;
   }
-  
+
   /* Skip to main content */
   .sr-only {
     position: absolute;
@@ -22,7 +22,7 @@
     white-space: nowrap;
     border-width: 0;
   }
-  
+
   .sr-only:focus {
     position: static;
     width: auto;
@@ -40,7 +40,7 @@
   .animate-fade-in {
     animation: fadeIn 0.3s ease-in;
   }
-  
+
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -57,18 +57,19 @@
   }
 
   @keyframes bounceSlow {
-    0%, 100% {
+    0%,
+    100% {
       transform: translateY(0);
     }
     50% {
       transform: translateY(-10px);
     }
   }
-  
+
   .animate-slide-up {
     animation: slideUp 0.2s ease-out;
   }
-  
+
   @keyframes slideUp {
     from {
       opacity: 0;
@@ -79,23 +80,23 @@
       transform: translateY(0);
     }
   }
-  
+
   .hover-scale {
     transition: transform 0.2s ease;
   }
-  
+
   .hover-scale:hover {
     transform: scale(1.02);
   }
-  
+
   .hover-scale:active {
     transform: scale(0.98);
   }
-  
+
   .animate-slide-in {
     animation: slideIn 0.3s ease-out;
   }
-  
+
   @keyframes slideIn {
     from {
       opacity: 0;
@@ -106,11 +107,11 @@
       transform: translateX(0);
     }
   }
-  
+
   .animate-scale-in {
     animation: scaleIn 0.2s ease-out;
   }
-  
+
   @keyframes scaleIn {
     from {
       opacity: 0;
@@ -121,10 +122,12 @@
       transform: scale(1);
     }
   }
-  
+
   /* Touch-friendly targets */
   @media (max-width: 768px) {
-    button, a, [role="button"] {
+    button,
+    a,
+    [role='button'] {
       min-height: 44px;
       min-width: 44px;
     }
@@ -134,11 +137,11 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  
+
   .safe-area-top {
     padding-top: env(safe-area-inset-top, 0px);
   }
-  
+
   .safe-area-all {
     padding-top: env(safe-area-inset-top, 0px);
     padding-right: env(safe-area-inset-right, 0px);
@@ -150,7 +153,7 @@
   .mobile-vh {
     height: 100dvh;
   }
-  
+
   .mobile-min-vh {
     min-height: 100dvh;
   }
@@ -160,7 +163,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -183,12 +186,14 @@ html {
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
 }
-.noselect, .unselectable, [data-user-select="none"] {
+.noselect,
+.unselectable,
+[data-user-select='none'] {
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* Kourti Legal Design System - Professional legal management interface
+/* Kourti AI Design System - Professional legal management interface
 All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 */
 
@@ -319,66 +324,66 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   transform-origin: bottom left;
 }
 
-  .dark {
-    /* Kourti Brand - Official Dark Theme
+.dark {
+  /* Kourti Brand - Official Dark Theme
        Background: #09090B | Primary: #79A5EA | Accent: #AFC8F0
     */
-    --background: 240 10% 4%;
-    --foreground: 0 0% 98%;
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
 
-    /* Elevated surfaces */
-    --surface: 240 8% 7%;
-    --surface-foreground: 0 0% 98%;
-    --surface-muted: 240 6% 10%;
-    --surface-border: 240 8% 18%;
+  /* Elevated surfaces */
+  --surface: 240 8% 7%;
+  --surface-foreground: 0 0% 98%;
+  --surface-muted: 240 6% 10%;
+  --surface-border: 240 8% 18%;
 
-    /* Cards & Popovers */
-    --card: 240 8% 7%;
-    --card-foreground: 0 0% 98%;
+  /* Cards & Popovers */
+  --card: 240 8% 7%;
+  --card-foreground: 0 0% 98%;
 
-    --popover: 240 6% 10%;
-    --popover-foreground: 0 0% 98%;
+  --popover: 240 6% 10%;
+  --popover-foreground: 0 0% 98%;
 
-    /* Primary - Blue Lavender (#79A5EA) */
-    --primary: 217 71% 70%;
-    --primary-foreground: 240 10% 4%;
-    --primary-glow: 216 65% 82%;
+  /* Primary - Blue Lavender (#79A5EA) */
+  --primary: 217 71% 70%;
+  --primary-foreground: 240 10% 4%;
+  --primary-glow: 216 65% 82%;
 
-    /* Secondary */
-    --secondary: 240 6% 10%;
-    --secondary-foreground: 0 0% 98%;
+  /* Secondary */
+  --secondary: 240 6% 10%;
+  --secondary-foreground: 0 0% 98%;
 
-    /* Muted */
-    --muted: 240 7% 13%;
-    --muted-foreground: 240 5% 65%;
+  /* Muted */
+  --muted: 240 7% 13%;
+  --muted-foreground: 240 5% 65%;
 
-    /* Accent - Light Blue Lavender (#AFC8F0) */
-    --accent: 216 65% 82%;
-    --accent-foreground: 240 10% 4%;
+  /* Accent - Light Blue Lavender (#AFC8F0) */
+  --accent: 216 65% 82%;
+  --accent-foreground: 240 10% 4%;
 
-    /* Status colours - Kourti palette */
-    --success: 142 69% 58%;
-    --success-foreground: 240 10% 4%;
-    --warning: 48 96% 53%;
-    --warning-foreground: 240 10% 4%;
-    --destructive: 0 91% 71%;
-    --destructive-foreground: 0 0% 98%;
+  /* Status colours - Kourti palette */
+  --success: 142 69% 58%;
+  --success-foreground: 240 10% 4%;
+  --warning: 48 96% 53%;
+  --warning-foreground: 240 10% 4%;
+  --destructive: 0 91% 71%;
+  --destructive-foreground: 0 0% 98%;
 
-    /* Structure (#2A2A31 border) */
-    --border: 240 8% 18%;
-    --input: 240 7% 13%;
-    --ring: 217 71% 70%;
+  /* Structure (#2A2A31 border) */
+  --border: 240 8% 18%;
+  --input: 240 7% 13%;
+  --ring: 217 71% 70%;
 
-    /* Sidebar */
-    --sidebar-background: 240 10% 4%;
-    --sidebar-foreground: 240 5% 65%;
-    --sidebar-primary: 217 71% 70%;
-    --sidebar-primary-foreground: 240 10% 4%;
-    --sidebar-accent: 240 6% 10%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 9% 13%;
-    --sidebar-ring: 217 71% 70%;
-  }
+  /* Sidebar */
+  --sidebar-background: 240 10% 4%;
+  --sidebar-foreground: 240 5% 65%;
+  --sidebar-primary: 217 71% 70%;
+  --sidebar-primary-foreground: 240 10% 4%;
+  --sidebar-accent: 240 6% 10%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-border: 240 9% 13%;
+  --sidebar-ring: 217 71% 70%;
+}
 
 @layer base {
   * {
@@ -387,7 +392,9 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 
   body {
     @apply text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
     background-color: hsl(var(--background));
     min-height: 100vh;
   }
@@ -434,7 +441,7 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   }
 
   .app-shell::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     pointer-events: none;
@@ -445,7 +452,7 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 
   /* Dark mode: subtle glow effect using brand blue-lavender */
   .dark .app-shell::after {
-    content: "";
+    content: '';
     position: absolute;
     top: -50%;
     left: 50%;
@@ -579,11 +586,11 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 
 /* Signature gradient utility */
 .bg-kourti-gradient {
-  background: linear-gradient(135deg, #AFC8F0 0%, #79A5EA 100%);
+  background: linear-gradient(135deg, #afc8f0 0%, #79a5ea 100%);
 }
 
 .text-kourti-gradient {
-  background: linear-gradient(135deg, #AFC8F0 0%, #79A5EA 100%);
+  background: linear-gradient(135deg, #afc8f0 0%, #79a5ea 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -591,7 +598,8 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 
 /* Glow pulse animation */
 @keyframes glow-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(121, 165, 234, 0.15);
   }
   50% {

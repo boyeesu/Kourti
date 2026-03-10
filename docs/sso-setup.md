@@ -1,16 +1,16 @@
 # Configuring Single Sign-On (SSO)
 
-Kourti Legal now supports organization-scoped SSO with Google Workspace and Microsoft Entra ID. This document describes the required configuration so operators can provision matching OAuth applications and connect them to the Supabase project.
+Kourti AI now supports organization-scoped SSO with Google Workspace and Microsoft Entra ID. This document describes the required configuration so operators can provision matching OAuth applications and connect them to the Supabase project.
 
 ## 1. Required redirect URLs
 
 Register the following redirect URLs for every identity provider you configure:
 
-| Purpose | URL |
-| --- | --- |
+| Purpose                          | URL                                                          |
+| -------------------------------- | ------------------------------------------------------------ |
 | Supabase Edge authorize function | `https://<your-project>.functions.supabase.co/sso-authorize` |
-| Supabase Edge callback handler | `https://<your-project>.functions.supabase.co/sso-callback` |
-| Application post-login redirect | `https://<your-app-domain>/auth/callback` |
+| Supabase Edge callback handler   | `https://<your-project>.functions.supabase.co/sso-callback`  |
+| Application post-login redirect  | `https://<your-app-domain>/auth/callback`                    |
 
 The Edge function URLs are used by the dynamic per-organization flow. The application redirect should match the path used by `getAuthRedirectUrl('/auth/callback')` (by default `/auth/callback` on your app domain).
 
@@ -60,20 +60,20 @@ Ensure the following environment variables are configured for the Edge functions
 
 The code expects an `organization_sso_configs` table similar to:
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | UUID | Primary key |
-| `organization_id` | UUID (nullable) | Owning organization or `NULL` for global config |
-| `provider` | text | `google` or `microsoft` |
-| `match_domains` | text[] | Email domains to match (optional) |
-| `domain` | text | Alternative single-domain match |
-| `client_id` / `client_secret` | text | Provider credentials |
-| `authorize_url` / `token_url` | text | Override endpoints |
-| `tenant_id` | text | Required for Microsoft |
-| `scope` | text | Space-separated scopes |
-| `use_supabase_managed` | boolean | If `true`, use Supabase Auth configured provider |
-| `enforce_sso` | boolean | Require SSO for this organization |
-| `default_redirect` | text | Optional redirect override |
+| Column                        | Type            | Notes                                            |
+| ----------------------------- | --------------- | ------------------------------------------------ |
+| `id`                          | UUID            | Primary key                                      |
+| `organization_id`             | UUID (nullable) | Owning organization or `NULL` for global config  |
+| `provider`                    | text            | `google` or `microsoft`                          |
+| `match_domains`               | text[]          | Email domains to match (optional)                |
+| `domain`                      | text            | Alternative single-domain match                  |
+| `client_id` / `client_secret` | text            | Provider credentials                             |
+| `authorize_url` / `token_url` | text            | Override endpoints                               |
+| `tenant_id`                   | text            | Required for Microsoft                           |
+| `scope`                       | text            | Space-separated scopes                           |
+| `use_supabase_managed`        | boolean         | If `true`, use Supabase Auth configured provider |
+| `enforce_sso`                 | boolean         | Require SSO for this organization                |
+| `default_redirect`            | text            | Optional redirect override                       |
 
 ## 6. Testing checklist
 

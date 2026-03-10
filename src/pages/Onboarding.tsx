@@ -750,7 +750,7 @@ export default function Onboarding() {
       await createOnboardingNotification(formData.organization.name);
 
       toast.success('Onboarding completed!', {
-        description: "Welcome to Kourti Legal. You're all set to get started.",
+        description: "Welcome to Kourti AI. You're all set to get started.",
       });
 
       if (warningMessages.length > 0) {
@@ -1410,7 +1410,7 @@ export default function Onboarding() {
               <CheckCircle className="w-10 h-10 text-primary" />
             </div>
             <div>
-              <h3 className="text-2xl font-semibold">Welcome to Kourti Legal!</h3>
+              <h3 className="text-2xl font-semibold">Welcome to Kourti AI!</h3>
               <p className="text-muted-foreground mt-2">
                 Your organization has been set up successfully. You can now start managing your
                 cases, documents, and team.
@@ -1441,7 +1441,7 @@ export default function Onboarding() {
             <AppLogo size="md" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-semibold">Welcome to Kourti Legal</CardTitle>
+            <CardTitle className="text-2xl font-semibold">Welcome to Kourti AI</CardTitle>
             <p className="text-muted-foreground">
               Let&apos;s get your workspace ready in just a few steps.
             </p>

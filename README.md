@@ -1,8 +1,8 @@
-# Kourti Legal – Next-Gen Legal Operations Platform
+# Kourti AI – Next-Gen Legal Operations Platform
 
-Unlock the power of AI and automation in your legal workflows. Kourti Legal delivers advanced case, contract, and document management for legal professionals — now with seamless AI document analysis, smart contract generation, and one-click document export.
+Unlock the power of AI and automation in your legal workflows. Kourti AI delivers advanced case, contract, and document management for legal professionals — now with seamless AI document analysis, smart contract generation, and one-click document export.
 
------
+---
 
 ## Key Features
 
@@ -18,14 +18,13 @@ Unlock the power of AI and automation in your legal workflows. Kourti Legal deli
 - **Seamless Integrations**: Native OpenAI, Supabase Edge Functions, embeddable API for e-signature, and more.
 - **Enterprise SSO**: Per-organization OAuth (Google Workspace / Microsoft Entra ID) with secure Supabase Edge functions.
 
-
------
+---
 
 ## Project Info
 
 **URL**: [https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12)
 
------
+---
 
 ## How to Edit the Code
 
@@ -100,7 +99,7 @@ If you prefer an online IDE, you can use GitHub Codespaces.
 3.  Click **New codespace** to launch a new environment.
 4.  Edit files directly in Codespaces and then commit and push your changes.
 
------
+---
 
 ## What Technologies Are Used?
 
@@ -112,25 +111,29 @@ If you prefer an online IDE, you can use GitHub Codespaces.
 - **Supabase/Postgres** (for data & authentication)
 - **OpenAI API / LLMs** (for all contract/document AI and NLP tasks)
 
------
+---
 
-## AI-Enabled Workflows in Kourti Legal
+## AI-Enabled Workflows in Kourti AI
 
 ### AI Contract Generation
+
 Draft standard or custom legal agreements powered by OpenAI. Input your requirements; the app outputs a ready-to-edit contract draft, which you can further analyze, review, and export.
 
 ### AI Document & Clause Analysis
+
 Run a risk review, summary, or automate due diligence on any uploaded document or contract. AI surfaces missing clauses, renewal deadlines, or non-standard terms.
 
 ### AI Document Comparison
+
 Select two documents (or versions) to see highlighted clause changes, AI similarity scores, and a list of key differences (redlines or summaries).
 
 ### Document Export
+
 Export any document, contract, or generated content in PDF or DOCX. All export jobs preserve original structure and versioning information.
 
------
+---
 
------
+---
 
 ## Searching and Filtering Your Data
 
@@ -138,19 +141,19 @@ The app has a global search bar in the header of every page, so you can quickly 
 
 Additionally, each major page has its own filters:
 
-  - **Cases**: Search by name, client, or ID, and filter by status.
-  - **Documents**: Search by document or case name, and filter by file type.
-  - **Contracts**: Search across contracts and filter by status.
+- **Cases**: Search by name, client, or ID, and filter by status.
+- **Documents**: Search by document or case name, and filter by file type.
+- **Contracts**: Search across contracts and filter by status.
 
 You can also use the keyboard shortcut **Ctrl + B** (or **⌘ + B** on macOS) to toggle the sidebar.
 
------
+---
 
 ## How to Deploy Your Project
 
 To deploy your project, open [Lovable](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12) and click on **Share -\> Publish**.
 
------
+---
 
 ## Connecting a Custom Domain
 
@@ -158,7 +161,7 @@ Yes, you can\! To connect a custom domain, go to **Project \> Settings \> Domain
 
 For a detailed guide, check out [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide).
 
------
+---
 
 ## Viewing Logs
 

@@ -273,7 +273,7 @@ function MobileNavigation() {
           <div className="flex flex-col h-full">
             <div className="p-4 border-b">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Kourti Legal</h2>
+                <h2 className="text-lg font-semibold">Kourti AI</h2>
                 <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
                   <X className="h-4 w-4" />
                 </Button>

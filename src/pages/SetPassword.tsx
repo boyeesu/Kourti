@@ -107,7 +107,7 @@ export default function SetPassword() {
 
       if (error) throw error;
 
-      toast.success('Password set successfully!', { description: 'Welcome to Kourti Legal!' });
+      toast.success('Password set successfully!', { description: 'Welcome to Kourti AI!' });
 
       // Clear password from state
       setPassword('');
@@ -195,7 +195,7 @@ export default function SetPassword() {
           <div>
             <CardTitle className="text-2xl font-semibold">Set Your Password</CardTitle>
             <p className="text-muted-foreground mt-2">
-              Welcome to Kourti Legal! Please set your password to complete your account setup.
+              Welcome to Kourti AI! Please set your password to complete your account setup.
             </p>
           </div>
         </CardHeader>
