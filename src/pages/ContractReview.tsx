@@ -46,33 +46,6 @@ const goalSuggestions = [
   'Evaluate confidentiality terms',
 ];
 
-const STRUCTURED_ANALYSIS_PROMPT = `Analyze this contract and return your findings in the following JSON format wrapped in \`\`\`json code blocks:
-
-\`\`\`json
-{
-  "summary": "2-3 sentence executive summary of the contract",
-  "riskScore": <number 0-100>,
-  "findings": [
-    {
-      "severity": "critical|warning|info|positive",
-      "title": "Short title of the finding",
-      "description": "Detailed explanation of the finding and its implications",
-      "matchText": "Exact quote from the contract that this finding references",
-      "recommendation": "Specific actionable recommendation to address this finding",
-      "section": "Section/clause reference (e.g., 'Section 4.2 - Termination')",
-      "category": "Category (e.g., 'Liability', 'Termination', 'IP', 'Payment', 'Confidentiality', 'Compliance')"
-    }
-  ]
-}
-\`\`\`
-
-IMPORTANT:
-- matchText MUST be an exact quote from the document (copy-paste, not paraphrased)
-- Include at least 8-15 findings covering risks, concerns, and positive aspects
-- Be specific in recommendations - don't just say "review this", suggest actual changes
-- Categorize findings appropriately
-- riskScore: 0-30 = low risk, 31-60 = moderate, 61-100 = high risk`;
-
 export default function ContractReview() {
   const [searchParams] = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
@@ -346,7 +319,7 @@ export default function ContractReview() {
         'Provide a comprehensive contract review identifying risks, obligations, and areas of concern';
       const payload = {
         text: content,
-        goal: `${goalText}\n\n${STRUCTURED_ANALYSIS_PROMPT}`,
+        goal: goalText,
         analysisType: resolveAnalysisType(),
       };
 
@@ -363,6 +336,7 @@ export default function ContractReview() {
       let analysisText = '';
 
       if (error) {
+        console.warn('Primary analysis failed, trying fallback:', error.message);
         setAnalysisProgress(50);
         setProgressLabel('Trying fallback analysis...');
         const fallback = await invokeFunctionWithCsrf<{ analysis?: string }>(
@@ -378,7 +352,11 @@ export default function ContractReview() {
       }
 
       if (!analysisText) {
-        throw new Error('No analysis returned from AI service');
+        throw new Error(
+          error
+            ? 'Both analysis services returned empty results. Please try again.'
+            : 'AI service returned an empty analysis. Please try again.'
+        );
       }
 
       setAnalysisProgress(80);

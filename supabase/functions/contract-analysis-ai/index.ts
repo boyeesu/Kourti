@@ -282,7 +282,7 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
       },
     });
 
-    const cleanAnalysis = analysis
+    let cleanAnalysis = analysis
       .replace(/^#{1,6}\s+/gm, '') // Remove markdown headers
       .replace(/^\s*[-*+•]\s+/gm, '') // Remove bullet points (including bullet symbol)
       .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
@@ -308,6 +308,12 @@ Remember: Write in plain text paragraphs, be extremely detailed, avoid all markd
       .replace(/([A-Z][A-Z\s]+):\s*\n/g, '$1: ') // Convert section headers with colons to inline text
       .replace(/\n\s*\n\s*\n/g, '\n\n') // Clean up excessive spacing
       .trim();
+
+    // Safety net: if cleanup resulted in empty string, revert to raw analysis
+    if (!cleanAnalysis && analysis.length > 0) {
+      console.warn('Cleanup resulted in empty string, reverting to raw analysis');
+      cleanAnalysis = analysis;
+    }
 
     const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
     return createJsonResponse(
