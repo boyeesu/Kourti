@@ -543,13 +543,11 @@ const App = () => (
             <Route
               path="/onboarding"
               element={
-                <ProtectedRoute>
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ModuleErrorBoundary name="Onboarding">
-                      <Onboarding />
-                    </ModuleErrorBoundary>
-                  </Suspense>
-                </ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <ModuleErrorBoundary name="Onboarding">
+                    <Onboarding />
+                  </ModuleErrorBoundary>
+                </Suspense>
               }
             />
             <Route
