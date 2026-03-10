@@ -332,7 +332,7 @@ export default function ReamAI() {
   }, [documents]);
 
   // Get document analysis functionality
-  const { streamAnalysis, cancelStreaming, isStreaming } = useEnhancedDocumentAnalysis();
+  const { cancelStreaming, isStreaming } = useEnhancedDocumentAnalysis();
 
   // Get the same assistant used by the widget for general queries
   const { sendMessage: sendAssistantMessage } = useReamAIAssistant();
@@ -1125,50 +1125,43 @@ I'll answer based on the relevant information found above.`;
             content: msg.content,
           }));
 
-        // Stream the AI analysis with enhanced context
-        await streamAnalysis({
-          content: contextInfo || content,
-          analysisType: userMessage.toLowerCase().includes('risk')
-            ? 'risk'
-            : userMessage.toLowerCase().includes('extract') ||
-                userMessage.toLowerCase().includes('key')
-              ? 'extract'
-              : userMessage.toLowerCase().includes('compare')
-                ? 'compare'
-                : userMessage.toLowerCase().includes('summary') ||
-                    userMessage.toLowerCase().includes('summarize')
-                  ? 'summary'
-                  : 'general',
-          conversationHistory: conversationHistory,
-          ragContext: ragContextString || undefined,
-          onProgress: (aiContent, done) => {
-            setMessages((msgs) =>
-              msgs.map((msg, i) =>
-                i === msgs.length - 1 ? { ...msg, content: aiContent, isStreaming: !done } : msg
-              )
-            );
-
-            if (done) {
-              setIsTyping(false);
-              // Cache the response for future queries
-              if (aiContent.trim()) {
-                setCachedQuery(userMessage, aiContent);
+        // Use ream-ai-assistant for all Ream AI chat queries (plain text responses).
+        // Contract Review (/review) uses advanced-contract-analysis separately for structured JSON.
+        const docContent = contextInfo || content;
+        const response = await sendAssistantMessage(userMessage, conversationHistory, {
+          documentContext: docContent
+            ? {
+                documentId: selectedDoc?.id,
+                documentContent: docContent,
               }
-              // Save assistant message to database
-              if (currentConversationId && aiContent.trim()) {
-                saveMessage.mutate({
-                  conversationId: currentConversationId,
-                  role: 'assistant',
-                  content: aiContent,
-                });
-                // Refine conversation title with AI after first response
-                if (conversationNeedsTitle(currentConversationId)) {
-                  generateSmartTitle(currentConversationId, userMessage, aiContent);
-                }
-              }
-            }
-          },
+            : undefined,
         });
+
+        // Update message with the response
+        setMessages((msgs) =>
+          msgs.map((msg, i) =>
+            i === msgs.length - 1 ? { ...msg, content: response, isStreaming: false } : msg
+          )
+        );
+
+        setIsTyping(false);
+
+        // Cache the response for future queries
+        if (response.trim()) {
+          setCachedQuery(userMessage, response);
+        }
+        // Save assistant message to database
+        if (currentConversationId && response.trim()) {
+          saveMessage.mutate({
+            conversationId: currentConversationId,
+            role: 'assistant',
+            content: response,
+          });
+          // Refine conversation title with AI after first response
+          if (conversationNeedsTitle(currentConversationId)) {
+            generateSmartTitle(currentConversationId, userMessage, response);
+          }
+        }
       } else {
         // Handle general legal queries without specific document context
         // Use the SAME assistant as the widget for consistency
