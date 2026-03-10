@@ -160,8 +160,6 @@ export default function Auth() {
     }
   };
 
-  const fullLogo = '/kourti-light-full.png';
-
   return (
     <main id="main-content" className="min-h-screen flex flex-col lg:flex-row">
       {/* ───────── Left Panel: Branding & Features ───────── */}
@@ -184,11 +182,7 @@ export default function Auth() {
 
         {/* Top: Logo & tagline */}
         <div className="relative z-10">
-          <img
-            src={'/kourti-light-full.png'}
-            alt="Kourti AI"
-            className="h-10 xl:h-12 w-auto mb-4"
-          />
+          <img src={'/kourti-dark-full.png'} alt="Kourti AI" className="h-10 xl:h-12 w-auto mb-4" />
           <p className="text-white/60 text-sm font-medium tracking-wide uppercase">
             Next-Gen Legal Operations Platform
           </p>
@@ -241,11 +235,6 @@ export default function Auth() {
           {/* Mobile logo (hidden on desktop since left panel shows it) */}
           <div className="flex flex-col items-center lg:items-start gap-3 lg:hidden">
             <AppLogo size="lg" />
-          </div>
-
-          {/* Full logo on desktop right side */}
-          <div className="hidden lg:block">
-            <img src={fullLogo} alt="Kourti AI" className="h-9 w-auto mb-1" />
           </div>
 
           {/* Heading */}
