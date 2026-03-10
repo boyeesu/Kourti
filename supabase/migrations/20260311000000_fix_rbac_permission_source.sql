@@ -146,6 +146,8 @@ $$;
 -- ============================================================================
 
 DROP POLICY IF EXISTS "Superadmins can manage role permissions" ON public.role_permissions;
+-- SECURITY: Only superadmins can write role_permissions.
+-- Admins must NOT be able to modify their own role's permissions (self-escalation).
 CREATE POLICY "Superadmins can manage role permissions"
 ON public.role_permissions
 FOR ALL
@@ -154,7 +156,7 @@ USING (
   AND EXISTS (
     SELECT 1 FROM public.user_role_assignments
     WHERE user_id = auth.uid()
-      AND role_name IN ('admin', 'superadmin')
+      AND role_name = 'superadmin'
       AND organization_id = public.get_user_organization_id()
   )
 );

@@ -34,9 +34,9 @@ export default function PermissionsTab() {
   const [pendingChanges, setPendingChanges] = useState<Map<string, boolean>>(new Map());
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Check if user has admin or superadmin role from user_role_assignments
+  // SECURITY: Only superadmins can manage permissions (prevents admin self-escalation)
   const { data: roleData } = useUserRoleAssignments();
-  const isAdmin = roleData?.isAdmin || false;
+  const isSuperAdmin = roleData?.isSuperAdmin || false;
 
   // Get available roles (global + custom)
   const availableRoles = allRoles.map((role) => ({
@@ -155,13 +155,13 @@ export default function PermissionsTab() {
     return colors[action] || 'bg-gray-100 text-gray-800';
   };
 
-  if (!isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Only administrators and super administrators can manage role permissions. Contact your
-          organization administrator for access.
+          Only super administrators can manage role permissions. Contact your organization super
+          administrator for access.
         </AlertDescription>
       </Alert>
     );
