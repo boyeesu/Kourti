@@ -239,8 +239,8 @@ serve(async (req: Request): Promise<Response> => {
     // CSRF Protection - validate token for authenticated mutation
     await requireCsrfTokenForUser(supabase, userId, req);
 
-    // Create Langfuse trace for this request
-    const traceId = await createTrace({
+    // Create Langfuse trace for this request (non-blocking to avoid added latency)
+    const tracePromise = createTrace({
       name: 'ream-ai-assistant',
       userId,
       metadata: {
@@ -249,7 +249,8 @@ serve(async (req: Request): Promise<Response> => {
         conversationHistoryLength: conversationHistory.length,
       },
       tags: ['ai-assistant', 'legal'],
-    });
+    }).catch(() => null);
+    const traceId = await tracePromise;
 
     // Gather system context - query relevant tables
     // Wrap in try-catch to prevent context gathering from breaking the request
@@ -409,12 +410,10 @@ IMPORTANT: This question is about the document above. Extract information direct
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5.1',
+        model: 'gpt-5.3',
         messages,
-        // GPT-5.1 is a reasoning model: temperature/top_p/max_tokens are unsupported.
-        // Use max_completion_tokens and reasoning_effort instead.
-        max_completion_tokens: 4000,
-        reasoning_effort: 'medium',
+        max_tokens: 4000,
+        temperature: 0.3,
         stream: false,
       }),
     });
@@ -429,19 +428,18 @@ IMPORTANT: This question is about the document above. Extract information direct
     let aiResponse =
       data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
 
-    // Trace the OpenAI chat completion
-    await traceOpenAIChatCompletion(traceId, {
-      model: 'gpt-5.1',
+    // Trace the OpenAI chat completion (non-blocking)
+    traceOpenAIChatCompletion(traceId, {
+      model: 'gpt-5.3',
       messages,
       response: data,
       userId,
       metadata: {
         organizationId,
         hasDocumentContext: !!context?.documentContent,
-        reasoningEffort: 'medium',
-        maxCompletionTokens: 4000,
+        maxTokens: 4000,
       },
-    });
+    }).catch(() => {});
 
     console.log('OpenAI response received, length:', aiResponse.length);
 
@@ -515,167 +513,116 @@ async function gatherSystemContext(
     userMessage
   );
 
-  // Determine if this is a general query (not specific to any module)
-  const queryAll =
-    !isClientQuery &&
-    !isCaseQuery &&
-    !isDocumentQuery &&
-    !isContractQuery &&
-    !isInvoiceQuery &&
-    !isTaskQuery &&
-    !isEventQuery;
+  // For general queries, only fetch lightweight stats — not all table data
+  const isSpecificQuery =
+    isClientQuery ||
+    isCaseQuery ||
+    isDocumentQuery ||
+    isContractQuery ||
+    isInvoiceQuery ||
+    isTaskQuery ||
+    isEventQuery;
 
-  // Fetch counts/statistics only for relevant modules based on query intent
-  // This avoids unnecessary real-time queries - only query what's needed
-  const countQueries: Record<string, Promise<any>> = {};
+  // --- Build ALL queries upfront, then execute EVERYTHING in one parallel batch ---
 
-  // Always get client count (most common query) or if it's a general/count query
-  if (isClientQuery || isCountQuery || queryAll) {
-    countQueries.clients = supabase
+  // Combined queries map: counts + data + vector search all fire at once
+  const allQueries: Record<string, Promise<any>> = {};
+
+  // Count queries — only for relevant modules or count queries
+  if (isClientQuery || isCountQuery || !isSpecificQuery) {
+    allQueries.countClients = supabase
       .from('clients')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId);
   }
-
-  // Get other counts only if relevant to the query
-  if (isCaseQuery || isCountQuery || queryAll) {
-    countQueries.cases = supabase
+  if (isCaseQuery || isCountQuery || !isSpecificQuery) {
+    allQueries.countCases = supabase
       .from('cases')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId);
   }
-  if (isDocumentQuery || isCountQuery || queryAll) {
-    countQueries.documents = supabase
+  if (isDocumentQuery || isCountQuery || !isSpecificQuery) {
+    allQueries.countDocuments = supabase
       .from('documents')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId);
   }
-  if (isContractQuery || isCountQuery || queryAll) {
-    countQueries.contracts = supabase
+  if (isContractQuery || isCountQuery || !isSpecificQuery) {
+    allQueries.countContracts = supabase
       .from('contracts')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId);
   }
-  if (isInvoiceQuery || isCountQuery || queryAll) {
-    countQueries.invoices = supabase
+  if (isInvoiceQuery || isCountQuery || !isSpecificQuery) {
+    allQueries.countInvoices = supabase
       .from('invoices')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId);
   }
-  if (isTaskQuery || isCountQuery || queryAll) {
-    countQueries.tasks = supabase
+  if (isTaskQuery || isCountQuery || !isSpecificQuery) {
+    allQueries.countTasks = supabase
       .from('tasks')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId);
   }
-  if (isEventQuery || isCountQuery || queryAll) {
-    countQueries.events = supabase
+  if (isEventQuery || isCountQuery || !isSpecificQuery) {
+    allQueries.countEvents = supabase
       .from('calendar_events')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId);
   }
 
-  // Execute count queries in parallel
-  const countResults = await Promise.allSettled(Object.values(countQueries));
-
-  // Extract counts from results with error handling
-  const countKeys = Object.keys(countQueries);
-  const stats: Record<string, number> = {};
-  countKeys.forEach((key, index) => {
-    try {
-      const result = countResults[index];
-      if (
-        result.status === 'fulfilled' &&
-        result.value &&
-        result.value.count !== null &&
-        result.value.count !== undefined
-      ) {
-        stats[key] = result.value.count;
-      } else {
-        stats[key] = 0;
-      }
-    } catch (e) {
-      console.error(`Error extracting count for ${key}:`, e);
-      stats[key] = 0;
-    }
-  });
-
-  // Include statistics for queried modules - this answers "how many clients" type questions
-  const statsList = Object.entries(stats)
-    .map(([key, count]) => `- Total ${key.charAt(0).toUpperCase() + key.slice(1)}: ${count}`)
-    .join('\n');
-  if (statsList) {
-    contextParts.push(`ORGANIZATION STATISTICS (Total Counts):\n${statsList}`);
-  }
-
-  // Query detailed data - always query relevant modules, or all if general query
-  // (queryAll already defined above, reusing it)
-
-  const dataQueries: Record<string, Promise<any>> = {};
-
-  // Always query clients if client-related or general query
-  if (isClientQuery || queryAll || isCountQuery) {
-    dataQueries.clients = supabase
+  // Data queries — only for specifically requested modules (skip for general queries to save time)
+  if (isClientQuery || isCountQuery) {
+    allQueries.dataClients = supabase
       .from('clients')
       .select('id, name, email, phone, created_at')
       .eq('organization_id', organizationId)
       .limit(isClientQuery ? 50 : 20)
       .order('created_at', { ascending: false });
   }
-
-  // Query cases if case-related or general query
-  if (isCaseQuery || queryAll) {
-    dataQueries.cases = supabase
+  if (isCaseQuery) {
+    allQueries.dataCases = supabase
       .from('cases')
       .select('id, title, status, client_id, created_at')
       .eq('organization_id', organizationId)
-      .limit(isCaseQuery ? 30 : 15)
+      .limit(30)
       .order('created_at', { ascending: false });
   }
-
-  // Query documents if document-related or general query
-  if (isDocumentQuery || queryAll) {
-    dataQueries.documents = supabase
+  if (isDocumentQuery) {
+    allQueries.dataDocuments = supabase
       .from('documents')
       .select('id, name, type, created_at, case_id, client_id')
       .eq('organization_id', organizationId)
       .limit(15)
       .order('created_at', { ascending: false });
   }
-
-  // Query contracts if contract-related or general query
-  if (isContractQuery || queryAll) {
-    dataQueries.contracts = supabase
+  if (isContractQuery) {
+    allQueries.dataContracts = supabase
       .from('contracts')
       .select('id, title, contract_type, status, start_date, end_date, created_at')
       .eq('organization_id', organizationId)
       .limit(15)
       .order('created_at', { ascending: false });
   }
-
-  // Query invoices if invoice-related or general query
-  if (isInvoiceQuery || queryAll) {
-    dataQueries.invoices = supabase
+  if (isInvoiceQuery) {
+    allQueries.dataInvoices = supabase
       .from('invoices')
       .select('id, invoice_number, total_amount, status, client_id, due_date, created_at')
       .eq('organization_id', organizationId)
       .limit(15)
       .order('created_at', { ascending: false });
   }
-
-  // Query tasks if task-related or general query
-  if (isTaskQuery || queryAll) {
-    dataQueries.tasks = supabase
+  if (isTaskQuery) {
+    allQueries.dataTasks = supabase
       .from('tasks')
       .select('id, title, status, due_date, assigned_to, created_at')
       .eq('organization_id', organizationId)
       .limit(15)
       .order('due_date', { ascending: true });
   }
-
-  // Query calendar events if event-related or general query
-  if (isEventQuery || queryAll) {
-    dataQueries.events = supabase
+  if (isEventQuery) {
+    allQueries.dataEvents = supabase
       .from('calendar_events')
       .select('id, title, event_type, start_date, end_date, location')
       .eq('organization_id', organizationId)
@@ -684,89 +631,13 @@ async function gatherSystemContext(
       .order('start_date', { ascending: true });
   }
 
-  // Execute all data queries in parallel
-  const dataResults = await Promise.allSettled(Object.values(dataQueries));
+  // Vector search — fire embedding request in parallel with DB queries
+  const needsVectorSearch =
+    isDocumentQuery || isContractQuery || (messageLower.length > 15 && !isCountQuery);
 
-  // Process results by type - track index based on which queries were executed
-  let currentIndex = 0;
-
-  if ('clients' in dataQueries) {
-    const result = dataResults[currentIndex++];
-    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
-      const clients = result.value.data;
-      contextParts.push(
-        `CLIENTS (${clients.length} of ${stats.clients || 0} total):\n${clients.map((c: any) => `- ${c.name}${c.email ? ` (${c.email})` : ''}${c.phone ? ` - ${c.phone}` : ''}`).join('\n')}`
-      );
-    }
-  }
-
-  if ('cases' in dataQueries) {
-    const result = dataResults[currentIndex++];
-    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
-      const cases = result.value.data;
-      contextParts.push(
-        `CASES (${cases.length} of ${stats.cases || 0} total):\n${cases.map((c: any) => `- ${c.title} (Status: ${c.status})`).join('\n')}`
-      );
-    }
-  }
-
-  if ('documents' in dataQueries) {
-    const result = dataResults[currentIndex++];
-    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
-      const documents = result.value.data;
-      contextParts.push(
-        `DOCUMENTS (${documents.length} of ${stats.documents || 0} total):\n${documents.map((d: any) => `- ${d.name} (${d.type || 'Unknown'})`).join('\n')}`
-      );
-    }
-  }
-
-  if ('contracts' in dataQueries) {
-    const result = dataResults[currentIndex++];
-    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
-      const contracts = result.value.data;
-      contextParts.push(
-        `CONTRACTS (${contracts.length} of ${stats.contracts || 0} total):\n${contracts.map((c: any) => `- ${c.title} (${c.contract_type || 'Unknown'}, ${c.status || 'Active'})`).join('\n')}`
-      );
-    }
-  }
-
-  if ('invoices' in dataQueries) {
-    const result = dataResults[currentIndex++];
-    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
-      const invoices = result.value.data;
-      contextParts.push(
-        `INVOICES (${invoices.length} of ${stats.invoices || 0} total):\n${invoices.map((i: any) => `- ${i.invoice_number}: $${i.total_amount || 0} (${i.status})`).join('\n')}`
-      );
-    }
-  }
-
-  if ('tasks' in dataQueries) {
-    const result = dataResults[currentIndex++];
-    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
-      const tasks = result.value.data;
-      contextParts.push(
-        `TASKS (${tasks.length} of ${stats.tasks || 0} total):\n${tasks.map((t: any) => `- ${t.title} (${t.status})${t.due_date ? ` - Due: ${new Date(t.due_date).toLocaleDateString()}` : ''}`).join('\n')}`
-      );
-    }
-  }
-
-  if ('events' in dataQueries) {
-    const result = dataResults[currentIndex++];
-    if (result.status === 'fulfilled' && result.value.data && result.value.data.length > 0) {
-      const events = result.value.data;
-      contextParts.push(
-        `UPCOMING CALENDAR EVENTS (${events.length} of ${stats.events || 0} total):\n${events.map((e: any) => `- ${e.title} (${e.event_type}) on ${new Date(e.start_date).toLocaleDateString()}`).join('\n')}`
-      );
-    }
-  }
-
-  // Perform vector search for document/contract content queries using pre-computed embeddings
-  // Only generate query embedding when needed for semantic search
-  if (isDocumentQuery || isContractQuery || (messageLower.length > 15 && !isCountQuery)) {
-    try {
-      // Generate embedding for the user's query using OpenAI embedding model
-      // This is the only real-time embedding generation - document embeddings are pre-computed
-      const embeddingInput = userMessage.substring(0, 8000);
+  if (needsVectorSearch) {
+    const embeddingInput = userMessage.substring(0, 8000);
+    allQueries.vectorSearch = (async () => {
       const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
         headers: {
@@ -774,79 +645,183 @@ async function gatherSystemContext(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'text-embedding-3-small', // Using OpenAI embedding model from your key
+          model: 'text-embedding-3-small',
           input: embeddingInput,
           encoding_format: 'float',
         }),
       });
 
-      if (embeddingResponse.ok) {
-        const embeddingData = await embeddingResponse.json();
-        const queryEmbedding = embeddingData.data[0].embedding;
+      if (!embeddingResponse.ok) return { vectorResults: null };
 
-        // Trace the embedding generation
-        await traceOpenAIEmbedding(traceId, {
-          model: 'text-embedding-3-small',
-          input: embeddingInput,
-          response: embeddingData,
-          metadata: {
-            purpose: 'vector-search-query',
-            organizationId,
-          },
-        });
+      const embeddingData = await embeddingResponse.json();
+      const queryEmbedding = embeddingData.data[0].embedding;
 
-        // Perform vector search against pre-computed embeddings in document_chunks table
-        // This uses the match_document_chunks RPC which searches pre-existing embeddings
-        const { data: vectorResults, error: vectorError } = await supabase.rpc(
-          'match_document_chunks',
-          {
-            query_embedding: queryEmbedding,
-            match_threshold: 0.6,
-            match_count: 10,
-          }
-        );
+      // Trace in background (non-blocking)
+      traceOpenAIEmbedding(traceId, {
+        model: 'text-embedding-3-small',
+        input: embeddingInput,
+        response: embeddingData,
+        metadata: { purpose: 'vector-search-query', organizationId },
+      }).catch(() => {});
 
-        if (!vectorError && vectorResults && vectorResults.length > 0) {
-          // Get document/contract names for the results (lightweight query)
-          const docIds = Array.from(
-            new Set(vectorResults.map((r: any) => r.document_id).filter(Boolean))
-          );
-          const contractIds = Array.from(
-            new Set(vectorResults.map((r: any) => r.contract_id).filter(Boolean))
-          );
-
-          const [docNames, contractNames] = await Promise.all([
-            docIds.length > 0
-              ? supabase.from('documents').select('id, name').in('id', docIds)
-              : Promise.resolve({ data: [] }),
-            contractIds.length > 0
-              ? supabase.from('contracts').select('id, title').in('id', contractIds)
-              : Promise.resolve({ data: [] }),
-          ]);
-
-          const docNameMap = new Map((docNames.data || []).map((d: any) => [d.id, d.name]));
-          const contractNameMap = new Map(
-            (contractNames.data || []).map((c: any) => [c.id, c.title])
-          );
-
-          const vectorContext = vectorResults
-            .map((r: any, i: number) => {
-              const docName = r.document_id
-                ? docNameMap.get(r.document_id)
-                : contractNameMap.get(r.contract_id);
-              return `[VECTOR SEARCH RESULT ${i + 1}] "${docName || 'Unknown'}" (similarity: ${(r.similarity * 100).toFixed(1)}%):\n${r.content.substring(0, 500)}`;
-            })
-            .join('\n\n');
-
-          contextParts.push(
-            `VECTOR SEARCH RESULTS (Semantic search using pre-computed embeddings):\n${vectorContext}`
-          );
+      const { data: vectorResults, error: vectorError } = await supabase.rpc(
+        'match_document_chunks',
+        {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.6,
+          match_count: 10,
         }
+      );
+
+      if (vectorError || !vectorResults || vectorResults.length === 0) {
+        return { vectorResults: null };
       }
-    } catch (e) {
+
+      // Enrich with document names
+      const docIds = Array.from(
+        new Set(vectorResults.map((r: any) => r.document_id).filter(Boolean))
+      );
+      const contractIds = Array.from(
+        new Set(vectorResults.map((r: any) => r.contract_id).filter(Boolean))
+      );
+
+      const [docNames, contractNames] = await Promise.all([
+        docIds.length > 0
+          ? supabase.from('documents').select('id, name').in('id', docIds)
+          : Promise.resolve({ data: [] }),
+        contractIds.length > 0
+          ? supabase.from('contracts').select('id, title').in('id', contractIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      return {
+        vectorResults,
+        docNames: docNames.data || [],
+        contractNames: contractNames.data || [],
+      };
+    })().catch((e) => {
       console.error('Error performing vector search:', e);
-      // Continue without vector search results - don't fail the entire request
+      return { vectorResults: null };
+    });
+  }
+
+  // --- Execute ALL queries in one parallel batch ---
+  const queryKeys = Object.keys(allQueries);
+  const allResults = await Promise.allSettled(Object.values(allQueries));
+
+  // Build results map
+  const resultMap: Record<string, any> = {};
+  queryKeys.forEach((key, index) => {
+    const result = allResults[index];
+    resultMap[key] = result.status === 'fulfilled' ? result.value : null;
+  });
+
+  // --- Process count results ---
+  const stats: Record<string, number> = {};
+  const countMapping: Record<string, string> = {
+    countClients: 'clients',
+    countCases: 'cases',
+    countDocuments: 'documents',
+    countContracts: 'contracts',
+    countInvoices: 'invoices',
+    countTasks: 'tasks',
+    countEvents: 'events',
+  };
+
+  for (const [queryKey, label] of Object.entries(countMapping)) {
+    if (resultMap[queryKey] && resultMap[queryKey].count != null) {
+      stats[label] = resultMap[queryKey].count;
     }
+  }
+
+  const statsList = Object.entries(stats)
+    .map(([key, count]) => `- Total ${key.charAt(0).toUpperCase() + key.slice(1)}: ${count}`)
+    .join('\n');
+  if (statsList) {
+    contextParts.push(`ORGANIZATION STATISTICS (Total Counts):\n${statsList}`);
+  }
+
+  // --- Process data results ---
+  const dataMapping: Array<{
+    key: string;
+    label: string;
+    statsKey: string;
+    format: (item: any) => string;
+  }> = [
+    {
+      key: 'dataClients',
+      label: 'CLIENTS',
+      statsKey: 'clients',
+      format: (c: any) =>
+        `- ${c.name}${c.email ? ` (${c.email})` : ''}${c.phone ? ` - ${c.phone}` : ''}`,
+    },
+    {
+      key: 'dataCases',
+      label: 'CASES',
+      statsKey: 'cases',
+      format: (c: any) => `- ${c.title} (Status: ${c.status})`,
+    },
+    {
+      key: 'dataDocuments',
+      label: 'DOCUMENTS',
+      statsKey: 'documents',
+      format: (d: any) => `- ${d.name} (${d.type || 'Unknown'})`,
+    },
+    {
+      key: 'dataContracts',
+      label: 'CONTRACTS',
+      statsKey: 'contracts',
+      format: (c: any) => `- ${c.title} (${c.contract_type || 'Unknown'}, ${c.status || 'Active'})`,
+    },
+    {
+      key: 'dataInvoices',
+      label: 'INVOICES',
+      statsKey: 'invoices',
+      format: (i: any) => `- ${i.invoice_number}: $${i.total_amount || 0} (${i.status})`,
+    },
+    {
+      key: 'dataTasks',
+      label: 'TASKS',
+      statsKey: 'tasks',
+      format: (t: any) =>
+        `- ${t.title} (${t.status})${t.due_date ? ` - Due: ${new Date(t.due_date).toLocaleDateString()}` : ''}`,
+    },
+    {
+      key: 'dataEvents',
+      label: 'UPCOMING CALENDAR EVENTS',
+      statsKey: 'events',
+      format: (e: any) =>
+        `- ${e.title} (${e.event_type}) on ${new Date(e.start_date).toLocaleDateString()}`,
+    },
+  ];
+
+  for (const { key, label, statsKey, format } of dataMapping) {
+    const result = resultMap[key];
+    if (result?.data && result.data.length > 0) {
+      contextParts.push(
+        `${label} (${result.data.length} of ${stats[statsKey] || 0} total):\n${result.data.map(format).join('\n')}`
+      );
+    }
+  }
+
+  // --- Process vector search results ---
+  if (resultMap.vectorSearch?.vectorResults) {
+    const { vectorResults, docNames = [], contractNames = [] } = resultMap.vectorSearch;
+    const docNameMap = new Map(docNames.map((d: any) => [d.id, d.name]));
+    const contractNameMap = new Map(contractNames.map((c: any) => [c.id, c.title]));
+
+    const vectorContext = vectorResults
+      .map((r: any, i: number) => {
+        const docName = r.document_id
+          ? docNameMap.get(r.document_id)
+          : contractNameMap.get(r.contract_id);
+        return `[VECTOR SEARCH RESULT ${i + 1}] "${docName || 'Unknown'}" (similarity: ${(r.similarity * 100).toFixed(1)}%):\n${r.content.substring(0, 500)}`;
+      })
+      .join('\n\n');
+
+    contextParts.push(
+      `VECTOR SEARCH RESULTS (Semantic search using pre-computed embeddings):\n${vectorContext}`
+    );
   }
 
   return contextParts.length > 0

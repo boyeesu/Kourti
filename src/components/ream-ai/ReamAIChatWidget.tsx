@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Send, Minimize2, Maximize2, FileText, Sparkles, Upload, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEnhancedDocumentAnalysis } from '@/hooks/useEnhancedDocumentAnalysis';
 import { useReamAIAssistant } from '@/hooks/useReamAIAssistant';
 import { useUploadDocument } from '@/hooks/useDocuments';
 import { toast } from 'sonner';
@@ -15,7 +14,7 @@ import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useProcessDocument } from '@/hooks/useRAGSearch';
-import { logInfo, logError, logWarn } from '@/lib/logger';
+import { logError } from '@/lib/logger';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -62,7 +61,6 @@ export function ReamAIChatWidget({
     file_path?: string;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { streamAnalysis } = useEnhancedDocumentAnalysis();
   const { sendMessage: sendAssistantMessage, isLoading: assistantLoading } = useReamAIAssistant();
   const uploadDocument = useUploadDocument();
   const { data: organization } = useCurrentUserOrganization();
@@ -73,55 +71,6 @@ export function ReamAIChatWidget({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  // RAG search helper - retrieves relevant context from document chunks
-  const performRAGSearch = useCallback(async (query: string): Promise<string> => {
-    try {
-      if (!query || query.trim().length < 10) {
-        return '';
-      }
-
-      logInfo('Performing RAG search for document analysis', { queryLength: query.length });
-
-      // Use the dedicated rag-search edge function which bypasses PostgREST RPC issues
-      const { data: searchData, error: searchError } = await supabase.functions.invoke(
-        'rag-search',
-        {
-          body: {
-            query: query.substring(0, 2000),
-            matchThreshold: 0.6,
-            matchCount: 8,
-          },
-        }
-      );
-
-      if (searchError) {
-        logError('RAG search edge function error', { error: searchError });
-        return '';
-      }
-
-      if (!searchData?.success || !searchData?.results || searchData.results.length === 0) {
-        logInfo('No RAG results found', { message: searchData?.message });
-        return '';
-      }
-
-      // Build RAG context string from results
-      const ragContext = searchData.results
-        .map((result: any, index: number) => {
-          const sourceName = result.documentName || 'Unknown Document';
-          const similarity = ((result.similarity || 0) * 100).toFixed(1);
-
-          return `[RELATED CONTENT ${index + 1}] From "${sourceName}" (${similarity}% match):\n${(result.content || '').substring(0, 800)}`;
-        })
-        .join('\n\n---\n\n');
-
-      logInfo('RAG search completed', { resultCount: searchData.results.length });
-      return ragContext;
-    } catch (error) {
-      logError('RAG search error', { error });
-      return '';
-    }
-  }, []);
 
   // Handle document upload
   const onDrop = async (acceptedFiles: File[]) => {
@@ -268,7 +217,7 @@ export function ReamAIChatWidget({
             })
             .then(() => {
               console.log('Background RAG processing complete for document:', uploadedDoc.id);
-              logInfo('RAG processing completed', { documentId: uploadedDoc.id });
+              console.log('RAG processing completed', { documentId: uploadedDoc.id });
             })
             .catch((processError) => {
               console.error('Background RAG processing error:', processError);
@@ -363,156 +312,35 @@ export function ReamAIChatWidget({
     setIsTyping(true);
 
     try {
-      // Determine if this is a document-specific query or system-wide query
-      const activeDocContext = uploadedDocument?.content || documentContext?.content;
-      const hasDocumentContext = activeDocContext && activeDocContext.trim().length > 0;
+      // All Ream AI chat queries go through ream-ai-assistant (plain text responses).
+      // Contract Review (/review) uses advanced-contract-analysis separately for structured JSON.
+      const conversationHistory = messages
+        .filter((msg) => msg.content.trim().length > 0)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
 
-      // Improved query detection - more comprehensive keyword matching
-      const messageLower = userMessage.toLowerCase();
-      const documentKeywords = [
-        'review',
-        'analyze',
-        'document',
-        'contract',
-        'clause',
-        'term',
-        'parties',
-        'party',
-        'agreement',
-        'section',
-        'provision',
-        'article',
-        'obligation',
-        'liability',
-        'indemnity',
-        'termination',
-        'renewal',
-        'confidential',
-        'warranty',
-        'representation',
-        'covenant',
-        'summarize',
-        'summary',
-        'key points',
-        'main points',
-        'risks',
-        'issues',
-        'concerns',
-        'problems',
-        'this document',
-        'the document',
-        'in here',
-        'in this',
-        'what does it say',
-        'what is stated',
-        'according to',
-      ];
-
-      const isDocumentQuery =
-        hasDocumentContext &&
-        (documentKeywords.some((keyword) => messageLower.includes(keyword)) ||
-          // If there's document context and the question is short (likely about the doc)
-          (messageLower.length < 100 &&
-            !messageLower.includes('how many') &&
-            !messageLower.includes('my client')));
-
-      if (isDocumentQuery && hasDocumentContext) {
-        // Use document analysis for document-specific queries
-        const docTitle = uploadedDocument?.name || documentContext?.title || 'Uploaded Document';
-        const docContent = activeDocContext;
-
-        // Perform RAG search to find related content from other documents
-        logInfo('Starting RAG-enhanced document analysis');
-        const ragContext = await performRAGSearch(userMessage);
-
-        // Truncate document content if it's too large to prevent payload size issues
-        // Keep beginning and end for better context preservation
-        const MAX_DOC_CONTENT_LENGTH = 80000; // ~80k chars to leave room for prompt and RAG context
-        let processedDocContent = docContent;
-        let contentTruncated = false;
-
-        if (docContent.length > MAX_DOC_CONTENT_LENGTH) {
-          const startLength = Math.floor(MAX_DOC_CONTENT_LENGTH * 0.6);
-          const endLength = Math.floor(MAX_DOC_CONTENT_LENGTH * 0.4);
-          const start = docContent.substring(0, startLength);
-          const end = docContent.substring(docContent.length - endLength);
-          processedDocContent = `${start}\n\n[... Document content truncated for size management. Showing beginning and end of document ...]\n\n${end}`;
-          contentTruncated = true;
-          logWarn('Document content truncated in chat widget', {
-            originalLength: docContent.length,
-            truncatedLength: MAX_DOC_CONTENT_LENGTH,
-          });
-        }
-
-        const analysisPrompt = `You are currently reviewing a document. ALL questions should be answered using information from this document.
-
-Document: ${docTitle}
-${contentTruncated ? '\n[Note: Document content has been truncated for size management. Showing beginning and end sections.]' : ''}
-
-DOCUMENT CONTENT:
-${processedDocContent}
-
-USER QUESTION: ${userMessage}
-
-CRITICAL INSTRUCTIONS:
-- This question is about the document above. Extract information directly from the document content
-- ALL questions when document context is present should be answered using information from that document
-- For example: "Who are the parties?" → Find and list the parties mentioned in the document
-- "What is the termination clause?" → Find and explain the termination clause from the document
-- Reference specific sections, clauses, or terms from the document when possible
-- If information isn't in the document, say so clearly rather than guessing
-- If related content from other documents is provided below, use it to provide additional context or comparisons when relevant`;
-
-        await streamAnalysis({
-          content: analysisPrompt,
-          analysisType: 'general',
-          ragContext: ragContext || undefined, // Pass RAG retrieved context
-          onProgress: (content, done) => {
-            setMessages((prev) => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                lastMessage.content = content;
-              }
-              return newMessages;
-            });
-
-            if (done) {
-              setIsTyping(false);
+      const docContext = uploadedDocument?.content || documentContext?.content;
+      const response = await sendAssistantMessage(userMessage, conversationHistory, {
+        documentContext: docContext
+          ? {
+              documentId: uploadedDocument?.id || documentContext?.id,
+              documentContent: docContext,
             }
-          },
-        });
-      } else {
-        // Use system-wide assistant for general queries, database queries, and system interactions
-        // Filter out empty messages (typing indicators) from conversation history
-        const conversationHistory = messages
-          .filter((msg) => msg.content.trim().length > 0)
-          .map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-          }));
+          : undefined,
+      });
 
-        const docContext = uploadedDocument?.content || documentContext?.content;
-        const response = await sendAssistantMessage(userMessage, conversationHistory, {
-          documentContext: docContext
-            ? {
-                documentId: uploadedDocument?.id || documentContext?.id,
-                documentContent: docContext,
-              }
-            : undefined,
-        });
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage.role === 'assistant') {
+          lastMessage.content = response;
+        }
+        return newMessages;
+      });
 
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          const lastMessage = newMessages[newMessages.length - 1];
-          if (lastMessage.role === 'assistant') {
-            lastMessage.content = response;
-          }
-          return newMessages;
-        });
-
-        setIsTyping(false);
-      }
+      setIsTyping(false);
     } catch (error) {
       console.error('Error sending message:', error);
       setIsTyping(false);
