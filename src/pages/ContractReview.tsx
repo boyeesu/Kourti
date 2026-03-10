@@ -329,11 +329,24 @@ export default function ContractReview() {
         stream: true,
       };
 
-      // Get auth session for the streaming request
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) {
+      // Get auth session with timeout to prevent hanging on stale token refresh
+      let accessToken: string | undefined;
+      try {
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 8000)
+          ),
+        ]);
+        accessToken = sessionResult.data.session?.access_token;
+      } catch (sessionErr) {
+        // getSession() hung (stale refresh) — force a fresh refresh
+        console.warn('getSession timed out or failed, forcing refresh:', sessionErr);
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        accessToken = refreshData.session?.access_token;
+      }
+
+      if (!accessToken) {
         throw new Error('Authentication required. Please sign in again.');
       }
 
@@ -344,16 +357,21 @@ export default function ContractReview() {
       const supabaseKey =
         import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-      // Use direct fetch for streaming — bypasses Supabase client overhead
+      // Use direct fetch for streaming with timeout — bypasses Supabase client overhead
+      const fetchController = new AbortController();
+      const fetchTimeout = setTimeout(() => fetchController.abort(), 90000); // 90s timeout
+
       const response = await fetch(`${supabaseUrl}/functions/v1/advanced-contract-analysis`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
           apikey: supabaseKey,
         },
         body: JSON.stringify(payload),
+        signal: fetchController.signal,
       });
+      clearTimeout(fetchTimeout);
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');
@@ -394,8 +412,21 @@ export default function ContractReview() {
       let analysisText = '';
       let buffer = '';
 
+      const readWithTimeout = (timeoutMs: number) => {
+        let timer: ReturnType<typeof setTimeout>;
+        return Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              reader.cancel();
+              reject(new Error('Stream stalled — no data received for 60 seconds'));
+            }, timeoutMs);
+          }),
+        ]).finally(() => clearTimeout(timer!));
+      };
+
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithTimeout(60000);
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -440,9 +471,13 @@ export default function ContractReview() {
         description: `Found ${parsed.findings.length} findings across ${parsed.recap.categories.length} categories.`,
       });
     } catch (error: unknown) {
-      toast.error('Analysis Failed', {
-        description: error instanceof Error ? error.message : 'Failed to analyze document',
-      });
+      const message =
+        error instanceof DOMException && error.name === 'AbortError'
+          ? 'Analysis request timed out. Please try again.'
+          : error instanceof Error
+            ? error.message
+            : 'Failed to analyze document';
+      toast.error('Analysis Failed', { description: message });
     } finally {
       setTimeout(() => {
         setIsAnalyzing(false);
@@ -610,7 +645,9 @@ export default function ContractReview() {
             {Object.values(decisions).filter((d) => d === 'accepted').length > 0 && (
               <Badge variant="secondary" className="text-xs">
                 {Object.values(decisions).filter((d) => d === 'accepted').length} edit
-                {Object.values(decisions).filter((d) => d === 'accepted').length !== 1 ? 's' : ''}{' '}
+                {Object.values(decisions).filter((d) => d === 'accepted').length !== 1
+                  ? 's'
+                  : ''}{' '}
                 accepted
               </Badge>
             )}

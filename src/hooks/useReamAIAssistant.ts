@@ -3,7 +3,6 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUserOrganization } from './useUserOrganization';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -52,25 +51,28 @@ export function useReamAIAssistant() {
           );
         }
 
-        // Call the Ream AI Assistant edge function with CSRF protection
-        // Note: userId and organizationId are derived from JWT on the backend
-        const body = {
-          message: message.trim(),
-          conversationHistory: conversationHistory.map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-          })),
-          ...(options.documentContext && { context: options.documentContext }),
-        };
-        const { data, error } = await invokeFunctionWithCsrf<{ error?: string; response?: string }>(
-          'ream-ai-assistant',
-          {
-            body,
-          }
-        );
+        // Call the Ream AI Assistant edge function directly (same pattern as rag-search).
+        // JWT auth is handled by the Supabase client automatically.
+        const { data, error } = await supabase.functions.invoke('ream-ai-assistant', {
+          body: {
+            message: message.trim(),
+            conversationHistory: conversationHistory.map((msg) => ({
+              role: msg.role,
+              content: msg.content,
+            })),
+            ...(options.documentContext && { context: options.documentContext }),
+          },
+        });
 
         if (error) {
-          throw new Error(error.message || 'Failed to invoke AI assistant');
+          // Try to extract a meaningful error message
+          const errMsg =
+            error instanceof Error
+              ? error.message
+              : typeof error === 'string'
+                ? error
+                : 'Failed to invoke AI assistant';
+          throw new Error(errMsg);
         }
 
         if (!data) {

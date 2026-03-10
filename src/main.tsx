@@ -20,6 +20,19 @@ const handleGlobalError = (
   const error =
     source === 'error' ? (event as ErrorEvent).error : (event as PromiseRejectionEvent).reason;
 
+  // Ignore AbortErrors — these are expected during component unmount/navigation
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    event.preventDefault();
+    return;
+  }
+  if (
+    error?.name === 'AbortError' ||
+    (typeof error === 'string' && error.includes('signal is aborted'))
+  ) {
+    event.preventDefault();
+    return;
+  }
+
   const message = error instanceof Error ? error.message : 'Unknown error occurred';
   const stack = error instanceof Error ? error.stack || '' : '';
 

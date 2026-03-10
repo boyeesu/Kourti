@@ -61,6 +61,7 @@ export function ReamAIChatWidget({
     file_path?: string;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const { sendMessage: sendAssistantMessage, isLoading: assistantLoading } = useReamAIAssistant();
   const uploadDocument = useUploadDocument();
   const { data: organization } = useCurrentUserOrganization();
@@ -71,6 +72,28 @@ export function ReamAIChatWidget({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Native DOM keydown listener for Enter to send — more reliable than React synthetic events
+  useEffect(() => {
+    const el = chatInputRef.current;
+    if (!el) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        // Read value directly from the DOM element to avoid stale closure
+        const val = el.value.trim();
+        if (val) {
+          handleSend();
+        }
+      }
+    };
+
+    el.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => el.removeEventListener('keydown', handleKeyDown, { capture: true });
+  });
 
   // Handle document upload
   const onDrop = async (acceptedFiles: File[]) => {
@@ -485,7 +508,7 @@ export function ReamAIChatWidget({
             ))}
           </div>
         </ScrollArea>
-        <form onSubmit={handleSend} className="border-t bg-background safe-area-bottom">
+        <div className="border-t bg-background safe-area-bottom">
           {/* Upload section - more prominent */}
           <div
             {...getRootProps()}
@@ -521,7 +544,9 @@ export function ReamAIChatWidget({
 
           {/* Input section */}
           <div className="flex gap-2 p-4">
-            <Input
+            <input
+              ref={chatInputRef}
+              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={
@@ -530,17 +555,18 @@ export function ReamAIChatWidget({
                   : 'Ask about cases, clients, documents, or anything...'
               }
               disabled={isTyping || assistantLoading || isUploading}
-              className="flex-1"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm flex-1"
             />
             <Button
-              type="submit"
+              type="button"
+              onClick={() => handleSend()}
               disabled={isTyping || assistantLoading || !input.trim() || isUploading}
               size="icon"
             >
               <Send className="h-4 w-4" />
             </Button>
           </div>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );

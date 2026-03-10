@@ -63,12 +63,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    let mounted = true;
     setLoading(true);
 
     // Set up auth state listener
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      if (!mounted) return;
       logInfo('Auth state change detected', { event, hasSession: Boolean(currentSession) });
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
@@ -97,11 +99,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           );
 
+          if (!mounted) return;
           if (!csrfError && csrfData?.csrfToken) {
             sessionStorage.setItem('csrf_token', csrfData.csrfToken);
             logInfo('CSRF token obtained after auth state change');
           }
         } catch (csrfErr) {
+          if (!mounted) return;
           logError('Error fetching CSRF token on auth change', { csrfErr });
         }
       }
@@ -118,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth
       .getSession()
       .then(({ data: { session: currentSession }, error }) => {
+        if (!mounted) return;
         if (error) {
           logError('Error retrieving existing session', { error });
         }
@@ -126,11 +131,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       })
       .catch((error) => {
+        if (!mounted) return;
         logError('Session check failed', { error });
         setLoading(false);
       });
 
     return () => {
+      mounted = false;
       // Clean up subscription when component unmounts
       subscription.unsubscribe();
     };
