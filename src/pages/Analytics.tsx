@@ -1,18 +1,24 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo } from 'react';
 import { logError } from '@/lib/logger';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { useAllCases } from "@/hooks/useCases";
-import { useAllContracts } from "@/hooks/useContracts";
-import { useClients } from "@/hooks/useClients";
-import { useUserOrganization } from "@/hooks/useUserOrganization";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useFetchData } from "@/lib/api";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { useAllCases } from '@/hooks/useCases';
+import { useAllContracts } from '@/hooks/useContracts';
+import { useClients } from '@/hooks/useClients';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useFetchData } from '@/lib/api';
 import {
   BarChart,
   Bar,
@@ -29,7 +35,7 @@ import {
   Legend,
   AreaChart,
   Area,
-} from "recharts";
+} from 'recharts';
 import {
   Users,
   FileText,
@@ -45,9 +51,9 @@ import {
   Briefcase,
   FolderOpen,
   Activity,
-} from "lucide-react";
-import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+} from 'lucide-react';
+import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import {
   calculateCaseStatusData,
   calculateClientActivity,
@@ -56,84 +62,114 @@ import {
   calculatePriorityDistribution,
   calculateDocumentTrends,
   calculateTaskMetrics,
-} from "@/lib/analyticsUtils";
+} from '@/lib/analyticsUtils';
 
 // Chart colors matching design system
 const CHART_COLORS = {
-  primary: "#3b82f6",
-  success: "#10b981",
-  warning: "#f59e0b",
-  danger: "#ef4444",
-  purple: "#8b5cf6",
-  pink: "#ec4899",
-  slate: "#64748b",
+  primary: '#3b82f6',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#ef4444',
+  purple: '#8b5cf6',
+  pink: '#ec4899',
+  slate: '#64748b',
 };
 
 export default function Analytics() {
-  const [selectedPeriod, setSelectedPeriod] = useState("6months");
+  const [selectedPeriod, setSelectedPeriod] = useState('6months');
 
   // Fetch real data from database
   const { data: cases = [], isLoading: casesLoading, refetch: refetchCases } = useAllCases();
-  const { data: contracts = [], isLoading: contractsLoading, refetch: refetchContracts } = useAllContracts();
-  const { data: clientsData, isLoading: clientsLoading, refetch: refetchClients } = useClients(1, 1000);
+  const {
+    data: contracts = [],
+    isLoading: contractsLoading,
+    refetch: refetchContracts,
+  } = useAllContracts();
+  const {
+    data: clientsData,
+    isLoading: clientsLoading,
+    refetch: refetchClients,
+  } = useClients(1, 1000);
   const clients = useMemo(() => clientsData?.items || [], [clientsData?.items]);
 
-  const { data: documentsData, isLoading: documentsLoading, refetch: refetchDocuments } = useFetchData<Array<{ id: string; created_at?: string | null; name?: string; mime_type?: string }>>({
-    table: "documents",
-    queryKey: ["analytics-documents"],
-    select: "id, created_at, name, mime_type",
+  const {
+    data: documentsData,
+    isLoading: documentsLoading,
+    refetch: refetchDocuments,
+  } = useFetchData<
+    Array<{ id: string; created_at?: string | null; name?: string; mime_type?: string }>
+  >({
+    table: 'documents',
+    queryKey: ['analytics-documents'],
+    select: 'id, created_at, name, mime_type',
   });
   const documents = useMemo(
-    () => (Array.isArray(documentsData?.data) ? documentsData.data : []) as Array<{ created_at?: string | null }>,
+    () =>
+      (Array.isArray(documentsData?.data) ? documentsData.data : []) as Array<{
+        created_at?: string | null;
+      }>,
     [documentsData?.data]
   );
 
   // Fetch active organization
   const { data: organizationId } = useUserOrganization();
 
-  const { data: tasks = [], isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
-    queryKey: ["analytics-tasks", organizationId],
+  const {
+    data: tasks = [],
+    isLoading: tasksLoading,
+    refetch: refetchTasks,
+  } = useQuery({
+    queryKey: ['analytics-tasks', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
 
       const { data, error } = await supabase
         .from('tasks')
-        .select(`
+        .select(
+          `
           id, 
           completed, 
           priority, 
           due_date, 
           created_at, 
           cases!inner(organization_id)
-        `)
+        `
+        )
         .eq('cases.organization_id', organizationId);
 
       if (error) {
-        logError("Error fetching tasks for analytics", error);
+        logError('Error fetching tasks for analytics', error);
         return [];
       }
 
       return data || [];
     },
     enabled: !!organizationId,
-    staleTime: 5 * 60 * 1000
+    staleTime: 5 * 60 * 1000,
   });
 
-
-  const { data: eventsData, isLoading: eventsLoading, refetch: refetchEvents } = useFetchData({
-    table: "calendar_events",
-    queryKey: ["analytics-events"],
-    select: "id, created_at, event_type, start_date",
+  const {
+    data: eventsData,
+    isLoading: eventsLoading,
+    refetch: refetchEvents,
+  } = useFetchData({
+    table: 'calendar_events',
+    queryKey: ['analytics-events'],
+    select: 'id, created_at, event_type, start_date',
   });
   const events = eventsData?.data || [];
 
   // Calculate period in months
   const monthsBack = useMemo(() => {
     switch (selectedPeriod) {
-      case "1month": return 1;
-      case "3months": return 3;
-      case "1year": return 12;
-      default: return 6;
+      case '1month':
+        return 1;
+      case '3months':
+        return 3;
+      case '1year':
+        return 12;
+      default:
+        return 6;
     }
   }, [selectedPeriod]);
 
@@ -141,27 +177,56 @@ export default function Analytics() {
   const caseStatusData = useMemo(() => calculateCaseStatusData(cases), [cases]);
   const contractStatusData = useMemo(() => calculateContractStatusData(contracts), [contracts]);
   const priorityData = useMemo(() => calculatePriorityDistribution(cases), [cases]);
-  const clientActivityData = useMemo(() => calculateClientActivity(clients, monthsBack), [clients, monthsBack]);
-  const documentTrends = useMemo(() => calculateDocumentTrends(documents, monthsBack), [documents, monthsBack]);
+  const clientActivityData = useMemo(
+    () => calculateClientActivity(clients, monthsBack),
+    [clients, monthsBack]
+  );
+  const documentTrends = useMemo(
+    () => calculateDocumentTrends(documents, monthsBack),
+    [documents, monthsBack]
+  );
   const taskMetrics = useMemo(() => calculateTaskMetrics(tasks), [tasks]);
 
   // Month-over-month changes
-  const casesChange = useMemo(() => calculateMonthOverMonthMetrics(cases as Array<{ created_at?: string | null }>), [cases]);
-  const clientsChange = useMemo(() => calculateMonthOverMonthMetrics(clients as Array<{ created_at?: string | null }>), [clients]);
-  const contractsChange = useMemo(() => calculateMonthOverMonthMetrics(contracts as Array<{ created_at?: string | null }>), [contracts]);
-  const documentsChange = useMemo(() => calculateMonthOverMonthMetrics((Array.isArray(documents) ? documents : []) as Array<{ created_at?: string | null }>), [documents]);
+  const casesChange = useMemo(
+    () => calculateMonthOverMonthMetrics(cases as Array<{ created_at?: string | null }>),
+    [cases]
+  );
+  const clientsChange = useMemo(
+    () => calculateMonthOverMonthMetrics(clients as Array<{ created_at?: string | null }>),
+    [clients]
+  );
+  const contractsChange = useMemo(
+    () => calculateMonthOverMonthMetrics(contracts as Array<{ created_at?: string | null }>),
+    [contracts]
+  );
+  const documentsChange = useMemo(
+    () =>
+      calculateMonthOverMonthMetrics(
+        (Array.isArray(documents) ? documents : []) as Array<{ created_at?: string | null }>
+      ),
+    [documents]
+  );
 
   // Totals
   const totalCases = cases.length;
-  const activeCases = cases.filter((c) => ["open", "active", "in_progress"].includes(c.status?.toLowerCase() || "")).length;
+  const activeCases = cases.filter((c) =>
+    ['open', 'active', 'in_progress'].includes(c.status?.toLowerCase() || '')
+  ).length;
   const totalClients = clients.length;
-  const activeClients = clients.filter((c) => c.status === "active").length;
+  const activeClients = clients.filter((c) => c.status === 'active').length;
   const totalContracts = contracts.length;
-  const activeContracts = contracts.filter((c) => c.status === "active").length;
+  const activeContracts = contracts.filter((c) => c.status === 'active').length;
   const totalDocuments = Array.isArray(documents) ? documents.length : 0;
   const totalEvents = Array.isArray(events) ? events.length : 0;
 
-  const isLoading = casesLoading || clientsLoading || contractsLoading || documentsLoading || tasksLoading || eventsLoading;
+  const isLoading =
+    casesLoading ||
+    clientsLoading ||
+    contractsLoading ||
+    documentsLoading ||
+    tasksLoading ||
+    eventsLoading;
 
   // Refresh all data
   const handleRefresh = () => {
@@ -175,8 +240,14 @@ export default function Analytics() {
 
   // Render change indicator
   const renderChangeIndicator = (change: ReturnType<typeof calculateMonthOverMonthMetrics>) => {
-    const Icon = change.direction === "up" ? TrendingUp : change.direction === "down" ? TrendingDown : Minus;
-    const colorClass = change.direction === "up" ? "text-success" : change.direction === "down" ? "text-destructive" : "text-muted-foreground";
+    const Icon =
+      change.direction === 'up' ? TrendingUp : change.direction === 'down' ? TrendingDown : Minus;
+    const colorClass =
+      change.direction === 'up'
+        ? 'text-success'
+        : change.direction === 'down'
+          ? 'text-destructive'
+          : 'text-muted-foreground';
 
     return (
       <div className={`flex items-center gap-1 text-xs ${colorClass}`}>
@@ -211,7 +282,7 @@ export default function Analytics() {
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -323,7 +394,15 @@ export default function Analytics() {
               </CardTitle>
               <CardDescription>Overview of task completion status</CardDescription>
             </div>
-            <Badge variant={taskMetrics.completionRate >= 70 ? "default" : taskMetrics.completionRate >= 40 ? "secondary" : "destructive"}>
+            <Badge
+              variant={
+                taskMetrics.completionRate >= 70
+                  ? 'default'
+                  : taskMetrics.completionRate >= 40
+                    ? 'secondary'
+                    : 'destructive'
+              }
+            >
               {taskMetrics.completionRate}% Complete
             </Badge>
           </div>
@@ -395,7 +474,7 @@ export default function Analytics() {
                 <CardContent>
                   {caseStatusData.length > 0 ? (
                     <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height={288}>
                         <PieChart>
                           <Pie
                             data={caseStatusData}
@@ -414,15 +493,17 @@ export default function Analytics() {
                           </Pie>
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
+                              backgroundColor: 'hsl(var(--card))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
                             }}
                           />
                           <Legend
                             verticalAlign="bottom"
                             height={36}
-                            formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+                            formatter={(value) => (
+                              <span className="text-sm text-foreground">{value}</span>
+                            )}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -446,7 +527,7 @@ export default function Analytics() {
                 <CardContent>
                   {contractStatusData.length > 0 ? (
                     <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height={288}>
                         <PieChart>
                           <Pie
                             data={contractStatusData}
@@ -465,15 +546,17 @@ export default function Analytics() {
                           </Pie>
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
+                              backgroundColor: 'hsl(var(--card))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
                             }}
                           />
                           <Legend
                             verticalAlign="bottom"
                             height={36}
-                            formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+                            formatter={(value) => (
+                              <span className="text-sm text-foreground">{value}</span>
+                            )}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -497,7 +580,7 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={288}>
                     <AreaChart data={clientActivityData}>
                       <defs>
                         <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
@@ -509,30 +592,36 @@ export default function Analytics() {
                           <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
+                        opacity={0.5}
+                      />
                       <XAxis
                         dataKey="month"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                       />
                       <YAxis
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         width={40}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
                         }}
                       />
                       <Legend
                         verticalAlign="top"
                         height={36}
-                        formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+                        formatter={(value) => (
+                          <span className="text-sm text-foreground">{value}</span>
+                        )}
                       />
                       <Area
                         type="monotone"
@@ -585,7 +674,7 @@ export default function Analytics() {
                   </div>
                   <div>
                     <p className="text-3xl font-bold">
-                      {cases.filter((c) => c.status?.toLowerCase() === "open").length}
+                      {cases.filter((c) => c.status?.toLowerCase() === 'open').length}
                     </p>
                     <p className="text-sm text-muted-foreground">Open Matters</p>
                   </div>
@@ -600,7 +689,7 @@ export default function Analytics() {
                   </div>
                   <div>
                     <p className="text-3xl font-bold">
-                      {cases.filter((c) => c.priority?.toLowerCase() === "high").length}
+                      {cases.filter((c) => c.priority?.toLowerCase() === 'high').length}
                     </p>
                     <p className="text-sm text-muted-foreground">High Priority</p>
                   </div>
@@ -618,9 +707,14 @@ export default function Analytics() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={288}>
                       <BarChart data={caseStatusData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} horizontal={false} />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="hsl(var(--border))"
+                          opacity={0.5}
+                          horizontal={false}
+                        />
                         <XAxis type="number" axisLine={false} tickLine={false} />
                         <YAxis
                           type="category"
@@ -628,13 +722,13 @@ export default function Analytics() {
                           axisLine={false}
                           tickLine={false}
                           width={80}
-                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "8px",
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
                           }}
                         />
                         <Bar dataKey="value" radius={[0, 4, 4, 0]}>
@@ -658,7 +752,7 @@ export default function Analytics() {
                 <CardContent>
                   {priorityData.length > 0 ? (
                     <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height={288}>
                         <PieChart>
                           <Pie
                             data={priorityData}
@@ -677,15 +771,17 @@ export default function Analytics() {
                           </Pie>
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
+                              backgroundColor: 'hsl(var(--card))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
                             }}
                           />
                           <Legend
                             verticalAlign="bottom"
                             height={36}
-                            formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+                            formatter={(value) => (
+                              <span className="text-sm text-foreground">{value}</span>
+                            )}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -738,11 +834,13 @@ export default function Analytics() {
                   </div>
                   <div>
                     <p className="text-3xl font-bold">
-                      {clients.filter((c) => {
-                        const created = new Date(c.created_at || "");
-                        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-                        return created >= thirtyDaysAgo;
-                      }).length}
+                      {
+                        clients.filter((c) => {
+                          const created = new Date(c.created_at || '');
+                          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                          return created >= thirtyDaysAgo;
+                        }).length
+                      }
                     </p>
                     <p className="text-sm text-muted-foreground">New This Month</p>
                   </div>
@@ -759,32 +857,38 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={288}>
                     <LineChart data={clientActivityData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
+                        opacity={0.5}
+                      />
                       <XAxis
                         dataKey="month"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                       />
                       <YAxis
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         width={40}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
                         }}
                       />
                       <Legend
                         verticalAlign="top"
                         height={36}
-                        formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+                        formatter={(value) => (
+                          <span className="text-sm text-foreground">{value}</span>
+                        )}
                       />
                       <Line
                         type="monotone"
@@ -851,11 +955,11 @@ export default function Analytics() {
                     <p className="text-3xl font-bold">
                       {Array.isArray(documents)
                         ? documents.filter((d: { created_at?: string | null }) => {
-                          if (!d.created_at) return false;
-                          const created = new Date(d.created_at);
-                          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-                          return created >= sevenDaysAgo;
-                        }).length
+                            if (!d.created_at) return false;
+                            const created = new Date(d.created_at);
+                            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                            return created >= sevenDaysAgo;
+                          }).length
                         : 0}
                     </p>
                     <p className="text-sm text-muted-foreground">This Week</p>
@@ -873,26 +977,30 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={288}>
                     <BarChart data={documentTrends}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
+                        opacity={0.5}
+                      />
                       <XAxis
                         dataKey="month"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                       />
                       <YAxis
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         width={40}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
                         }}
                       />
                       <Bar

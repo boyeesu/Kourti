@@ -30,7 +30,7 @@ import { CalendarWorkWeekView } from '@/components/calendar/CalendarWorkWeekView
 import { FindAvailableTimeDialog } from '@/components/calendar/FindAvailableTimeDialog';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { Settings as SettingsIcon } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { CalendarEvent, CalendarEventWithOwner } from '@/types';
 import { useSharedCalendars } from '@/hooks/useCalendarSharing';
 import {
@@ -984,6 +984,10 @@ export default function Calendar() {
       {showSyncSettings && (
         <Dialog open={showSyncSettings} onOpenChange={setShowSyncSettings}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogTitle className="sr-only">Calendar Sync Settings</DialogTitle>
+            <DialogDescription className="sr-only">
+              Configure calendar synchronization settings
+            </DialogDescription>
             <CalendarSyncSettings />
           </DialogContent>
         </Dialog>

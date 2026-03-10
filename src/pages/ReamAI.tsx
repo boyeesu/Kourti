@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { cn } from '@/lib/utils';
 import { useSearchParams } from 'react-router-dom';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import {
   Send,
   Loader2,
@@ -1344,7 +1344,8 @@ I'll answer based on the relevant information found above.`;
     <div className="flex h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)] flex-col overflow-hidden lg:flex-row -mx-3 -my-3 sm:-mx-4 lg:-mx-6 lg:-my-4">
       {/* Mobile sidebar toggle - shown only on smaller screens */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" className="w-[280px] p-0 lg:hidden">
+        <SheetContent side="left" className="w-[280px] p-0 lg:hidden" aria-describedby={undefined}>
+          <SheetTitle className="sr-only">Conversations</SheetTitle>
           <ModuleErrorBoundary name="Conversation Sidebar">
             <ConversationSidebar
               conversations={conversations}
