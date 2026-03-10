@@ -29,7 +29,7 @@ export function useAnalyzeDocument() {
 
       let analysisResponse = data;
       if (error) {
-        const fallback = await supabase.functions.invoke('contract-analysis', {
+        const fallback = await supabase.functions.invoke('contract-analysis-ai', {
           body: payload,
         });
         if (fallback.error) throw fallback.error;

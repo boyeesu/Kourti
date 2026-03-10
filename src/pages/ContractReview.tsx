@@ -363,9 +363,12 @@ export default function ContractReview() {
       if (error) {
         setAnalysisProgress(50);
         setProgressLabel('Trying fallback analysis...');
-        const fallback = await invokeFunctionWithCsrf<{ analysis?: string }>('contract-analysis', {
-          body: payload,
-        });
+        const fallback = await invokeFunctionWithCsrf<{ analysis?: string }>(
+          'contract-analysis-ai',
+          {
+            body: payload,
+          }
+        );
         if (fallback.error) throw fallback.error;
         analysisText = fallback.data?.analysis || '';
       } else {

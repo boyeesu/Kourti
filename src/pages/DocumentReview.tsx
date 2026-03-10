@@ -277,7 +277,7 @@ export default function DocumentReview() {
           analysisType?: string;
           success?: boolean;
           tokensUsed?: number;
-        }>('contract-analysis', {
+        }>('contract-analysis-ai', {
           body: payload,
         });
         if (fallback.error) throw fallback.error;
