@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Upload, FileText, Bot, Target, Sparkles, Loader2, ArrowLeft } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  Bot,
+  Target,
+  Sparkles,
+  Loader2,
+  ArrowLeft,
+  X,
+  CheckCircle2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCreateContract } from '@/hooks/useContracts';
-import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import {
   ContractAnalysisView,
   parseAnalysisToFindings,
@@ -69,7 +79,7 @@ export default function ContractReview() {
   const [textContent, setTextContent] = useState('');
   const [documentContent, setDocumentContent] = useState('');
   const [goal, setGoal] = useState('');
-  const [selectedGoal, setSelectedGoal] = useState('');
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [analysisType, setAnalysisType] = useState<
     'contract_review' | 'document_review' | 'key_information'
   >('contract_review');
@@ -80,10 +90,13 @@ export default function ContractReview() {
   const [recap, setRecap] = useState<AnalysisRecap | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLoadingSource, setIsLoadingSource] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const createContractMutation = useCreateContract();
 
   const hasResults = findings.length > 0 && recap;
+  const hasDocument = textContent.trim().length > 50 || file;
 
   // Auto-load content from contractId or documentId query params
   useEffect(() => {
@@ -133,7 +146,6 @@ export default function ContractReview() {
             return;
           }
 
-          // If document has inline content, use it directly
           if (data.content && data.content.length > 10) {
             setTextContent(data.content);
             setDocumentContent(data.content);
@@ -145,7 +157,6 @@ export default function ContractReview() {
             return;
           }
 
-          // Otherwise try to download and extract text from storage
           if (data.file_path) {
             try {
               const { data: fileData } = await supabase.storage
@@ -168,7 +179,6 @@ export default function ContractReview() {
                     // DOCX extraction failed
                   }
                 } else {
-                  // Try reading as text as a fallback
                   const rawText = await fileData.text();
                   if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
                     extracted = rawText;
@@ -208,7 +218,6 @@ export default function ContractReview() {
   // Extract text from uploaded file
   const handleFileUpload = useCallback(
     async (uploadedFile: File) => {
-      // Validate file before processing
       const { validateFile, MAX_CONTRACT_FILE_SIZE } = await import('@/lib/fileValidation');
       const validation = validateFile(uploadedFile, { maxSize: MAX_CONTRACT_FILE_SIZE });
       if (!validation.valid) {
@@ -222,15 +231,12 @@ export default function ContractReview() {
       try {
         let extracted = '';
 
-        // Client-side extraction for text files
         if (
           uploadedFile.type === 'text/plain' ||
           uploadedFile.name.toLowerCase().endsWith('.txt')
         ) {
           extracted = await uploadedFile.text();
-        }
-        // Client-side DOCX extraction
-        else if (uploadedFile.name.toLowerCase().endsWith('.docx')) {
+        } else if (uploadedFile.name.toLowerCase().endsWith('.docx')) {
           try {
             const mammoth = await import('mammoth');
             const arrayBuffer = await uploadedFile.arrayBuffer();
@@ -241,13 +247,7 @@ export default function ContractReview() {
           }
         }
 
-        // If client-side extraction didn't work, try server-side
         if (!extracted || extracted.length < 10) {
-          // Upload temporarily to extract text
-          const formData = new FormData();
-          formData.append('file', uploadedFile);
-
-          // Read as base64 for inline extraction attempt
           const reader = new FileReader();
           const textPromise = new Promise<string>((resolve) => {
             reader.onload = () => {
@@ -293,9 +293,10 @@ export default function ContractReview() {
     [toast]
   );
 
-  const handleGoalSelect = (selectedValue: string) => {
-    setSelectedGoal(selectedValue);
-    setGoal(selectedValue);
+  const handleGoalToggle = (suggestion: string) => {
+    setSelectedGoals((prev) =>
+      prev.includes(suggestion) ? prev.filter((g) => g !== suggestion) : [...prev, suggestion]
+    );
   };
 
   const resolveAnalysisType = () => {
@@ -339,8 +340,9 @@ export default function ContractReview() {
       setAnalysisProgress(25);
       setProgressLabel('Sending to REAM AI for analysis...');
 
+      const combinedGoals = [...selectedGoals, goal].filter(Boolean).join('. ');
       const goalText =
-        goal ||
+        combinedGoals ||
         'Provide a comprehensive contract review identifying risks, obligations, and areas of concern';
       const payload = {
         text: content,
@@ -382,7 +384,6 @@ export default function ContractReview() {
       setAnalysisProgress(80);
       setProgressLabel('Parsing findings and building analysis view...');
 
-      // Parse the analysis into structured findings
       const parsed = parseAnalysisToFindings(analysisText, content);
       setFindings(parsed.findings);
       setRecap(parsed.recap);
@@ -465,7 +466,6 @@ export default function ContractReview() {
       await navigator.clipboard.writeText(exportText);
       toast({ title: 'Exported', description: 'Analysis report copied to clipboard.' });
     } catch {
-      // Fallback: download as file
       const blob = new Blob([exportText], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -484,7 +484,7 @@ export default function ContractReview() {
         `AI Reviewed Contract - ${new Date().toLocaleDateString()}`;
       await createContractMutation.mutateAsync({
         title: contractTitle,
-        description: goal || 'AI-generated contract review',
+        description: goal || selectedGoals.join(', ') || 'AI-generated contract review',
         terms: documentContent,
         status: 'active',
         contract_type: analysisType === 'contract_review' ? 'service' : 'general',
@@ -502,20 +502,50 @@ export default function ContractReview() {
     setTextContent('');
     setDocumentContent('');
     setGoal('');
-    setSelectedGoal('');
+    setSelectedGoals([]);
   };
 
-  // --- Analysis View (side-by-side) ---
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      const droppedFile = e.dataTransfer.files?.[0];
+      if (droppedFile) handleFileUpload(droppedFile);
+    },
+    [handleFileUpload]
+  );
+
+  // --- Step 2: Full-viewport Analysis View ---
   if (hasResults && documentContent) {
     return (
-      <div className="flex flex-col h-[calc(100vh-8rem)] -mx-3 -my-3 sm:-mx-4 lg:-mx-6 lg:-my-4">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background">
         {/* Compact top bar */}
         <div className="flex items-center justify-between px-4 py-2 border-b bg-background shrink-0">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-8" onClick={handleReset}>
-              <ArrowLeft className="h-4 w-4 mr-1" />
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={handleReset}>
+              <ArrowLeft className="h-4 w-4" />
               New Analysis
             </Button>
+            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+              <Bot className="h-3.5 w-3.5" />
+              <span>{file?.name || 'Contract Analysis'}</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -545,198 +575,283 @@ export default function ContractReview() {
     );
   }
 
-  // --- Upload & Configuration View ---
-  return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto">
-      <Breadcrumbs />
-
-      <div className="flex items-center gap-3">
-        <div className="bg-gradient-to-br from-primary to-primary/80 p-3 rounded-lg">
-          <Bot className="h-6 w-6 text-primary-foreground" />
+  // --- Analyzing overlay ---
+  if (isAnalyzing) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-full max-w-md space-y-6 text-center">
+          <div className="relative mx-auto w-20 h-20">
+            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+            <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Bot className="h-8 w-8 text-primary" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold">Analyzing your document</h2>
+            <p className="text-sm text-muted-foreground">{progressLabel}</p>
+          </div>
+          <div className="space-y-1">
+            <Progress value={analysisProgress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-right">{analysisProgress}%</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-semibold">REAM AI Contract Review</h1>
-          <p className="text-muted-foreground text-sm">
-            AI-powered legal document analysis with side-by-side review
-          </p>
+      </div>
+    );
+  }
+
+  // --- Step 1: Upload & Configure ---
+  return (
+    <div className="min-h-[calc(100vh-6rem)] flex flex-col">
+      {/* Header */}
+      <div className="px-4 sm:px-6 pt-6 pb-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="bg-gradient-to-br from-primary to-primary/80 p-2.5 rounded-lg">
+              <Bot className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">REAM AI Contract Review</h1>
+              <p className="text-muted-foreground text-sm">
+                Upload a document, set your goals, and get a structured AI analysis
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Loading source document */}
       {isLoadingSource && (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 text-primary animate-spin" />
-              <p className="text-sm font-medium">Loading document for review...</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Progress bar during analysis */}
-      {isAnalyzing && (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 text-primary animate-spin" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">{progressLabel}</p>
-                <Progress value={analysisProgress} className="mt-2 h-2" />
-              </div>
-              <span className="text-xs text-muted-foreground">{analysisProgress}%</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="space-y-5">
-        {/* Analysis Type + Goal - compact layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              Analysis Type
-            </label>
-            <Select
-              value={analysisType}
-              onValueChange={(value: string) =>
-                setAnalysisType(value as 'contract_review' | 'document_review' | 'key_information')
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="contract_review">Contract Review & Risk Assessment</SelectItem>
-                <SelectItem value="document_review">General Document Analysis</SelectItem>
-                <SelectItem value="key_information">Key Information Extraction</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Target className="h-4 w-4 text-muted-foreground" />
-              Custom Goal
-            </label>
-            <Textarea
-              placeholder="What should REAM AI focus on?"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              className="min-h-[38px] h-[38px] resize-none"
-            />
-          </div>
-        </div>
-
-        {/* Quick Goals */}
-        <div className="flex flex-wrap gap-1.5">
-          {goalSuggestions.map((suggestion) => (
-            <Badge
-              key={suggestion}
-              variant={selectedGoal === suggestion ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-primary/10 text-xs"
-              onClick={() => handleGoalSelect(suggestion)}
-            >
-              {suggestion}
-            </Badge>
-          ))}
-        </div>
-
-        {/* Document Input - upload or paste */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              {file ? (
-                <div className="p-6 text-center space-y-3">
-                  <FileText className="h-10 w-10 text-primary mx-auto" />
-                  <div>
-                    <p className="font-medium text-sm">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                      {isExtracting && (
-                        <span className="ml-2 text-primary">
-                          <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
-                          Extracting text...
-                        </span>
-                      )}
-                      {!isExtracting && textContent && (
-                        <span className="ml-2 text-green-600">
-                          {textContent.length.toLocaleString()} chars extracted
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('file-upload')?.click()}
-                  >
-                    Change File
-                  </Button>
+        <div className="px-4 sm:px-6">
+          <div className="max-w-3xl mx-auto">
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                  <p className="text-sm font-medium">Loading document for review...</p>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => document.getElementById('file-upload')?.click()}
-                  className="w-full p-8 text-center hover:bg-accent/50 transition-colors cursor-pointer"
-                >
-                  <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium text-sm">Upload Contract</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    PDF, DOC, DOCX, TXT supported
-                  </p>
-                </button>
-              )}
-              <input
-                id="file-upload"
-                type="file"
-                accept=".pdf,.doc,.docx,.txt"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFileUpload(f);
-                }}
-              />
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
+      {/* Main content */}
+      <div className="flex-1 px-4 sm:px-6 pb-8">
+        <div className="max-w-3xl mx-auto space-y-6">
+          {/* Step 1: Upload document */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  'flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold',
+                  hasDocument
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                    : 'bg-primary/10 text-primary'
+                )}
+              >
+                {hasDocument ? <CheckCircle2 className="h-3.5 w-3.5" /> : '1'}
+              </div>
+              <h2 className="text-sm font-semibold">Upload your document</h2>
+            </div>
+
+            {file ? (
+              /* File uploaded state */
+              <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/40">
+                      <FileText className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                        {isExtracting && (
+                          <span className="ml-2 text-primary">
+                            <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
+                            Extracting text...
+                          </span>
+                        )}
+                        {!isExtracting && textContent && (
+                          <span className="ml-2 text-green-600">
+                            {textContent.length.toLocaleString()} characters extracted
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 shrink-0"
+                      onClick={() => {
+                        setFile(null);
+                        setTextContent('');
+                        setDocumentContent('');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              /* Drag & drop upload zone */
+              <div
+                ref={dropZoneRef}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <Card
+                  className={cn(
+                    'border-2 border-dashed transition-colors cursor-pointer',
+                    isDragging
+                      ? 'border-primary bg-primary/5'
+                      : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/30'
+                  )}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                >
+                  <CardContent className="p-8 text-center">
+                    <Upload
+                      className={cn(
+                        'h-10 w-10 mx-auto mb-3 transition-colors',
+                        isDragging ? 'text-primary' : 'text-muted-foreground/60'
+                      )}
+                    />
+                    <p className="font-medium text-sm">
+                      {isDragging ? 'Drop your file here' : 'Drag and drop or click to upload'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PDF, DOC, DOCX, TXT - up to 10MB
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Paste text alternative */}
+            <div className="relative">
+              <div className="absolute inset-x-0 top-0 flex items-center justify-center -translate-y-1/2">
+                <span className="bg-background px-2 text-xs text-muted-foreground">
+                  or paste text directly
+                </span>
+              </div>
               <Textarea
-                placeholder="Or paste your contract text here..."
-                value={textContent}
+                placeholder="Paste your contract or document text here..."
+                value={file ? '' : textContent}
                 onChange={(e) => {
                   setTextContent(e.target.value);
                   setDocumentContent(e.target.value);
+                  if (file) setFile(null);
                 }}
-                className="min-h-[180px] rounded-none border-0 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+                disabled={!!file}
+                className="min-h-[120px] resize-none text-sm pt-4"
               />
-            </CardContent>
-          </Card>
-        </div>
+            </div>
 
-        {/* Analyze Button */}
-        <div className="flex justify-center pt-2">
-          <Button
-            onClick={handleAnalyze}
-            disabled={
-              (!textContent.trim() && !file) || isAnalyzing || isExtracting || isLoadingSource
-            }
-            size="lg"
-            className="px-10 h-12 text-base"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-5 w-5 mr-2" />
-                Analyze with REAM AI
-              </>
-            )}
-          </Button>
+            <input
+              id="file-upload"
+              type="file"
+              accept=".pdf,.doc,.docx,.txt"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFileUpload(f);
+              }}
+            />
+          </div>
+
+          {/* Step 2: Set goals */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                2
+              </div>
+              <h2 className="text-sm font-semibold">Set your analysis goals</h2>
+              <span className="text-xs text-muted-foreground">(optional)</span>
+            </div>
+
+            {/* Analysis type */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" />
+                  Analysis Type
+                </label>
+                <Select
+                  value={analysisType}
+                  onValueChange={(value: string) =>
+                    setAnalysisType(
+                      value as 'contract_review' | 'document_review' | 'key_information'
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contract_review">
+                      Contract Review & Risk Assessment
+                    </SelectItem>
+                    <SelectItem value="document_review">General Document Analysis</SelectItem>
+                    <SelectItem value="key_information">Key Information Extraction</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" />
+                  Custom Goal
+                </label>
+                <Textarea
+                  placeholder="Describe what REAM AI should focus on..."
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  className="min-h-[36px] h-[36px] resize-none text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Goal chips - multi-select */}
+            <div className="flex flex-wrap gap-1.5">
+              {goalSuggestions.map((suggestion) => {
+                const isSelected = selectedGoals.includes(suggestion);
+                return (
+                  <Badge
+                    key={suggestion}
+                    variant={isSelected ? 'default' : 'outline'}
+                    className={cn(
+                      'cursor-pointer text-xs transition-colors',
+                      isSelected ? '' : 'hover:bg-primary/10 hover:border-primary/50'
+                    )}
+                    onClick={() => handleGoalToggle(suggestion)}
+                  >
+                    {isSelected && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                    {suggestion}
+                  </Badge>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Analyze CTA */}
+          <div className="pt-2">
+            <Button
+              onClick={handleAnalyze}
+              disabled={!hasDocument || isAnalyzing || isExtracting || isLoadingSource}
+              size="lg"
+              className="w-full h-12 text-base"
+            >
+              <Sparkles className="h-5 w-5 mr-2" />
+              Analyze with REAM AI
+              {selectedGoals.length > 0 && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {selectedGoals.length} goal{selectedGoals.length !== 1 ? 's' : ''}
+                </Badge>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

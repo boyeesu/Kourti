@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { useToast } from '@/hooks/use-toast';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
@@ -23,13 +24,13 @@ export function useAnalyzeDocument() {
         return { analysis: cached, docId };
       }
       const payload = { text: content, analysisType: 'summarize' as const };
-      const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
+      const { data, error } = await invokeFunctionWithCsrf('advanced-contract-analysis', {
         body: payload,
       });
 
       let analysisResponse = data;
       if (error) {
-        const fallback = await supabase.functions.invoke('contract-analysis-ai', {
+        const fallback = await invokeFunctionWithCsrf('contract-analysis-ai', {
           body: payload,
         });
         if (fallback.error) throw fallback.error;
