@@ -203,6 +203,10 @@ export function useChangeUserRole() {
 
   return useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
+      if (newRole === 'platform_admin') {
+        throw new Error('Platform admin role cannot be assigned through the application.');
+      }
+
       const { data, error } = await supabase.rpc('change_user_role', {
         p_target_user_id: userId,
         p_new_role_name: newRole,

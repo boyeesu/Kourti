@@ -66,7 +66,79 @@ CREATE TRIGGER check_platform_admin_removal
   FOR EACH ROW
   EXECUTE FUNCTION public.prevent_platform_admin_removal();
 
--- 4. Remove platform_admin from global_roles so it's not discoverable as an assignable role
+-- 4. Patch change_user_role() to block platform_admin assignment
+--    This function is SECURITY DEFINER so triggers won't catch it reliably
+CREATE OR REPLACE FUNCTION public.change_user_role(
+  p_target_user_id uuid,
+  p_new_role_name text
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  current_user_roles text[];
+  current_org_id uuid;
+  target_org_id uuid;
+BEGIN
+  -- Block platform_admin assignment — can only be set via direct DB access
+  IF p_new_role_name = 'platform_admin' THEN
+    RETURN json_build_object('error', 'platform_admin role cannot be assigned through the application. Contact the platform administrator.');
+  END IF;
+
+  -- Get current user's organization
+  SELECT organization_id INTO current_org_id
+  FROM public.profiles
+  WHERE user_id = auth.uid();
+
+  -- Get current user's roles
+  SELECT ARRAY_AGG(role_name) INTO current_user_roles
+  FROM public.user_role_assignments
+  WHERE user_id = auth.uid() AND organization_id = current_org_id;
+
+  -- Only admins and superadmins can change roles
+  IF NOT ('superadmin' = ANY(current_user_roles) OR 'admin' = ANY(current_user_roles)) THEN
+    RETURN json_build_object('error', 'Only admins and superadmins can change user roles');
+  END IF;
+
+  -- Get target user's organization
+  SELECT organization_id INTO target_org_id
+  FROM public.profiles
+  WHERE user_id = p_target_user_id;
+
+  -- Ensure target user is in same organization
+  IF target_org_id != current_org_id THEN
+    RETURN json_build_object('error', 'User not found in your organization');
+  END IF;
+
+  -- Only superadmins can assign superadmin role
+  IF p_new_role_name = 'superadmin' AND NOT ('superadmin' = ANY(current_user_roles)) THEN
+    RETURN json_build_object('error', 'Only superadmins can assign the superadmin role');
+  END IF;
+
+  -- Validate that the role exists
+  IF NOT validate_role_exists(p_new_role_name, current_org_id) THEN
+    RETURN json_build_object('error', 'Role does not exist: ' || p_new_role_name);
+  END IF;
+
+  -- Delete all existing role assignments for the user
+  DELETE FROM public.user_role_assignments
+  WHERE user_id = p_target_user_id
+    AND organization_id = current_org_id;
+
+  -- Assign the new role
+  INSERT INTO public.user_role_assignments (user_id, role_name, organization_id, assigned_by)
+  VALUES (p_target_user_id, p_new_role_name, current_org_id, auth.uid());
+
+  RETURN json_build_object(
+    'success', true,
+    'message', 'User role changed successfully'
+  );
+END;
+$function$;
+
+-- 5. Remove platform_admin from global_roles so it's not discoverable as an assignable role
 -- (Keep the is_platform_admin() function intact - it just checks user_role_assignments)
 DELETE FROM public.global_roles WHERE role = 'platform_admin';
 

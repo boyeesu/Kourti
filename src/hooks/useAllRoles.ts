@@ -35,23 +35,28 @@ export function useAllRoles() {
         if (customError && customError.code !== 'PGRST116') throw customError;
 
         // Mark source and normalize field names for UI use
-        const globalRoles = ((globals as GlobalRole[]) || []).map((r) => ({
-          id: r.role,
-          role: r.role,
-          role_name: r.role,
-          display_name: r.display_name,
-          description: r.description,
-          source: 'global' as const,
-        }));
+        // Filter out platform_admin — it's a DB-only role, not assignable through the app
+        const globalRoles = ((globals as GlobalRole[]) || [])
+          .filter((r) => r.role !== 'platform_admin')
+          .map((r) => ({
+            id: r.role,
+            role: r.role,
+            role_name: r.role,
+            display_name: r.display_name,
+            description: r.description,
+            source: 'global' as const,
+          }));
 
-        const customRoles = ((customs as CustomRole[]) || []).map((r) => ({
-          id: r.id,
-          role: r.role_name,
-          role_name: r.role_name,
-          display_name: r.role_name,
-          description: r.description,
-          source: 'custom' as const,
-        }));
+        const customRoles = ((customs as CustomRole[]) || [])
+          .filter((r) => r.role_name !== 'platform_admin')
+          .map((r) => ({
+            id: r.id,
+            role: r.role_name,
+            role_name: r.role_name,
+            display_name: r.role_name,
+            description: r.description,
+            source: 'custom' as const,
+          }));
 
         // Merge for consumption
         return [...globalRoles, ...customRoles];
@@ -59,9 +64,27 @@ export function useAllRoles() {
         logWarn('Error fetching roles, returning system defaults', { error });
         // Return system defaults if there's an error
         return [
-          { id: 'superadmin', role: 'superadmin', role_name: 'superadmin', display_name: 'Super Administrator', source: 'global' as const },
-          { id: 'admin', role: 'admin', role_name: 'admin', display_name: 'Administrator', source: 'global' as const },
-          { id: 'user', role: 'user', role_name: 'user', display_name: 'User', source: 'global' as const },
+          {
+            id: 'superadmin',
+            role: 'superadmin',
+            role_name: 'superadmin',
+            display_name: 'Super Administrator',
+            source: 'global' as const,
+          },
+          {
+            id: 'admin',
+            role: 'admin',
+            role_name: 'admin',
+            display_name: 'Administrator',
+            source: 'global' as const,
+          },
+          {
+            id: 'user',
+            role: 'user',
+            role_name: 'user',
+            display_name: 'User',
+            source: 'global' as const,
+          },
         ];
       }
     },
