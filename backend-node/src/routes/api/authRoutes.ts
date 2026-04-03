@@ -193,6 +193,45 @@ authRouter.post(
   })
 );
 
+// Force set new password (for first login / admin-required password change)
+// User is authenticated but doesn't need to provide current password
+authRouter.post(
+  '/force-change-password',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const body = z.object({ newPassword: z.string().min(6) }).parse(req.body);
+    const auth = req.auth!;
+
+    const hashedPassword = await import('bcryptjs').then((b) =>
+      b.default.hash(body.newPassword, 12)
+    );
+
+    await db.query(
+      `UPDATE public.auth_users SET encrypted_password = $1, refresh_token = NULL, refresh_token_expires_at = NULL, updated_at = now() WHERE id = $2`,
+      [hashedPassword, auth.userId]
+    );
+
+    clearRefreshCookie(res);
+    res.status(200).json({ ok: true });
+  })
+);
+
+// Mark password as changed in profile (clears must_change_password flag)
+authRouter.post(
+  '/mark-password-changed',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+
+    await db.query(
+      `UPDATE public.profiles SET must_change_password = false, password_reset_required = false, updated_at = now() WHERE user_id = $1`,
+      [auth.userId]
+    );
+
+    res.status(200).json({ ok: true });
+  })
+);
+
 authRouter.post(
   '/reset-password/request',
   asyncHandler(async (req, res) => {

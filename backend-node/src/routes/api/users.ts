@@ -396,3 +396,33 @@ usersRouter.patch(
     res.status(200).json(result.rows[0] || null);
   })
 );
+
+// ── Password status (check if user must change password) ────────────────────
+
+usersRouter.get(
+  '/me/password-status',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+
+    const result = await db.query(
+      `SELECT p.must_change_password, p.password_reset_required
+       FROM public.profiles p
+       WHERE p.user_id = $1
+       LIMIT 1`,
+      [auth.userId]
+    );
+
+    const profile = result.rows[0] as
+      | {
+          must_change_password?: boolean;
+          password_reset_required?: boolean;
+        }
+      | undefined;
+
+    res.status(200).json({
+      must_change_password: Boolean(
+        profile?.must_change_password || profile?.password_reset_required
+      ),
+    });
+  })
+);

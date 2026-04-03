@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { changePassword } from '@/lib/authClient';
 import { invokeNodeApi } from '@/lib/backendApi';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
@@ -59,20 +58,17 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
     setIsLoading(true);
 
     try {
-      // Update password via Node backend auth API
-      // ForcePasswordChange doesn't have the old password, so use a dedicated endpoint
-      const { error: updateError } = await changePassword('', newPassword);
-
-      if (updateError) {
-        throw new Error(updateError.message);
-      }
+      // Force-set password (no current password required for first-login flow)
+      await invokeNodeApi('/api/v1/auth/force-change-password', {
+        method: 'POST',
+        body: { newPassword },
+      });
 
       // Mark password as changed in profile
       try {
         await invokeNodeApi('/api/v1/auth/mark-password-changed', { method: 'POST' });
       } catch (markError) {
         logError('Failed to mark password as changed', { error: markError });
-        // Don't fail the whole process, password was still changed
       }
 
       // Clear password from state
