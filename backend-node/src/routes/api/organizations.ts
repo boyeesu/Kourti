@@ -17,7 +17,74 @@ const deleteOrganizationBodySchema = z.object({
   reason: z.string().trim().optional(),
 });
 
+const createDefaultOrganizationSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+});
+
 export const organizationsRouter = Router();
+
+organizationsRouter.post(
+  '/create-default',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = createDefaultOrganizationSchema.parse(req.body ?? {});
+
+    const profileResult = await db.query<{ organization_id: string | null }>(
+      `select organization_id from public.profiles where user_id = $1 limit 1`,
+      [auth.userId]
+    );
+
+    const existingOrganizationId = profileResult.rows[0]?.organization_id;
+    const hasExistingOrganization =
+      existingOrganizationId && existingOrganizationId !== '00000000-0000-0000-0000-000000000000';
+
+    if (hasExistingOrganization) {
+      const existing = await db.query(`select * from public.organizations where id = $1 limit 1`, [
+        existingOrganizationId,
+      ]);
+      res.status(200).json(existing.rows[0] || null);
+      return;
+    }
+
+    const name = body.name || 'My Legal Practice';
+
+    const created = await db.query(
+      `
+      insert into public.organizations (name, created_at, updated_at)
+      values ($1, now(), now())
+      returning *
+      `,
+      [name]
+    );
+
+    const organization = created.rows[0] as { id: string };
+
+    await db.query(
+      `
+      update public.profiles
+      set organization_id = $1,
+          role = coalesce(role, 'admin'),
+          is_organization_creator = true,
+          updated_at = now()
+      where user_id = $2
+      `,
+      [organization.id, auth.userId]
+    );
+
+    await db
+      .query(
+        `
+        insert into public.user_role_assignments (user_id, role_name, organization_id, assigned_by, created_at)
+        values ($1, 'admin', $2, $1, now())
+        on conflict do nothing
+        `,
+        [auth.userId, organization.id]
+      )
+      .catch(() => undefined);
+
+    res.status(201).json(created.rows[0]);
+  })
+);
 
 organizationsRouter.get(
   '/all',

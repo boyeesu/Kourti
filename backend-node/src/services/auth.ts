@@ -51,14 +51,13 @@ export async function authenticateRequest(headers: {
       organizationId = profileResult.rows[0]?.organization_id || '';
     }
 
-    if (!organizationId || organizationId === '00000000-0000-0000-0000-000000000000') {
-      throw new ApiError('No organization assigned to user', 403, 'ORGANIZATION_REQUIRED');
-    }
-
     return {
       userId: authUser.id,
       email: authUser.email,
-      organizationId,
+      organizationId:
+        !organizationId || organizationId === '00000000-0000-0000-0000-000000000000'
+          ? ''
+          : organizationId,
     };
   }
 
