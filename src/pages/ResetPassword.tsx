@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { confirmResetPassword } from '@/lib/authClient';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { validatePassword, PASSWORD_REQUIREMENTS } from '@/lib/passwordValidation';
 
@@ -18,75 +18,41 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
+  const [resetToken, setResetToken] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     let mounted = true;
-    let authStateSubscription: { unsubscribe: () => void } | null = null;
 
-    const verifyToken = async () => {
+    const verifyToken = () => {
       try {
-        // First, check URL hash for token (Supabase redirects with hash fragments)
+        // Check URL for reset token (custom JWT system uses query params or hash)
+        const params = new URLSearchParams(window.location.search);
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const type = hashParams.get('type');
-        const refreshToken = hashParams.get('refresh_token');
 
-        // If we have hash params, set the session first
-        if (accessToken && type === 'recovery' && refreshToken) {
-          const {
-            data: { session: newSession },
-            error,
-          } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+        const token =
+          params.get('token') || hashParams.get('token') || hashParams.get('access_token');
+        const type = params.get('type') || hashParams.get('type');
 
-          if (error) {
-            if (mounted) {
-              setTokenValid(false);
-              toast.error('Invalid reset link', {
-                description: error.message || 'This password reset link is invalid or has expired.',
-              });
-              setTimeout(() => navigate('/forgot-password'), 3000);
-            }
-            return;
-          }
+        if (token && (type === 'recovery' || type === 'reset' || !type)) {
+          // Clear the hash/params from URL
+          window.history.replaceState(null, '', window.location.pathname);
 
-          if (newSession?.user) {
-            // Clear the hash from URL
-            window.history.replaceState(null, '', window.location.pathname);
-            if (mounted) {
-              setTokenValid(true);
-              setVerifying(false);
-            }
-            return;
-          }
-        }
-
-        // Check if there's already an active session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (session?.user) {
           if (mounted) {
+            setResetToken(token);
             setTokenValid(true);
             setVerifying(false);
           }
           return;
         }
 
-        // If no session and no hash params, the link is invalid
-        if (!accessToken || type !== 'recovery') {
-          if (mounted) {
-            setTokenValid(false);
-            toast.error('Invalid reset link', {
-              description: 'This password reset link is invalid or has expired.',
-            });
-            setTimeout(() => navigate('/forgot-password'), 3000);
-          }
-          return;
+        // If no token found, the link is invalid
+        if (mounted) {
+          setTokenValid(false);
+          toast.error('Invalid reset link', {
+            description: 'This password reset link is invalid or has expired.',
+          });
+          setTimeout(() => navigate('/forgot-password'), 3000);
         }
       } catch {
         if (mounted) {
@@ -101,31 +67,10 @@ export default function ResetPassword() {
       }
     };
 
-    // Set up auth state listener to catch automatic session creation
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session?.user)) {
-        if (mounted) {
-          setTokenValid(true);
-          setVerifying(false);
-          // Clear hash from URL
-          if (window.location.hash) {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        }
-      }
-    });
-    authStateSubscription = subscription;
-
-    // Initial verification
     verifyToken();
 
     return () => {
       mounted = false;
-      if (authStateSubscription) {
-        authStateSubscription.unsubscribe();
-      }
     };
   }, [navigate]);
 
@@ -148,12 +93,9 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      // Update the user's password
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      });
+      const { error } = await confirmResetPassword(resetToken, password);
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
 
       // Clear password from state
       setPassword('');
@@ -162,9 +104,6 @@ export default function ResetPassword() {
       toast.success('Password reset successfully!', {
         description: 'Your password has been updated. You can now sign in with your new password.',
       });
-
-      // Sign out to clear the recovery session (fire-and-forget to avoid blocking navigation)
-      supabase.auth.signOut().catch(() => {});
 
       // Redirect to login after successful password reset
       navigate('/login');

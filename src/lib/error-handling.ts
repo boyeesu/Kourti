@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { logError } from '@/lib/logger';
-import { PostgrestError } from '@supabase/supabase-js';
 
 /**
  * Error codes used in the application
@@ -63,14 +62,25 @@ export class AppError extends Error {
 }
 
 /**
- * Error handler for Supabase PostgrestError
+ * Shape of a Postgres-style error returned by the backend.
+ * Previously this was `PostgrestError` from @supabase/supabase-js.
  */
-export function handleSupabaseError(
-  error: PostgrestError | Error | unknown,
+interface PostgresStyleError {
+  code?: string;
+  message: string;
+  details?: string;
+  hint?: string;
+}
+
+/**
+ * Error handler for API / Postgres-style errors
+ */
+export function handleApiError(
+  error: PostgresStyleError | Error | unknown,
   defaultMessage = 'An error occurred while communicating with the server'
 ): AppError {
-  // Handle PostgrestError from Supabase
-  if (isPostgrestError(error)) {
+  // Handle Postgres-style error objects (code + message + details)
+  if (isPostgresStyleError(error)) {
     return new AppError(
       error.message || defaultMessage,
       mapPostgrestCodeToErrorCode(error.code),
@@ -89,20 +99,24 @@ export function handleSupabaseError(
 }
 
 /**
- * Type guard for PostgrestError
+ * @deprecated Use handleApiError instead. Kept for backward compatibility.
  */
-function isPostgrestError(error: unknown): error is PostgrestError {
+export const handleSupabaseError = handleApiError;
+
+/**
+ * Type guard for Postgres-style error objects
+ */
+function isPostgresStyleError(error: unknown): error is PostgresStyleError {
   return (
     typeof error === 'object' &&
     error !== null &&
-    'code' in error &&
     'message' in error &&
-    'details' in error
+    ('code' in error || 'details' in error)
   );
 }
 
 /**
- * Map PostgrestError codes to our application error codes
+ * Map Postgres error codes to our application error codes
  */
 function mapPostgrestCodeToErrorCode(pgErrorCode?: string): ErrorCode {
   if (!pgErrorCode) return ErrorCode.UNEXPECTED_ERROR;
@@ -135,7 +149,7 @@ export async function tryCatch<T>(
     const result = await fn();
     return [result, null];
   } catch (error) {
-    const appError = errorMapper ? errorMapper(error) : handleSupabaseError(error);
+    const appError = errorMapper ? errorMapper(error) : handleApiError(error);
 
     return [null, appError];
   }

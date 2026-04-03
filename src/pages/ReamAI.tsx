@@ -14,6 +14,7 @@ import { useReamAIAssistant } from '@/hooks/useReamAIAssistant';
 import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
 import { Badge } from '@/components/ui/badge';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
+import { invokeNodeApi, isNodeBackendEnabled } from '@/lib/backendApi';
 import { cn } from '@/lib/utils';
 import { useSearchParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -22,21 +23,23 @@ import {
   Loader2,
   StopCircle,
   Sparkles,
-  ShieldAlert,
-  ListChecks,
   FileText,
   Upload,
   Bot,
   User,
   Menu,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAIConversations, useConversationMessages } from '@/hooks/useAIConversations';
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 import { DocumentSuggestions } from '@/components/DocumentSuggestions';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getCachedQuery, setCachedQuery, optimizeConversationHistory } from '@/lib/ai-helpers';
+import {
+  REAM_AI_EXAMPLE_PROMPTS,
+  REAM_AI_QUICK_ACTIONS,
+  type QuickAction,
+} from '@/components/ream-ai/analysisPresets';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -44,15 +47,6 @@ interface Message {
   isStreaming?: boolean;
   timestamp?: Date;
 }
-
-// Example prompts to help users
-const EXAMPLE_PROMPTS = [
-  'What is a non-disclosure agreement?',
-  'Explain the difference between a contract and an agreement',
-  'What are common clauses in employment contracts?',
-  'How do I protect intellectual property?',
-  'What should I look for when reviewing a lease?',
-];
 
 /** Render AI response with basic markdown formatting */
 function FormattedMessage({ content }: { content: string }) {
@@ -138,37 +132,6 @@ function renderBold(text: string): React.ReactNode {
   });
 }
 
-type QuickAction = {
-  label: string;
-  prompt: string;
-  requiresDocument?: boolean;
-  icon: LucideIcon;
-};
-
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    label: 'Summarize',
-    prompt:
-      'Provide an executive summary that highlights the purpose, parties, and the three most important obligations in this document.',
-    requiresDocument: true,
-    icon: Sparkles,
-  },
-  {
-    label: 'Risk Review',
-    prompt:
-      'Identify the top risks, liabilities, or unusual clauses in this document. Explain why they matter and recommend follow-up actions.',
-    requiresDocument: true,
-    icon: ShieldAlert,
-  },
-  {
-    label: 'Key Obligations',
-    prompt:
-      'List all material obligations, deadlines, and compliance requirements in this document with clear bullet points.',
-    requiresDocument: true,
-    icon: ListChecks,
-  },
-];
-
 interface ReamAIHeaderProps {
   activeDocumentLabel: string | null;
   hasDocumentContext: boolean;
@@ -230,7 +193,7 @@ function ReamAIHeader({
           </Button>
           {showQuickActions && (
             <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border bg-popover p-2 shadow-lg z-50">
-              {QUICK_ACTIONS.map((action) => {
+              {REAM_AI_QUICK_ACTIONS.map((action) => {
                 const disabled = isBusy || (action.requiresDocument && !hasDocumentContext);
                 return (
                   <button
@@ -431,7 +394,7 @@ export default function ReamAI() {
   };
 
   // Generate title from AI response asynchronously (fire-and-forget)
-  const generateSmartTitle = async (convId: string, userMessage: string, _aiResponse: string) => {
+  const generateSmartTitle = async (convId: string, userMessage: string) => {
     try {
       // Use a short summary prompt via the assistant
       const titlePrompt = `Generate a 3-6 word title for a conversation that started with this question: "${userMessage.substring(0, 200)}". Reply with ONLY the title, no quotes or punctuation.`;
@@ -518,14 +481,30 @@ export default function ReamAI() {
         if (uploadedDoc.file_path) {
           try {
             // Try server-side extraction first (handles PDF, DOCX, etc.)
-            const { data: extractResult, error: extractError } = await invokeFunctionWithCsrf<{
-              content?: string;
-              error?: string;
-              warning?: string;
-              success?: boolean;
-            }>('extract-document-text', {
-              body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
-            });
+            const extractionResponse = isNodeBackendEnabled()
+              ? {
+                  data: await invokeNodeApi<{
+                    content?: string;
+                    error?: string;
+                    warning?: string;
+                    success?: boolean;
+                  }>('/api/v1/ai/extract-document-text', {
+                    method: 'POST',
+                    body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
+                  }),
+                  error: null,
+                }
+              : await invokeFunctionWithCsrf<{
+                  content?: string;
+                  error?: string;
+                  warning?: string;
+                  success?: boolean;
+                }>('extract-document-text', {
+                  body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
+                });
+
+            const extractResult = extractionResponse.data;
+            const extractError = extractionResponse.error;
 
             if (!extractError && extractResult?.content) {
               // Only use extracted text if it's valid (not an error message)
@@ -736,14 +715,30 @@ export default function ReamAI() {
           )
         );
 
-        const { data: extractResult, error: extractError } = await invokeFunctionWithCsrf<{
-          content?: string;
-          error?: string;
-          warning?: string;
-          success?: boolean;
-        }>('extract-document-text', {
-          body: { documentId: doc.id, filePath: doc.file_path },
-        });
+        const extractionResponse = isNodeBackendEnabled()
+          ? {
+              data: await invokeNodeApi<{
+                content?: string;
+                error?: string;
+                warning?: string;
+                success?: boolean;
+              }>('/api/v1/ai/extract-document-text', {
+                method: 'POST',
+                body: { documentId: doc.id, filePath: doc.file_path },
+              }),
+              error: null,
+            }
+          : await invokeFunctionWithCsrf<{
+              content?: string;
+              error?: string;
+              warning?: string;
+              success?: boolean;
+            }>('extract-document-text', {
+              body: { documentId: doc.id, filePath: doc.file_path },
+            });
+
+        const extractResult = extractionResponse.data;
+        const extractError = extractionResponse.error;
 
         if (extractError) {
           console.error('Content extraction error:', extractError);
@@ -1147,7 +1142,7 @@ I'll answer based on the relevant information found above.`;
           });
           // Refine conversation title with AI after first response
           if (conversationNeedsTitle(currentConversationId)) {
-            generateSmartTitle(currentConversationId, userMessage, response);
+            generateSmartTitle(currentConversationId, userMessage);
           }
         }
       } else {
@@ -1191,7 +1186,7 @@ I'll answer based on the relevant information found above.`;
             });
             // Refine conversation title with AI after first response
             if (conversationNeedsTitle(currentConversationId)) {
-              generateSmartTitle(currentConversationId, userMessage, response);
+              generateSmartTitle(currentConversationId, userMessage);
             }
           }
         } catch (error) {
@@ -1406,7 +1401,7 @@ I'll answer based on the relevant information found above.`;
                         <div className="w-full max-w-md">
                           <p className="text-sm font-medium mb-3">Quick Actions:</p>
                           <div className="grid grid-cols-1 gap-2">
-                            {QUICK_ACTIONS.map((action) => {
+                            {REAM_AI_QUICK_ACTIONS.map((action) => {
                               const disabled =
                                 isStreaming ||
                                 isTyping ||
@@ -1435,7 +1430,7 @@ I'll answer based on the relevant information found above.`;
                       <div className="w-full max-w-md">
                         <p className="text-sm font-medium mb-3">Try asking:</p>
                         <div className="grid grid-cols-1 gap-2">
-                          {EXAMPLE_PROMPTS.map((prompt, i) => (
+                          {REAM_AI_EXAMPLE_PROMPTS.map((prompt, i) => (
                             <Button
                               key={i}
                               variant="ghost"

@@ -3,6 +3,8 @@
  * Uses in-memory storage (for single-instance) or can be extended to use Redis
  */
 
+declare const Deno: any;
+
 interface RateLimitConfig {
   maxRequests: number;
   windowMs: number; // Time window in milliseconds
@@ -132,6 +134,92 @@ export const RATE_LIMIT_PRESETS = {
     windowMs: 60 * 1000, // 1 minute
   },
 } as const;
+
+let kvInitAttempted = false;
+let kvInstance: any = null;
+
+async function getKvInstance() {
+  if (kvInitAttempted) {
+    return kvInstance;
+  }
+
+  kvInitAttempted = true;
+
+  try {
+    if (typeof Deno !== 'undefined' && typeof Deno.openKv === 'function') {
+      kvInstance = await Deno.openKv();
+    }
+  } catch (error) {
+    console.warn('Distributed rate limiter unavailable, using in-memory fallback', error);
+    kvInstance = null;
+  }
+
+  return kvInstance;
+}
+
+/**
+ * Distributed-first rate limit check for multi-instance deployments.
+ * Falls back to in-memory checks when Deno KV is unavailable.
+ */
+export async function checkRateLimitDistributed(config: RateLimitConfig): Promise<{
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+  retryAfter?: number;
+}> {
+  const kv = await getKvInstance();
+
+  if (!kv) {
+    return checkRateLimit(config);
+  }
+
+  const { maxRequests, windowMs, identifier } = config;
+  const key = ['rate_limit', identifier];
+  const now = Date.now();
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const current = await kv.get(key);
+    const currentValue = current?.value as { count: number; resetAt: number } | null;
+
+    if (!currentValue || currentValue.resetAt < now) {
+      const nextValue = { count: 1, resetAt: now + windowMs };
+      const committed = await kv.atomic().check(current).set(key, nextValue).commit();
+
+      if (committed.ok) {
+        return {
+          allowed: true,
+          remaining: maxRequests - 1,
+          resetAt: nextValue.resetAt,
+        };
+      }
+
+      continue;
+    }
+
+    if (currentValue.count >= maxRequests) {
+      const retryAfter = Math.ceil((currentValue.resetAt - now) / 1000);
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt: currentValue.resetAt,
+        retryAfter,
+      };
+    }
+
+    const nextValue = { count: currentValue.count + 1, resetAt: currentValue.resetAt };
+    const committed = await kv.atomic().check(current).set(key, nextValue).commit();
+
+    if (committed.ok) {
+      return {
+        allowed: true,
+        remaining: Math.max(0, maxRequests - nextValue.count),
+        resetAt: nextValue.resetAt,
+      };
+    }
+  }
+
+  return checkRateLimit(config);
+}
 
 /**
  * Create rate limit headers for response

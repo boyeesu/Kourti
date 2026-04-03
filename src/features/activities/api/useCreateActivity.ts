@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface CreateActivityData {
   title: string;
@@ -21,28 +21,10 @@ export function useCreateActivity() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ caseId, payload }: { caseId: string; payload: CreateActivityData }) => {
-      // Get current user's organization
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) throw new Error('User not authenticated');
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.data.user.id)
-        .single();
-
-      if (!profile?.organization_id) throw new Error('User organization not found');
-
-      const { data, error } = await supabase
-        .from('case_activities')
-        .insert({ 
-          ...payload, 
-          case_id: caseId,
-          organization_id: profile.organization_id 
-        })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await invokeNodeApi<Record<string, unknown>>('/api/v1/misc/case-activities', {
+        method: 'POST',
+        body: { ...payload, case_id: caseId },
+      });
       return data;
     },
     onSuccess: (_, { caseId }) => qc.invalidateQueries({ queryKey: ['activities', caseId] }),
@@ -56,18 +38,20 @@ export function useUpdateActivity() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updateData }: UpdateActivityData) => {
-      const { data, error } = await supabase
-        .from('case_activities')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await invokeNodeApi<Record<string, unknown>>(
+        `/api/v1/misc/case-activities/${id}`,
+        {
+          method: 'PATCH',
+          body: updateData,
+        }
+      );
       return data;
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['activities', data.case_id] });
+      const caseId = (data as Record<string, unknown>)?.case_id;
+      if (caseId) {
+        qc.invalidateQueries({ queryKey: ['activities', caseId] });
+      }
     },
   });
 }

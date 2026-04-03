@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { toast } from 'sonner';
 
 export function useDeleteActivity() {
@@ -7,9 +7,9 @@ export function useDeleteActivity() {
 
   return useMutation({
     mutationFn: async (activityId: string) => {
-      const { error } = await supabase.from('case_activities').delete().eq('id', activityId);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/misc/case-activities/${activityId}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activities'] });

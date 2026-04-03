@@ -1,14 +1,9 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Client } from '@/types';
-import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
-
-// Type definitions using database types
-type ClientInsert = TablesInsert<'clients'>;
-type ClientUpdate = TablesUpdate<'clients'>;
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface CreateClientData {
   name: string;
@@ -29,23 +24,6 @@ interface ClientsQueryResult {
   total: number;
 }
 
-// Request deduplication helper
-const pendingClientMutations = new Map<string, Promise<unknown>>();
-
-function deduplicateClientMutation<T>(key: string, mutationFn: () => Promise<T>): Promise<T> {
-  const existing = pendingClientMutations.get(key);
-  if (existing) {
-    return existing as Promise<T>;
-  }
-
-  const promise = mutationFn().finally(() => {
-    pendingClientMutations.delete(key);
-  });
-
-  pendingClientMutations.set(key, promise);
-  return promise;
-}
-
 /**
  * Paginated clients hook: fetches clients page-by-page to improve performance.
  * Returns an object with `items` and `total` count.
@@ -58,32 +36,9 @@ export function useClients(page = 1, pageSize = 10): UseQueryResult<ClientsQuery
     queryFn: async (): Promise<ClientsQueryResult> => {
       if (!organizationId) throw new Error('Organization ID missing');
 
-      const from = (page - 1) * pageSize;
-      const to = page * pageSize - 1;
-
-      const { data, error, count } = await supabase
-        .from('clients')
-        .select(`*, cases!cases_client_id_fkey(count), contracts!fk_contracts_client_id(count)`, {
-          count: 'exact',
-        })
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false })
-        .range(from, to);
-
-      if (error) {
-        throw error;
-      }
-
-      const items = (data ?? []).map((client) => {
-        const typed = client as unknown as { cases: unknown[]; contracts: unknown[] };
-        return {
-          ...client,
-          cases: typed.cases ?? [],
-          contracts: typed.contracts ?? [],
-        };
-      }) as Client[];
-
-      return { items, total: count ?? 0 };
+      return invokeNodeApi<ClientsQueryResult>('/api/v1/clients', {
+        query: { page: String(page), pageSize: String(pageSize) },
+      });
     },
     enabled: Boolean(organizationId) && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -102,15 +57,7 @@ export function useClient(id: string) {
         throw new Error('User not authenticated or organization not found');
       }
 
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', id)
-        .eq('organization_id', organizationId)
-        .single();
-
-      if (error) throw error;
-      return data as Client;
+      return invokeNodeApi<Client>(`/api/v1/clients/${id}`);
     },
     enabled: !!id && !!user?.id && !!organizationId,
     staleTime: 5 * 60 * 1000,
@@ -129,22 +76,7 @@ export function useCreateClient() {
         throw new Error('User not authenticated or organization not found');
       }
 
-      // Deduplication to prevent double submissions
-      const dedupeKey = `create-client-${clientData.name}-${Date.now()}`;
-
-      return deduplicateClientMutation(dedupeKey, async () => {
-        const insertData: ClientInsert = {
-          ...clientData,
-          organization_id: organizationId,
-          created_by: user.id,
-          user_id: user.id,
-        };
-
-        const { data, error } = await supabase.from('clients').insert(insertData).select().single();
-
-        if (error) throw error;
-        return data;
-      });
+      return invokeNodeApi<Client>('/api/v1/clients', { method: 'POST', body: clientData });
     },
     onSuccess: () => {
       // Granular invalidation
@@ -169,22 +101,7 @@ export function useUpdateClient() {
 
   return useMutation({
     mutationFn: async ({ id, ...updateData }: UpdateClientData) => {
-      // Deduplication
-      const dedupeKey = `update-client-${id}`;
-
-      return deduplicateClientMutation(dedupeKey, async () => {
-        const clientUpdate: ClientUpdate = updateData;
-
-        const { data, error } = await supabase
-          .from('clients')
-          .update(clientUpdate)
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      });
+      return invokeNodeApi<Client>(`/api/v1/clients/${id}`, { method: 'PATCH', body: updateData });
     },
     // Optimistic update
     onMutate: async ({ id, ...updateData }) => {
@@ -233,15 +150,8 @@ export function useDeleteClient() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Deduplication
-      const dedupeKey = `delete-client-${id}`;
-
-      return deduplicateClientMutation(dedupeKey, async () => {
-        const { error } = await supabase.from('clients').delete().eq('id', id);
-
-        if (error) throw error;
-        return id;
-      });
+      await invokeNodeApi(`/api/v1/clients/${id}`, { method: 'DELETE' });
+      return id;
     },
     // Optimistic delete
     onMutate: async (id) => {

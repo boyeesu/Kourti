@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface ActivityType {
   value: string;
@@ -30,26 +30,10 @@ export function useActivityTypes() {
     queryKey: ['activity-types'],
     queryFn: async (): Promise<ActivityType[]> => {
       try {
-        // Get distinct activity types from existing activities
-        const { data, error } = await supabase
-          .from('case_activities')
-          .select('activity_type')
-          .not('activity_type', 'is', null);
-
-        if (error) throw error;
-
-        // Get unique activity types
-        const uniqueTypes = [...new Set((data || []).map(item => item.activity_type))];
-        
-        // If we have existing types, use them, otherwise use defaults
-        if (uniqueTypes.length > 0) {
-          return uniqueTypes.map(type => ({
-            value: type,
-            label: formatActivityTypeLabel(type)
-          }));
+        const types = await invokeNodeApi<string[]>('/api/v1/misc/activity-types');
+        if (types.length > 0) {
+          return types.map((type) => ({ value: type, label: formatActivityTypeLabel(type) }));
         }
-        
-        // Return default types if no activities exist yet
         return defaultActivityTypes;
       } catch (error) {
         logError('Failed to fetch activity types', error);

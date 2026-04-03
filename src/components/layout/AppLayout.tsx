@@ -386,6 +386,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const searchResults = globalSearchResults ?? {
     cases: [],
+    documents: [],
+    contracts: [],
     clients: [],
     calendarEvents: [],
     voiceRecordings: [],
@@ -457,6 +459,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
 type GlobalSearchResults = {
   cases: {
+    id: string;
+    title: string;
+    subtitle?: string;
+    url: string;
+    badge?: { label: string; variant?: string };
+  }[];
+  documents: {
+    id: string;
+    title: string;
+    subtitle?: string;
+    url: string;
+    badge?: { label: string; variant?: string };
+  }[];
+  contracts: {
     id: string;
     title: string;
     subtitle?: string;
@@ -686,7 +702,7 @@ function AppLayoutInner({
 
             <CommandDialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
               <CommandInput
-                placeholder="Search cases, clients, calendar events, and voice content..."
+                placeholder="Search cases, documents, contracts, clients, calendar events, and voice content..."
                 value={term}
                 onValueChange={setTerm}
               />
@@ -786,6 +802,80 @@ function AppLayoutInner({
                           <span className="text-sm font-medium text-foreground">{item.title}</span>
                           {item.subtitle && (
                             <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                          )}
+                        </div>
+                        {item.badge && (
+                          <Badge
+                            variant={
+                              (item.badge.variant as
+                                | 'secondary'
+                                | 'destructive'
+                                | 'default'
+                                | 'outline') ?? 'secondary'
+                            }
+                            className="ml-2"
+                          >
+                            {item.badge.label}
+                          </Badge>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {hasSearchTerm && searchResults && searchResults.documents.length > 0 && (
+                  <CommandGroup heading="Documents">
+                    {searchResults.documents.map((item) => (
+                      <CommandItem
+                        key={`document-${item.id}`}
+                        value={`document-${item.title}`}
+                        className="flex items-center gap-3"
+                        onSelect={() => handleSearchResultSelect(item.url)}
+                      >
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col flex-1">
+                          <span className="text-sm font-medium text-foreground">{item.title}</span>
+                          {item.subtitle && (
+                            <span className="text-xs text-muted-foreground line-clamp-2">
+                              {item.subtitle}
+                            </span>
+                          )}
+                        </div>
+                        {item.badge && (
+                          <Badge
+                            variant={
+                              (item.badge.variant as
+                                | 'secondary'
+                                | 'destructive'
+                                | 'default'
+                                | 'outline') ?? 'outline'
+                            }
+                            className="ml-2"
+                          >
+                            {item.badge.label}
+                          </Badge>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {hasSearchTerm && searchResults && searchResults.contracts.length > 0 && (
+                  <CommandGroup heading="Contracts">
+                    {searchResults.contracts.map((item) => (
+                      <CommandItem
+                        key={`contract-${item.id}`}
+                        value={`contract-${item.title}`}
+                        className="flex items-center gap-3"
+                        onSelect={() => handleSearchResultSelect(item.url)}
+                      >
+                        <FileCheck className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col flex-1">
+                          <span className="text-sm font-medium text-foreground">{item.title}</span>
+                          {item.subtitle && (
+                            <span className="text-xs text-muted-foreground line-clamp-2">
+                              {item.subtitle}
+                            </span>
                           )}
                         </div>
                         {item.badge && (

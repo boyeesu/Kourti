@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { logError, logWarn } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface RolePermission {
   id: string;
@@ -45,21 +45,10 @@ export function useRolePermissions(roleName?: string) {
     queryKey: ['role-permissions', roleName],
     queryFn: async () => {
       try {
-        // Query via PostgREST instead of raw SQL. RLS policies on the table
-        // will automatically scope results to the current user's organization.
-        let q = supabase
-          .from('role_permissions')
-          .select('*')
-          .order('resource', { ascending: true })
-          .order('action', { ascending: true });
-
-        if (roleName) q = q.eq('role_name', roleName);
-
-        const { data, error } = await q;
-        if (error) throw error;
-        return (data || []) as RolePermission[];
+        return invokeNodeApi<RolePermission[]>('/api/v1/roles/permissions', {
+          query: { roleName },
+        });
       } catch (error) {
-        // Fallback: return empty array if table doesn't exist yet
         logWarn('Role permissions table not ready yet', { error });
         return [] as RolePermission[];
       }
@@ -72,15 +61,7 @@ export function useAllRolePermissions() {
     queryKey: ['all-role-permissions'],
     queryFn: async () => {
       try {
-        // Fetch all role permissions in the current organization (enforced by RLS)
-        const { data, error } = await supabase
-          .from('role_permissions')
-          .select('*')
-          .order('role_name', { ascending: true })
-          .order('resource', { ascending: true })
-          .order('action', { ascending: true });
-        if (error) throw error;
-        return (data || []) as RolePermission[];
+        return invokeNodeApi<RolePermission[]>('/api/v1/roles/permissions');
       } catch (error) {
         logWarn('Role permissions table not ready yet', { error });
         return [] as RolePermission[];
@@ -94,38 +75,11 @@ export function useUpdatePermission() {
 
   return useMutation({
     mutationFn: async (permissionData: UpdatePermissionData) => {
-      const userId = await getCurrentUserId();
-      if (!userId) throw new Error('User not authenticated');
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .single();
-
-      if (!profile) throw new Error('Profile not found');
-
-      try {
-        // Upsert using PostgREST
-        const { error } = await supabase.from('role_permissions').upsert(
-          {
-            role_name: permissionData.role_name,
-            organization_id: profile.organization_id,
-            resource: permissionData.resource,
-            action: permissionData.action,
-            granted: permissionData.granted,
-            created_by: userId,
-          },
-          {
-            onConflict: 'role_name,organization_id,resource,action',
-            ignoreDuplicates: false,
-          }
-        );
-        if (error) throw error;
-      } catch (error) {
-        logError('Permission update error', error);
-        throw error;
-      }
+      await invokeNodeApi('/api/v1/roles/permissions', {
+        method: 'PUT',
+        body: permissionData,
+      });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['role-permissions'] });
@@ -148,18 +102,15 @@ export function useUserPermission(resource: Resource, action: Action) {
       if (!userId) return false;
 
       try {
-        // Use has_permission RPC which uses auth.uid() internally
-        const { data, error } = await supabase.rpc('has_permission', {
-          p_resource: resource,
-          p_action: action,
-        });
-
-        if (error) throw error;
-        return data as boolean;
+        const result = await invokeNodeApi<{ granted: boolean }>(
+          '/api/v1/roles/permissions/check',
+          {
+            query: { resource, action },
+          }
+        );
+        return result.granted;
       } catch (error) {
         logError('Permission check error, denying access for security', error);
-        // SECURITY: Fail-closed - deny access when permission system has issues
-        // RLS still enforces at the database level, but UI should also block
         return false;
       }
     },

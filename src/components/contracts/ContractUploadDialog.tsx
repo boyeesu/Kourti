@@ -18,7 +18,7 @@ import { useCreateContract } from '@/hooks/useContracts';
 import { useCases } from '@/hooks/useCases';
 import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { uploadDocument } from '@/lib/fileApi';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 interface ContractUploadDialogProps {
@@ -133,20 +133,9 @@ export function ContractUploadDialog({ open, onOpenChange }: ContractUploadDialo
         throw new Error(validation.error || 'File validation failed');
       }
 
-      // Upload file to Supabase storage
-      const sanitizedName = uploadedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const fileName = `${organizationId}/${Date.now()}_${sanitizedName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileName, uploadedFile, {
-          contentType: uploadedFile.type,
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw new Error(`File upload failed: ${uploadError.message}`);
-      }
+      // Upload file to storage via Node backend
+      const uploadResult = await uploadDocument(uploadedFile);
+      const fileName = uploadResult.filePath;
 
       // Extract text content for searchability
       let extractedText = '';

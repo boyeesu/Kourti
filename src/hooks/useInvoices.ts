@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { toast } from 'sonner';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface InvoiceItem {
   description: string;
@@ -47,20 +46,8 @@ export function useInvoices() {
     queryKey: ['invoices', organizationId],
     queryFn: async () => {
       if (!organizationId) return [] as Invoice[];
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*, client:client_id(id, name), case:case_id(id, title)')
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
 
-      // Transform the raw data to match the Invoice type
-      return (data || []).map((item) => ({
-        ...item,
-        // Map database fields to interface fields
-        vat: item?.tax_amount ?? 0,
-        items: [], // This will need to come from invoice_items table
-      })) as Invoice[];
+      return invokeNodeApi<Invoice[]>('/api/v1/invoices');
     },
     enabled: !!organizationId,
     staleTime: 2 * 60 * 1000,
@@ -72,80 +59,7 @@ export function useCreateInvoice() {
 
   return useMutation({
     mutationFn: async (data: CreateInvoiceData) => {
-      const userId = await getCurrentUserId();
-      if (!userId) throw new Error('User not authenticated.');
-
-      // Get organization ID from user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .single();
-
-      if (profileError) throw new Error('Could not retrieve user profile information.');
-      if (!profile?.organization_id)
-        throw new Error('No organization associated with your account.');
-
-      // Calculate totals from items
-      const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-      const total = subtotal + (data.vat ?? 0);
-
-      // Generate invoice number using database function
-      const { data: invoiceNumber, error: numberError } = await supabase.rpc(
-        'generate_invoice_number',
-        { org_id: profile.organization_id }
-      );
-
-      if (numberError) throw new Error('Could not generate invoice number.');
-
-      // Fix the client_id assignment issue
-      const invoiceData = {
-        invoice_number: invoiceNumber,
-        title: data.title || `Invoice for ${data.client_id}`,
-        organization_id: profile.organization_id,
-        client_id: data.client_id, // Use the correct client_id
-        case_id: data.case_id,
-        subtotal,
-        tax_rate: subtotal > 0 ? (data.vat / subtotal) * 100 : 0,
-        tax_amount: data.vat ?? 0,
-        total_amount: total,
-        amount: total, // For backwards compatibility
-        status: data.status,
-        issue_date: data.issue_date || new Date().toISOString().split('T')[0],
-        due_date:
-          data.due_date ||
-          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        notes: data.notes,
-        created_by: userId || '',
-      };
-
-      // Create invoice and items in a transaction
-      const { data: newInvoice, error } = await supabase
-        .from('invoices')
-        .insert(invoiceData as never)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Insert invoice items if any
-      if (data.items && data.items.length > 0) {
-        const itemsToInsert = data.items.map((item) => ({
-          invoice_id: newInvoice.id,
-          organization_id: profile.organization_id,
-          description: item.description,
-          quantity: item.quantity,
-          rate: item.unit_price,
-          amount: item.quantity * item.unit_price,
-        }));
-
-        const { error: itemsError } = await supabase.from('invoice_items').insert(itemsToInsert);
-
-        if (itemsError)
-          throw new Error('Invoice created but items failed to save: ' + itemsError.message);
-      }
-
-      return newInvoice;
+      return invokeNodeApi<Invoice>('/api/v1/invoices', { method: 'POST', body: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -164,74 +78,7 @@ export function useUpdateInvoice() {
 
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<CreateInvoiceData> & { id: string }) => {
-      // Calculate totals from items if provided
-      let updateData: Record<string, unknown> = { ...data };
-
-      if (data.items && data.items.length > 0) {
-        const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-        const total = subtotal + (data.vat ?? 0);
-
-        updateData = {
-          ...data,
-          subtotal,
-          tax_rate: subtotal > 0 ? ((data.vat ?? 0) / subtotal) * 100 : 0,
-          tax_amount: data.vat ?? 0,
-          total_amount: total,
-          amount: total, // For backwards compatibility
-        };
-
-        // Update invoice items
-        if (data.items) {
-          // Get organization ID from user profile
-          const userId = await getCurrentUserId();
-          if (!userId) throw new Error('User not authenticated.');
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('organization_id')
-            .eq('user_id', userId)
-            .single();
-
-          if (profile?.organization_id) {
-            // Delete existing items
-            await supabase.from('invoice_items').delete().eq('invoice_id', id);
-
-            // Insert new items
-            const itemsToInsert = data.items.map((item) => ({
-              invoice_id: id,
-              organization_id: profile.organization_id,
-              description: item.description,
-              quantity: item.quantity,
-              rate: item.unit_price,
-              amount: item.quantity * item.unit_price,
-            }));
-
-            await supabase.from('invoice_items').insert(itemsToInsert);
-          }
-        }
-
-        // Remove items from update data as they're handled separately
-        delete updateData.items;
-      }
-
-      // Get organization ID for defense-in-depth
-      const orgUserId = await getCurrentUserId();
-      if (!orgUserId) throw new Error('User not authenticated.');
-      const { data: updateProfile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', orgUserId)
-        .single();
-      if (!updateProfile?.organization_id) throw new Error('Organization not found.');
-
-      const { data: updated, error } = await supabase
-        .from('invoices')
-        .update(updateData as never)
-        .eq('id', id)
-        .eq('organization_id', updateProfile.organization_id)
-        .select()
-        .single();
-      if (error) throw error;
-      return updated;
+      return invokeNodeApi<Invoice>(`/api/v1/invoices/${id}`, { method: 'PATCH', body: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -250,21 +97,7 @@ export function useDeleteInvoice() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const userId = await getCurrentUserId();
-      if (!userId) throw new Error('User not authenticated.');
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .single();
-      if (!profile?.organization_id) throw new Error('Organization not found.');
-
-      const { error } = await supabase
-        .from('invoices')
-        .delete()
-        .eq('id', id)
-        .eq('organization_id', profile.organization_id);
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/invoices/${id}`, { method: 'DELETE' });
       return id;
     },
     onSuccess: () => {

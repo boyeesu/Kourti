@@ -17,6 +17,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
+import { invokeNodeApi, isNodeBackendEnabled } from '@/lib/backendApi';
 import { toast } from 'sonner';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
@@ -241,32 +242,46 @@ export default function DocumentReview() {
       setAnalysisProgress(50);
       setProgressLabel('AI is analyzing the document...');
 
-      const { data, error } = await invokeFunctionWithCsrf<{
-        analysis?: string;
-        persona?: string;
-        analysisType?: string;
-        success?: boolean;
-        tokensUsed?: number;
-      }>('advanced-contract-analysis', {
-        body: payload,
-      });
-
-      if (error) {
-        setAnalysisProgress(60);
-        setProgressLabel('Trying fallback...');
-        const fallback = await invokeFunctionWithCsrf<{
+      if (isNodeBackendEnabled()) {
+        const nodeData = await invokeNodeApi<{
           analysis?: string;
           persona?: string;
           analysisType?: string;
           success?: boolean;
           tokensUsed?: number;
-        }>('contract-analysis-ai', {
+        }>('/api/v1/ai/advanced-contract-analysis', {
+          method: 'POST',
           body: payload,
         });
-        if (fallback.error) throw fallback.error;
-        setResult(normalizeResult(fallback.data));
+        setResult(normalizeResult(nodeData));
       } else {
-        setResult(normalizeResult(data));
+        const { data, error } = await invokeFunctionWithCsrf<{
+          analysis?: string;
+          persona?: string;
+          analysisType?: string;
+          success?: boolean;
+          tokensUsed?: number;
+        }>('advanced-contract-analysis', {
+          body: payload,
+        });
+
+        if (error) {
+          setAnalysisProgress(60);
+          setProgressLabel('Trying fallback...');
+          const fallback = await invokeFunctionWithCsrf<{
+            analysis?: string;
+            persona?: string;
+            analysisType?: string;
+            success?: boolean;
+            tokensUsed?: number;
+          }>('contract-analysis-ai', {
+            body: payload,
+          });
+          if (fallback.error) throw fallback.error;
+          setResult(normalizeResult(fallback.data));
+        } else {
+          setResult(normalizeResult(data));
+        }
       }
 
       setAnalysisProgress(100);

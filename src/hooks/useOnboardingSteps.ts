@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from './useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface OnboardingStep {
   id: string;
@@ -23,15 +23,7 @@ export function useOnboardingSteps() {
       const userId = await getCurrentUserId();
       if (!userId || !organizationId) return [];
 
-      const { data, error } = await supabase
-        .from('user_onboarding_steps' as any)
-        .select('*')
-        .eq('user_id', userId)
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      return (data as unknown as OnboardingStep[]) || [];
+      return invokeNodeApi<OnboardingStep[]>('/api/v1/misc/onboarding-steps');
     },
     enabled: !!organizationId,
   });
@@ -47,26 +39,10 @@ export function useOnboardingSteps() {
       const userId = await getCurrentUserId();
       if (!userId || !organizationId) throw new Error('User or organization not found');
 
-      const { data, error } = await supabase
-        .from('user_onboarding_steps' as any)
-        .upsert(
-          {
-            user_id: userId,
-            organization_id: organizationId,
-            step_name: stepName,
-            completed: true,
-            completed_at: new Date().toISOString(),
-            metadata: metadata || null,
-          },
-          {
-            onConflict: 'user_id,step_name',
-          }
-        )
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<any>(`/api/v1/misc/onboarding-steps/${stepName}`, {
+        method: 'PUT',
+        body: { metadata },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });

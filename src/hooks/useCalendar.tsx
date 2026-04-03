@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { CalendarEvent } from '@/types';
 import { logWarn } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 // Assuming CalendarEvent type is defined elsewhere and matches your database schema.
 // Example:
@@ -64,17 +63,7 @@ export function useCalendarEvents() {
         return [];
       }
 
-      const { data, error } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .order('start_date', { ascending: true });
-
-      if (error) {
-        throw error;
-      }
-
-      return (data as unknown as CalendarEvent[]) || [];
+      return invokeNodeApi<CalendarEvent[]>('/api/v1/calendar/events');
     },
     // The query is only enabled if all necessary dependencies are met.
     enabled: !!organizationId && !orgLoading && !orgError,
@@ -90,14 +79,7 @@ export function useCalendarEvent(id: string) {
   return useQuery({
     queryKey: ['calendar-event', { id }],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .eq('id', id as any)
-        .single();
-
-      if (error) throw error;
-      return (data as unknown as CalendarEvent) || {};
+      return invokeNodeApi<CalendarEvent>(`/api/v1/calendar/events/${id}`);
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -118,16 +100,9 @@ export function useCalendarEventsByDateRange(startDate: string, endDate: string)
         return [];
       }
 
-      const { data, error } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .gte('start_date', startDate)
-        .lte('end_date', endDate)
-        .order('start_date', { ascending: true });
-
-      if (error) throw error;
-      return (data as unknown as CalendarEvent[]) || [];
+      return invokeNodeApi<CalendarEvent[]>('/api/v1/calendar/events', {
+        query: { startDate, endDate },
+      });
     },
     enabled: !!startDate && !!endDate && !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
@@ -141,14 +116,9 @@ export function useCalendarEventsByClient(clientId: string) {
   return useQuery({
     queryKey: ['calendar-events', 'client', clientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .eq('client_id', clientId as any)
-        .order('start_date', { ascending: true });
-
-      if (error) throw error;
-      return (data as unknown as CalendarEvent[]) || [];
+      return invokeNodeApi<CalendarEvent[]>('/api/v1/calendar/events', {
+        query: { clientId },
+      });
     },
     enabled: !!clientId,
     staleTime: 5 * 60 * 1000,
@@ -170,44 +140,10 @@ export function useCreateCalendarEvent() {
         throw new Error('Organization not found. Cannot create calendar event.');
       }
 
-      const userId = await getCurrentUserId();
-
-      // Explicitly build insert data with only fields that exist in calendar_events table
-      // This prevents errors from extra form fields (reminders, recurrence fields, etc.)
-      const insertData: any = {
-        title: eventData.title,
-        description: eventData.description || null,
-        start_date: eventData.start_date,
-        end_date: eventData.end_date,
-        location: eventData.location || null,
-        attendees: eventData.attendees || null,
-        event_type: eventData.event_type || null,
-        case_id: eventData.case_id || null,
-        client_id: eventData.client_id || null,
-        organization_id: organizationId,
-        created_by: userId,
-      };
-
-      // Add recurring event fields only if recurring is enabled
-      // Only include these fields if the migration has been applied and event is actually recurring
-      if (eventData.is_recurring && eventData.recurrence_pattern) {
-        insertData.is_recurring = true;
-        insertData.recurrence_pattern = eventData.recurrence_pattern;
-        if (eventData.recurrence_end_date) {
-          insertData.recurrence_end_date = eventData.recurrence_end_date;
-        }
-      }
-      // Note: We don't set is_recurring to false if not recurring
-      // This avoids errors if the column doesn't exist yet
-
-      const { data, error } = await supabase
-        .from('calendar_events')
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<CalendarEvent>('/api/v1/calendar/events', {
+        method: 'POST',
+        body: eventData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -235,15 +171,10 @@ export function useUpdateCalendarEvent() {
       id,
       ...updateData
     }: { id: string } & Partial<CreateCalendarEventData>) => {
-      const { data, error } = await supabase
-        .from('calendar_events')
-        .update(updateData as any)
-        .eq('id', id as any)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<CalendarEvent>(`/api/v1/calendar/events/${id}`, {
+        method: 'PATCH',
+        body: updateData,
+      });
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({
@@ -271,12 +202,8 @@ export function useDeleteCalendarEvent() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('calendar_events')
-        .delete()
-        .eq('id', id as any);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/calendar/events/${id}`, { method: 'DELETE' });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

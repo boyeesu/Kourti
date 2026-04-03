@@ -1,34 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { logError } from '@/lib/logger';
-
-// ---------------------------------------------------------------------------
-// Helpers – minimal query-builder type for tables / RPCs missing from the
-// generated Supabase schema.  This avoids using `any` while still allowing
-// the fluent chained API (.from().select().eq()…).
-// ---------------------------------------------------------------------------
-interface SupabaseQueryResult {
-  data: unknown;
-  error: { message: string } | null;
-}
-
-interface SupabaseQueryBuilder extends PromiseLike<SupabaseQueryResult> {
-  select: (columns: string) => SupabaseQueryBuilder;
-  eq: (column: string, value: string) => SupabaseQueryBuilder;
-  order: (column: string, options: { ascending: boolean }) => SupabaseQueryBuilder;
-  limit: (count: number) => SupabaseQueryBuilder;
-  maybeSingle: () => PromiseLike<SupabaseQueryResult>;
-}
-
-interface UntypedSupabaseClient {
-  from: (table: string) => SupabaseQueryBuilder;
-  rpc: (fn: string, params: Record<string, unknown>) => Promise<SupabaseQueryResult>;
-}
-
-const untypedClient = supabase as unknown as UntypedSupabaseClient;
+import { invokeNodeApi } from '@/lib/backendApi';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,18 +93,7 @@ export function useCurrentSubscription() {
       try {
         if (!orgId) return null;
 
-        const { data, error } = await untypedClient
-          .from('subscriptions')
-          .select('*')
-          .eq('organization_id', orgId)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) throw error;
-
-        return (data as Subscription) ?? null;
+        return invokeNodeApi<Subscription | null>('/api/v1/misc/subscriptions/current');
       } catch (error) {
         logError('Error fetching current subscription', error);
         throw error;
@@ -153,16 +117,9 @@ export function usePaymentHistory(limit = 20) {
       try {
         if (!orgId) return [];
 
-        const { data, error } = await untypedClient
-          .from('payment_transactions')
-          .select('*')
-          .eq('organization_id', orgId)
-          .order('created_at', { ascending: false })
-          .limit(limit);
-
-        if (error) throw error;
-
-        return (data || []) as PaymentTransaction[];
+        return invokeNodeApi<PaymentTransaction[]>('/api/v1/misc/subscriptions/payments', {
+          query: { limit: String(limit) },
+        });
       } catch (error) {
         logError('Error fetching payment history', error);
         throw error;
@@ -174,24 +131,23 @@ export function usePaymentHistory(limit = 20) {
 }
 
 /**
- * Mutation that calls the `flutterwave-init-payment` edge function and
- * returns a payment link the caller can redirect to.
+ * Mutation that calls the Node backend to initiate a Flutterwave payment
+ * and returns a payment link the caller can redirect to.
  */
 export function useInitiatePayment() {
   return useMutation({
     mutationFn: async (params: InitiatePaymentParams) => {
       try {
-        const { data, error } = await supabase.functions.invoke('flutterwave-init-payment', {
-          body: params,
-        });
-
-        if (error) throw error;
+        const data = await invokeNodeApi<{ payment_link: string; tx_ref: string }>(
+          '/api/v1/misc/subscriptions/initiate-payment',
+          { method: 'POST', body: params }
+        );
 
         if (!data?.payment_link) {
           throw new Error('No payment link returned from server');
         }
 
-        return data as { payment_link: string; tx_ref: string };
+        return data;
       } catch (error) {
         logError('Error initiating payment', error);
         throw error;
@@ -207,8 +163,8 @@ export function useInitiatePayment() {
 }
 
 /**
- * Mutation that calls the `flutterwave-subscription-manage` edge function
- * to activate, deactivate, or cancel a subscription.
+ * Mutation that calls the Node backend to activate, deactivate, or cancel
+ * a subscription.
  */
 export function useManageSubscription() {
   const queryClient = useQueryClient();
@@ -218,12 +174,10 @@ export function useManageSubscription() {
   return useMutation({
     mutationFn: async (params: ManageSubscriptionParams) => {
       try {
-        const { data, error } = await supabase.functions.invoke('flutterwave-subscription-manage', {
+        return await invokeNodeApi<unknown>('/api/v1/misc/subscriptions/manage', {
+          method: 'POST',
           body: params,
         });
-
-        if (error) throw error;
-        return data;
       } catch (error) {
         logError('Error managing subscription', error);
         throw error;
@@ -253,9 +207,8 @@ export function useManageSubscription() {
 }
 
 /**
- * Mutation that calls the `flutterwave-verify-payment` edge function to
- * manually verify a pending transaction with Flutterwave and activate
- * the subscription if the payment was successful.
+ * Mutation that calls the Node backend to verify a pending transaction
+ * with Flutterwave and activate the subscription if payment was successful.
  */
 export function useVerifyPayment() {
   const queryClient = useQueryClient();
@@ -265,12 +218,10 @@ export function useVerifyPayment() {
   return useMutation({
     mutationFn: async (params: VerifyPaymentParams): Promise<VerifyPaymentResult> => {
       try {
-        const { data, error } = await supabase.functions.invoke('flutterwave-verify-payment', {
-          body: params,
-        });
-
-        if (error) throw error;
-        return data as VerifyPaymentResult;
+        return await invokeNodeApi<VerifyPaymentResult>(
+          '/api/v1/misc/subscriptions/verify-payment',
+          { method: 'POST', body: params }
+        );
       } catch (error) {
         logError('Error verifying payment', error);
         throw error;
@@ -299,7 +250,7 @@ export function useVerifyPayment() {
 
 /**
  * Combines subscription, plan, and payment history into a single query
- * using the `get_organization_billing` RPC.
+ * via the Node backend.
  */
 export function useOrganizationBilling() {
   const { user } = useAuth();
@@ -312,16 +263,7 @@ export function useOrganizationBilling() {
       try {
         if (!orgId) return null;
 
-        const { data, error } = await untypedClient.rpc('get_organization_billing', {
-          p_organization_id: orgId,
-        });
-
-        if (error) throw error;
-
-        // The RPC may return a single row or an array; normalize.
-        const billing = Array.isArray(data) ? data[0] : data;
-
-        return (billing as OrganizationBilling) ?? null;
+        return invokeNodeApi<OrganizationBilling | null>('/api/v1/misc/subscriptions/billing');
       } catch (error) {
         logError('Error fetching organization billing', error);
         throw error;

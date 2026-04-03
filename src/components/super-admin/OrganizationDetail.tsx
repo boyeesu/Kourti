@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { useOrganization } from '@/hooks/useOrganization';
 import { Organization } from '@/hooks/useAllOrganizations';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,58 +58,10 @@ function useOrgSubscriptions(orgId: string | null) {
     queryFn: async () => {
       if (!orgId) return [];
       try {
-        const client = supabase as unknown as {
-          from: (table: string) => {
-            select: (cols: string) => {
-              eq: (
-                col: string,
-                val: string
-              ) => {
-                order: (
-                  col: string,
-                  opts: { ascending: boolean }
-                ) => PromiseLike<{
-                  data: unknown;
-                  error: { message: string } | null;
-                }>;
-              };
-            };
-          };
-        };
-        const { data, error } = await client
-          .from('subscriptions')
-          .select(
-            `id, status, billing_interval, current_period_end, cancel_at_period_end,
-             flutterwave_customer_email,
-             user_plans!inner(display_name, plan_type, price_monthly, price_yearly, currency)`
-          )
-          .eq('organization_id', orgId)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        return ((data as Record<string, unknown>[]) || []).map((row) => {
-          const plan = row.user_plans as {
-            display_name: string;
-            plan_type: string;
-            price_monthly: number | null;
-            price_yearly: number | null;
-            currency: string;
-          } | null;
-          return {
-            id: row.id as string,
-            status: row.status as string,
-            billing_interval: row.billing_interval as string,
-            current_period_end: row.current_period_end as string | null,
-            cancel_at_period_end: row.cancel_at_period_end as boolean,
-            plan_display_name: plan?.display_name || '--',
-            plan_type: plan?.plan_type || '--',
-            price_monthly: plan?.price_monthly ?? null,
-            price_yearly: plan?.price_yearly ?? null,
-            currency: plan?.currency || 'USD',
-            flutterwave_customer_email: row.flutterwave_customer_email as string,
-          } as OrgSubscription;
-        });
+        const data = await invokeNodeApi<OrgSubscription[]>(
+          `/api/v1/admin/organizations/${orgId}/subscriptions`
+        );
+        return data || [];
       } catch (error) {
         logError('Error fetching org subscriptions', error);
         return [];

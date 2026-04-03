@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { downloadDocument, getDocumentSignedUrl } from '@/lib/fileApi';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Download, ExternalLink, FileText, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import {
+  Loader2,
+  Download,
+  ExternalLink,
+  FileText,
+  Image as ImageIcon,
+  AlertCircle,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { sanitizeHTML } from '@/lib/sanitize';
 
@@ -23,6 +30,7 @@ interface DocumentViewerProps {
 export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerProps) {
   const [loading, setLoading] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [isObjectUrl, setIsObjectUrl] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,12 +38,12 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
       loadFile();
     }
     return () => {
-      if (fileUrl) {
+      if (fileUrl && isObjectUrl) {
         URL.revokeObjectURL(fileUrl);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, document.file_path]);
+  }, [open, document.file_path, fileUrl, isObjectUrl]);
 
   const loadFile = async () => {
     if (!document.file_path) return;
@@ -44,14 +52,10 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
     setError(null);
 
     try {
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .download(document.file_path);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
+      const blob = await downloadDocument(document.file_path);
+      const url = URL.createObjectURL(blob);
       setFileUrl(url);
+      setIsObjectUrl(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load document');
     } finally {
@@ -63,20 +67,15 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
     if (!document.file_path) return;
 
     try {
-      const { data } = await supabase.storage
-        .from('documents')
-        .download(document.file_path);
-
-      if (data) {
-        const url = URL.createObjectURL(data);
-        const a = globalThis.document.createElement('a');
-        a.href = url;
-        a.download = (document.metadata?.original_filename as string) || document.name;
-        globalThis.document.body.appendChild(a);
-        a.click();
-        globalThis.document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
+      const blob = await downloadDocument(document.file_path);
+      const url = URL.createObjectURL(blob);
+      const a = globalThis.document.createElement('a');
+      a.href = url;
+      a.download = (document.metadata?.original_filename as string) || document.name;
+      globalThis.document.body.appendChild(a);
+      a.click();
+      globalThis.document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download failed:', err);
     }
@@ -86,13 +85,8 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
     if (!document.file_path) return;
 
     try {
-      const { data } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(document.file_path, 3600);
-
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
-      }
+      const signedUrl = await getDocumentSignedUrl(document.file_path, 3600);
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
     } catch (err) {
       console.error('External view failed:', err);
     }
@@ -166,11 +160,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
     if (mimeType.includes('pdf')) {
       return (
         <div className="h-[70vh] bg-background rounded-lg overflow-hidden">
-          <iframe
-            src={fileUrl}
-            className="w-full h-full border-0"
-            title={document.name}
-          />
+          <iframe src={fileUrl} className="w-full h-full border-0" title={document.name} />
         </div>
       );
     }
@@ -192,11 +182,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
     if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml')) {
       return (
         <div className="max-h-96 overflow-auto p-4 bg-muted/30 rounded-lg">
-          <iframe
-            src={fileUrl}
-            className="w-full h-80 border-0"
-            title={document.name}
-          />
+          <iframe src={fileUrl} className="w-full h-80 border-0" title={document.name} />
         </div>
       );
     }
@@ -238,9 +224,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
                 {document.name}
               </DialogTitle>
               <div className="flex items-center gap-2 mt-2">
-                {document.mime_type && (
-                  <Badge variant="secondary">{document.mime_type}</Badge>
-                )}
+                {document.mime_type && <Badge variant="secondary">{document.mime_type}</Badge>}
                 {document.file_size && (
                   <Badge variant="outline">{formatFileSize(document.file_size)}</Badge>
                 )}
@@ -259,9 +243,7 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          {renderDocumentContent()}
-        </div>
+        <div className="flex-1 overflow-hidden">{renderDocumentContent()}</div>
       </DialogContent>
     </Dialog>
   );

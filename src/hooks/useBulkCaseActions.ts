@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import type { BulkAction } from '@/components/table/BulkToolbar';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export function useBulkCaseActions() {
   const qc = useQueryClient();
@@ -9,21 +9,9 @@ export function useBulkCaseActions() {
   return useMutation({
     mutationFn: async ({ ids, action }: { ids: string[]; action: BulkAction }) => {
       if (!organizationId) throw new Error('Organization not found');
-      if (action.type === 'delete') {
-        const { error } = await supabase
-          .from('cases')
-          .delete()
-          .in('id', ids)
-          .eq('organization_id', organizationId);
-        if (error) throw error;
-      } else if (action.type === 'setStatus') {
-        const { error } = await supabase
-          .from('cases')
-          .update({ status: action.status } as Record<string, unknown>)
-          .in('id', ids)
-          .eq('organization_id', organizationId);
-        if (error) throw error;
-      }
+
+      await invokeNodeApi('/api/v1/misc/bulk/cases', { method: 'POST', body: { ids, action } });
+      return;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cases'] }),
   });

@@ -24,25 +24,28 @@ These variables must be prefixed with `VITE_` to be accessible in the frontend c
 
 ### Required Variables
 
-| Variable | Description | Example | Where Used |
-|----------|-------------|---------|------------|
-| `VITE_SUPABASE_URL` | Supabase project URL | `https://xyz.supabase.co` | Authentication, database queries |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anonymous/public key | `eyJhbGc...` | Authentication, database queries |
-| `VITE_SUPABASE_ANON_KEY` | Alternative name for publishable key | `eyJhbGc...` | Authentication (legacy) |
+| Variable                        | Description                          | Example                   | Where Used                       |
+| ------------------------------- | ------------------------------------ | ------------------------- | -------------------------------- |
+| `VITE_SUPABASE_URL`             | Supabase project URL                 | `https://xyz.supabase.co` | Authentication, database queries |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anonymous/public key        | `eyJhbGc...`              | Authentication, database queries |
+| `VITE_SUPABASE_ANON_KEY`        | Alternative name for publishable key | `eyJhbGc...`              | Authentication (legacy)          |
 
 ### Optional Variables
 
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `VITE_APP_URL` | Frontend application URL | `window.location.origin` | `https://app.kourti.com` |
-| `VITE_API_TIMEOUT` | API request timeout (ms) | `30000` | `60000` |
-| `VITE_APP_VERSION` | Application version | `1.0.0` | `2.1.3` |
-| `VITE_BUILD_TIME` | Build timestamp | Current time | `2025-01-23T10:00:00Z` |
-| `VITE_LOG_API_ENDPOINT` | Server logging endpoint | `null` | `https://logs.example.com/api` |
+| Variable                | Description                            | Default                  | Example                        |
+| ----------------------- | -------------------------------------- | ------------------------ | ------------------------------ |
+| `VITE_APP_URL`          | Frontend application URL               | `window.location.origin` | `https://app.kourti.com`       |
+| `VITE_API_TIMEOUT`      | API request timeout (ms)               | `30000`                  | `60000`                        |
+| `VITE_APP_VERSION`      | Application version                    | `1.0.0`                  | `2.1.3`                        |
+| `VITE_BUILD_TIME`       | Build timestamp                        | Current time             | `2025-01-23T10:00:00Z`         |
+| `VITE_LOG_API_ENDPOINT` | Server logging endpoint                | `null`                   | `https://logs.example.com/api` |
+| `VITE_USE_NODE_BACKEND` | Enable Node API for migrated endpoints | `false`                  | `true`                         |
+| `VITE_BACKEND_API_URL`  | Node backend base URL                  | `''`                     | `http://localhost:4000`        |
 
 ### Deprecated/Insecure Variables
 
 ⚠️ **DO NOT USE IN FRONTEND**:
+
 - `VITE_OPENAI_API_KEY` - ❌ **SECURITY RISK**: OpenAI keys should NEVER be in frontend code
 - `VITE_DOCUMENSO_API_KEY` - ❌ **SECURITY RISK**: API keys should be server-side only
 
@@ -54,60 +57,68 @@ These variables are set in the Supabase dashboard under "Settings → Edge Funct
 
 ### Core Supabase Variables
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `SUPABASE_URL` | ✅ Yes | Supabase project URL | `https://xyz.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ Yes | Service role key (bypasses RLS) | `eyJhbGc...` |
-| `SUPABASE_ANON_KEY` | ❌ No | Anonymous key (rarely needed in functions) | `eyJhbGc...` |
+| Variable                    | Required | Description                                | Example                   |
+| --------------------------- | -------- | ------------------------------------------ | ------------------------- |
+| `SUPABASE_URL`              | ✅ Yes   | Supabase project URL                       | `https://xyz.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ Yes   | Service role key (bypasses RLS)            | `eyJhbGc...`              |
+| `SUPABASE_ANON_KEY`         | ❌ No    | Anonymous key (rarely needed in functions) | `eyJhbGc...`              |
 
 ### OpenAI Integration
 
-| Variable | Required | Description | Default |
-|----------|----------|-------------|---------|
-| `OPENAI_API_KEY` | ✅ Yes | OpenAI API key for AI features | - |
-| `OPENAI_CHAT_MODEL` | ❌ No | Primary chat model | `gpt-5.1` |
-| `OPENAI_FALLBACK_CHAT_MODEL` | ❌ No | Fallback if primary fails | `gpt-5.1` |
-| `OPENAI_CONTRACT_MODEL` | ❌ No | Contract generation model | `gpt-5.1` |
-| `OPENAI_CONTRACT_FALLBACK_MODEL` | ❌ No | Contract generation fallback | `gpt-5.1` |
+| Variable                         | Required | Description                    | Default   |
+| -------------------------------- | -------- | ------------------------------ | --------- |
+| `OPENAI_API_KEY`                 | ✅ Yes   | OpenAI API key for AI features | -         |
+| `OPENAI_CHAT_MODEL`              | ❌ No    | Primary chat model             | `gpt-5.1` |
+| `OPENAI_FALLBACK_CHAT_MODEL`     | ❌ No    | Fallback if primary fails      | `gpt-5.1` |
+| `OPENAI_CONTRACT_MODEL`          | ❌ No    | Contract generation model      | `gpt-5.1` |
+| `OPENAI_CONTRACT_FALLBACK_MODEL` | ❌ No    | Contract generation fallback   | `gpt-5.1` |
 
 ### Application Configuration
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `APP_URL` | ✅ Yes | Frontend URL for CORS and redirects | `https://app.kourti.com` |
-| `ENVIRONMENT` | ❌ No | Environment name | `production`, `development` |
-| `NODE_ENV` | ❌ No | Node environment | `production`, `development` |
-| `SUPABASE_FUNCTIONS_ENV` | ❌ No | Supabase function environment | `local`, `production` |
+| Variable                 | Required | Description                         | Example                     |
+| ------------------------ | -------- | ----------------------------------- | --------------------------- |
+| `APP_URL`                | ✅ Yes   | Frontend URL for CORS and redirects | `https://app.kourti.com`    |
+| `ENVIRONMENT`            | ❌ No    | Environment name                    | `production`, `development` |
+| `NODE_ENV`               | ❌ No    | Node environment                    | `production`, `development` |
+| `SUPABASE_FUNCTIONS_ENV` | ❌ No    | Supabase function environment       | `local`, `production`       |
+
+### Node Backend (Migration)
+
+| Variable       | Required | Description                                      | Example                                        |
+| -------------- | -------- | ------------------------------------------------ | ---------------------------------------------- |
+| `DATABASE_URL` | ✅ Yes   | Postgres connection string for `backend-node`    | `postgresql://...`                             |
+| `CORS_ORIGINS` | ❌ No    | Allowed origins for Node API (comma-separated)   | `http://localhost:5173,https://app.kourti.com` |
+| `AUTH_MODE`    | ❌ No    | Node API auth mode (`supabase` or `development`) | `development`                                  |
 
 ### Email (Resend)
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `RESEND_API_KEY` | ✅ Yes | Resend API key for sending emails | `re_...` |
-| `SMTP_FROM_EMAIL` | ❌ No | Email sender address | `noreply@kourti.com` |
+| Variable          | Required | Description                       | Example              |
+| ----------------- | -------- | --------------------------------- | -------------------- |
+| `RESEND_API_KEY`  | ✅ Yes   | Resend API key for sending emails | `re_...`             |
+| `SMTP_FROM_EMAIL` | ❌ No    | Email sender address              | `noreply@kourti.com` |
 
 ### Single Sign-On (SSO)
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `SSO_SECRET_KEY` | ✅ Yes | 32-byte secret for SSO encryption | `your-32-byte-secret-key-here...` |
-| `SSO_ALLOWED_REDIRECT_ORIGINS` | ✅ Yes | Allowed redirect origins (comma-separated) | `https://app.kourti.com,http://localhost:5173` |
-| `SSO_STATE_SECRET` | ✅ Yes | Secret for OAuth state parameter | `your-state-secret` |
+| Variable                       | Required | Description                                | Example                                        |
+| ------------------------------ | -------- | ------------------------------------------ | ---------------------------------------------- |
+| `SSO_SECRET_KEY`               | ✅ Yes   | 32-byte secret for SSO encryption          | `your-32-byte-secret-key-here...`              |
+| `SSO_ALLOWED_REDIRECT_ORIGINS` | ✅ Yes   | Allowed redirect origins (comma-separated) | `https://app.kourti.com,http://localhost:5173` |
+| `SSO_STATE_SECRET`             | ✅ Yes   | Secret for OAuth state parameter           | `your-state-secret`                            |
 
 ### Langfuse (LLM Observability)
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `LANGFUSE_SECRET_KEY` | ❌ No | Langfuse secret key | `sk-lf-...` |
-| `LANGFUSE_PUBLIC_KEY` | ❌ No | Langfuse public key | `pk-lf-...` |
-| `LANGFUSE_HOST` | ❌ No | Langfuse host URL | `https://cloud.langfuse.com` |
+| Variable              | Required | Description         | Example                      |
+| --------------------- | -------- | ------------------- | ---------------------------- |
+| `LANGFUSE_SECRET_KEY` | ❌ No    | Langfuse secret key | `sk-lf-...`                  |
+| `LANGFUSE_PUBLIC_KEY` | ❌ No    | Langfuse public key | `pk-lf-...`                  |
+| `LANGFUSE_HOST`       | ❌ No    | Langfuse host URL   | `https://cloud.langfuse.com` |
 
 ### Security & Feature Flags
 
-| Variable | Required | Description | Default |
-|----------|----------|-------------|---------|
-| `DISABLE_HSTS` | ❌ No | Disable HSTS header | `false` |
-| `DISABLE_STRICT_TRANSPORT_SECURITY` | ❌ No | Disable HSTS (alternative) | `false` |
+| Variable                            | Required | Description                | Default |
+| ----------------------------------- | -------- | -------------------------- | ------- |
+| `DISABLE_HSTS`                      | ❌ No    | Disable HSTS header        | `false` |
+| `DISABLE_STRICT_TRANSPORT_SECURITY` | ❌ No    | Disable HSTS (alternative) | `false` |
 
 ## Setup Instructions
 
@@ -187,6 +198,7 @@ if (!validation.valid) {
 ```
 
 **Required Frontend Variables**:
+
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY` (or `VITE_SUPABASE_ANON_KEY`)
 
@@ -212,16 +224,18 @@ if (!openAIApiKey) {
 ### 1. Never Expose Secrets in Frontend
 
 ❌ **WRONG**:
+
 ```javascript
 // DO NOT DO THIS
 const apiKey = import.meta.env.VITE_OPENAI_API_KEY; // Exposed to browser!
 ```
 
 ✅ **CORRECT**:
+
 ```javascript
 // Make API call through Supabase Edge Function
 const response = await supabase.functions.invoke('ream-ai-assistant', {
-  body: { prompt: 'Hello' }
+  body: { prompt: 'Hello' },
 });
 // OpenAI key stays secure in edge function
 ```
@@ -247,6 +261,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=prod-key...
 ### 4. Limit Service Role Key Usage
 
 The `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security (RLS). Only use it when:
+
 - Creating system-level resources (invitations, users)
 - Admin operations that need to bypass RLS
 - Background jobs (cron, scheduled tasks)
@@ -259,8 +274,8 @@ The `APP_URL` variable controls CORS allowed origins. Ensure it matches your pro
 
 ```typescript
 const ALLOWED_ORIGINS = [
-  Deno.env.get("APP_URL"),  // Should be https://app.kourti.com
-  "http://localhost:5173",   // Development only
+  Deno.env.get('APP_URL'), // Should be https://app.kourti.com
+  'http://localhost:5173', // Development only
 ];
 ```
 
@@ -271,6 +286,7 @@ const ALLOWED_ORIGINS = [
 **Cause**: `.env` file not created or variables not set.
 
 **Solution**:
+
 ```bash
 cp .env.example .env
 # Edit .env and set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
@@ -281,6 +297,7 @@ cp .env.example .env
 **Cause**: `OPENAI_API_KEY` not set in Supabase secrets.
 
 **Solution**:
+
 ```bash
 supabase secrets set OPENAI_API_KEY="sk-..."
 ```
@@ -290,6 +307,7 @@ supabase secrets set OPENAI_API_KEY="sk-..."
 **Cause**: `APP_URL` not set correctly in edge function secrets.
 
 **Solution**:
+
 ```bash
 supabase secrets set APP_URL="https://app.kourti.com"
 # Ensure no trailing slash
@@ -301,6 +319,7 @@ supabase secrets set APP_URL="https://app.kourti.com"
 **Cause**: Environment variables not synced between local and production.
 
 **Solution**:
+
 ```bash
 # List current secrets
 supabase secrets list
@@ -315,6 +334,7 @@ supabase secrets get SUPABASE_SERVICE_ROLE_KEY
 **Cause**: URL is missing protocol or has typo.
 
 **Solution**:
+
 ```bash
 # ✅ CORRECT
 VITE_SUPABASE_URL=https://xyz.supabase.co
@@ -327,18 +347,21 @@ VITE_SUPABASE_URL=https://xyz.supabase.co/  # Trailing slash
 ## Environment Files
 
 ### `.env` (Local Development)
+
 - **Never commit** to version control
 - Contains actual secrets and keys
 - Used during local development
 - Automatically loaded by Vite
 
 ### `.env.example` (Template)
+
 - **Commit to version control**
 - Contains placeholder values
 - Documents required variables
 - Developers copy this to `.env`
 
 ### `.env.backup` / `.env.clean`
+
 - **Never commit** to version control
 - Personal backup files
 - Not used by application
@@ -370,16 +393,13 @@ Create a validation script to check environment configuration:
 
 ```javascript
 // scripts/check-env.js
-const requiredVars = [
-  'VITE_SUPABASE_URL',
-  'VITE_SUPABASE_PUBLISHABLE_KEY'
-];
+const requiredVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY'];
 
-const missing = requiredVars.filter(key => !process.env[key]);
+const missing = requiredVars.filter((key) => !process.env[key]);
 
 if (missing.length > 0) {
   console.error('❌ Missing required environment variables:');
-  missing.forEach(key => console.error(`  - ${key}`));
+  missing.forEach((key) => console.error(`  - ${key}`));
   process.exit(1);
 } else {
   console.log('✅ All required environment variables are set');

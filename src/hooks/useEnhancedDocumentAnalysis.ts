@@ -1,19 +1,42 @@
 import { useState, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logError, logWarn } from '@/lib/logger';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
-
-// Use Supabase Edge Function instead of external API
-// This function name is now defined in the call itself
+import { invokeNodeApi } from '@/lib/backendApi';
 
 // Payload size limits
-// Supabase Edge Functions have ~6MB request limit, but we're more conservative
-// to account for JSON overhead, conversation history, and RAG context
+// Conservative limits to account for JSON overhead, conversation history, and RAG context
 const MAX_CONTENT_LENGTH = 100000; // ~100k characters (safe for most documents)
 const MAX_RAG_CONTEXT_LENGTH = 20000; // 20k characters for RAG context
 const MAX_CONVERSATION_HISTORY_LENGTH = 10000; // 10k characters for conversation history
+
+type AdvancedAnalysisResponse = {
+  analysis?: string;
+  content?: string;
+  result?: string;
+  success?: boolean;
+  tokensUsed?: number;
+  modelUsed?: string;
+  choices?: Array<{ message?: { content?: string } }>;
+};
+
+async function invokeAdvancedAnalysis(payload: Record<string, unknown>) {
+  try {
+    const data = await invokeNodeApi<AdvancedAnalysisResponse>(
+      '/api/v1/ai/advanced-contract-analysis',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    );
+    return { data, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
 
 /**
  * Truncate content intelligently, keeping beginning and end
@@ -143,12 +166,6 @@ export function useEnhancedDocumentAnalysis() {
       analysisType?: 'general' | 'risk' | 'summary' | 'extract' | 'compare';
     }) => {
       try {
-        // Validate user identity server-side first (getSession reads from localStorage and can be spoofed)
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user) {
-          throw new Error('Authentication required. Please sign in again.');
-        }
-
         // Prepare payload with size checks
         const payload = preparePayload({ content });
 
@@ -159,21 +176,14 @@ export function useEnhancedDocumentAnalysis() {
           });
         }
 
-        // Call the advanced contract analysis edge function with CSRF protection
-        const { data, error } = await invokeFunctionWithCsrf<{
-          analysis?: string;
-          success?: boolean;
-          tokensUsed?: number;
-          modelUsed?: string;
-        }>('advanced-contract-analysis', {
-          body: {
-            text: payload.content,
-            analysisType: analysisType,
-            goal:
-              analysisType === 'general'
-                ? 'Provide a comprehensive analysis of this document'
-                : analysisType,
-          },
+        // Call the advanced contract analysis endpoint
+        const { data, error } = await invokeAdvancedAnalysis({
+          text: payload.content,
+          analysisType,
+          goal:
+            analysisType === 'general'
+              ? 'Provide a comprehensive analysis of this document'
+              : analysisType,
         });
 
         if (error) {
@@ -246,12 +256,6 @@ export function useEnhancedDocumentAnalysis() {
         const controller = new AbortController();
         setAbortController(controller);
 
-        // Validate user identity server-side first (getSession reads from localStorage and can be spoofed)
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user) {
-          throw new Error('Authentication required. Please sign in again.');
-        }
-
         // Prepare payload with size checks and truncation
         const payload = preparePayload({
           content,
@@ -269,28 +273,17 @@ export function useEnhancedDocumentAnalysis() {
           });
         }
 
-        // Use the advanced contract analysis edge function with CSRF protection
-        // Note: stream: false because Supabase functions.invoke doesn't handle SSE properly
-        const { data: responseData, error } = await invokeFunctionWithCsrf<{
-          analysis?: string;
-          content?: string;
-          result?: string;
-          success?: boolean;
-          tokensUsed?: number;
-          modelUsed?: string;
-          choices?: Array<{ message?: { content?: string } }>;
-        }>('advanced-contract-analysis', {
-          body: {
-            text: payload.content,
-            analysisType: analysisType,
-            goal:
-              analysisType === 'general'
-                ? 'Provide a comprehensive analysis of this document'
-                : analysisType,
-            conversationHistory: payload.conversationHistory || [],
-            ragContext: payload.ragContext,
-            stream: false, // SSE streaming not supported by functions.invoke
-          },
+        // Use the advanced contract analysis endpoint (non-streaming)
+        const { data: responseData, error } = await invokeAdvancedAnalysis({
+          text: payload.content,
+          analysisType,
+          goal:
+            analysisType === 'general'
+              ? 'Provide a comprehensive analysis of this document'
+              : analysisType,
+          conversationHistory: payload.conversationHistory || [],
+          ragContext: payload.ragContext,
+          stream: false,
         });
 
         if (import.meta.env.DEV) {

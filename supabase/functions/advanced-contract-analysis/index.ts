@@ -6,6 +6,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 import { HttpError, createErrorResponse } from '../_shared/httpError.ts';
 import {
+  checkRateLimitDistributed,
+  createRateLimitHeaders,
+  RATE_LIMIT_PRESETS,
+  getRateLimitIdentifier,
+} from '../_shared/rateLimiting.ts';
+import { requireCsrfTokenForUser } from '../_shared/csrfProtection.ts';
+import {
   createEmptyResponse,
   createJsonResponse,
   CorsSecurityHeadersOptions,
@@ -147,7 +154,8 @@ async function requestChatCompletion(body: Record<string, unknown>) {
 
 async function handleStreamingResponse(
   messages: Array<{ role: string; content: string }>,
-  corsOptions: any
+  corsOptions: any,
+  rateLimitHeaders: Record<string, string>
 ) {
   const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openAIApiKey) {
@@ -213,6 +221,10 @@ async function handleStreamingResponse(
         headers.set('Access-Control-Allow-Credentials', 'true');
       }
 
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        headers.set(key, value);
+      });
+
       return new Response(response.body, { headers });
     } catch (error) {
       const normalizedError =
@@ -231,9 +243,36 @@ async function handleStreamingResponse(
   throw new HttpError('Unable to reach OpenAI API for streaming', 502, 'OPENAI_UPSTREAM_ERROR');
 }
 
+async function authenticateRequest(req: Request) {
+  const authHeader = req.headers.get('Authorization');
+
+  if (!authHeader) {
+    throw new HttpError('Authorization header required', 401, 'UNAUTHORIZED');
+  }
+
+  const token = authHeader.replace('Bearer ', '').trim();
+  if (!token) {
+    throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
+  }
+
+  const supabase = getSupabaseClient();
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token);
+
+  if (error || !user) {
+    throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
+  }
+
+  return { user, supabase };
+}
+
 export const advancedContractAnalysisHandler = async (req: Request) => {
   const requestOrigin = req.headers.get('Origin');
   const corsOptions = getCorsOptions(requestOrigin);
+  let rateLimitHeaders: Record<string, string> = {};
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -284,28 +323,32 @@ export const advancedContractAnalysisHandler = async (req: Request) => {
       );
     }
 
-    // --- Authentication: mandatory ---
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new HttpError('Authorization header required', 401, 'UNAUTHORIZED');
-    }
-
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
-      throw new HttpError('Invalid Authorization header', 401, 'UNAUTHORIZED');
-    }
-
-    const supabase = getSupabaseClient();
-
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      throw new HttpError('Unauthorized', 401, 'UNAUTHORIZED');
-    }
-
+    const { user, supabase } = await authenticateRequest(req);
     const userId = user.id;
+
+    await requireCsrfTokenForUser(supabase, userId, req);
+
+    const rateLimitResult = await checkRateLimitDistributed({
+      ...RATE_LIMIT_PRESETS.AI,
+      identifier: getRateLimitIdentifier(req, userId),
+    });
+
+    rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
+
+    if (!rateLimitResult.allowed) {
+      return createJsonResponse(
+        {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+        },
+        {
+          status: 429,
+          cors: corsOptions,
+          headers: rateLimitHeaders,
+        }
+      );
+    }
 
     console.log('Processing analysis request for user:', userId);
 
@@ -462,7 +505,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
 
     // If streaming is requested, handle streaming response
     if (stream === true) {
-      return handleStreamingResponse(messages, corsOptions);
+      return handleStreamingResponse(messages, corsOptions, rateLimitHeaders);
     }
 
     const { data, modelUsed } = await requestChatCompletion({
@@ -560,7 +603,7 @@ Provide a comprehensive analysis covering key terms, risks, and recommendations.
         tokensUsed: data.usage?.total_tokens || 0,
         modelUsed,
       },
-      { cors: corsOptions }
+      { cors: corsOptions, headers: rateLimitHeaders }
     );
   } catch (error: any) {
     console.error('Error in advanced contract analysis:', error);

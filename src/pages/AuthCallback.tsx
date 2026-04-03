@@ -3,7 +3,8 @@ import { logWarn } from '@/lib/logger';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { getSession, initSession } from '@/lib/authClient';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { AppLogo } from '@/components/ui/AppLogo';
 
 export default function AuthCallback() {
@@ -15,22 +16,12 @@ export default function AuthCallback() {
 
     const finalizeAuth = async () => {
       try {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
+        // With custom JWT auth, the callback may carry a code or token in the URL.
+        // Attempt to initialize the session (uses httpOnly refresh cookie).
+        await initSession();
 
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            throw error;
-          }
-        }
-
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          throw sessionError;
-        }
-
-        const sessionUser = sessionData.session?.user;
+        const session = getSession();
+        const sessionUser = session?.user;
         if (!sessionUser) {
           throw new Error('No active session found. Please sign in again.');
         }
@@ -39,24 +30,21 @@ export default function AuthCallback() {
 
         // Check for pending invitation and apply it if exists (async, non-blocking)
         try {
-          await supabase.rpc('check_and_apply_invitation', {
-            p_user_id: sessionUser.id,
-            p_email: sessionUser.email || '',
+          await invokeNodeApi('/api/v1/invitations/check-and-apply', {
+            method: 'POST',
+            body: {
+              p_user_id: sessionUser.id,
+              p_email: sessionUser.email || '',
+            },
           });
         } catch (inviteError) {
           // Non-critical - log but don't block
           logWarn('Error checking invitation', { inviteError });
         }
 
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('user_id', sessionUser.id)
-          .maybeSingle();
-
-        if (profileError) {
-          throw profileError;
-        }
+        const profile = await invokeNodeApi<{ organization_id: string | null }>(
+          '/api/v1/profiles/me'
+        );
 
         if (!isMounted) return;
 

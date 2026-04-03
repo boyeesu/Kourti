@@ -1,15 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { useEffect } from 'react';
-import { logError, logWarn } from '@/lib/logger';
 import {
   validateFile,
   MAX_CHAT_ATTACHMENT_SIZE,
   ALLOWED_CHAT_MIME_TYPES,
 } from '@/lib/fileValidation';
+import { getNodeChatFileSignedUrl, invokeNodeApi } from '@/lib/backendApi';
 
 export interface FileMetadata {
   file_name: string;
@@ -69,168 +67,7 @@ export function useConversations() {
     queryFn: async () => {
       if (!user || !organizationId) return [];
 
-      // Try using the optimized RPC function first
-      // Note: This RPC is defined in migration 20260122000002 and may not exist yet
-      const { data: optimizedData, error: rpcError } = await supabase.rpc(
-        'get_user_conversations_optimized' as any
-      );
-
-      if (!rpcError && optimizedData) {
-        // Transform RPC result to match Conversation interface
-        return (
-          optimizedData as Array<{
-            id: string;
-            organization_id: string;
-            type: 'direct' | 'group';
-            name: string | null;
-            created_by: string;
-            created_at: string;
-            updated_at: string;
-            participants: Array<{
-              user_id: string;
-              first_name: string | null;
-              last_name: string | null;
-              email: string | null;
-            }>;
-            last_message: Message | null;
-            unread_count: number;
-          }>
-        ).map((conv) => ({
-          ...conv,
-          participants: conv.participants ?? [],
-          last_message: conv.last_message ?? undefined,
-          unread_count: conv.unread_count ?? 0,
-        })) as Conversation[];
-      }
-
-      // Fallback to original query if RPC doesn't exist yet
-      // (for backwards compatibility during migration)
-      if (rpcError) {
-        logWarn('Optimized RPC not available, falling back to standard queries', {
-          message: rpcError.message,
-        });
-      }
-
-      // FALLBACK: Original implementation for backwards compatibility
-      const { data: participantData, error: participantError } = await supabase
-        .from('conversation_participants' as any)
-        .select('conversation_id, last_read_at')
-        .eq('user_id', user.id);
-
-      if (participantError) {
-        logError('Error fetching participant data', participantError);
-        if (
-          participantError.code === 'PGRST301' ||
-          participantError.message?.includes('RLS') ||
-          participantError.message?.includes('policy')
-        ) {
-          logWarn('RLS policy error detected. Please run the chat migrations.');
-          return [];
-        }
-        throw participantError;
-      }
-
-      if (!participantData || participantData.length === 0) return [];
-
-      const participantDataTyped = participantData as unknown as Array<{
-        conversation_id: string;
-        last_read_at: string | null;
-      }>;
-      const conversationIds = participantDataTyped.map((p) => p.conversation_id);
-      const lastReadMap = new Map(
-        participantDataTyped.map((p) => [p.conversation_id, p.last_read_at])
-      );
-
-      // Get conversations with participants
-      const { data: conversations, error: conversationsError } = await supabase
-        .from('conversations' as any)
-        .select(
-          `
-          *,
-          conversation_participants(user_id, last_read_at)
-        `
-        )
-        .in('id', conversationIds)
-        .eq('organization_id', organizationId)
-        .order('updated_at', { ascending: false });
-
-      if (conversationsError) throw conversationsError;
-      if (!conversations || conversations.length === 0) return [];
-
-      // Collect all user IDs for batch profile fetch
-      const allUserIds = new Set<string>();
-      conversations.forEach((conv: any) => {
-        (conv.conversation_participants || []).forEach((p: any) => {
-          if (p.user_id) allUserIds.add(p.user_id);
-        });
-      });
-
-      // Batch fetch: last messages for ALL conversations in one query using Promise.all
-      // This is still N queries but runs in parallel - the RPC above is the proper fix
-      const lastMessagesPromises = conversations.map(async (conv: any) => {
-        const { data: lastMessage } = await supabase
-          .from('messages' as any)
-          .select('*')
-          .eq('conversation_id', conv.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        return { conversationId: conv.id, lastMessage };
-      });
-
-      const lastMessagesData = await Promise.all(lastMessagesPromises);
-
-      // Collect sender IDs from last messages
-      lastMessagesData.forEach(({ lastMessage }) => {
-        if ((lastMessage as any)?.sender_id) {
-          allUserIds.add((lastMessage as any).sender_id);
-        }
-      });
-
-      // Single batch fetch for all profiles
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, email')
-        .in('user_id', Array.from(allUserIds));
-
-      const profilesMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
-
-      // Batch fetch unread counts - parallel execution
-      const unreadCountsPromises = conversations.map(async (conv: any) => {
-        const lastReadAt = lastReadMap.get(conv.id) || '1970-01-01';
-        const { count } = await supabase
-          .from('messages' as any)
-          .select('*', { count: 'exact', head: true })
-          .eq('conversation_id', conv.id)
-          .gt('created_at', lastReadAt)
-          .neq('sender_id', user.id);
-        return { conversationId: conv.id, count: count ?? 0 };
-      });
-
-      const unreadCounts = await Promise.all(unreadCountsPromises);
-      const unreadMap = new Map(unreadCounts.map((u) => [u.conversationId, u.count]));
-
-      // Assemble final result
-      return conversations.map((conv: any) => {
-        const lastMessageData = lastMessagesData.find((lm) => lm.conversationId === conv.id);
-        const message = lastMessageData?.lastMessage as any;
-
-        return {
-          ...conv,
-          last_message: message
-            ? {
-                ...message,
-                sender: profilesMap.get(message.sender_id) ?? null,
-              }
-            : null,
-          unread_count: unreadMap.get(conv.id) ?? 0,
-          participants: (conv.conversation_participants ?? []).map((p: any) => ({
-            user_id: p.user_id,
-            last_read_at: p.last_read_at,
-            ...(profilesMap.get(p.user_id) ?? {}),
-          })),
-        };
-      }) as Conversation[];
+      return invokeNodeApi<Conversation[]>('/api/v1/chat/conversations');
     },
     enabled: !!user && !!organizationId,
     staleTime: 30 * 1000,
@@ -241,154 +78,16 @@ export function useConversations() {
  * Hook to fetch messages for a conversation with realtime updates
  */
 export function useMessages(conversationId: string | null) {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
   const query = useQuery({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
       if (!conversationId) return [];
 
-      const { data, error } = await supabase
-        .from('messages' as any)
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) return [];
-
-      // Get all unique sender IDs
-      const senderIds = [...new Set(data.map((msg: any) => msg.sender_id).filter(Boolean))];
-
-      // Fetch profiles for all senders in one query
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles' as any)
-        .select('user_id, first_name, last_name, email')
-        .in('user_id', senderIds);
-
-      if (profilesError) {
-        logError('Error fetching sender profiles', profilesError);
-        // Don't throw, just continue without profiles
-      }
-
-      // Create a map of user_id -> profile for quick lookup
-      const profilesMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
-
-      // Create messages with sender info
-      const messagesWithSender = (data || []).map((msg: any) => ({
-        ...msg,
-        sender: profilesMap.get(msg.sender_id) || null,
-      }));
-
-      // Create a map of message_id -> message for reply_to lookup
-      const messagesMap = new Map(messagesWithSender.map((m: any) => [m.id, m]));
-
-      // Add reply_to data to messages
-      return messagesWithSender.map((msg: any) => ({
-        ...msg,
-        reply_to: msg.reply_to_id ? messagesMap.get(msg.reply_to_id) || null : null,
-      })) as Message[];
+      return invokeNodeApi<Message[]>(`/api/v1/chat/conversations/${conversationId}/messages`);
     },
     enabled: !!conversationId,
+    refetchInterval: 5000,
   });
-
-  // Set up realtime subscription
-  useEffect(() => {
-    if (!conversationId || !user) return;
-
-    const newChannel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages' as any,
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        async (payload) => {
-          const newMessagePayload = payload.new as any;
-
-          // First, immediately add the message to ensure it shows up
-          // This prevents the message from being lost if profile fetch fails
-          let senderProfile:
-            | {
-                id: string;
-                first_name: string | null;
-                last_name: string | null;
-                email: string | null;
-              }
-            | undefined;
-
-          try {
-            // Fetch sender profile (non-blocking for message display)
-            const { data: profile, error: profileError } = (await supabase
-              .from('profiles' as any)
-              .select('first_name, last_name, email')
-              .eq('user_id', newMessagePayload.sender_id)
-              .maybeSingle()) as unknown as {
-              data: {
-                first_name: string | null;
-                last_name: string | null;
-                email: string | null;
-              } | null;
-              error: any;
-            }; // Use maybeSingle instead of single to avoid errors when no profile exists
-
-            if (!profileError && profile) {
-              senderProfile = {
-                id: newMessagePayload.sender_id,
-                first_name: profile.first_name,
-                last_name: profile.last_name,
-                email: profile.email,
-              };
-            }
-          } catch (err) {
-            logWarn('Failed to fetch sender profile for realtime message', { error: err });
-          }
-
-          const newMessage: Message = {
-            ...newMessagePayload,
-            sender: senderProfile,
-          };
-
-          queryClient.setQueryData(['messages', conversationId], (old: Message[] | undefined) => {
-            const messages = old ?? [];
-            // Avoid duplicates (check both real IDs and temp IDs)
-            if (messages.some((m) => m.id === newMessage.id)) return messages;
-            // Also avoid adding if we already have a temp version of this message from optimistic update
-            // by checking content + sender + recent timestamp
-            const recentTempMessage = messages.find(
-              (m) =>
-                m.id.startsWith('temp-') &&
-                m.sender_id === newMessage.sender_id &&
-                m.content === newMessage.content
-            );
-            if (recentTempMessage) {
-              // Replace temp message with real one
-              return messages.map((m) => (m.id === recentTempMessage.id ? newMessage : m));
-            }
-            return [...messages, newMessage];
-          });
-
-          // Update conversations list
-          queryClient.invalidateQueries({ queryKey: ['conversations'] });
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to messages for conversation ${conversationId}`);
-        } else if (status === 'CHANNEL_ERROR') {
-          logError(`Failed to subscribe to messages for conversation ${conversationId}`);
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(newChannel);
-    };
-  }, [conversationId, user, queryClient]);
 
   return query;
 }
@@ -418,33 +117,13 @@ export function useSendMessage() {
         throw new Error('Message content cannot be empty');
       }
 
-      const { data, error } = await supabase
-        .from('messages' as any)
-        .insert({
-          conversation_id: conversationId,
-          sender_id: user.id,
+      return invokeNodeApi<Message>(`/api/v1/chat/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        body: {
           content: content.trim(),
-          message_type: 'text',
-          reply_to_id: replyToId || null,
-        } as any)
-        .select()
-        .single();
-
-      if (error) {
-        logError('Error inserting message', error);
-        throw new Error(error.message || 'Failed to send message');
-      }
-
-      // Update conversation updated_at - fire and forget (non-blocking)
-      supabase
-        .from('conversations' as any)
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', conversationId)
-        .then(({ error: updateError }) => {
-          if (updateError) logError('Error updating conversation timestamp', updateError);
-        });
-
-      return data;
+          replyToId: replyToId || null,
+        },
+      });
     },
     // Optimistic update - show message immediately
     onMutate: async ({ conversationId, content, replyToId }) => {
@@ -470,9 +149,9 @@ export function useSendMessage() {
         updated_at: new Date().toISOString(),
         sender: {
           id: user!.id,
-          first_name: user?.user_metadata?.first_name || null,
-          last_name: user?.user_metadata?.last_name || null,
-          email: user?.email || null,
+          first_name: (user?.user_metadata?.first_name as string) || null,
+          last_name: (user?.user_metadata?.last_name as string) || null,
+          email: (user?.email as string) || null,
         },
       };
 
@@ -541,66 +220,40 @@ export function useSendFileMessage() {
         throw new Error(validation.error || 'Invalid file');
       }
 
-      // Upload file to Supabase storage
+      // Upload file via Node backend
       const timestamp = Date.now();
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const filePath = `${organizationId}/${conversationId}/${timestamp}_${sanitizedName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('Chat_Storage')
-        .upload(filePath, file, {
-          contentType: file.type,
-          upsert: false,
-        });
+      const signed = await getNodeChatFileSignedUrl(filePath, {
+        disposition: 'inline',
+        expiresIn: 3600,
+        filename: file.name,
+      }).catch(() => null);
 
-      if (uploadError) {
-        logError('File upload error', uploadError);
-        throw new Error(`Failed to upload file: ${uploadError.message}`);
-      }
+      const message = await invokeNodeApi<Message>(
+        `/api/v1/chat/conversations/${conversationId}/messages/file`,
+        {
+          method: 'POST',
+          body: {
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+            filePath,
+          },
+        }
+      );
 
-      // Get signed URL (1 hour expiry, will be refreshed when viewing)
-      const { data: signedUrlData } = await supabase.storage
-        .from('Chat_Storage')
-        .createSignedUrl(filePath, 3600);
-
-      const fileMetadata: FileMetadata = {
-        file_name: file.name,
-        file_size: file.size,
-        file_type: file.type,
-        file_path: filePath,
-        file_url: signedUrlData?.signedUrl,
-      };
-
-      // Create file message
-      const { data, error } = await supabase
-        .from('messages' as any)
-        .insert({
-          conversation_id: conversationId,
-          sender_id: user.id,
-          content: file.name, // Use filename as content for searchability
-          message_type: 'file',
-          metadata: fileMetadata,
-        } as any)
-        .select()
-        .single();
-
-      if (error) {
-        logError('Error inserting file message', error);
-        // Try to clean up uploaded file on message insert failure
-        await supabase.storage.from('Chat_Storage').remove([filePath]);
-        throw new Error(error.message || 'Failed to send file message');
-      }
-
-      // Update conversation timestamp (fire and forget)
-      supabase
-        .from('conversations' as any)
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', conversationId)
-        .then(({ error: updateError }) => {
-          if (updateError) logError('Error updating conversation timestamp', updateError);
-        });
-
-      return data as unknown as Message;
+      return {
+        ...message,
+        metadata: {
+          file_name: file.name,
+          file_size: file.size,
+          file_type: file.type,
+          file_path: filePath,
+          file_url: signed?.signedUrl,
+        },
+      } as Message;
     },
     // Optimistic update for file messages
     onMutate: async ({ conversationId, file }) => {
@@ -625,9 +278,9 @@ export function useSendFileMessage() {
         updated_at: new Date().toISOString(),
         sender: {
           id: user!.id,
-          first_name: user?.user_metadata?.first_name || null,
-          last_name: user?.user_metadata?.last_name || null,
-          email: user?.email || null,
+          first_name: (user?.user_metadata?.first_name as string) || null,
+          last_name: (user?.user_metadata?.last_name as string) || null,
+          email: (user?.email as string) || null,
         },
       };
 
@@ -669,16 +322,16 @@ export function useGetOrCreateDirectConversation() {
     mutationFn: async (otherUserId: string) => {
       if (!user) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase.rpc('get_or_create_direct_conversation' as any, {
-        p_other_user_id: otherUserId,
-      });
+      const response = await invokeNodeApi<{ conversationId: string }>(
+        '/api/v1/chat/conversations/direct',
+        {
+          method: 'POST',
+          body: { otherUserId },
+        }
+      );
 
-      if (error) throw error;
-
-      // Invalidate conversations
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-
-      return data as string;
+      return response.conversationId;
     },
   });
 }
@@ -694,20 +347,11 @@ export function useMarkAsRead() {
     mutationFn: async (conversationId: string) => {
       if (!user) return;
 
-      const { error } = await supabase
-        .from('conversation_participants' as any)
-        .update({ last_read_at: new Date().toISOString() } as any)
-        .eq('conversation_id', conversationId)
-        .eq('user_id', user.id);
-
-      if (error) {
-        logError('Error marking conversation as read', error);
-        // Don't throw - this is a non-critical operation
-        // The error is likely due to RLS policy issues
-        return;
-      }
-
+      await invokeNodeApi<void>(`/api/v1/chat/conversations/${conversationId}/read`, {
+        method: 'POST',
+      });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      return;
     },
   });
 }

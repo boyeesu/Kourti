@@ -17,7 +17,7 @@ import { useAllContracts } from '@/hooks/useContracts';
 import { useClients } from '@/hooks/useClients';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { useFetchData } from '@/lib/api';
 import {
   BarChart,
@@ -123,26 +123,24 @@ export default function Analytics() {
     queryFn: async () => {
       if (!organizationId) return [];
 
-      const { data, error } = await supabase
-        .from('tasks')
-        .select(
-          `
-          id, 
-          completed, 
-          priority, 
-          due_date, 
-          created_at, 
-          cases!inner(organization_id)
-        `
-        )
-        .eq('cases.organization_id', organizationId);
+      try {
+        const data = await invokeNodeApi<
+          Array<{
+            id: string;
+            completed: boolean;
+            priority: string;
+            due_date: string | null;
+            created_at: string;
+          }>
+        >('/api/v1/tasks', {
+          query: { organization_id: organizationId },
+        });
 
-      if (error) {
+        return data || [];
+      } catch (error) {
         logError('Error fetching tasks for analytics', error);
         return [];
       }
-
-      return data || [];
     },
     enabled: !!organizationId,
     staleTime: 5 * 60 * 1000,

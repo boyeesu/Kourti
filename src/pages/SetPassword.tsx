@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { validatePassword, PASSWORD_REQUIREMENTS } from '@/lib/passwordValidation';
 
@@ -18,56 +18,42 @@ export default function SetPassword() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
+  const [inviteToken, setInviteToken] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    const verifyToken = async () => {
+    const verifyToken = () => {
       try {
-        // Check if there's already an active session (Supabase automatically creates one from invite link)
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        // Check URL for invitation token (custom JWT system uses query params or hash)
+        const params = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
 
-        if (session?.user) {
-          // Valid session exists, user can set password
+        const token =
+          params.get('token') || hashParams.get('token') || hashParams.get('access_token');
+        const type = params.get('type') || hashParams.get('type');
+
+        if (token && (type === 'invite' || type === 'invitation' || !type)) {
+          // Clear the hash from URL
+          if (window.location.hash) {
+            window.history.replaceState(
+              null,
+              '',
+              window.location.pathname + window.location.search
+            );
+          }
+
+          setInviteToken(token);
           setTokenValid(true);
           setVerifying(false);
           return;
         }
 
-        // If no session, check URL hash for token (backup method)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const type = hashParams.get('type');
-
-        if (!accessToken || type !== 'invite') {
-          setTokenValid(false);
-          toast.error('Invalid invitation', {
-            description: 'This invitation link is invalid or has expired.',
-          });
-          setTimeout(() => navigate('/auth'), 3000);
-          return;
-        }
-
-        // Try to establish session with the token
-        const {
-          data: { session: newSession },
-          error,
-        } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: hashParams.get('refresh_token') || '',
+        // If no token found, the link is invalid
+        setTokenValid(false);
+        toast.error('Invalid invitation', {
+          description: 'This invitation link is invalid or has expired.',
         });
-
-        if (error || !newSession) {
-          setTokenValid(false);
-          toast.error('Invalid invitation', {
-            description: 'This invitation link is invalid or has expired.',
-          });
-          setTimeout(() => navigate('/auth'), 3000);
-          return;
-        }
-
-        setTokenValid(true);
+        setTimeout(() => navigate('/auth'), 3000);
       } catch (error) {
         console.error('Error verifying token:', error);
         setTokenValid(false);
@@ -100,12 +86,12 @@ export default function SetPassword() {
     setLoading(true);
 
     try {
-      // Update the user's password
-      const { error } = await supabase.auth.updateUser({
-        password: password,
+      // Set password via Node backend using the invitation token
+      await invokeNodeApi('/api/v1/auth/set-password', {
+        method: 'POST',
+        body: { token: inviteToken, password },
+        headers: { Authorization: `Bearer ${inviteToken}` },
       });
-
-      if (error) throw error;
 
       toast.success('Password set successfully!', { description: 'Welcome to Kourti AI!' });
 

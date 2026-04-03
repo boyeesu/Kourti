@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { invokeNodeApi } from '@/lib/backendApi';
 import {
   CalendarShare,
   SharedCalendar,
@@ -16,15 +16,7 @@ export function useSharedCalendars() {
   return useQuery({
     queryKey: ['shared-calendars'],
     queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase.rpc('get_shared_calendars', { user_uuid: user.id });
-
-      if (error) throw error;
-      return (data as SharedCalendar[]) || [];
+      return invokeNodeApi<SharedCalendar[]>('/api/v1/calendar/shares/shared-with-me');
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
@@ -37,15 +29,7 @@ export function useCalendarViewers() {
   return useQuery({
     queryKey: ['calendar-viewers'],
     queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase.rpc('get_calendar_viewers', { user_uuid: user.id });
-
-      if (error) throw error;
-      return (data as CalendarViewer[]) || [];
+      return invokeNodeApi<CalendarViewer[]>('/api/v1/calendar/shares/viewers');
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -58,13 +42,7 @@ export function useOrganizationCalendarShares() {
   return useQuery({
     queryKey: ['calendar-shares', 'organization'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('calendar_shares_with_users')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return (data as CalendarShare[]) || [];
+      return invokeNodeApi<CalendarShare[]>('/api/v1/calendar/shares/viewers');
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -78,42 +56,10 @@ export function useShareCalendar() {
 
   return useMutation({
     mutationFn: async (shareData: CreateCalendarShareData) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Get user's organization
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile?.organization_id) {
-        throw new Error('Organization not found');
-      }
-
-      const { data, error } = await supabase
-        .from('calendar_shares')
-        .insert({
-          calendar_owner_id: user.id,
-          shared_with_user_id: shareData.shared_with_user_id,
-          organization_id: profile.organization_id,
-          permission_level: shareData.permission_level,
-          is_active: true,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        const pgError = error as { code?: string };
-        if (pgError.code === '23505') {
-          throw new Error('Calendar is already shared with this user');
-        }
-        throw error;
-      }
-      return data;
+      return invokeNodeApi('/api/v1/calendar/shares', {
+        method: 'POST',
+        body: shareData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-viewers'] });
@@ -141,15 +87,10 @@ export function useUpdateCalendarShare() {
       shareId: string;
       updates: UpdateCalendarShareData;
     }) => {
-      const { data, error } = await supabase
-        .from('calendar_shares')
-        .update(updates)
-        .eq('id', shareId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi(`/api/v1/calendar/shares/${shareId}`, {
+        method: 'PATCH',
+        body: updates,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-viewers'] });
@@ -173,15 +114,10 @@ export function useRevokeCalendarShare() {
 
   return useMutation({
     mutationFn: async (shareId: string) => {
-      const { data, error } = await supabase
-        .from('calendar_shares')
-        .update({ is_active: false })
-        .eq('id', shareId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi(`/api/v1/calendar/shares/${shareId}`, {
+        method: 'PATCH',
+        body: { is_active: false },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-viewers'] });
@@ -204,38 +140,8 @@ export function useOrganizationMembersForSharing() {
   return useQuery({
     queryKey: ['organization-members', 'for-sharing'],
     queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Get user's organization
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile?.organization_id) {
-        throw new Error('Organization not found');
-      }
-
-      // Get organization members excluding current user
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, email, calendar_color')
-        .eq('organization_id', profile.organization_id)
-        .neq('user_id', user.id);
-
-      if (error) throw error;
-
-      return (
-        data.map((member) => ({
-          id: member.user_id,
-          name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email || '',
-          email: member.email || '',
-          color: member.calendar_color || '#3b82f6',
-        })) || []
+      return invokeNodeApi<Array<{ id: string; name: string; email: string; color: string }>>(
+        '/api/v1/calendar/shares/members'
       );
     },
     staleTime: 5 * 60 * 1000,

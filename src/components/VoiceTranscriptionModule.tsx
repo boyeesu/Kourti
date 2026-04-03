@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
+import { getSession } from '@/lib/authClient';
+import { invokeNodeApi } from '@/lib/backendApi';
+import { uploadDocument } from '@/lib/fileApi';
 import { useCases } from '@/hooks/useCases';
 import { Case } from '@/types';
 import { useCreateActivity } from '@/features/activities/api/useCreateActivity';
@@ -263,19 +264,16 @@ const VoiceTranscriptionModule: React.FC = () => {
             throw new Error('Failed to process audio file');
           }
 
-          const { data, error } = await invokeFunctionWithCsrf<{
+          const data = await invokeNodeApi<{
             error?: string;
             transcript?: string;
-          }>('voice-transcription', {
+          }>('/api/v1/ai/voice-transcription', {
+            method: 'POST',
             body: {
               audio: base64Audio,
               action: 'transcribe',
             },
           });
-
-          if (error) {
-            throw error;
-          }
 
           if (data?.error) {
             throw new Error(data.error);
@@ -343,17 +341,16 @@ const VoiceTranscriptionModule: React.FC = () => {
           throw new Error('Failed to process audio');
         }
 
-        const { data, error } = await invokeFunctionWithCsrf<{
+        const data = await invokeNodeApi<{
           error?: string;
           transcript?: string;
-        }>('voice-transcription', {
+        }>('/api/v1/ai/voice-transcription', {
+          method: 'POST',
           body: {
             audio: base64Audio,
             action: 'transcribe',
           },
         });
-
-        if (error) throw error;
 
         if (data?.error) {
           throw new Error(data.error);
@@ -387,17 +384,16 @@ const VoiceTranscriptionModule: React.FC = () => {
     setIsSummarizing(true);
 
     try {
-      const { data, error } = await invokeFunctionWithCsrf<{ error?: string; summary?: string }>(
-        'voice-transcription',
+      const data = await invokeNodeApi<{ error?: string; summary?: string }>(
+        '/api/v1/ai/voice-transcription',
         {
+          method: 'POST',
           body: {
             transcript,
             action: 'summarize',
           },
         }
       );
-
-      if (error) throw error;
 
       if (data?.error) {
         throw new Error(data.error);
@@ -430,28 +426,16 @@ const VoiceTranscriptionModule: React.FC = () => {
     setIsSaving(true);
 
     try {
-      // Get current user data
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Get current user from session
+      const session = getSession();
+      const user = session?.user;
 
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      // Get user's organization from profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile?.organization_id) {
-        throw new Error('User organization not found');
-      }
-
       // Upload audio file to storage if available
-      let audioFileUrl = null;
+      let audioFilePath = null;
       if (audioBlob) {
         // Validate audio file size (max 50MB for audio)
         const MAX_AUDIO_SIZE = 50 * 1024 * 1024; // 50MB
@@ -461,50 +445,38 @@ const VoiceTranscriptionModule: React.FC = () => {
           });
           // Continue without audio file
         } else {
-          const fileName = `audio_${Date.now()}.webm`;
-          const filePath = `${profile.organization_id}/${user.id}/${fileName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('documents')
-            .upload(filePath, audioBlob, {
-              contentType: 'audio/webm',
-              upsert: false,
-            });
-
-          if (uploadError) {
+          try {
+            const fileName = `audio_${Date.now()}.webm`;
+            const audioFile = new File([audioBlob], fileName, { type: 'audio/webm' });
+            const uploadResult = await uploadDocument(audioFile);
+            audioFilePath = uploadResult.filePath;
+          } catch (uploadError) {
             console.error('Error uploading audio:', uploadError);
             toast.error('Audio Upload Warning', {
               description: 'Audio file could not be saved, but transcription will be saved.',
             });
-          } else {
-            // Get signed URL for private bucket (1 hour expiry)
-            const { data: urlData } = await supabase.storage
-              .from('documents')
-              .createSignedUrl(filePath, 3600);
-            audioFileUrl = urlData?.signedUrl || null;
           }
         }
       }
 
-      // Save to voice_transcriptions table
-      const { error: transcriptionError } = await supabase.from('voice_transcriptions').insert({
-        title,
-        transcript: saveType === 'transcript' ? transcript : '',
-        summary: saveType === 'summary' ? summary : '',
-        case_id: selectedCaseId === 'none' ? null : selectedCaseId,
-        duration_seconds: duration,
-        status: 'completed' as const,
-        organization_id: profile.organization_id,
-        created_by: user.id,
-        audio_file_url: audioFileUrl,
-        metadata: {
-          recordingDate: new Date().toISOString(),
-          fileType: 'webm',
-          source: 'voice_recorder',
+      // Save to voice_transcriptions table via Node backend
+      await invokeNodeApi('/api/v1/voice-transcriptions', {
+        method: 'POST',
+        body: {
+          title,
+          transcript: saveType === 'transcript' ? transcript : '',
+          summary: saveType === 'summary' ? summary : '',
+          case_id: selectedCaseId === 'none' ? null : selectedCaseId,
+          duration_seconds: duration,
+          status: 'completed',
+          audio_file_path: audioFilePath,
+          metadata: {
+            recordingDate: new Date().toISOString(),
+            fileType: 'webm',
+            source: 'voice_recorder',
+          },
         },
       });
-
-      if (transcriptionError) throw transcriptionError;
 
       // Create activity if matter is selected
       if (selectedCaseId && selectedCaseId !== 'none') {

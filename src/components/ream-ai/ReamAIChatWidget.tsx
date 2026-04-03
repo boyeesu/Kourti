@@ -10,7 +10,7 @@ import { useReamAIAssistant } from '@/hooks/useReamAIAssistant';
 import { useUploadDocument } from '@/hooks/useDocuments';
 import { toast } from 'sonner';
 import { useDropzone } from 'react-dropzone';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useProcessDocument } from '@/hooks/useRAGSearch';
 import { logError } from '@/lib/logger';
@@ -181,8 +181,17 @@ export function ReamAIChatWidget({
               setTimeout(() => reject(new Error('Extraction timed out')), 30000);
             });
 
-            const extractionPromise = supabase.functions.invoke('extract-document-text', {
-              body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
+            const extractionPromise = Promise.resolve({
+              data: await invokeNodeApi<{
+                content?: string;
+                error?: string;
+                warning?: string;
+                success?: boolean;
+              }>('/api/v1/ai/extract-document-text', {
+                method: 'POST',
+                body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
+              }),
+              error: null,
             });
 
             // Race the extraction against the timeout

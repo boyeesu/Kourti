@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { toast } from 'sonner';
 import { CreateActivityData } from './useCreateActivity';
 
@@ -12,20 +12,21 @@ export function useUpdateActivity() {
 
   return useMutation({
     mutationFn: async ({ id, ...updateData }: UpdateActivityData) => {
-      const { data, error } = await supabase
-        .from('case_activities')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await invokeNodeApi<Record<string, unknown>>(
+        `/api/v1/misc/case-activities/${id}`,
+        {
+          method: 'PATCH',
+          body: updateData,
+        }
+      );
       return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['activities'] });
       queryClient.invalidateQueries({ queryKey: ['case-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['activity', data?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['activity', (data as Record<string, unknown>)?.id],
+      });
       toast.success('Success', { description: 'Activity updated successfully.' });
     },
     onError: (error: unknown) => {

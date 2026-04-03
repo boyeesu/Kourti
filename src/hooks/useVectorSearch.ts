@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useRAGSearch } from './useRAGSearch';
-import { supabase } from '@/integrations/supabase/client';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 /**
  * Hook for performing vector similarity search on documents
@@ -49,19 +49,10 @@ export function useVectorSearch(query: string, enabled: boolean = true) {
 export function useGenerateEmbedding() {
   return async (documentId: string, documentType: 'document' | 'contract', content: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-embeddings', {
-        body: {
-          documentId,
-          documentType,
-          content,
-        },
+      return invokeNodeApi<any>('/api/v1/ai/generate-embeddings', {
+        method: 'POST',
+        body: { documentId, documentType, content },
       });
-
-      if (error) {
-        throw new Error(`Failed to generate embedding: ${error.message}`);
-      }
-
-      return data;
     } catch (error: any) {
       logError('Embedding generation error', error);
       throw error;

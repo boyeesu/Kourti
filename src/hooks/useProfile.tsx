@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface ProfileData {
   first_name?: string;
@@ -23,28 +23,8 @@ export function useProfile() {
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(
-          `
-          id,
-          user_id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          department,
-          title,
-          avatar_url,
-          created_at,
-          updated_at
-        `
-        )
-        .eq('user_id', userId as any)
-        .single();
-
-      if (error) throw error;
-      return data;
+      const result = await invokeNodeApi<{ profile: any }>('/api/v1/users/me');
+      return result.profile;
     },
   });
 }
@@ -57,15 +37,7 @@ export function useUpdateProfile() {
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(profileData as any)
-        .eq('user_id', userId as any)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<any>('/api/v1/users/me/profile', { method: 'PATCH', body: profileData });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
@@ -82,11 +54,10 @@ export function useUpdateProfile() {
 export function useChangePassword() {
   return useMutation({
     mutationFn: async ({ newPassword }: PasswordChangeData) => {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
+      await invokeNodeApi('/api/v1/users/me/password', {
+        method: 'POST',
+        body: { newPassword },
       });
-
-      if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Password changed successfully', {

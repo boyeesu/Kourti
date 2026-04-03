@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { exportAsDocx, exportContractAsPdf } from '@/lib/documentExport';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { toast } from 'sonner';
 import { logError } from '@/lib/logger';
 import {
@@ -88,12 +88,10 @@ export default function ContractView() {
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('contracts')
-        .update({ terms: editedContent })
-        .eq('id', contract.id);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/contracts/${contract.id}`, {
+        method: 'PATCH',
+        body: { terms: editedContent },
+      });
 
       toast.success('Contract updated successfully');
       setIsEditMode(false);

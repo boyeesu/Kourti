@@ -1,25 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export function useDeleteOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ orgId, reason }: { orgId: string; reason?: string }) => {
-      const { data, error } = await supabase.rpc('delete_organization_safe', {
-        p_org_id: orgId,
-        p_reason: reason || undefined,
+      return invokeNodeApi(`/api/v1/organizations/${orgId}`, {
+        method: 'DELETE',
+        body: { reason },
       });
-
-      if (error) throw error;
-
-      // Check if the response contains an error
-      if (data && typeof data === 'object' && 'error' in data) {
-        throw new Error(data.error as string);
-      }
-
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-organizations'] });

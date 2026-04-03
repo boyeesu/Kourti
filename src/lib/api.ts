@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { toast } from 'sonner';
 
@@ -20,7 +20,10 @@ export interface FetchDataResult<T> {
 }
 
 /**
- * Generic hook for fetching data from Supabase with organization scoping
+ * Generic hook for fetching data from the Node backend with organization scoping.
+ *
+ * The backend is expected to support query parameters for filtering, ordering, etc.
+ * The `table` field is used as the REST resource name.
  */
 export function useFetchData<T = unknown>(
   options: FetchDataOptions,
@@ -35,45 +38,51 @@ export function useFetchData<T = unknown>(
         return { data: null, count: 0 };
       }
 
-      let query = (supabase.from(options.table as any) as any)
-        .select(options.select || '*', { count: 'exact' })
-        .eq('organization_id', organizationId);
+      // Build query parameters from options
+      const query: Record<string, string | number | boolean> = {
+        organization_id: organizationId,
+      };
 
-      // Apply additional filters
+      if (options.select) {
+        query.select = options.select;
+      }
+
       if (options.filters) {
         Object.entries(options.filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
-            query = query.eq(key, value);
+            query[key] = value as string | number | boolean;
           }
         });
       }
 
-      // Apply ordering
       if (options.orderBy) {
-        query = query.order(options.orderBy.column, {
-          ascending: options.orderBy.ascending ?? false,
-        });
+        query.orderBy = options.orderBy.column;
+        query.ascending = options.orderBy.ascending ?? false;
       }
 
-      // Apply limit
       if (options.limit) {
-        query = query.limit(options.limit);
+        query.limit = options.limit;
       }
 
-      // Execute query
       if (options.single) {
-        const { data, error, count } = await query.single();
-        if (error) throw error;
-        return { data: data as T, count };
+        query.single = true;
       }
 
-      const { data, error, count } = await query;
-      if (error) throw error;
-      return { data: data as T, count };
+      const data = await invokeNodeApi<{ data: T; count: number | null }>(
+        `/api/v1/data/${options.table}`,
+        {
+          query,
+        }
+      );
+
+      return {
+        data: (data as any)?.data ?? (data as unknown as T),
+        count: (data as any)?.count ?? null,
+      };
     },
     enabled: !!organizationId && !orgLoading && !orgError,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     ...queryOptions,
   });
 }
@@ -93,21 +102,21 @@ export function useFetchCount(
     queryFn: async () => {
       if (!organizationId) return 0;
 
-      let query = (supabase.from(table as any) as any)
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', organizationId);
+      const query: Record<string, string | number | boolean> = {
+        organization_id: organizationId,
+        count_only: true,
+      };
 
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
-            query = query.eq(key, value);
+            query[key] = value as string | number | boolean;
           }
         });
       }
 
-      const { count, error } = await query;
-      if (error) throw error;
-      return count || 0;
+      const data = await invokeNodeApi<{ count: number }>(`/api/v1/data/${table}`, { query });
+      return (data as any)?.count ?? 0;
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -131,14 +140,13 @@ export function useGetItemById<T = unknown>(options: {
         throw new Error('Organization ID or item ID is missing');
       }
 
-      const { data, error } = await (supabase.from(options.table as any) as any)
-        .select(options.select || '*')
-        .eq('id', options.id)
-        .eq('organization_id', organizationId)
-        .single();
+      const query: Record<string, string> = {};
+      if (options.select) {
+        query.select = options.select;
+      }
 
-      if (error) throw error;
-      return data as T;
+      const data = await invokeNodeApi<T>(`/api/v1/data/${options.table}/${options.id}`, { query });
+      return data;
     },
     enabled: !!organizationId && !!options.id && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -158,14 +166,11 @@ export function useUpdateItem<T = unknown>(options: {
   return useMutation({
     mutationFn: async (updateData: { id: string; [key: string]: unknown }) => {
       const { id, ...data } = updateData;
-      const { data: result, error } = await (supabase.from(options.table as any) as any)
-        .update(data as any)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return result as T;
+      const result = await invokeNodeApi<T>(`/api/v1/data/${options.table}/${id}`, {
+        method: 'PATCH',
+        body: data,
+      });
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [options.table] });

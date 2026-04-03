@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
-import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface CreateNotificationData {
   title: string;
@@ -36,14 +34,20 @@ export function useNotifications(userId?: string) {
       const targetUserId = userId || (await getCurrentUserId());
       if (!targetUserId) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', targetUserId as any)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
+      return invokeNodeApi<
+        Array<{
+          id: string;
+          title: string | null;
+          description: string | null;
+          type: string | null;
+          status: string | null;
+          created_at: string | null;
+        }>
+      >('/api/v1/notifications', {
+        query: {
+          userId: targetUserId,
+        },
+      });
     },
     enabled: true,
     staleTime: 1 * 60 * 1000, // 1 minute
@@ -60,14 +64,15 @@ export function useUnreadNotificationsCount(userId?: string) {
       const targetUserId = userId || (await getCurrentUserId());
       if (!targetUserId) throw new Error('User not authenticated');
 
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', targetUserId as any)
-        .eq('status', 'unread' as any);
-
-      if (error) throw error;
-      return count || 0;
+      const response = await invokeNodeApi<{ count: number }>(
+        '/api/v1/notifications/unread-count',
+        {
+          query: {
+            userId: targetUserId,
+          },
+        }
+      );
+      return response.count || 0;
     },
     enabled: true,
     staleTime: 30 * 1000, // 30 seconds
@@ -79,29 +84,21 @@ export function useUnreadNotificationsCount(userId?: string) {
  */
 export function useCreateNotification() {
   const queryClient = useQueryClient();
-  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async (notificationData: CreateNotificationData) => {
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('User not authenticated');
-      if (!organizationId) throw new Error('Organization not found');
 
       const targetUserId = notificationData.user_id || userId;
 
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert({
+      return invokeNodeApi('/api/v1/notifications', {
+        method: 'POST',
+        body: {
           ...notificationData,
           user_id: targetUserId,
-          organization_id: organizationId,
-          status: 'unread',
-        } as any)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -122,15 +119,10 @@ export function useUpdateNotification() {
 
   return useMutation({
     mutationFn: async ({ id, status }: UpdateNotificationData) => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .update({ status } as any)
-        .eq('id', id as any)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi(`/api/v1/notifications/${id}`, {
+        method: 'PATCH',
+        body: { status },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -154,13 +146,10 @@ export function useMarkAllNotificationsAsRead() {
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('User not authenticated');
 
-      const { error } = await supabase
-        .from('notifications')
-        .update({ status: 'read' } as any)
-        .eq('user_id', userId as any)
-        .eq('status', 'unread' as any);
-
-      if (error) throw error;
+      await invokeNodeApi('/api/v1/notifications/mark-all-read', {
+        method: 'POST',
+      });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -182,12 +171,10 @@ export function useDeleteNotification() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId as any);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/notifications/${notificationId}`, {
+        method: 'DELETE',
+      });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

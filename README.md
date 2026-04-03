@@ -137,7 +137,7 @@ Export any document, contract, or generated content in PDF or DOCX. All export j
 
 ## Searching and Filtering Your Data
 
-The app has a global search bar in the header of every page, so you can quickly find cases, documents, or contracts from anywhere.
+The app has a global search bar in the header of every page, so you can quickly find matters, documents, contracts, clients, calendar events, and voice/transcription records from anywhere.
 
 Additionally, each major page has its own filters:
 

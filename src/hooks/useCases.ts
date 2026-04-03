@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Case } from '@/types';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface CreateCaseData {
   title: string;
@@ -48,48 +48,14 @@ export function useCases(
         return { cases: [], count: 0 };
       }
 
-      const from = (page - 1) * pageSize;
-      const to = page * pageSize - 1;
-
-      let queryBuilder = supabase
-        .from('cases')
-        .select(
-          `
-          *,
-          client:client_id(id, name, email, company),
-          assigned_user:assigned_to(user_id, first_name, last_name),
-          case_type:case_type_id(id, name, description),
-          case_issue:case_issue_id(id, name, description)
-        `,
-          { count: 'exact' }
-        )
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false })
-        .range(from, to);
-
-      // Apply status filter
-      if (statusFilter && statusFilter !== 'all') {
-        queryBuilder = queryBuilder.eq('status', statusFilter);
-      }
-
-      // Apply priority filter
-      if (priorityFilter && priorityFilter !== 'all') {
-        queryBuilder = queryBuilder.eq('priority', priorityFilter);
-      }
-
-      const { data, error, count } = await queryBuilder;
-
-      if (error) throw error;
-
-      const cases = (data || []).map((caseItem) => ({
-        ...caseItem,
-        client: caseItem.client || null,
-        assigned_user: caseItem.assigned_user || null,
-        case_type: caseItem.case_type || null,
-        case_issue: caseItem.case_issue || null,
-      })) as unknown as Case[];
-
-      return { cases, count: count || 0 };
+      return invokeNodeApi<CasesResult>('/api/v1/cases', {
+        query: {
+          page,
+          pageSize,
+          status: statusFilter,
+          priority: priorityFilter,
+        },
+      });
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -118,23 +84,7 @@ export function useCase(id: string) {
         throw new Error('User not authenticated or organization not found');
       }
 
-      const { data, error } = await supabase
-        .from('cases')
-        .select(
-          `
-          *,
-          client:client_id(id, name, email, company, phone),
-          assigned_user:assigned_to(user_id, first_name, last_name, email),
-          case_type:case_type_id(id, name, description),
-          case_issue:case_issue_id(id, name, description)
-        `
-        )
-        .eq('id', id)
-        .eq('organization_id', organizationId)
-        .single();
-
-      if (error) throw error;
-      return data as unknown as Case;
+      return invokeNodeApi<Case>(`/api/v1/cases/${id}`);
     },
     enabled: !!id && !!user?.id && !!organizationId,
     staleTime: 5 * 60 * 1000,
@@ -155,19 +105,10 @@ export function useCreateCase() {
         throw new Error('User not authenticated or organization not found');
       }
 
-      const { data, error } = await supabase
-        .from('cases')
-        .insert({
-          ...caseData,
-          organization_id: organizationId,
-          created_by: user.id,
-          user_id: user.id,
-        } as never)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<Case>('/api/v1/cases', {
+        method: 'POST',
+        body: caseData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
@@ -190,16 +131,11 @@ export function useUpdateCase() {
   return useMutation({
     mutationFn: async ({ id, ...updateData }: UpdateCaseData) => {
       if (!organizationId) throw new Error('Organization not found');
-      const { data, error } = await supabase
-        .from('cases')
-        .update(updateData as never)
-        .eq('id', id)
-        .eq('organization_id', organizationId)
-        .select()
-        .single();
 
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<Case>(`/api/v1/cases/${id}`, {
+        method: 'PATCH',
+        body: updateData,
+      });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
@@ -223,13 +159,11 @@ export function useDeleteCase() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!organizationId) throw new Error('Organization not found');
-      const { error } = await supabase
-        .from('cases')
-        .delete()
-        .eq('id', id)
-        .eq('organization_id', organizationId);
 
-      if (error) throw error;
+      await invokeNodeApi<void>(`/api/v1/cases/${id}`, {
+        method: 'DELETE',
+      });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
@@ -253,14 +187,13 @@ export function useAllCases() {
     queryFn: async () => {
       if (!organizationId) return [];
 
-      const { data, error } = await supabase
-        .from('cases')
-        .select('id, title, status, priority, created_at, next_hearing_date, client_id')
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as unknown as Case[];
+      const result = await invokeNodeApi<CasesResult>('/api/v1/cases', {
+        query: {
+          page: 1,
+          pageSize: 1000,
+        },
+      });
+      return result.cases;
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -280,33 +213,13 @@ export function useCasesByClient(clientId: string) {
         return { cases: [], count: 0 };
       }
 
-      const { data, error, count } = await supabase
-        .from('cases')
-        .select(
-          `
-          *,
-          client:client_id(id, name, email, company),
-          assigned_user:assigned_to(user_id, first_name, last_name),
-          case_type:case_type_id(id, name, description),
-          case_issue:case_issue_id(id, name, description)
-        `,
-          { count: 'exact' }
-        )
-        .eq('organization_id', organizationId)
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const cases = (data || []).map((caseItem) => ({
-        ...caseItem,
-        client: caseItem.client || null,
-        assigned_user: caseItem.assigned_user || null,
-        case_type: caseItem.case_type || null,
-        case_issue: caseItem.case_issue || null,
-      })) as unknown as Case[];
-
-      return { cases, count: count || 0 };
+      return invokeNodeApi<CasesResult>('/api/v1/cases', {
+        query: {
+          page: 1,
+          pageSize: 1000,
+          clientId,
+        },
+      });
     },
     enabled: !!organizationId && !!clientId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,

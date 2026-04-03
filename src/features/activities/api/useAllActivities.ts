@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useUserOrganization } from "@/hooks/useUserOrganization";
+import { useQuery } from '@tanstack/react-query';
+import { invokeNodeApi } from '@/lib/backendApi';
+import { useUserOrganization } from '@/hooks/useUserOrganization';
 
 export interface Activity {
   id: string;
@@ -23,32 +23,14 @@ export function useAllActivities() {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   return useQuery<Activity[], Error>({
-    queryKey: ["all-activities", organizationId],
+    queryKey: ['all-activities', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
 
-      const { data, error } = await supabase
-        .from("case_activities")
-        .select(
-          `
-          id,
-          activity_type,
-          title,
-          description,
-          status,
-          case_id,
-          assigned_to,
-          created_by,
-          created_at,
-          due_date,
-          organization_id
-        `
-        )
-        .eq("organization_id", organizationId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as Activity[];
+      const data = await invokeNodeApi<Activity[]>('/api/v1/misc/case-activities', {
+        query: { organizationId },
+      });
+      return data || [];
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -66,33 +48,17 @@ export function useRecentActivities(days: number = 30) {
   startDate.setDate(startDate.getDate() - days);
 
   return useQuery<Activity[], Error>({
-    queryKey: ["recent-activities", organizationId, days],
+    queryKey: ['recent-activities', organizationId, days],
     queryFn: async () => {
       if (!organizationId) return [];
 
-      const { data, error } = await supabase
-        .from("case_activities")
-        .select(
-          `
-          id,
-          activity_type,
-          title,
-          description,
-          status,
-          case_id,
-          assigned_to,
-          created_by,
-          created_at,
-          due_date,
-          organization_id
-        `
-        )
-        .eq("organization_id", organizationId)
-        .gte("created_at", startDate.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as Activity[];
+      const data = await invokeNodeApi<Activity[]>('/api/v1/misc/case-activities', {
+        query: {
+          organizationId,
+          since: startDate.toISOString(),
+        },
+      });
+      return data || [];
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,

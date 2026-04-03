@@ -15,7 +15,8 @@ export default defineConfig(({ mode }) => ({
       '@': path.resolve(__dirname, './src'),
     },
     dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
-    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
+    // Keep .tsx before .ts to avoid silently resolving stale duplicate hooks
+    extensions: ['.mjs', '.js', '.tsx', '.ts', '.jsx', '.json'],
   },
   preview: {
     port: 3000,

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 /**
  * Hook to check if the current user is a platform admin
@@ -17,19 +17,10 @@ export function usePlatformAdmin() {
       }
 
       try {
-        // SECURITY: p_user_id is passed for the RPC function signature, but the server
-        // function MUST validate this against auth.uid() to prevent privilege escalation.
-        // Ideally, the server function should use auth.uid() directly and ignore this parameter.
-        const { data, error } = await supabase.rpc('is_platform_admin', {
-          p_user_id: user.id,
-        });
-
-        if (error) {
-          logError('Error checking platform admin status', error);
-          return false;
-        }
-
-        return Boolean(data);
+        const data = await invokeNodeApi<{ isPlatformAdmin: boolean }>(
+          '/api/v1/users/is-platform-admin'
+        );
+        return Boolean(data.isPlatformAdmin);
       } catch (error) {
         logError('Error checking platform admin status', error);
         return false;
@@ -43,20 +34,13 @@ export function usePlatformAdmin() {
 /**
  * Get platform admin status synchronously (for use outside React components)
  */
-export async function isPlatformAdmin(userId: string): Promise<boolean> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function isPlatformAdmin(_userId: string): Promise<boolean> {
   try {
-    // SECURITY: p_user_id is passed for the RPC function signature, but the server
-    // function MUST validate this against auth.uid() to prevent privilege escalation.
-    const { data, error } = await supabase.rpc('is_platform_admin', {
-      p_user_id: userId,
-    });
-
-    if (error) {
-      console.error('Error checking platform admin status:', error);
-      return false;
-    }
-
-    return Boolean(data);
+    const data = await invokeNodeApi<{ isPlatformAdmin: boolean }>(
+      '/api/v1/users/is-platform-admin'
+    );
+    return Boolean(data.isPlatformAdmin);
   } catch (error) {
     console.error('Error checking platform admin status:', error);
     return false;

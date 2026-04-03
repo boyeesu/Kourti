@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, FileText, AlertCircle, Eye, Download, Zap } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 interface ComparisonResult {
   differences: {
@@ -59,24 +59,16 @@ export default function ContractCompare() {
         return;
       }
 
-      // Call the compare-contracts edge function
-      const { data, error } = await supabase.functions.invoke('compare-contracts', {
+      // Call the compare-contracts backend endpoint
+      const data = await invokeNodeApi<ComparisonResult>('/api/v1/ai/compare-contracts', {
+        method: 'POST',
         body: {
           primaryText,
           comparisonText,
         },
       });
 
-      if (error) {
-        logError('Comparison error', error);
-        toast.error('Comparison Failed', {
-          description: error.message || 'Failed to compare contracts. Please try again.',
-        });
-        setIsAnalyzing(false);
-        return;
-      }
-
-      setResults(data as ComparisonResult);
+      setResults(data);
       toast.success('Comparison Complete', {
         description: `Identified ${data.summary.totalChanges} differences between the contracts.`,
       });

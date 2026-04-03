@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { logWarn } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface GlobalRole {
   role: string;
@@ -20,46 +20,16 @@ export function useAllRoles() {
     queryKey: ['all-roles'],
     queryFn: async () => {
       try {
-        // Fetch global roles
-        const { data: globals, error: globalError } = await supabase
-          .from('global_roles')
-          .select('*')
-          .order('role');
-        if (globalError) throw globalError;
-
-        // Fetch custom roles for current organization
-        const { data: customs, error: customError } = await supabase
-          .from('user_roles')
-          .select('*')
-          .order('role_name');
-        if (customError && customError.code !== 'PGRST116') throw customError;
-
-        // Mark source and normalize field names for UI use
-        // Filter out platform_admin — it's a DB-only role, not assignable through the app
-        const globalRoles = ((globals as GlobalRole[]) || [])
-          .filter((r) => r.role !== 'platform_admin')
-          .map((r) => ({
-            id: r.role,
-            role: r.role,
-            role_name: r.role,
-            display_name: r.display_name,
-            description: r.description,
-            source: 'global' as const,
-          }));
-
-        const customRoles = ((customs as CustomRole[]) || [])
-          .filter((r) => r.role_name !== 'platform_admin')
-          .map((r) => ({
-            id: r.id,
-            role: r.role_name,
-            role_name: r.role_name,
-            display_name: r.role_name,
-            description: r.description,
-            source: 'custom' as const,
-          }));
-
-        // Merge for consumption
-        return [...globalRoles, ...customRoles];
+        return invokeNodeApi<
+          Array<{
+            id: string;
+            role: string;
+            role_name: string;
+            display_name: string;
+            description?: string;
+            source: 'global' | 'custom';
+          }>
+        >('/api/v1/roles/all');
       } catch (error) {
         logWarn('Error fetching roles, returning system defaults', { error });
         // Return system defaults if there's an error

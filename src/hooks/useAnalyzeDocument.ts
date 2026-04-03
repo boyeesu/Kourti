@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { toast } from 'sonner';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export function useAnalyzeDocument() {
   const queryClient = useQueryClient();
@@ -12,45 +11,38 @@ export function useAnalyzeDocument() {
     mutationFn: async ({ docId, content }: { docId: string; content: string }) => {
       const cacheKey = `ai-summary-${docId}`;
       const lastCallKey = `ai-lastcall`;
-      // Rate limit
       const lastCall = localStorage.getItem(lastCallKey);
       if (lastCall && Date.now() - Number(lastCall) < 1000) {
         throw new Error('API rate limit exceeded');
       }
-      // Cache
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         return { analysis: cached, docId };
       }
-      const payload = { text: content, analysisType: 'summarize' as const };
-      const { data, error } = await invokeFunctionWithCsrf('advanced-contract-analysis', {
-        body: payload,
-      });
 
-      let analysisResponse = data;
-      if (error) {
-        const fallback = await invokeFunctionWithCsrf('contract-analysis-ai', {
-          body: payload,
-        });
-        if (fallback.error) throw fallback.error;
-        analysisResponse = fallback.data;
-      }
-
-      const analysis = (analysisResponse as Record<string, unknown>)?.analysis as string;
-      if (!analysis) {
-        throw new Error('No analysis returned from AI service');
-      }
+      const result = await invokeNodeApi<{ analysis: string }>(
+        '/api/v1/ai/advanced-contract-analysis',
+        {
+          method: 'POST',
+          body: { text: content, analysisType: 'summarize' },
+        }
+      );
+      const analysis = result.analysis;
+      if (!analysis) throw new Error('No analysis returned');
       localStorage.setItem(cacheKey, analysis);
       localStorage.setItem(lastCallKey, Date.now().toString());
       return { analysis, docId };
     },
     onSuccess: async ({ analysis, docId }) => {
       if (!organizationId) return;
-      await supabase
-        .from('documents')
-        .update({ summary: analysis } as never)
-        .eq('id', docId)
-        .eq('organization_id', organizationId);
+      try {
+        await invokeNodeApi(`/api/v1/documents/${docId}`, {
+          method: 'PATCH',
+          body: { summary: analysis },
+        });
+      } catch {
+        // Best-effort save — the analysis is already cached locally
+      }
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success('Document summarized', { description: 'Summary saved.' });
     },

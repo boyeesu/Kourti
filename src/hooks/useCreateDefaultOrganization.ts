@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
-import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 /**
  * Hook to create a default organization for a user if they don't have one.
@@ -20,73 +19,11 @@ export function useCreateDefaultOrganization() {
         throw new Error('User is not authenticated. Please sign in first.');
       }
 
-      // Check if user already has an organization
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId as any)
-        .single();
-
-      // If user already has an organization, return it
-      if ((existingProfile as any)?.organization_id) {
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', (existingProfile as any).organization_id)
-          .single();
-
-        return org;
-      }
-
-      // Create a new organization
-      const defaultName = organizationName || 'My Legal Practice';
-
-      const { data: newOrg, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: defaultName,
-          description: 'Default organization created automatically',
-        } as any)
-        .select()
-        .single();
-
-      if (orgError) {
-        logError('Error creating organization', orgError);
-        throw orgError;
-      }
-
-      // Update user's profile with the new organization ID
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          organization_id: (newOrg as any).id,
-          role: 'superadmin',
-        } as any)
-        .eq('user_id', userId as any);
-
-      if (profileError) {
-        logError('Error updating profile', profileError);
-        throw profileError;
-      }
-
-      // Also insert into user_role_assignments (new permission system)
-      const { error: roleAssignmentError } = await supabase.from('user_role_assignments').insert({
-        user_id: userId,
-        role_name: 'superadmin',
-        organization_id: (newOrg as any).id,
-        assigned_by: userId,
-      } as any);
-
-      if (roleAssignmentError) {
-        logError('Error assigning role', roleAssignmentError);
-        // We log but don't throw here to avoid failing the whole flow if the profile update worked
-        // The trigger might handle it or we can fix it later
-      }
-
-      // Sign out and back in to refresh JWT with the new org_id claim
-      await supabase.auth.signOut();
-
-      return newOrg || { id: '', name: 'Organization creation failed' };
+      // In Node mode, delegate org creation to the backend
+      return invokeNodeApi<any>('/api/v1/organizations/create-default', {
+        method: 'POST',
+        body: { name: organizationName || 'My Legal Practice' },
+      });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user-organization'] });

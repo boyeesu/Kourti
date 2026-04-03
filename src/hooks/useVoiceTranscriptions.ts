@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 interface VoiceTranscription {
   id: string;
@@ -24,100 +24,27 @@ export function useVoiceTranscriptions() {
   return useQuery({
     queryKey: ['voice-transcriptions', organizationId],
     queryFn: async () => {
-      // Check if user is authenticated
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-      if (!organizationId) {
-        throw new Error('Organization not found');
-      }
+      if (!organizationId) throw new Error('Organization not found');
 
-      const { data, error } = await supabase
-        .from('voice_transcriptions')
-        .select(
-          `
-          id,
-          title,
-          transcript,
-          summary,
-          case_id,
-          duration_seconds,
-          status,
-          created_at,
-          updated_at
-        `
-        )
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      return data as VoiceTranscription[];
+      return invokeNodeApi<VoiceTranscription[]>('/api/v1/misc/voice-transcriptions');
     },
     enabled: !!organizationId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
     retry: (failureCount, error) => {
-      // Don't retry if it's an auth error
-      if (error?.message === 'User not authenticated') {
-        return false;
-      }
+      if (error?.message === 'User not authenticated') return false;
       return failureCount < 3;
     },
   });
 }
 
-/**
- * Hook for fetching a single voice transcription
- */
 export function useVoiceTranscription(id: string) {
   const { data: organizationId } = useUserOrganization();
   return useQuery({
     queryKey: ['voice-transcription', id, organizationId],
     queryFn: async () => {
-      // Check if user is authenticated
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-      if (!organizationId) {
-        throw new Error('Organization not found');
-      }
+      if (!organizationId) throw new Error('Organization not found');
 
-      const { data, error } = await supabase
-        .from('voice_transcriptions')
-        .select(
-          `
-          id,
-          title,
-          transcript,
-          summary,
-          case_id,
-          duration_seconds,
-          status,
-          created_at,
-          updated_at
-        `
-        )
-        .eq('id', id)
-        .eq('organization_id', organizationId)
-        .maybeSingle();
-
-      if (error) {
-        throw error;
-      }
-
-      if (!data) {
-        return null;
-      }
-
-      return data as VoiceTranscription;
+      return invokeNodeApi<VoiceTranscription | null>(`/api/v1/misc/voice-transcriptions/${id}`);
     },
     enabled: !!id && !!organizationId,
     retry: (failureCount, error) => {
@@ -140,38 +67,10 @@ export function useCreateVoiceTranscription() {
     mutationFn: async (
       transcriptionData: Omit<VoiceTranscription, 'id' | 'created_at' | 'updated_at'>
     ) => {
-      // Get current user data
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Get user's organization from profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile?.organization_id) {
-        throw new Error('User organization not found');
-      }
-
-      const { data, error } = await supabase
-        .from('voice_transcriptions')
-        .insert({
-          ...transcriptionData,
-          organization_id: profile.organization_id,
-          created_by: user.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<VoiceTranscription>('/api/v1/misc/voice-transcriptions', {
+        method: 'POST',
+        body: transcriptionData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-transcriptions'] });
@@ -193,16 +92,11 @@ export function useUpdateVoiceTranscription() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<VoiceTranscription> }) => {
       if (!organizationId) throw new Error('Organization not found');
-      const { data, error } = await supabase
-        .from('voice_transcriptions')
-        .update(updates)
-        .eq('id', id)
-        .eq('organization_id', organizationId)
-        .select()
-        .single();
 
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<VoiceTranscription>(`/api/v1/misc/voice-transcriptions/${id}`, {
+        method: 'PATCH',
+        body: updates,
+      });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['voice-transcriptions'] });
@@ -227,13 +121,9 @@ export function useDeleteVoiceTranscription() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!organizationId) throw new Error('Organization not found');
-      const { error } = await supabase
-        .from('voice_transcriptions')
-        .delete()
-        .eq('id', id)
-        .eq('organization_id', organizationId);
 
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/misc/voice-transcriptions/${id}`, { method: 'DELETE' });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-transcriptions'] });

@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLogAdminAction } from './useAdminActions';
 import { useAuth } from './useAuth';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface UserPlan {
   id: string;
@@ -58,20 +58,7 @@ export function useUserPlans() {
     queryKey: ['user-plans'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
-          .from('user_plans')
-          .select('*')
-          .eq('is_active', true)
-          .order('plan_type', { ascending: true });
-
-        if (error) {
-          throw error;
-        }
-
-        return (data || []).map((plan) => ({
-          ...plan,
-          features: (plan.features as string[]) || [],
-        })) as UserPlan[];
+        return invokeNodeApi<UserPlan[]>('/api/v1/misc/user-plans');
       } catch (error) {
         logError('Error fetching user plans', error);
         throw error;
@@ -92,28 +79,9 @@ export function useCurrentUserPlan(userId?: string) {
     queryFn: async () => {
       try {
         const targetUserId = userId || user?.id;
-        if (!targetUserId) {
-          return null;
-        }
+        if (!targetUserId) return null;
 
-        const { data, error } = await supabase.rpc('get_user_current_plan', {
-          p_user_id: targetUserId,
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        const planData = data as CurrentUserPlan[] | null;
-        if (!planData || planData.length === 0) {
-          return null;
-        }
-
-        const plan = planData[0];
-        return {
-          ...plan,
-          features: (plan.features as string[]) || [],
-        };
+        return invokeNodeApi<CurrentUserPlan | null>('/api/v1/misc/user-plans/current');
       } catch (error) {
         logError('Error fetching current user plan', error);
         throw error;
@@ -132,14 +100,7 @@ export function useAllUserPlanAssignments() {
     queryKey: ['all-user-plan-assignments'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.rpc('get_all_user_plan_assignments');
-
-        if (error) {
-          throw error;
-        }
-
-        const assignments = data as UserPlanAssignment[] | null;
-        return assignments || [];
+        return invokeNodeApi<UserPlanAssignment[]>('/api/v1/admin/user-plan-assignments');
       } catch (error) {
         logError('Error fetching all user plan assignments', error);
         throw error;
@@ -165,18 +126,15 @@ export function useAssignUserPlan() {
       notes?: string;
     }) => {
       try {
-        const { data, error } = await supabase.rpc('assign_user_plan', {
-          p_user_id: params.userId,
-          p_plan_id: params.planId,
-          p_expires_at: params.expiresAt?.toISOString() || null,
-          p_notes: params.notes || null,
+        return invokeNodeApi<unknown>('/api/v1/admin/user-plans/assign', {
+          method: 'POST',
+          body: {
+            userId: params.userId,
+            planId: params.planId,
+            expiresAt: params.expiresAt?.toISOString() || null,
+            notes: params.notes || null,
+          },
         });
-
-        if (error) {
-          throw error;
-        }
-
-        return data;
       } catch (error) {
         logError('Error assigning user plan', error);
         throw error;
@@ -220,16 +178,13 @@ export function useRevokeUserPlan() {
   return useMutation({
     mutationFn: async (params: { userId: string; reason?: string }) => {
       try {
-        const { data, error } = await supabase.rpc('revoke_user_plan', {
-          p_user_id: params.userId,
-          p_reason: params.reason || null,
+        return invokeNodeApi<unknown>('/api/v1/admin/user-plans/revoke', {
+          method: 'POST',
+          body: {
+            userId: params.userId,
+            reason: params.reason || null,
+          },
         });
-
-        if (error) {
-          throw error;
-        }
-
-        return data;
       } catch (error) {
         logError('Error revoking user plan', error);
         throw error;

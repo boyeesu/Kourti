@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { supabase } from '@/integrations/supabase/client';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface SavedSearch {
   id: string;
@@ -23,14 +23,10 @@ export function useSavedSearches() {
 
     const fetchSearches = async () => {
       try {
-        const { data, error } = await supabase
-          .from('saved_searches' as any)
-          .select('*')
-          .eq('organization_id', organizationId)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setSavedSearches((data || []) as unknown as SavedSearch[]);
+        const data = await invokeNodeApi<SavedSearch[]>('/api/v1/misc/saved-searches');
+        setSavedSearches(data || []);
+        setIsLoading(false);
+        return;
       } catch (error) {
         logError('Error fetching saved searches', error);
       } finally {
@@ -50,20 +46,10 @@ export function useSavedSearches() {
     if (!organizationId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('saved_searches' as any)
-        .insert({
-          organization_id: organizationId,
-          name,
-          query,
-          filters,
-          resource_type: resourceType,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      const savedSearch = data as unknown as SavedSearch;
+      const savedSearch = await invokeNodeApi<SavedSearch>('/api/v1/misc/saved-searches', {
+        method: 'POST',
+        body: { name, query, filters, resource_type: resourceType },
+      });
       setSavedSearches((prev) => [savedSearch, ...prev]);
       return savedSearch;
     } catch (error) {
@@ -74,13 +60,9 @@ export function useSavedSearches() {
 
   const deleteSearch = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('saved_searches' as any)
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/misc/saved-searches/${id}`, { method: 'DELETE' });
       setSavedSearches((prev) => prev.filter((s) => s.id !== id));
+      return;
     } catch (error) {
       logError('Error deleting search', error);
       throw error;

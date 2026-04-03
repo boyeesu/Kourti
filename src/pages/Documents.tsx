@@ -3,7 +3,8 @@ import { logError } from '@/lib/logger';
 import { useNavigate } from 'react-router-dom';
 import { useSearch } from '@/hooks/use-search';
 import { useDocuments } from '@/hooks/useDocuments';
-import { supabase } from '@/integrations/supabase/client';
+import { getNodeDocumentSignedUrl } from '@/lib/backendApi';
+import { downloadDocument } from '@/lib/fileApi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -95,9 +96,24 @@ export default function Documents() {
     if (!doc.file_path) return;
 
     try {
-      const { data } = await supabase.storage.from('documents').download(doc.file_path);
+      try {
+        const signed = await getNodeDocumentSignedUrl(doc.id, {
+          disposition: 'attachment',
+          filename:
+            (doc.metadata as { original_filename?: string } | undefined)?.original_filename ||
+            doc.name ||
+            'download',
+        });
 
-      if (data) {
+        const a = document.createElement('a');
+        a.href = signed.signedUrl;
+        a.download = signed.fileName || doc.name || 'download';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch {
+        // Fallback to direct download via fileApi
+        const data = await downloadDocument(doc.file_path);
         const url = URL.createObjectURL(data);
         const a = document.createElement('a');
         a.href = url;

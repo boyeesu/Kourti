@@ -1,10 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { Contract } from '@/types';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface CreateContractData {
   title: string;
@@ -33,8 +32,7 @@ export interface ContractsResult {
 /**
  * Paginated contracts hook with filtering support
  */
-export function useContracts(initialPage = 1, pageSize = 10, statusFilter?: string) {
-  const [page, setPage] = useState(initialPage);
+export function useContracts(page = 1, pageSize = 10, statusFilter?: string) {
   const { data: organizationId, isLoading: orgLoading, error: orgError } = useUserOrganization();
 
   const query = useQuery<ContractsResult, Error>({
@@ -44,37 +42,13 @@ export function useContracts(initialPage = 1, pageSize = 10, statusFilter?: stri
         return { contracts: [], count: 0 };
       }
 
-      const from = (page - 1) * pageSize;
-      const to = page * pageSize - 1;
-
-      let queryBuilder = supabase
-        .from('contracts')
-        .select(
-          `
-          *,
-          client:client_id(id, name, email, company)
-        `,
-          { count: 'exact' }
-        )
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false })
-        .range(from, to);
-
-      // Apply status filter
-      if (statusFilter && statusFilter !== 'all') {
-        queryBuilder = queryBuilder.eq('status', statusFilter);
-      }
-
-      const { data, error, count } = await queryBuilder;
-
-      if (error) throw error;
-
-      const contracts = (data || []).map((contract) => ({
-        ...contract,
-        client: contract.client || null,
-      })) as Contract[];
-
-      return { contracts, count: count || 0 };
+      return invokeNodeApi<ContractsResult>('/api/v1/contracts', {
+        query: {
+          page,
+          pageSize,
+          status: statusFilter,
+        },
+      });
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -85,7 +59,6 @@ export function useContracts(initialPage = 1, pageSize = 10, statusFilter?: stri
     ...query,
     page,
     pageSize,
-    setPage,
   };
 }
 
@@ -103,20 +76,7 @@ export function useContract(id: string) {
         throw new Error('User not authenticated or organization not found');
       }
 
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(
-          `
-          *,
-          client:client_id(id, name, email, company, phone)
-        `
-        )
-        .eq('id', id)
-        .eq('organization_id', organizationId)
-        .single();
-
-      if (error) throw error;
-      return data as unknown as Contract;
+      return invokeNodeApi<Contract>(`/api/v1/contracts/${id}`);
     },
     enabled: !!id && !!user?.id && !!organizationId,
     staleTime: 5 * 60 * 1000,
@@ -128,7 +88,6 @@ export function useContract(id: string) {
  */
 export function useCreateContract() {
   const queryClient = useQueryClient();
-
   const { user } = useAuth();
   const { data: organizationId } = useUserOrganization();
 
@@ -138,18 +97,10 @@ export function useCreateContract() {
         throw new Error('User not authenticated or organization not found');
       }
 
-      const { data, error } = await supabase
-        .from('contracts')
-        .insert({
-          ...contractData,
-          organization_id: organizationId,
-          created_by: user.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<Contract>('/api/v1/contracts', {
+        method: 'POST',
+        body: contractData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
@@ -167,22 +118,16 @@ export function useCreateContract() {
  */
 export function useUpdateContract() {
   const queryClient = useQueryClient();
-
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async ({ id, ...updateData }: UpdateContractData) => {
       if (!organizationId) throw new Error('Organization not found');
-      const { data, error } = await supabase
-        .from('contracts')
-        .update(updateData)
-        .eq('id', id)
-        .eq('organization_id', organizationId)
-        .select()
-        .single();
 
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<Contract>(`/api/v1/contracts/${id}`, {
+        method: 'PATCH',
+        body: updateData,
+      });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
@@ -201,19 +146,16 @@ export function useUpdateContract() {
  */
 export function useDeleteContract() {
   const queryClient = useQueryClient();
-
   const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async (id: string) => {
       if (!organizationId) throw new Error('Organization not found');
-      const { error } = await supabase
-        .from('contracts')
-        .delete()
-        .eq('id', id)
-        .eq('organization_id', organizationId);
 
-      if (error) throw error;
+      await invokeNodeApi<void>(`/api/v1/contracts/${id}`, {
+        method: 'DELETE',
+      });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
@@ -237,16 +179,10 @@ export function useAllContracts() {
     queryFn: async () => {
       if (!organizationId) return [];
 
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(
-          'id, title, status, value, currency, created_at, start_date, end_date, contract_type, client_id'
-        )
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as Contract[];
+      const result = await invokeNodeApi<ContractsResult>('/api/v1/contracts', {
+        query: { page: 1, pageSize: 1000 },
+      });
+      return result.contracts;
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,
@@ -264,25 +200,10 @@ export function useExpiringContracts(daysAhead: number = 30) {
     queryFn: async () => {
       if (!organizationId) return [];
 
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + daysAhead);
-
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(
-          `
-          *,
-          client:client_id(id, name, email)
-        `
-        )
-        .eq('organization_id', organizationId)
-        .eq('status', 'active')
-        .lte('end_date', futureDate.toISOString())
-        .gte('end_date', new Date().toISOString())
-        .order('end_date', { ascending: true });
-
-      if (error) throw error;
-      return (data || []) as Contract[];
+      const result = await invokeNodeApi<ContractsResult>('/api/v1/contracts', {
+        query: { page: 1, pageSize: 1000, expiringDays: daysAhead },
+      });
+      return result.contracts;
     },
     enabled: !!organizationId && !orgLoading && !orgError,
     staleTime: 5 * 60 * 1000,
@@ -300,26 +221,10 @@ export function useContractsByClient(clientId: string) {
     queryFn: async () => {
       if (!organizationId || !clientId) return [];
 
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(
-          `
-          *,
-          client:client_id(id, name, email, company)
-        `
-        )
-        .eq('organization_id', organizationId)
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const contracts = (data || []).map((contract) => ({
-        ...contract,
-        client: contract.client || null,
-      })) as Contract[];
-
-      return contracts;
+      const result = await invokeNodeApi<ContractsResult>('/api/v1/contracts', {
+        query: { page: 1, pageSize: 1000, clientId },
+      });
+      return result.contracts;
     },
     enabled: !!organizationId && !!clientId && !orgLoading && !orgError,
     staleTime: 2 * 60 * 1000,

@@ -1,10 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
+
+type ContextDocumentsResponse = {
+  documents: Array<Record<string, unknown>>;
+  count: number;
+};
+
+type ContextContractsResponse = {
+  contracts: Array<Record<string, unknown>>;
+  count: number;
+};
 
 /**
  * Hook for fetching a document's full content for AI context
  */
-export function useDocumentContent(documentId: string | null, documentType: 'document' | 'contract' | null) {
+export function useDocumentContent(
+  documentId: string | null,
+  documentType: 'document' | 'contract' | null
+) {
   return useQuery({
     queryKey: ['document-content', documentId, documentType],
     queryFn: async () => {
@@ -13,75 +26,54 @@ export function useDocumentContent(documentId: string | null, documentType: 'doc
       }
 
       if (documentType === 'document') {
-        const { data, error } = await supabase
-          .from('documents')
-          .select(`
-            id,
-            name,
-            content,
-            summary,
-            terms,
-            contract_type,
-            effective_date,
-            renewal_date,
-            termination_date,
-            value,
-            currency,
-            file_path,
-            mime_type,
-            metadata,
-            created_at,
-            updated_at
-          `)
-          .eq('id', documentId)
-          .single();
+        const data = await invokeNodeApi<{
+          id: string;
+          name: string;
+          content?: string;
+          summary?: string;
+          terms?: string;
+          contract_type?: string;
+          effective_date?: string;
+          renewal_date?: string;
+          termination_date?: string;
+          value?: number;
+          currency?: string;
+          file_path?: string;
+          mime_type?: string;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        }>(`/api/v1/documents/${documentId}`);
 
-        if (error) throw error;
-
-        // Combine all available text content
-        const fullContent = [
-          data.content,
-          data.summary,
-          data.terms
-        ].filter(Boolean).join('\n\n');
+        const fullContent = [data.content, data.summary, data.terms].filter(Boolean).join('\n\n');
 
         return {
           ...data,
           fullContent,
-          type: 'document' as const
+          type: 'document' as const,
         };
       } else if (documentType === 'contract') {
-        const { data, error } = await supabase
-          .from('contracts')
-          .select(`
-            id,
-            title,
-            description,
-            contract_type,
-            status,
-            value,
-            currency,
-            start_date,
-            end_date,
-            terms,
-            created_at,
-            updated_at
-          `)
-          .eq('id', documentId)
-          .single();
+        const data = await invokeNodeApi<{
+          id: string;
+          title: string;
+          description?: string;
+          contract_type?: string;
+          status?: string;
+          value?: number;
+          currency?: string;
+          start_date?: string;
+          end_date?: string;
+          terms?: string;
+          created_at?: string;
+          updated_at?: string;
+        }>(`/api/v1/contracts/${documentId}`);
 
-        if (error) throw error;
-
-        // Combine all available text content
-        const fullContent = [
-          data.terms,
-          data.description
-        ].filter(Boolean).join('\n\n');
+        const fullContent = [data.terms, data.description].filter(Boolean).join('\n\n');
 
         return {
           ...data,
           fullContent,
-          type: 'contract' as const
+          type: 'contract' as const,
         };
       }
 
@@ -104,41 +96,26 @@ export function useSearchDocumentsForContext(searchTerm: string) {
         return { documents: [], contracts: [] };
       }
 
-        const [documentsResult, contractsResult] = await Promise.all([
-          // Search documents
-          supabase
-            .from('documents')
-            .select(`
-              id,
-              name,
-              content,
-              summary,
-              created_at
-            `)
-            .or(`name.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,summary.ilike.%${searchTerm}%`)
-            .limit(10),
-
-        // Search contracts
-        supabase
-          .from('contracts')
-          .select(`
-            id,
-            title,
-            description,
-            terms,
-            contract_type,
-            created_at
-          `)
-          .or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,terms.ilike.%${searchTerm}%`)
-          .limit(10)
+      const [documentsResult, contractsResult] = await Promise.all([
+        invokeNodeApi<ContextDocumentsResponse>('/api/v1/documents', {
+          query: {
+            page: 1,
+            pageSize: 10,
+            search: searchTerm,
+          },
+        }),
+        invokeNodeApi<ContextContractsResponse>('/api/v1/contracts', {
+          query: {
+            page: 1,
+            pageSize: 10,
+            search: searchTerm,
+          },
+        }),
       ]);
 
-      if (documentsResult.error) throw documentsResult.error;
-      if (contractsResult.error) throw contractsResult.error;
-
       return {
-        documents: documentsResult.data || [],
-        contracts: contractsResult.data || []
+        documents: documentsResult.documents || [],
+        contracts: contractsResult.contracts || [],
       };
     },
     enabled: !!searchTerm && searchTerm.length >= 2,

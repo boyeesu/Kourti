@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { useAuth } from '@/hooks/useAuth';
 import { logError } from '@/lib/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,24 +62,20 @@ function usePricingPlans() {
     queryKey: ['pricing-plans'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
-          .from('user_plans')
-          .select('*')
-          .eq('is_active', true)
-          .order('plan_type', { ascending: true });
+        const plans = await invokeNodeApi<Array<Record<string, unknown>>>('/api/v1/plans', {
+          query: { is_active: true, order: 'plan_type.asc' },
+        });
 
-        if (error) throw error;
-
-        return (data || []).map((plan) => ({
-          id: plan.id,
-          name: plan.name,
-          display_name: plan.display_name,
-          description: plan.description,
+        return (plans || []).map((plan) => ({
+          id: plan.id as string,
+          name: plan.name as string,
+          display_name: plan.display_name as string,
+          description: plan.description as string | null,
           plan_type: plan.plan_type as PricingPlan['plan_type'],
           features: (plan.features as string[]) || [],
-          price_monthly: ((plan as Record<string, unknown>).price_monthly as number | null) ?? null,
-          price_yearly: ((plan as Record<string, unknown>).price_yearly as number | null) ?? null,
-          currency: ((plan as Record<string, unknown>).currency as string) || 'USD',
+          price_monthly: (plan.price_monthly as number | null) ?? null,
+          price_yearly: (plan.price_yearly as number | null) ?? null,
+          currency: (plan.currency as string) || 'USD',
         })) as PricingPlan[];
       } catch (error) {
         logError('Error fetching pricing plans', error);

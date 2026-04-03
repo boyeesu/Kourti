@@ -1,14 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { toast } from 'sonner';
-import { useCurrentUserOrganization } from '@/hooks/useOrganization';
-import { useProfile } from '@/hooks/useProfile';
-import { env } from '@/lib/env';
-import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
-import { logWarn } from '@/lib/logger';
-
-type ProviderName = 'google' | 'microsoft';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface OrganizationUser {
   id: string;
@@ -39,12 +32,7 @@ export function useOrganizationUsers() {
         throw new Error('No organization ID available');
       }
 
-      const { data, error } = await supabase.rpc('get_organization_users', {
-        org_id: organizationId,
-      });
-
-      if (error) throw error;
-      return (data || []) as OrganizationUser[];
+      return invokeNodeApi<OrganizationUser[]>('/api/v1/organizations/current/users');
     },
     enabled: !!organizationId,
     staleTime: 5 * 60 * 1000,
@@ -56,19 +44,10 @@ export function useToggleUserStatus() {
 
   return useMutation({
     mutationFn: async ({ userId, disable }: { userId: string; disable: boolean }) => {
-      const { data, error } = await supabase.rpc('toggle_user_status', {
-        target_user_id: userId,
-        disable: disable,
+      return invokeNodeApi(`/api/v1/users/${userId}/status`, {
+        method: 'PATCH',
+        body: { disable },
       });
-
-      if (error) throw error;
-
-      // Check if the response contains an error
-      if (data && typeof data === 'object' && 'error' in data) {
-        throw new Error(data.error as string);
-      }
-
-      return data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] });
@@ -89,9 +68,9 @@ export function useDeleteInvitation() {
 
   return useMutation({
     mutationFn: async (invitationId: string) => {
-      const { error } = await supabase.from('invitations').delete().eq('id', invitationId);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/invitations/${invitationId}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] });
@@ -106,86 +85,19 @@ export function useDeleteInvitation() {
 }
 
 export function useResendInvitation() {
-  const { data: organization } = useCurrentUserOrganization();
-  const { data: profile } = useProfile();
-
   return useMutation({
     mutationFn: async (user: OrganizationUser) => {
-      const organizationName = organization?.name || 'Organization';
-      const inviterName = buildDisplayName(profile?.first_name, profile?.last_name, profile?.email);
-      const invitationUrl = getAuthRedirectUrl('/auth', env.APP_URL);
-
-      const ssoLinks: Array<{
-        provider: ProviderName;
-        url: string;
-        mode: 'supabase_managed' | 'federated';
-      }> = [];
-      let ssoEnforced = false;
-      const ssoRedirect = getAuthRedirectUrl('/auth/callback', env.APP_URL);
-
-      for (const provider of ['google', 'microsoft'] as ProviderName[]) {
-        try {
-          const { data: dryRun } = await supabase.functions.invoke('sso-authorize', {
-            body: {
-              provider,
-              email: user.email,
-              organization_id: user.organization_id,
-              dry_run: true,
-            },
-          });
-
-          if (!dryRun?.available) continue;
-
-          if (dryRun.enforce_sso) {
-            ssoEnforced = true;
-          }
-
-          if (dryRun.mode === 'federated') {
-            const { data: authData } = await supabase.functions.invoke('sso-authorize', {
-              body: {
-                provider,
-                email: user.email,
-                organization_id: user.organization_id,
-                redirect_to: ssoRedirect,
-              },
-            });
-            if (authData?.authorization_url) {
-              ssoLinks.push({ provider, url: authData.authorization_url, mode: 'federated' });
-            }
-          } else if (dryRun.mode === 'supabase_managed') {
-            try {
-              const authorizeUrl = new URL('/auth/v1/authorize', env.SUPABASE_URL);
-              authorizeUrl.searchParams.set('provider', provider);
-              authorizeUrl.searchParams.set('redirect_to', ssoRedirect);
-              if (user.email) {
-                authorizeUrl.searchParams.set('login_hint', user.email);
-              }
-              ssoLinks.push({ provider, url: authorizeUrl.toString(), mode: 'supabase_managed' });
-            } catch (urlError) {
-              logWarn('Failed to build supabase-managed SSO link', { error: urlError });
-            }
-          }
-        } catch (err) {
-          logWarn('Unable to build SSO invitation link', { provider, error: err });
-        }
-      }
-
-      const { error } = await supabase.functions.invoke('send-invitation-email', {
+      await invokeNodeApi('/api/v1/invitations/resend', {
+        method: 'POST',
         body: {
           email: user.email,
           firstName: user.first_name || 'User',
           lastName: user.last_name || '',
           role: user.role,
           department: user.department,
-          organizationName,
-          inviterName,
-          invitationUrl,
-          ssoEnforced,
-          ssoLinks,
+          organizationId: user.organization_id,
         },
       });
-
-      if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Invitation resent', {
@@ -207,19 +119,10 @@ export function useChangeUserRole() {
         throw new Error('Platform admin role cannot be assigned through the application.');
       }
 
-      const { data, error } = await supabase.rpc('change_user_role', {
-        p_target_user_id: userId,
-        p_new_role_name: newRole,
+      return invokeNodeApi(`/api/v1/users/${userId}/role`, {
+        method: 'PATCH',
+        body: { role: newRole },
       });
-
-      if (error) throw error;
-
-      // Check if the response contains an error
-      if (data && typeof data === 'object' && 'error' in data) {
-        throw new Error(data.error as string);
-      }
-
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] });

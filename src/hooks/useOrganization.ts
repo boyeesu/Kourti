@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Organization } from './useAllOrganizations';
-import { getCurrentUserId } from './useCurrentUser';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 /**
  * Hook to fetch a single organization by ID (platform admin only)
@@ -17,14 +15,7 @@ export function useOrganization(orgId: string | null) {
       }
 
       try {
-        const { data, error } = await supabase.rpc('get_all_organizations');
-
-        if (error) {
-          throw error;
-        }
-
-        const org = (data || []).find((o: any) => o.id === orgId) as Organization | undefined;
-        return org || null;
+        return await invokeNodeApi<Organization>(`/api/v1/organizations/${orgId}`);
       } catch (error) {
         logError('Error fetching organization', error);
         throw error;
@@ -42,29 +33,7 @@ export function useCurrentUserOrganization() {
   return useQuery({
     queryKey: ['organization'],
     queryFn: async () => {
-      // First get the user's organization ID from their profile
-      const userId = await getCurrentUserId();
-      if (!userId) return null;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .single();
-
-      if (!(profile as any)?.organization_id) {
-        return null;
-      }
-
-      // Then get the organization details
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', (profile as any).organization_id)
-        .single();
-
-      if (error) throw error;
-      return data as any as Organization;
+      return invokeNodeApi<Organization>('/api/v1/organizations/current');
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -78,29 +47,18 @@ export function useOrganizationMembers() {
   return useQuery({
     queryKey: ['organization-members'],
     queryFn: async () => {
-      // Get the user's organization ID first
-      const userId = await getCurrentUserId();
-      if (!userId) return [];
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .single();
-
-      if (!(profile as any)?.organization_id) {
-        return [];
-      }
-
-      // Get all members in the organization
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, user_id, first_name, last_name, email, role, department, created_at')
-        .eq('organization_id', (profile as any).organization_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<
+        Array<{
+          id: string;
+          user_id: string;
+          first_name: string | null;
+          last_name: string | null;
+          email: string | null;
+          role: string | null;
+          department: string | null;
+          created_at: string;
+        }>
+      >('/api/v1/organizations/current/members');
     },
     staleTime: 5 * 60 * 1000,
   });

@@ -415,13 +415,13 @@ const AppSidebar: React.FC = () => {
             </SidebarMenu>
             <div className="flex items-center gap-3 rounded-lg border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--surface))] px-3 py-3">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={user?.user_metadata?.avatar_url} />
+                <AvatarImage src={user?.user_metadata?.avatar_url as string | undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
               {!collapsed && (
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">
-                    {user?.user_metadata?.name || user?.email}
+                    {(user?.user_metadata?.name as string) || user?.email}
                   </p>
                   <p className="text-xs text-muted-foreground">Workspace Lead</p>
                 </div>

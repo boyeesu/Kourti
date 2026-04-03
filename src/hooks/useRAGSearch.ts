@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { logError, logInfo, logWarn } from '@/lib/logger';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
+import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface RAGSearchResult {
   chunkId: string;
@@ -28,167 +27,50 @@ export function useRAGSearch(query: string, enabled: boolean = true) {
       }
 
       try {
-        // Validate user identity server-side first (getSession reads from localStorage and can be spoofed)
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user) {
-          logWarn('No verified user for RAG search, using text fallback');
-          return performTextFallbackSearch(query);
+        const nodeResponse = await invokeNodeApi<{
+          success?: boolean;
+          results?: Array<{
+            id: string;
+            document_id?: string;
+            contract_id?: string;
+            content: string;
+            similarity?: number;
+            metadata: Record<string, any>;
+            documentName?: string;
+            documentType?: 'document' | 'contract';
+          }>;
+        }>('/api/v1/ai/rag/search', {
+          method: 'POST',
+          body: {
+            query,
+            matchThreshold: 0.6,
+            matchCount: 15,
+          },
+        });
+
+        if (!nodeResponse?.success || !nodeResponse.results?.length) {
+          return [];
         }
 
-        // Use the dedicated rag-search edge function
-        logInfo('Performing RAG search via edge function');
-
-        const { data: searchResponse, error: searchError } = await supabase.functions.invoke(
-          'rag-search',
-          {
-            body: {
-              query: query,
-              matchThreshold: 0.6,
-              matchCount: 15,
-            },
-          }
-        );
-
-        if (searchError) {
-          logError('RAG search edge function error', { error: searchError });
-          return performTextFallbackSearch(query);
-        }
-
-        if (
-          !searchResponse?.success ||
-          !searchResponse?.results ||
-          searchResponse.results.length === 0
-        ) {
-          logInfo('No RAG results found via edge function', { message: searchResponse?.message });
-          return performTextFallbackSearch(query);
-        }
-
-        // Transform edge function results to RAGSearchResult format
-        interface RawRAGResult {
-          id: string;
-          document_id?: string;
-          contract_id?: string;
-          content: string;
-          similarity?: number;
-          metadata: Record<string, any>;
-          documentName?: string;
-          documentType?: 'document' | 'contract';
-        }
-        const enrichedResults: RAGSearchResult[] = searchResponse.results.map(
-          (result: RawRAGResult) => ({
-            chunkId: result.id,
-            documentId: result.document_id || undefined,
-            contractId: result.contract_id || undefined,
-            content: result.content,
-            similarity: result.similarity || 0,
-            metadata: result.metadata,
-            documentName: result.documentName || 'Unknown Document',
-            documentType: result.documentType || (result.document_id ? 'document' : 'contract'),
-          })
-        );
-
-        logInfo('RAG search completed', { resultCount: enrichedResults.length });
-        return enrichedResults;
+        return nodeResponse.results.map((result) => ({
+          chunkId: result.id,
+          documentId: result.document_id || undefined,
+          contractId: result.contract_id || undefined,
+          content: result.content,
+          similarity: result.similarity || 0,
+          metadata: result.metadata,
+          documentName: result.documentName || 'Unknown Document',
+          documentType: result.documentType || (result.document_id ? 'document' : 'contract'),
+        }));
       } catch (error) {
         logError('RAG search error', { error });
-        return performTextFallbackSearch(query);
+        return [];
       }
     },
     enabled: enabled && !!query && query.trim().length >= 3,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
-}
-
-// Fallback text search when vector search is unavailable
-async function performTextFallbackSearch(query: string): Promise<RAGSearchResult[]> {
-  try {
-    // Search document chunks with text search
-    const { data: chunkResults, error: chunkError } = await supabase
-      .from('document_chunks')
-      .select(
-        `
-        id,
-        document_id,
-        contract_id,
-        content,
-        metadata
-      `
-      )
-      .ilike('content', `%${query}%`)
-      .limit(10);
-
-    if (chunkError) {
-      logError('Chunk text search error', { error: chunkError });
-      return [];
-    }
-
-    // Transform to RAGSearchResult format
-    const results: RAGSearchResult[] = [];
-    const documentIds = Array.from(
-      new Set((chunkResults || []).map((chunk) => chunk.document_id).filter(Boolean))
-    ) as string[];
-
-    const contractIds = Array.from(
-      new Set((chunkResults || []).map((chunk) => chunk.contract_id).filter(Boolean))
-    ) as string[];
-
-    const [documentsResponse, contractsResponse] = await Promise.all([
-      documentIds.length
-        ? supabase.from('documents').select('id, name').in('id', documentIds)
-        : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
-      contractIds.length
-        ? supabase.from('contracts').select('id, title').in('id', contractIds)
-        : Promise.resolve({ data: [] as { id: string; title: string }[], error: null }),
-    ]);
-
-    if (documentsResponse.error) {
-      logWarn('Unable to load document names for fallback search', {
-        error: documentsResponse.error,
-      });
-    }
-
-    if (contractsResponse.error) {
-      logWarn('Unable to load contract names for fallback search', {
-        error: contractsResponse.error,
-      });
-    }
-
-    const documentNameMap = new Map<string, string>(
-      (documentsResponse.data || []).map((doc) => [doc.id, doc.name || 'Unknown Document'])
-    );
-    const contractNameMap = new Map<string, string>(
-      (contractsResponse.data || []).map((contract) => [
-        contract.id,
-        contract.title || 'Unknown Contract',
-      ])
-    );
-
-    for (const chunk of chunkResults || []) {
-      const hasDocument = Boolean(chunk.document_id);
-      const documentName = hasDocument
-        ? documentNameMap.get(chunk.document_id as string) || 'Unknown Document'
-        : contractNameMap.get(chunk.contract_id as string) || 'Unknown Contract';
-      const documentType: 'document' | 'contract' = hasDocument ? 'document' : 'contract';
-
-      results.push({
-        chunkId: chunk.id,
-        documentId: chunk.document_id || undefined,
-        contractId: chunk.contract_id || undefined,
-        content: chunk.content,
-        similarity: 0.75, // Default similarity for text search
-        metadata: (chunk.metadata ?? {}) as Record<string, any>,
-        documentName,
-        documentType,
-      });
-    }
-
-    logInfo('Fallback text search completed', { resultCount: results.length });
-    return results;
-  } catch (error) {
-    logError('Fallback search error', { error });
-    return [];
-  }
 }
 
 /**
@@ -207,17 +89,10 @@ export function useProcessDocument() {
       content: string;
       documentType?: 'document' | 'contract';
     }) => {
-      // Validate user identity server-side first (getSession reads from localStorage and can be spoofed)
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData?.user) {
-        logError('No verified user for document processing', { userError });
-        throw new Error('Authentication required. Please sign in again.');
-      }
-
-      // Supabase client automatically includes Authorization header with session token
-      const { data, error } = await invokeFunctionWithCsrf<{ chunksProcessed: number }>(
-        'process-document-chunks',
+      const data = await invokeNodeApi<{ chunksProcessed: number }>(
+        '/api/v1/ai/rag/process-document',
         {
+          method: 'POST',
           body: {
             documentId,
             contractId,
@@ -226,16 +101,6 @@ export function useProcessDocument() {
           },
         }
       );
-
-      if (error) {
-        logError('Failed to process document chunks', { error, documentId, contractId });
-        throw new Error(`Failed to process document: ${error.message}`);
-      }
-
-      if (!data) {
-        throw new Error('No data returned from processing');
-      }
-
       return data;
     },
     onSuccess: (data) => {

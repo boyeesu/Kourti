@@ -1,0 +1,49 @@
+import { createServer } from 'node:http';
+
+import { createApp } from './app.js';
+import { env } from './config/env.js';
+import { ensureDatabaseSchema } from './db/bootstrap.js';
+import { db } from './db/pool.js';
+
+const app = createApp();
+const server = createServer(app);
+
+async function start() {
+  console.log(`Starting backend-node [${env.NODE_ENV}] on port ${env.PORT}...`);
+
+  try {
+    await ensureDatabaseSchema();
+  } catch (error) {
+    // Log but don't crash -- the health endpoint will report DB status
+    console.error(
+      'Database bootstrap failed (server will still start):',
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  server.listen(env.PORT, '0.0.0.0', () => {
+    console.log(`backend-node listening on 0.0.0.0:${env.PORT} [${env.NODE_ENV}]`);
+  });
+}
+
+start().catch(async (error) => {
+  console.error('Failed to start backend-node:', error instanceof Error ? error.message : error);
+  await db.end().catch(() => undefined);
+  process.exit(1);
+});
+
+async function shutdown(signal: string) {
+  console.log(`Received ${signal}, shutting down backend-node...`);
+  server.close(async () => {
+    await db.end();
+    process.exit(0);
+  });
+}
+
+process.on('SIGINT', () => {
+  void shutdown('SIGINT');
+});
+
+process.on('SIGTERM', () => {
+  void shutdown('SIGTERM');
+});

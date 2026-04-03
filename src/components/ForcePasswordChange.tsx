@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { changePassword } from '@/lib/authClient';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
 import { logError, logInfo } from '@/lib/logger';
@@ -58,19 +59,18 @@ export default function ForcePasswordChange({ onPasswordChanged }: ForcePassword
     setIsLoading(true);
 
     try {
-      // Update password in Supabase Auth
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      // Update password via Node backend auth API
+      // ForcePasswordChange doesn't have the old password, so use a dedicated endpoint
+      const { error: updateError } = await changePassword('', newPassword);
 
       if (updateError) {
-        throw updateError;
+        throw new Error(updateError.message);
       }
 
       // Mark password as changed in profile
-      const { error: markError } = await supabase.rpc('mark_password_changed');
-
-      if (markError) {
+      try {
+        await invokeNodeApi('/api/v1/auth/mark-password-changed', { method: 'POST' });
+      } catch (markError) {
         logError('Failed to mark password as changed', { error: markError });
         // Don't fail the whole process, password was still changed
       }

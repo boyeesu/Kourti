@@ -413,18 +413,12 @@ function PasswordChangeCheck({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const { data, error } = await import('@/integrations/supabase/client').then((m) =>
-          m.supabase.from('profiles').select('must_change_password').eq('user_id', user.id).single()
+        const { invokeNodeApi } = await import('@/lib/backendApi');
+        const data = await invokeNodeApi<{ must_change_password?: boolean }>(
+          '/api/v1/users/me/password-status'
         );
 
-        if (error) {
-          logWarn('Failed to check password status', { error });
-          setMustChangePassword(true); // Fail closed: force password change on error for security
-        } else if (data) {
-          setMustChangePassword(data.must_change_password ?? false);
-        } else {
-          setMustChangePassword(false);
-        }
+        setMustChangePassword(data?.must_change_password ?? false);
       } catch (err) {
         logWarn('Password check failed', { err });
         setMustChangePassword(true); // Fail closed on catch too

@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface UserRole {
   id: string;
@@ -25,10 +24,7 @@ export function useUserRoles() {
   return useQuery({
     queryKey: ['user-roles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('user_roles').select('*').order('role_name');
-
-      if (error) throw error;
-      return data as any as UserRole[];
+      return invokeNodeApi<UserRole[]>('/api/v1/roles/org');
     },
   });
 }
@@ -38,38 +34,16 @@ export function useCreateUserRole() {
 
   return useMutation({
     mutationFn: async (roleData: CreateUserRoleData) => {
-      // Prevent creating a custom role named platform_admin
       if (roleData.role_name === 'platform_admin') {
         throw new Error(
           'Cannot create a role named "platform_admin". This is a reserved system role.'
         );
       }
 
-      const userId = await getCurrentUserId();
-      if (!userId) throw new Error('User not authenticated');
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId as any)
-        .single();
-
-      if (!profile) throw new Error('Profile not found');
-
-      const { data, error } = await supabase
-        .from('user_roles')
-        .insert({
-          role_name: roleData.role_name,
-          description: roleData.description,
-          organization_id: (profile as any).organization_id,
-          created_by: userId,
-          permissions: [], // Permissions will be initialized by trigger
-        } as any)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi('/api/v1/roles/org', {
+        method: 'POST',
+        body: roleData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles'] });
@@ -88,12 +62,8 @@ export function useDeleteUserRole() {
 
   return useMutation({
     mutationFn: async (roleId: string) => {
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('id', roleId as any);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/roles/org/${roleId}`, { method: 'DELETE' });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles'] });
@@ -111,55 +81,7 @@ export function useUsersWithRoles() {
   return useQuery({
     queryKey: ['users-with-roles'],
     queryFn: async () => {
-      // Get current user's organization
-      const currentUserId = await getCurrentUserId();
-      if (!currentUserId) throw new Error('User not authenticated');
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', currentUserId)
-        .single();
-
-      if (!profile) throw new Error('Profile not found');
-
-      const organizationId = (profile as any).organization_id;
-
-      // Fetch profiles for this organization
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select(
-          `
-          id,
-          user_id,
-          first_name,
-          last_name,
-          email,
-          role,
-          department,
-          title,
-          avatar_url
-        `
-        )
-        .eq('organization_id', organizationId)
-        .order('first_name');
-
-      if (profilesError) throw profilesError;
-
-      // Fetch role assignments separately
-      const { data: roleAssignments } = await supabase
-        .from('user_role_assignments')
-        .select('user_id, role_name')
-        .eq('organization_id', organizationId);
-
-      // Merge the data
-      return profiles.map((user: any) => ({
-        ...user,
-        custom_roles:
-          roleAssignments
-            ?.filter((assignment: any) => assignment.user_id === user.user_id)
-            .map((assignment: any) => assignment.role_name) || [],
-      }));
+      return invokeNodeApi<any[]>('/api/v1/roles/users-with-roles');
     },
   });
 }
@@ -174,19 +96,10 @@ export function useUpdateUserRole() {
         throw new Error('Platform admin role cannot be assigned through the application.');
       }
 
-      // Use the atomic change_user_role RPC instead of manual delete+insert
-      const { data, error } = await supabase.rpc('change_user_role', {
-        p_target_user_id: userId,
-        p_new_role_name: role,
+      await invokeNodeApi(`/api/v1/users/${userId}/role`, {
+        method: 'PATCH',
+        body: { role },
       });
-
-      if (error) throw error;
-
-      // The RPC returns a JSON object with either { success: true } or { error: '...' }
-      const result = data as { success?: boolean; error?: string } | null;
-      if (result && result.error) {
-        throw new Error(result.error);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });

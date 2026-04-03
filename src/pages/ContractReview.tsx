@@ -24,8 +24,9 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
-import { supabase } from '@/integrations/supabase/client';
+import { getNodeDocumentSignedUrl, invokeNodeApi } from '@/lib/backendApi';
+import { getAccessToken, refreshSession } from '@/lib/authClient';
+import { downloadDocument } from '@/lib/fileApi';
 import { toast } from 'sonner';
 import { useCreateContract } from '@/hooks/useContracts';
 import {
@@ -35,17 +36,7 @@ import {
   type AnalysisRecap,
   type FindingDecision,
 } from '@/components/ream-ai/ContractAnalysisView';
-
-const goalSuggestions = [
-  'Find potential risks and liabilities',
-  'Identify missing or unclear terms',
-  'Review payment and termination clauses',
-  'Check for compliance issues',
-  'Analyze intellectual property terms',
-  'Review liability and indemnification',
-  'Assess force majeure provisions',
-  'Evaluate confidentiality terms',
-];
+import { CONTRACT_REVIEW_GOAL_SUGGESTIONS } from '@/components/ream-ai/analysisPresets';
 
 export default function ContractReview() {
   const [searchParams] = useSearchParams();
@@ -81,100 +72,156 @@ export default function ContractReview() {
     const contractId = searchParams.get('contractId');
     const documentId = searchParams.get('documentId');
 
-    if (contractId) {
-      setIsLoadingSource(true);
-      supabase
-        .from('contracts')
-        .select('title, terms')
-        .eq('id', contractId)
-        .single()
-        .then(({ data, error }) => {
-          if (error || !data) {
-            toast.error('Failed to load contract', {
-              description: error?.message || 'Contract not found.',
-            });
-          } else if (data.terms) {
+    let cancelled = false;
+
+    const loadSource = async () => {
+      if (contractId) {
+        setIsLoadingSource(true);
+
+        try {
+          const data = await invokeNodeApi<{ title: string; terms?: string }>(
+            `/api/v1/contracts/${contractId}`
+          );
+
+          if (cancelled) return;
+
+          if (data.terms) {
             setTextContent(data.terms);
             setDocumentContent(data.terms);
-            toast.success('Contract Loaded', { description: `Loaded "${data.title}" for review.` });
+            toast.success('Contract Loaded', {
+              description: `Loaded "${data.title}" for review.`,
+            });
           }
-          setIsLoadingSource(false);
-        });
-    } else if (documentId) {
+        } catch (error) {
+          if (!cancelled) {
+            toast.error('Failed to load contract', {
+              description: error instanceof Error ? error.message : 'Contract not found.',
+            });
+          }
+        } finally {
+          if (!cancelled) {
+            setIsLoadingSource(false);
+          }
+        }
+
+        return;
+      }
+
+      if (!documentId) {
+        return;
+      }
+
       setIsLoadingSource(true);
       setAnalysisType('document_review');
-      supabase
-        .from('documents')
-        .select('name, content, file_path, mime_type')
-        .eq('id', documentId)
-        .single()
-        .then(async ({ data, error }) => {
-          if (error || !data) {
-            toast.error('Failed to load document', {
-              description: error?.message || 'Document not found.',
-            });
-            setIsLoadingSource(false);
-            return;
-          }
 
-          if (data.content && data.content.length > 10) {
+      try {
+        const data = await invokeNodeApi<{
+          id: string;
+          name: string;
+          content?: string;
+          file_path?: string;
+          mime_type?: string;
+        }>(`/api/v1/documents/${documentId}`);
+
+        if (!data) {
+          toast.error('Failed to load document', {
+            description: 'Document not found.',
+          });
+          return;
+        }
+
+        if (data.content && data.content.length > 10) {
+          if (!cancelled) {
             setTextContent(data.content);
             setDocumentContent(data.content);
             toast.success('Document Loaded', { description: `Loaded "${data.name}" for review.` });
-            setIsLoadingSource(false);
-            return;
           }
+          return;
+        }
 
-          if (data.file_path) {
-            try {
-              const { data: fileData } = await supabase.storage
-                .from('documents')
-                .download(data.file_path);
+        if (!data.file_path) {
+          return;
+        }
 
-              if (fileData) {
-                let extracted = '';
-                const fileName = data.name || data.file_path;
+        let fileData: Blob | null = null;
 
-                if (data.mime_type === 'text/plain' || fileName.toLowerCase().endsWith('.txt')) {
-                  extracted = await fileData.text();
-                } else if (fileName.toLowerCase().endsWith('.docx')) {
-                  try {
-                    const mammoth = await import('mammoth');
-                    const arrayBuffer = await fileData.arrayBuffer();
-                    const result = await mammoth.extractRawText({ arrayBuffer });
-                    extracted = result.value;
-                  } catch {
-                    // DOCX extraction failed
-                  }
-                } else {
-                  const rawText = await fileData.text();
-                  if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
-                    extracted = rawText;
-                  }
-                }
-
-                if (extracted && extracted.length > 10) {
-                  setTextContent(extracted);
-                  setDocumentContent(extracted);
-                  toast.success('Document Loaded', {
-                    description: `Loaded "${data.name}" for review.`,
-                  });
-                } else {
-                  toast.success('Could not extract text', {
-                    description:
-                      'The document format is not supported for automatic extraction. Please paste the text manually.',
-                  });
-                }
-              }
-            } catch {
-              toast.error('Download Failed', {
-                description: 'Could not download the document from storage.',
-              });
-            }
+        try {
+          const signed = await getNodeDocumentSignedUrl(data.id, {
+            disposition: 'inline',
+            expiresIn: 600,
+          });
+          const response = await fetch(signed.signedUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch document file (${response.status})`);
           }
+          fileData = await response.blob();
+        } catch {
+          // Fallback to direct download
+          fileData = await downloadDocument(data.file_path);
+        }
+
+        if (!fileData) {
+          return;
+        }
+
+        let extracted = '';
+        const fileName = data.name || data.file_path;
+
+        if (data.mime_type === 'text/plain' || fileName.toLowerCase().endsWith('.txt')) {
+          extracted = await fileData.text();
+        } else if (fileName.toLowerCase().endsWith('.docx')) {
+          try {
+            const mammoth = await import('mammoth');
+            const arrayBuffer = await fileData.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            extracted = result.value;
+          } catch {
+            // DOCX extraction failed
+          }
+        } else {
+          const rawText = await fileData.text();
+          if (rawText && rawText.length > 50 && !rawText.includes('\x00')) {
+            extracted = rawText;
+          }
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        if (extracted && extracted.length > 10) {
+          setTextContent(extracted);
+          setDocumentContent(extracted);
+          toast.success('Document Loaded', {
+            description: `Loaded "${data.name}" for review.`,
+          });
+        } else {
+          toast.success('Could not extract text', {
+            description:
+              'The document format is not supported for automatic extraction. Please paste the text manually.',
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast.error('Download Failed', {
+            description:
+              error instanceof Error
+                ? error.message
+                : 'Could not download the document from storage.',
+          });
+        }
+      } finally {
+        if (!cancelled) {
           setIsLoadingSource(false);
-        });
-    }
+        }
+      }
+    };
+
+    void loadSource();
+
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   // Extract text from uploaded file
@@ -329,132 +376,32 @@ export default function ContractReview() {
         stream: true,
       };
 
-      // Get auth session with timeout to prevent hanging on stale token refresh
-      let accessToken: string | undefined;
-      try {
-        const sessionResult = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 8000)
-          ),
-        ]);
-        accessToken = sessionResult.data.session?.access_token;
-      } catch (sessionErr) {
-        // getSession() hung (stale refresh) — force a fresh refresh
-        console.warn('getSession timed out or failed, forcing refresh:', sessionErr);
-        const { data: refreshData } = await supabase.auth.refreshSession();
-        accessToken = refreshData.session?.access_token;
-      }
-
-      if (!accessToken) {
-        throw new Error('Authentication required. Please sign in again.');
+      // Verify authentication before proceeding
+      if (!getAccessToken()) {
+        try {
+          await refreshSession();
+        } catch {
+          throw new Error('Authentication required. Please sign in again.');
+        }
       }
 
       setAnalysisProgress(20);
       setProgressLabel('Connecting to REAM AI...');
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey =
-        import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      // Use direct fetch for streaming with timeout — bypasses Supabase client overhead
-      const fetchController = new AbortController();
-      const fetchTimeout = setTimeout(() => fetchController.abort(), 90000); // 90s timeout
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/advanced-contract-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-          apikey: supabaseKey,
-        },
-        body: JSON.stringify(payload),
-        signal: fetchController.signal,
-      });
-      clearTimeout(fetchTimeout);
-
-      if (!response.ok) {
-        const errorBody = await response.text().catch(() => '');
-        console.warn('Streaming analysis failed:', response.status, errorBody);
-
-        // Fallback to non-streaming via csrfClient
-        setAnalysisProgress(40);
-        setProgressLabel('Trying alternative analysis...');
-        const fallback = await invokeFunctionWithCsrf<{ analysis?: string }>(
-          'contract-analysis-ai',
-          { body: { ...payload, stream: undefined } }
-        );
-        if (fallback.error) throw fallback.error;
-        const analysisText = fallback.data?.analysis || '';
-        if (!analysisText) throw new Error('Analysis returned empty results. Please try again.');
-
-        setAnalysisProgress(80);
-        setProgressLabel('Parsing findings...');
-        const parsed = parseAnalysisToFindings(analysisText, content);
-        setFindings(parsed.findings);
-        setRecap(parsed.recap);
-        setAnalysisProgress(100);
-        setProgressLabel('Analysis complete!');
-        toast.success('Analysis Complete', {
-          description: `Found ${parsed.findings.length} findings across ${parsed.recap.categories.length} categories.`,
-        });
-        return;
-      }
-
-      // Stream the response — show progress as chunks arrive
-      setAnalysisProgress(30);
-      setProgressLabel('AI is analyzing your contract...');
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('Streaming not supported');
-
-      const decoder = new TextDecoder();
-      let analysisText = '';
-      let buffer = '';
-
-      const readWithTimeout = (timeoutMs: number) => {
-        let timer: ReturnType<typeof setTimeout>;
-        return Promise.race([
-          reader.read(),
-          new Promise<never>((_, reject) => {
-            timer = setTimeout(() => {
-              reader.cancel();
-              reject(new Error('Stream stalled — no data received for 60 seconds'));
-            }, timeoutMs);
-          }),
-        ]).finally(() => clearTimeout(timer!));
-      };
-
-      while (true) {
-        const { done, value } = await readWithTimeout(60000);
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
-
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              analysisText += delta;
-              // Update progress based on content length (rough estimate)
-              const progress = Math.min(30 + Math.floor((analysisText.length / 3000) * 50), 80);
-              setAnalysisProgress(progress);
-            }
-          } catch {
-            // Skip malformed SSE chunks
-          }
+      const nodeResponse = await invokeNodeApi<{ analysis?: string }>(
+        '/api/v1/ai/advanced-contract-analysis',
+        {
+          method: 'POST',
+          body: {
+            ...payload,
+            stream: undefined,
+          },
         }
-      }
+      );
 
+      const analysisText = nodeResponse.analysis || '';
       if (!analysisText) {
-        throw new Error('AI service returned an empty analysis. Please try again.');
+        throw new Error('Analysis returned empty results. Please try again.');
       }
 
       setAnalysisProgress(85);
@@ -920,7 +867,7 @@ export default function ContractReview() {
 
             {/* Goal chips - multi-select */}
             <div className="flex flex-wrap gap-1.5">
-              {goalSuggestions.map((suggestion) => {
+              {CONTRACT_REVIEW_GOAL_SUGGESTIONS.map((suggestion) => {
                 const isSelected = selectedGoals.includes(suggestion);
                 return (
                   <Badge

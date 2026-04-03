@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUserOrganization } from './useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -34,16 +34,6 @@ export function useReamAIAssistant() {
       setIsLoading(true);
 
       try {
-        // Get current user
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-          throw new Error('Authentication required');
-        }
-
         const orgId = typeof organizationId === 'string' ? organizationId.trim() : '';
         if (!orgId) {
           throw new Error(
@@ -51,29 +41,22 @@ export function useReamAIAssistant() {
           );
         }
 
-        // Call the Ream AI Assistant edge function directly (same pattern as rag-search).
-        // JWT auth is handled by the Supabase client automatically.
-        const { data, error } = await supabase.functions.invoke('ream-ai-assistant', {
-          body: {
-            message: message.trim(),
-            conversationHistory: conversationHistory.map((msg) => ({
-              role: msg.role,
-              content: msg.content,
-            })),
-            ...(options.documentContext && { context: options.documentContext }),
-          },
-        });
+        let data: { response?: string; error?: string } | null = null;
 
-        if (error) {
-          // Try to extract a meaningful error message
-          const errMsg =
-            error instanceof Error
-              ? error.message
-              : typeof error === 'string'
-                ? error
-                : 'Failed to invoke AI assistant';
-          throw new Error(errMsg);
-        }
+        data = await invokeNodeApi<{ response?: string; error?: string }>(
+          '/api/v1/ai/ream-assistant',
+          {
+            method: 'POST',
+            body: {
+              message: message.trim(),
+              conversationHistory: conversationHistory.map((msg) => ({
+                role: msg.role,
+                content: msg.content,
+              })),
+              ...(options.documentContext && { context: options.documentContext }),
+            },
+          }
+        );
 
         if (!data) {
           throw new Error('No data returned from AI assistant');

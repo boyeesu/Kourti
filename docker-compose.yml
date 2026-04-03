@@ -1,6 +1,45 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kourti_local}
+      POSTGRES_USER: ${POSTGRES_USER:-kourti}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kourti}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kourti} -d ${POSTGRES_DB:-kourti_local}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend-node
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 4000
+      AUTH_MODE: ${AUTH_MODE:-development}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kourti}:${POSTGRES_PASSWORD:-kourti}@postgres:5432/${POSTGRES_DB:-kourti_local}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:5173}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-5.4-2026-03-05}
+      OPENAI_FALLBACK_CHAT_MODEL: ${OPENAI_FALLBACK_CHAT_MODEL:-gpt-4o}
+      DEV_DEFAULT_USER_ID: ${DEV_DEFAULT_USER_ID:-00000000-0000-0000-0000-000000000001}
+      DEV_DEFAULT_ORG_ID: ${DEV_DEFAULT_ORG_ID:-00000000-0000-0000-0000-000000000001}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   app:
     build:
       context: .
@@ -10,6 +49,8 @@ services:
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
         VITE_APP_URL: ${VITE_APP_URL}
         VITE_API_TIMEOUT: ${VITE_API_TIMEOUT}
+        VITE_USE_NODE_BACKEND: ${VITE_USE_NODE_BACKEND:-true}
+        VITE_BACKEND_API_URL: ${VITE_BACKEND_API_URL:-http://localhost:4000}
     user: "1000:1000"
     read_only: true
     security_opt:
@@ -20,6 +61,8 @@ services:
       - /tmp
     ports:
       - "8080:80"
+    depends_on:
+      - backend
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/"]
@@ -27,3 +70,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+volumes:
+  postgres-data:

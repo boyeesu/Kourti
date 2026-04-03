@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface Organization {
   id: string;
@@ -29,13 +29,7 @@ export function useAllOrganizations() {
     queryKey: ['all-organizations'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.rpc('get_all_organizations');
-
-        if (error) {
-          throw error;
-        }
-
-        return (data || []) as Organization[];
+        return invokeNodeApi<Organization[]>('/api/v1/organizations/all');
       } catch (error) {
         logError('Error fetching all organizations', error);
         throw error;

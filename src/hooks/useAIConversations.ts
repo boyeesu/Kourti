@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface AIConversation {
   id: string;
@@ -27,44 +27,17 @@ export function useAIConversations() {
   const { data: conversations = [], isLoading } = useQuery({
     queryKey: ['ai-conversations'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ai_conversations')
-        .select('*')
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-      return data as AIConversation[];
+      return invokeNodeApi<AIConversation[]>('/api/v1/ai/conversations');
     },
   });
 
   // Create a new conversation
   const createConversation = useMutation({
     mutationFn: async (title: string) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id, user_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile) throw new Error('Profile not found');
-
-      const { data, error } = await supabase
-        .from('ai_conversations')
-        .insert({
-          organization_id: profile.organization_id,
-          user_id: profile.user_id,
-          title,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as AIConversation;
+      return invokeNodeApi<AIConversation>('/api/v1/ai/conversations', {
+        method: 'POST',
+        body: { title },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
@@ -78,9 +51,11 @@ export function useAIConversations() {
   // Update conversation title
   const updateConversation = useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const { error } = await supabase.from('ai_conversations').update({ title }).eq('id', id);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/ai/conversations/${id}`, {
+        method: 'PATCH',
+        body: { title },
+      });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
@@ -90,9 +65,10 @@ export function useAIConversations() {
   // Delete a conversation
   const deleteConversation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('ai_conversations').delete().eq('id', id);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/ai/conversations/${id}`, {
+        method: 'DELETE',
+      });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
@@ -122,14 +98,7 @@ export function useConversationMessages(conversationId: string | null) {
     queryFn: async () => {
       if (!conversationId) return [];
 
-      const { data, error } = await supabase
-        .from('ai_conversation_messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      return data as AIMessage[];
+      return invokeNodeApi<AIMessage[]>(`/api/v1/ai/conversations/${conversationId}/messages`);
     },
     enabled: !!conversationId,
   });
@@ -145,13 +114,11 @@ export function useConversationMessages(conversationId: string | null) {
       role: 'user' | 'assistant' | 'system';
       content: string;
     }) => {
-      const { error } = await supabase.from('ai_conversation_messages').insert({
-        conversation_id: conversationId,
-        role,
-        content,
+      await invokeNodeApi(`/api/v1/ai/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        body: { role, content },
       });
-
-      if (error) throw error;
+      return;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -168,12 +135,10 @@ export function useConversationMessages(conversationId: string | null) {
   // Delete all messages in a conversation (for clearing)
   const clearMessages = useMutation({
     mutationFn: async (conversationId: string) => {
-      const { error } = await supabase
-        .from('ai_conversation_messages')
-        .delete()
-        .eq('conversation_id', conversationId);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/ai/conversations/${conversationId}/messages`, {
+        method: 'DELETE',
+      });
+      return;
     },
     onSuccess: (_, conversationId) => {
       queryClient.invalidateQueries({

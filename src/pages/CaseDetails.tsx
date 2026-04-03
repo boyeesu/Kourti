@@ -42,7 +42,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getNodeDocumentSignedUrl } from '@/lib/backendApi';
+import { downloadDocument as downloadDocumentFile } from '@/lib/fileApi';
 import { useActivities } from '@/features/activities/api/useActivities';
 import { useDeleteActivity } from '@/features/activities/api/useDeleteActivity';
 import { ActivityDialog } from '@/components/ActivityDialog';
@@ -677,9 +678,21 @@ function DocumentsSection({ caseId }: { caseId: string }) {
 
   const handleDownload = async (doc: any) => {
     if (doc.file_path) {
-      const { data } = await supabase.storage.from('documents').download(doc.file_path);
+      try {
+        const signed = await getNodeDocumentSignedUrl(doc.id, {
+          disposition: 'attachment',
+          filename: doc.metadata?.original_filename || doc.name,
+        });
 
-      if (data) {
+        const a = document.createElement('a');
+        a.href = signed.signedUrl;
+        a.download = signed.fileName || doc.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch {
+        // Fallback to direct download via fileApi
+        const data = await downloadDocumentFile(doc.file_path);
         const url = URL.createObjectURL(data);
         const a = document.createElement('a');
         a.href = url;

@@ -1,11 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Document } from '@/types';
-import { logDebug, logError } from '@/lib/logger';
-import type { Profile } from '@/lib/types/database';
-import type { Json } from '@/integrations/supabase/types';
+import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
+
+/** JSON-compatible value (replaces Supabase Json type) */
+type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export interface CreateDocumentData {
   name: string;
@@ -39,76 +39,22 @@ export interface UploadDocumentData {
   terms?: string;
 }
 
+interface DocumentsResult {
+  documents: Document[];
+  count: number;
+}
+
 export function useDocuments() {
   return useQuery({
     queryKey: ['documents'],
     queryFn: async () => {
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        return [] as Document[];
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (profileError) throw profileError;
-
-      const typedProfile = profile as Profile | null;
-      const organizationId = typedProfile?.organization_id;
-
-      if (!organizationId) {
-        return [] as Document[];
-      }
-
-      const { data, error } = await supabase
-        .from('documents')
-        .select(
-          `
-          *,
-          clients (
-            id,
-            name
-          ),
-          profiles!documents_created_by_fkey (
-            first_name,
-            last_name
-          )
-        `
-        )
-        .eq('organization_id', organizationId);
-
-      if (error) throw error;
-
-      // For each document, if it has a case_id in metadata, fetch the case info
-      const documentsWithCases = await Promise.all(
-        (data || []).map(async (doc) => {
-          const metadata = doc.metadata as Record<string, unknown> | null;
-          const caseId = metadata?.case_id;
-          if (caseId && typeof caseId === 'string') {
-            try {
-              const { data: caseData, error: caseError } = await supabase
-                .from('cases')
-                .select('id, title')
-                .eq('id', caseId)
-                .maybeSingle();
-
-              // Only attach case data if query was successful and data exists
-              if (!caseError && caseData) {
-                return { ...doc, case: caseData };
-              }
-            } catch (err) {
-              // Silently handle errors - case might not exist or be inaccessible
-              logDebug('Error fetching case for document', { documentId: doc.id, error: err });
-            }
-          }
-          return { ...doc, case: null };
-        })
-      );
-
-      return documentsWithCases as Document[];
+      const response = await invokeNodeApi<DocumentsResult>('/api/v1/documents', {
+        query: {
+          page: 1,
+          pageSize: 1000,
+        },
+      });
+      return response.documents;
     },
   });
 }
@@ -117,67 +63,7 @@ export function useDocument(id: string) {
   return useQuery({
     queryKey: ['document', id],
     queryFn: async () => {
-      const userId = await getCurrentUserId();
-      if (!userId) throw new Error('User not authenticated');
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-      const orgId = (profile as Profile | null)?.organization_id;
-      if (!orgId) throw new Error('Organization not found');
-
-      const { data, error } = await supabase
-        .from('documents')
-        .select(
-          `
-          *,
-          clients (
-            id,
-            name
-          ),
-          profiles!documents_created_by_fkey (
-            first_name,
-            last_name
-          )
-        `
-        )
-        .eq('id', id)
-        .eq('organization_id', orgId)
-        .single();
-
-      if (error) throw error;
-
-      // If document has a case_id in metadata, fetch the case info
-      const documentWithCase = { ...data } as Document & {
-        case?: { id: string; title: string } | null;
-      };
-      const metadata = data.metadata as Record<string, unknown> | null;
-      const caseId = metadata?.case_id;
-      if (caseId && typeof caseId === 'string') {
-        try {
-          const { data: caseData, error: caseError } = await supabase
-            .from('cases')
-            .select('id, title')
-            .eq('id', caseId)
-            .maybeSingle();
-
-          // Only attach case data if query was successful and data exists
-          if (!caseError && caseData) {
-            documentWithCase.case = caseData;
-          } else {
-            documentWithCase.case = null;
-          }
-        } catch (err) {
-          // Silently handle errors - case might not exist or be inaccessible
-          logDebug('Error fetching case for document', { documentId: data.id, error: err });
-          documentWithCase.case = null;
-        }
-      } else {
-        documentWithCase.case = null;
-      }
-
-      return documentWithCase as Document;
+      return invokeNodeApi<Document>(`/api/v1/documents/${id}`);
     },
   });
 }
@@ -186,78 +72,14 @@ export function useDocumentsByClient(clientId: string) {
   return useQuery({
     queryKey: ['documents', 'client', clientId],
     queryFn: async () => {
-      // First get cases for this client
-      const { data: cases, error: casesError } = await supabase
-        .from('cases')
-        .select('id')
-        .eq('client_id', clientId);
-
-      if (casesError) throw casesError;
-
-      const caseIds = cases?.map((c) => c.id) || [];
-
-      // Query for documents directly associated with client OR associated with client's cases
-      const queries = [];
-
-      // Direct client documents
-      queries.push(
-        supabase
-          .from('documents')
-          .select(
-            `
-            *,
-            clients (
-              id,
-              name
-            ),
-            profiles!documents_created_by_fkey (
-              first_name,
-              last_name
-            )
-          `
-          )
-          .eq('client_id', clientId)
-      );
-
-      // Documents from client's cases (stored in metadata)
-      if (caseIds.length > 0) {
-        for (const caseId of caseIds) {
-          queries.push(
-            supabase
-              .from('documents')
-              .select(
-                `
-                *,
-                clients (
-                  id,
-                  name
-                ),
-                profiles!documents_created_by_fkey (
-                  first_name,
-                  last_name
-                )
-              `
-              )
-              .contains('metadata', { case_id: caseId })
-          );
-        }
-      }
-
-      // Execute all queries
-      const results = await Promise.all(queries);
-
-      // Check for errors
-      for (const result of results) {
-        if (result.error) throw result.error;
-      }
-
-      // Combine all documents and remove duplicates
-      const allDocuments = results.flatMap((result) => result.data || []);
-      const uniqueDocuments = allDocuments.filter(
-        (doc, index, self) => index === self.findIndex((d) => d.id === doc.id)
-      );
-
-      return uniqueDocuments as Document[];
+      const response = await invokeNodeApi<DocumentsResult>('/api/v1/documents', {
+        query: {
+          page: 1,
+          pageSize: 1000,
+          clientId,
+        },
+      });
+      return response.documents;
     },
   });
 }
@@ -266,32 +88,14 @@ export function useDocumentsByCase(caseId: string) {
   return useQuery({
     queryKey: ['documents', 'case', caseId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('documents')
-        .select(
-          `
-          *,
-          clients (
-            id,
-            name
-          ),
-          profiles!documents_created_by_fkey (
-            first_name,
-            last_name
-          )
-        `
-        )
-        .contains('metadata', { case_id: caseId });
-
-      if (error) throw error;
-
-      // Add case information to each document
-      const documentsWithCase = (data || []).map((doc) => ({
-        ...doc,
-        case: { id: caseId, title: 'Case' }, // You could fetch actual case title if needed
-      }));
-
-      return documentsWithCase as Document[];
+      const response = await invokeNodeApi<DocumentsResult>('/api/v1/documents', {
+        query: {
+          page: 1,
+          pageSize: 1000,
+          caseId,
+        },
+      });
+      return response.documents;
     },
   });
 }
@@ -301,33 +105,10 @@ export function useCreateDocument() {
 
   return useMutation({
     mutationFn: async (documentData: CreateDocumentData) => {
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .single();
-
-      const typedProfile = profile as Profile | null;
-      if (!typedProfile?.organization_id) {
-        throw new Error('User organization not found');
-      }
-
-      const { data, error } = await supabase
-        .from('documents')
-        .insert({
-          ...documentData,
-          organization_id: typedProfile.organization_id,
-          created_by: userId,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<Document>('/api/v1/documents', {
+        method: 'POST',
+        body: documentData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
@@ -358,20 +139,6 @@ export function useUploadDocument() {
       currency,
       terms,
     }: UploadDocumentData) => {
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .single();
-
-      const typedProfile = profile as Profile | null;
-      const orgId = typedProfile?.organization_id;
-      if (!orgId) throw new Error('User organization not found');
-
       // Validate file before upload
       const { validateFile } = await import('@/lib/fileValidation');
       const validation = validateFile(file);
@@ -379,25 +146,10 @@ export function useUploadDocument() {
         throw new Error(validation.error || 'File validation failed');
       }
 
-      // Generate unique filename with sanitized extension
-      const fileExtRaw = file.name.split('.').pop() ?? '';
-      const fileExt = fileExtRaw.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10) || 'bin';
-      const fileName = `${orgId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
-      // Upload file to storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      // Create document record in database
+      // Build document data for the Node backend
       const documentData = {
         name,
-        content: '', // For uploaded files, content might be empty initially
-        organization_id: orgId,
-        created_by: userId,
-        file_path: uploadData.path,
+        content: '',
         file_size: file.size,
         mime_type: file.type,
         ...(summary ? { summary } : {}),
@@ -413,16 +165,16 @@ export function useUploadDocument() {
           ...(case_id && { case_id }),
           original_filename: file.name,
         } as Json,
+        client_id:
+          metadata && typeof metadata === 'object'
+            ? (metadata as Record<string, unknown>).client_id
+            : undefined,
       };
 
-      const { data, error } = await supabase
-        .from('documents')
-        .insert(documentData)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<Document>('/api/v1/documents', {
+        method: 'POST',
+        body: documentData,
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });

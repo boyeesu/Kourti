@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAllUsers } from './useAllUsers';
 import { useAllOrganizations } from './useAllOrganizations';
 import { useAdminActions } from './useAdminActions';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface SubscriptionSummary {
   total: number;
@@ -58,40 +58,7 @@ function useAdminSubscriptions() {
     queryKey: ['admin-subscriptions-summary'],
     queryFn: async () => {
       try {
-        const client = supabase as unknown as {
-          from: (table: string) => {
-            select: (cols: string) => PromiseLike<{
-              data: unknown;
-              error: { message: string } | null;
-            }>;
-          };
-        };
-
-        const { data, error } = await client.from('subscriptions').select(
-          `id, status, billing_interval,
-             user_plans!inner(name, price_monthly, price_yearly, currency)`
-        );
-
-        if (error) throw error;
-
-        return ((data as Record<string, unknown>[]) || []).map((row) => {
-          const plan = row.user_plans as {
-            name: string;
-            price_monthly: number | null;
-            price_yearly: number | null;
-            currency: string;
-          } | null;
-
-          return {
-            id: row.id as string,
-            status: row.status as string,
-            billing_interval: row.billing_interval as string,
-            plan_name: plan?.name || 'unknown',
-            price_monthly: plan?.price_monthly ?? null,
-            price_yearly: plan?.price_yearly ?? null,
-            currency: plan?.currency || 'USD',
-          } as RawSubscription;
-        });
+        return invokeNodeApi<RawSubscription[]>('/api/v1/admin/subscriptions');
       } catch (error) {
         logError('Error fetching subscriptions for analytics', error);
         return [];

@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Loader2, Palette } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { getSession } from '@/lib/authClient';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { useQueryClient } from '@tanstack/react-query';
 
 const CALENDAR_COLORS = [
@@ -30,17 +31,13 @@ export function CalendarColorSettings() {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = getSession()?.user;
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({ calendar_color: selectedColor })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      await invokeNodeApi('/api/v1/profile', {
+        method: 'PATCH',
+        body: { calendar_color: selectedColor },
+      });
 
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['shared-calendars'] });

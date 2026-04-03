@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { toast } from 'sonner';
 import { logError } from '@/lib/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,65 +81,8 @@ function useSubscriptions() {
     queryKey: ['admin-subscriptions'],
     queryFn: async () => {
       try {
-        // Use untyped client since 'subscriptions' isn't in generated types
-        const client = supabase as unknown as {
-          from: (table: string) => {
-            select: (cols: string) => {
-              order: (
-                col: string,
-                opts: { ascending: boolean }
-              ) => PromiseLike<{
-                data: unknown;
-                error: { message: string } | null;
-              }>;
-            };
-          };
-        };
-
-        const { data, error } = await client
-          .from('subscriptions')
-          .select(
-            `id, user_id, organization_id, plan_id, status, billing_interval,
-             flutterwave_customer_email, current_period_start, current_period_end,
-             cancel_at_period_end, created_at,
-             organizations!inner(name),
-             user_plans!inner(name, display_name, price_monthly, price_yearly, currency)`
-          )
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        // Flatten the joined data
-        return ((data as Record<string, unknown>[]) || []).map((row) => {
-          const org = row.organizations as { name: string } | null;
-          const plan = row.user_plans as {
-            name: string;
-            display_name: string;
-            price_monthly: number | null;
-            price_yearly: number | null;
-            currency: string;
-          } | null;
-
-          return {
-            id: row.id as string,
-            user_id: row.user_id as string,
-            organization_id: row.organization_id as string,
-            plan_id: row.plan_id as string,
-            status: row.status as Subscription['status'],
-            billing_interval: row.billing_interval as Subscription['billing_interval'],
-            flutterwave_customer_email: row.flutterwave_customer_email as string,
-            current_period_start: row.current_period_start as string | null,
-            current_period_end: row.current_period_end as string | null,
-            cancel_at_period_end: row.cancel_at_period_end as boolean,
-            created_at: row.created_at as string,
-            organization_name: org?.name || '--',
-            plan_name: plan?.name || '--',
-            plan_display_name: plan?.display_name || '--',
-            price_monthly: plan?.price_monthly ?? null,
-            price_yearly: plan?.price_yearly ?? null,
-            currency: plan?.currency || 'USD',
-          } as Subscription;
-        });
+        const data = await invokeNodeApi<Subscription[]>('/api/v1/admin/subscriptions');
+        return data || [];
       } catch (error) {
         logError('Error fetching subscriptions', error);
         throw error;
@@ -154,28 +97,8 @@ function usePlanPricing() {
     queryKey: ['admin-plan-pricing'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
-          .from('user_plans')
-          .select('*')
-          .order('plan_type', { ascending: true });
-
-        if (error) throw error;
-
-        return (data || []).map((plan) => ({
-          id: plan.id,
-          name: plan.name,
-          display_name: plan.display_name,
-          plan_type: plan.plan_type,
-          price_monthly: ((plan as Record<string, unknown>).price_monthly as number | null) ?? null,
-          price_yearly: ((plan as Record<string, unknown>).price_yearly as number | null) ?? null,
-          currency: ((plan as Record<string, unknown>).currency as string) || 'USD',
-          flutterwave_plan_id_monthly:
-            ((plan as Record<string, unknown>).flutterwave_plan_id_monthly as string | null) ??
-            null,
-          flutterwave_plan_id_yearly:
-            ((plan as Record<string, unknown>).flutterwave_plan_id_yearly as string | null) ?? null,
-          is_active: plan.is_active,
-        })) as PlanPricing[];
+        const data = await invokeNodeApi<PlanPricing[]>('/api/v1/admin/plans');
+        return data || [];
       } catch (error) {
         logError('Error fetching plan pricing', error);
         throw error;
@@ -214,19 +137,12 @@ function useSavePrices() {
         if (update.currency && !/^[A-Z]{3}$/.test(update.currency)) {
           throw new Error('Currency must be a valid 3-letter ISO code (e.g. NGN, USD)');
         }
-
-        const updateData: Record<string, unknown> = {};
-        if (update.price_monthly !== undefined) updateData.price_monthly = update.price_monthly;
-        if (update.price_yearly !== undefined) updateData.price_yearly = update.price_yearly;
-        if (update.currency !== undefined) updateData.currency = update.currency;
-
-        const { error } = await supabase
-          .from('user_plans')
-          .update(updateData as never)
-          .eq('id', update.id);
-
-        if (error) throw error;
       }
+
+      await invokeNodeApi('/api/v1/admin/plans/prices', {
+        method: 'PUT',
+        body: { updates },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-plan-pricing'] });
@@ -246,9 +162,9 @@ function useSyncFlutterwave() {
 
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('flutterwave-sync-plans');
-      if (error) throw error;
-      return data;
+      return await invokeNodeApi('/api/v1/admin/plans/sync-flutterwave', {
+        method: 'POST',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-plan-pricing'] });

@@ -1,14 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { Task } from '@/types';
-import { Tables, TablesInsert } from '@/integrations/supabase/types';
-import { AppError, tryCatch } from '@/lib/error-handling';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
+import { invokeNodeApi } from '@/lib/backendApi';
 
-// Use Database type for type safety with Supabase
-type TaskRow = Tables<'tasks'>;
+// Task row type matching the tasks table schema
+interface TaskRow {
+  id: string;
+  case_id: string;
+  title: string;
+  description?: string;
+  due_date?: string;
+  priority?: 'high' | 'medium' | 'low';
+  assigned_to?: string;
+  task_type?: string;
+  completed?: boolean;
+  organization_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface CreateTaskData {
   case_id: string;
@@ -30,26 +40,16 @@ export interface UpdateTaskData extends Partial<CreateTaskData> {
  * @param caseId - The ID of the case to fetch tasks for
  */
 export function useTasks(caseId: string) {
-  return useQuery<Task[], AppError>({
+  return useQuery<Task[], Error>({
     queryKey: ['tasks', caseId],
     queryFn: async () => {
-      const [data, error] = await tryCatch(async () => {
-        const { data, error } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('case_id', caseId)
-          .order('due_date', { ascending: true });
-
-        if (error) throw error;
-        return data || [];
+      const data = await invokeNodeApi<Task[]>('/api/v1/tasks', {
+        query: { caseId },
       });
 
-      if (error) throw error;
-
-      // Transform data to include organization_id (tasks table doesn't have this field)
-      return data!.map((task: TaskRow) => ({
+      return data.map((task) => ({
         ...task,
-        organization_id: '', // Add default value since tasks table doesn't have this field
+        organization_id: task.organization_id || '',
       })) as Task[];
     },
     enabled: !!caseId,
@@ -65,27 +65,12 @@ export function useCreateTask() {
 
   const { createTaskNotification } = useNotificationTriggers();
 
-  return useMutation<TaskRow, AppError, CreateTaskData>({
+  return useMutation<TaskRow, Error, CreateTaskData>({
     mutationFn: async (data: CreateTaskData) => {
-      const userId = await getCurrentUserId();
-
-      // Create properly typed task data
-      const taskData: TablesInsert<'tasks'> = {
-        ...data,
-        created_by: userId,
-        completed: false,
-        updated_at: new Date().toISOString(),
-      };
-
-      const [result, error] = await tryCatch(async () => {
-        const { data, error } = await supabase.from('tasks').insert(taskData).select().single();
-
-        if (error) throw error;
-        return data;
+      return invokeNodeApi<TaskRow>('/api/v1/tasks', {
+        method: 'POST',
+        body: data,
       });
-
-      if (error) throw error;
-      return result!;
     },
     onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', variables.case_id] });
@@ -94,8 +79,10 @@ export function useCreateTask() {
       // Notify (tracking is handled inside createTaskNotification)
       createTaskNotification(result, 'created', variables.assigned_to);
     },
-    onError: (error: AppError) => {
-      toast.error('Task creation failed', { description: error.getUserMessage() });
+    onError: (error: Error) => {
+      toast.error('Task creation failed', {
+        description: error.message || 'Failed to create task.',
+      });
     },
   });
 }
@@ -106,28 +93,12 @@ export function useCreateTask() {
 export function useUpdateTask() {
   const queryClient = useQueryClient();
 
-  return useMutation<TaskRow, AppError, UpdateTaskData>({
+  return useMutation<TaskRow, Error, UpdateTaskData>({
     mutationFn: async ({ id, ...data }: UpdateTaskData) => {
-      // Create properly typed update data
-      const updateData: Partial<TablesInsert<'tasks'>> = {
-        ...data,
-        updated_at: new Date().toISOString(),
-      };
-
-      const [result, error] = await tryCatch(async () => {
-        const { data, error } = await supabase
-          .from('tasks')
-          .update(updateData)
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
+      return invokeNodeApi<TaskRow>(`/api/v1/tasks/${id}`, {
+        method: 'PATCH',
+        body: data,
       });
-
-      if (error) throw error;
-      return result!;
     },
     onSuccess: (updated) => {
       // Type-safe access to updated data
@@ -136,8 +107,8 @@ export function useUpdateTask() {
       }
       toast.success('Task updated', { description: 'Task changes saved.' });
     },
-    onError: (error: AppError) => {
-      toast.error('Update failed', { description: error.getUserMessage() });
+    onError: (error: Error) => {
+      toast.error('Update failed', { description: error.message || 'Failed to update task.' });
     },
   });
 }
@@ -153,24 +124,19 @@ export function useDeleteTask() {
     case_id: string;
   }
 
-  return useMutation<DeleteParams, AppError, DeleteParams>({
+  return useMutation<DeleteParams, Error, DeleteParams>({
     mutationFn: async ({ id, case_id }: DeleteParams) => {
-      const [, error] = await tryCatch(async () => {
-        const { error } = await supabase.from('tasks').delete().eq('id', id);
-
-        if (error) throw error;
-        return true;
+      await invokeNodeApi<void>(`/api/v1/tasks/${id}`, {
+        method: 'DELETE',
       });
-
-      if (error) throw error;
       return { id, case_id };
     },
     onSuccess: ({ case_id }) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', case_id] });
       toast.success('Task deleted', { description: 'Task removed.' });
     },
-    onError: (error: AppError) => {
-      toast.error('Delete failed', { description: error.getUserMessage() });
+    onError: (error: Error) => {
+      toast.error('Delete failed', { description: error.message || 'Failed to delete task.' });
     },
   });
 }

@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useUserOrganization } from '@/hooks/useUserOrganization';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 interface CreateCaseFieldData {
   case_type_id: string;
@@ -19,24 +17,13 @@ interface CreateCaseFieldData {
  */
 export function useCreateCaseField() {
   const queryClient = useQueryClient();
-  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async (newField: CreateCaseFieldData) => {
-      const userId = await getCurrentUserId();
-
-      const fieldData = {
-        ...newField,
-        organization_id: organizationId!,
-        created_by: userId,
-      };
-
-      const { data, error } = await supabase
-        .from('case_fields')
-        .insert([fieldData])
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await invokeNodeApi<Record<string, unknown>>('/api/v1/misc/case-fields', {
+        method: 'POST',
+        body: newField,
+      });
       return data;
     },
     onSuccess: (_data, newField) => {

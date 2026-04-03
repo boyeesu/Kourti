@@ -1,21 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export function useInvoicePDF() {
   return useMutation({
     mutationFn: async (invoiceId: string) => {
-      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
+      return invokeNodeApi<any>('/api/v1/ai/generate-invoice-pdf', {
+        method: 'POST',
         body: { invoiceId },
       });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to generate PDF');
-      }
-
-      return data;
     },
     onSuccess: () => {
       toast.success('Success', { description: 'Invoice PDF generated successfully' });
@@ -30,25 +25,11 @@ export function useDownloadInvoicePDF() {
   return useMutation({
     mutationFn: async (invoiceId: string) => {
       try {
-        // For now, we'll create a simple PDF download link
-        // In production, this would call the PDF generation service
-        const response = await supabase.functions.invoke('generate-invoice-pdf', {
+        const data = await invokeNodeApi<any>('/api/v1/ai/generate-invoice-pdf', {
+          method: 'POST',
           body: { invoiceId },
         });
-
-        if (response.error) {
-          throw new Error(response.error.message || 'Failed to generate PDF');
-        }
-
-        // Create a download link
-        const element = document.createElement('a');
-        element.href = `data:application/pdf;base64,${btoa('PDF content would be here')}`;
-        element.download = `invoice-${invoiceId}.pdf`;
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-
-        return response.data;
+        return data;
       } catch (error) {
         logError('PDF download error', error);
         throw error;

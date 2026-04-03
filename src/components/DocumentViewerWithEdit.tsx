@@ -7,7 +7,7 @@ import { RichTextEditor } from '@/components/RichTextEditor';
 import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
 import { toast } from 'sonner';
 import { sanitizeHTML } from '@/lib/sanitize';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,12 +42,11 @@ export function DocumentViewerWithEdit({
     setIsSaving(true);
     try {
       const sanitizedContent = sanitizeHTML(editedContent);
-      const { error } = await supabase
-        .from('documents')
-        .update({ content: sanitizedContent })
-        .eq('id', document.id);
 
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/documents/${document.id}`, {
+        method: 'PATCH',
+        body: { content: sanitizedContent },
+      });
 
       toast.success('Success', { description: 'Document updated successfully.' });
       setActiveTab('view');

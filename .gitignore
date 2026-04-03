@@ -34,3 +34,4 @@ supabase/.temp/
 nul
 .mcp.json
 out/
+.vercel

@@ -1,6 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { invokeNodeApi } from '@/lib/backendApi';
+
+interface RoleAssignmentsResult {
+  assignments: Array<{
+    id: string;
+    role_name: string;
+    organization_id: string;
+    assigned_by: string | null;
+    created_at: string;
+  }>;
+  roles: string[];
+  primaryRole: string;
+  isSuperAdmin: boolean;
+  isAdmin: boolean;
+}
 
 /**
  * Hook to fetch all role assignments for the current user
@@ -10,35 +23,7 @@ export function useUserRoleAssignments() {
   return useQuery({
     queryKey: ['user-role-assignments'],
     queryFn: async () => {
-      const userId = await getCurrentUserId();
-      if (!userId) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase
-        .from('user_role_assignments')
-        .select(`
-          id,
-          role_name,
-          organization_id,
-          assigned_by,
-          created_at
-        `)
-        .eq('user_id', userId);
-
-      if (error) throw error;
-      
-      const roles = data?.map(r => r.role_name) || [];
-      const primaryRole = roles.includes('superadmin') ? 'superadmin' 
-                        : roles.includes('admin') ? 'admin'
-                        : roles.includes('user') ? 'user'
-                        : roles[0] || 'user';
-
-      return {
-        assignments: data || [],
-        roles,
-        primaryRole,
-        isSuperAdmin: roles.includes('superadmin'),
-        isAdmin: roles.includes('admin') || roles.includes('superadmin'),
-      };
+      return invokeNodeApi<RoleAssignmentsResult>('/api/v1/roles/assignments/me');
     },
     staleTime: 5 * 60 * 1000,
   });

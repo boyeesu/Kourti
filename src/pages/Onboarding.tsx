@@ -31,7 +31,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { getSession } from '@/lib/authClient';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { buildDisplayName, getAuthRedirectUrl } from '@/utils/auth-helpers';
 import { env } from '@/lib/env';
 import { AppLogo } from '@/components/ui/AppLogo';
@@ -181,8 +182,12 @@ export default function Onboarding() {
     // If user becomes authenticated during onboarding (e.g., after email verification),
     // populate form data from user metadata and advance to organization setup
     if (user && currentStep === 0 && !formData.account.firstName && !formData.account.lastName) {
-      const firstName = user.user_metadata?.first_name || user.user_metadata?.firstName;
-      const lastName = user.user_metadata?.last_name || user.user_metadata?.lastName;
+      const firstName = (user.user_metadata?.first_name || user.user_metadata?.firstName) as
+        | string
+        | undefined;
+      const lastName = (user.user_metadata?.last_name || user.user_metadata?.lastName) as
+        | string
+        | undefined;
       if (firstName || lastName) {
         setFormData((prev) => ({
           ...prev,
@@ -449,166 +454,56 @@ export default function Onboarding() {
         // Wait for auth state to update with retry logic
         let sessionRetries = 0;
         const maxSessionRetries = 5;
-        let session = null;
 
         while (sessionRetries < maxSessionRetries) {
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-          if (sessionError) {
-            logError('Session error', sessionError);
-          }
-          if (sessionData?.session?.user) {
-            session = sessionData.session;
+          const session = getSession();
+          if (session?.user) {
             break;
           }
           await new Promise((resolve) => setTimeout(resolve, 500));
           sessionRetries++;
         }
 
+        const session = getSession();
         if (!session?.user) {
-          // Try one more time with getUser
-          const {
-            data: { user: currentUser },
-          } = await supabase.auth.getUser();
-          if (!currentUser) {
-            toast.success('Email verification required', {
-              description:
-                'Please check your email to verify your account, then refresh this page to continue.',
-            });
-            return;
-          }
+          toast.success('Email verification required', {
+            description:
+              'Please check your email to verify your account, then refresh this page to continue.',
+          });
+          return;
         }
       }
 
       // Get current user (should be authenticated now)
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
+      const session = getSession();
+      const currentUser = session?.user;
       if (!currentUser) {
         throw new Error('User not authenticated. Please try again.');
       }
 
-      // Check if user already has an organization (created by trigger)
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', currentUser.id)
-        .single();
-
-      let orgData;
-      if (existingProfile?.organization_id) {
-        // Update existing organization created by trigger
-        const { data: updatedOrg, error: updateError } = await supabase
-          .from('organizations')
-          .update({
-            name: formData.organization.name,
-            type: formData.organization.type,
-            description: formData.organization.description,
-            address: formData.organization.address,
-            state: formData.organization.state,
-            country: formData.organization.country,
-            phone: formData.organization.phone,
-            email: formData.organization.email,
-          })
-          .eq('id', existingProfile.organization_id)
-          .select()
-          .single();
-
-        if (updateError) throw updateError;
-        orgData = updatedOrg;
-      } else {
-        // Create new organization if trigger didn't create one
-        const { data: newOrg, error: orgError } = await supabase
-          .from('organizations')
-          .insert({
-            name: formData.organization.name,
-            type: formData.organization.type,
-            description: formData.organization.description,
-            address: formData.organization.address,
-            state: formData.organization.state,
-            country: formData.organization.country,
-            phone: formData.organization.phone,
-            email: formData.organization.email,
-          })
-          .select()
-          .single();
-
-        if (orgError) throw orgError;
-        orgData = newOrg;
-      }
-
-      // Update user profile with organization and user details (default to superadmin for onboarding)
-      // Ensure first_name and last_name are saved even if trigger didn't capture them
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          organization_id: orgData.id,
-          role: 'superadmin',
-          first_name: formData.account.firstName || currentUser.user_metadata?.first_name || null,
-          last_name: formData.account.lastName || currentUser.user_metadata?.last_name || null,
-        })
-        .eq('user_id', currentUser.id);
-
-      if (profileError) throw profileError;
-
-      // Ensure the role is also set in the new user_role_assignments table
-      const { error: roleAssigmentError } = await supabase
-        .from('user_role_assignments')
-        .insert({
-          user_id: currentUser.id,
-          role_name: 'superadmin',
-          organization_id: orgData.id,
-          assigned_by: currentUser.id,
-        } as never)
-        .select()
-        .single();
-
-      if (roleAssigmentError) {
-        // If it fails (e.g. already exists from trigger), we just log it and continue
-        // as the trigger might have already handled it
-        console.log('Role assignment status:', roleAssigmentError);
-      }
-
-      // Seed default permissions for the superadmin role in this organization
-      try {
-        const resources = [
-          'cases',
-          'clients',
-          'documents',
-          'contracts',
-          'calendars',
-          'invoices',
-          'tasks',
-          'settings',
-          'users',
-        ];
-        const actions = ['create', 'read', 'update', 'delete', 'manage'];
-
-        const permissionsToInsert = resources.flatMap((resource) =>
-          actions.map((action) => ({
-            role_name: 'superadmin',
-            organization_id: orgData.id,
-            resource,
-            action,
-            granted: true,
-            created_by: currentUser.id,
-          }))
-        );
-
-        const { error: permError } = await supabase
-          .from('role_permissions')
-          .upsert(permissionsToInsert, {
-            onConflict: 'role_name,organization_id,resource,action',
-            ignoreDuplicates: true,
-          });
-
-        if (permError) {
-          logWarn('Failed to seed permissions', { permError });
-          // Non-fatal - continue with onboarding
+      // Complete onboarding via Node backend (handles org creation, profile update, role assignment, permissions)
+      const orgData = await invokeNodeApi<{ id: string; name: string }>(
+        '/api/v1/onboarding/complete',
+        {
+          method: 'POST',
+          body: {
+            organization: {
+              name: formData.organization.name,
+              type: formData.organization.type,
+              description: formData.organization.description,
+              address: formData.organization.address,
+              state: formData.organization.state,
+              country: formData.organization.country,
+              phone: formData.organization.phone,
+              email: formData.organization.email,
+            },
+            profile: {
+              firstName: formData.account.firstName,
+              lastName: formData.account.lastName,
+            },
+          },
         }
-      } catch (permSeedError) {
-        logWarn('Error seeding permissions', { permSeedError });
-        // Non-fatal - continue with onboarding
-      }
+      );
 
       const inviteEmails = formData.team.inviteEmails
         .map((email) => email.trim())
@@ -618,21 +513,11 @@ export default function Onboarding() {
         let inviterName = currentUser.email ?? 'Team member';
 
         try {
-          const { data: profileDetails, error: profileDetailsError } = await supabase
-            .from('profiles')
-            .select('first_name,last_name')
-            .eq('user_id', currentUser.id)
-            .single();
-
-          if (profileDetailsError) throw profileDetailsError;
-
-          if (profileDetails) {
-            inviterName = buildDisplayName(
-              ((profileDetails as Record<string, unknown>)?.first_name as string) ?? null,
-              ((profileDetails as Record<string, unknown>)?.last_name as string) ?? null,
-              currentUser.email ?? undefined
-            );
-          }
+          inviterName = buildDisplayName(
+            formData.account.firstName || null,
+            formData.account.lastName || null,
+            currentUser.email ?? undefined
+          );
         } catch (profileDetailsError: unknown) {
           warningMessages.push(
             profileDetailsError instanceof Error && profileDetailsError.message
@@ -655,65 +540,18 @@ export default function Onboarding() {
         if (invitationUrl) {
           for (const email of inviteEmails) {
             try {
-              const { data: inviteData, error: inviteError } = await supabase.rpc(
-                'invite_user_to_organization',
-                {
-                  p_email: email,
-                  p_first_name: email.split('@')[0],
-                  p_last_name: 'User',
-                  p_role: 'user',
-                  p_department: undefined,
-                }
-              );
-
-              if (inviteError) {
-                throw inviteError;
-              }
-
-              if (inviteData && typeof inviteData === 'object' && 'error' in inviteData) {
-                throw new Error(
-                  (inviteData as { error?: string }).error || 'Unknown invitation error'
-                );
-              }
-
-              try {
-                const { data: emailResult, error: emailError } = await supabase.functions.invoke(
-                  'send-invitation-email',
-                  {
-                    body: {
-                      email,
-                      firstName: email.split('@')[0],
-                      lastName: 'User',
-                      role: 'user',
-                      organizationName: orgData.name,
-                      inviterName,
-                      invitationUrl,
-                    },
-                  }
-                );
-
-                if (emailError) {
-                  warningMessages.push(
-                    emailError?.message
-                      ? `Invitation email to ${email} could not be sent: ${emailError.message}`
-                      : `Invitation email to ${email} could not be sent.`
-                  );
-                } else if (
-                  emailResult &&
-                  typeof emailResult === 'object' &&
-                  'error' in emailResult
-                ) {
-                  warningMessages.push(
-                    `Invitation email to ${email} returned an error: ${(emailResult as { error?: string }).error || 'Unknown error'}`
-                  );
-                }
-              } catch (emailError: unknown) {
-                warningMessages.push(
-                  emailError instanceof Error && emailError.message
-                    ? `Invitation email to ${email} encountered an error: ${emailError.message}`
-                    : `Invitation email to ${email} encountered an unknown error.`
-                );
-              }
+              await invokeNodeApi('/api/v1/invitations/invite', {
+                method: 'POST',
+                body: {
+                  email,
+                  firstName: email.split('@')[0],
+                  lastName: 'User',
+                  role: 'user',
+                  organizationName: orgData.name,
+                  inviterName,
+                  invitationUrl,
+                },
+              });
             } catch (inviteError: unknown) {
               warningMessages.push(
                 inviteError instanceof Error && inviteError.message

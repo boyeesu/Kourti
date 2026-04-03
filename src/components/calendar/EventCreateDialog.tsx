@@ -38,7 +38,8 @@ import { Case, Client } from '@/types';
 import { CreateCalendarEventData } from '@/hooks/useCalendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
+import { getSession } from '@/lib/authClient';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 const eventSchema = z
   .object({
@@ -330,29 +331,19 @@ export function EventCreateDialog({
 
       // Create reminders if any
       if (remindersToCreate.length > 0 && event?.id) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const user = getSession()?.user;
         if (!user?.id) return;
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (profile?.organization_id) {
-          for (const reminder of remindersToCreate) {
-            // @ts-expect-error - Table not in generated types yet
-            await supabase.from('event_reminders').insert({
+        for (const reminder of remindersToCreate) {
+          await invokeNodeApi('/api/v1/calendar/event-reminders', {
+            method: 'POST',
+            body: {
               event_id: event.id,
-              user_id: user.id,
-              organization_id: profile.organization_id,
               reminder_type: reminder.minutes > 0 ? 'before' : 'at',
               reminder_minutes: reminder.minutes,
               notification_method: reminder.method,
-            });
-          }
+            },
+          });
         }
       }
 

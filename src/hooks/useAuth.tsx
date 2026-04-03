@@ -1,13 +1,40 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session, AuthError } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { logError, logInfo } from '@/lib/logger';
-import { env } from '@/lib/env';
-import { getAuthRedirectUrl } from '@/utils/auth-helpers';
+import {
+  initSession,
+  signIn as authSignIn,
+  signUp as authSignUp,
+  signOut as authSignOut,
+  resetPassword as authResetPassword,
+  onAuthStateChange,
+  type AuthSession,
+  type AuthError as AuthClientError,
+} from '@/lib/authClient';
 import { trackEvent, AnalyticsEvents, identifyUser, resetAnalytics } from '@/lib/analytics';
-import { clearCurrentUser } from '@/hooks/useCurrentUser';
+
+// ── Compatibility types ─────────────────────────────────────────────────────
+// These match the shape that the rest of the app expects from useAuth().
+// We map our custom auth user to this shape so existing pages/hooks don't break.
+
+interface User {
+  id: string;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+  app_metadata?: Record<string, unknown>;
+}
+
+interface Session {
+  access_token: string;
+  refresh_token?: string;
+  user: User;
+}
+
+interface AuthError {
+  message: string;
+  code?: string;
+}
 
 interface UserData {
   first_name?: string;
@@ -24,33 +51,52 @@ interface AuthContextType {
     email: string,
     password: string,
     userData?: UserData
-  ) => Promise<{
-    error: AuthError | null;
-    success: boolean;
-  }>;
+  ) => Promise<{ error: AuthError | null; success: boolean }>;
   signIn: (
     email: string,
     password: string
-  ) => Promise<{
-    error: AuthError | null;
-    success: boolean;
-  }>;
+  ) => Promise<{ error: AuthError | null; success: boolean }>;
   signInWithProvider: (
     provider: 'google' | 'microsoft',
     email?: string
-  ) => Promise<{
-    error: AuthError | null;
-    success: boolean;
-  }>;
+  ) => Promise<{ error: AuthError | null; success: boolean }>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{
-    error: AuthError | null;
-    success: boolean;
-  }>;
+  resetPassword: (email: string) => Promise<{ error: AuthError | null; success: boolean }>;
 }
 
-// Preserve context reference across Vite HMR to prevent
-// "useAuth must be used within an AuthProvider" errors during hot reload
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function toUser(session: AuthSession | null): User | null {
+  if (!session) return null;
+  return {
+    id: session.user.id,
+    email: session.user.email,
+    user_metadata: {
+      first_name: session.user.firstName,
+      last_name: session.user.lastName,
+    },
+    app_metadata: {
+      organization_id: session.user.organizationId,
+    },
+  };
+}
+
+function toSession(session: AuthSession | null): Session | null {
+  if (!session) return null;
+  return {
+    access_token: session.accessToken,
+    user: toUser(session)!,
+  };
+}
+
+function toAuthError(err: AuthClientError | null): AuthError | null {
+  if (!err) return null;
+  return { message: err.message, code: err.code };
+}
+
+// ── Context ─────────────────────────────────────────────────────────────────
+
+// Preserve context reference across Vite HMR
 const AUTH_CONTEXT_KEY = Symbol.for('kouti-auth-context');
 const AuthContext: React.Context<AuthContextType | undefined> =
   (globalThis as any)[AUTH_CONTEXT_KEY] ??
@@ -64,178 +110,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
 
-    // Set up auth state listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    // Listen for auth state changes (sign in, sign out, token refresh)
+    const unsubscribe = onAuthStateChange((event, authSession) => {
       if (!mounted) return;
-      logInfo('Auth state change detected', { event, hasSession: Boolean(currentSession) });
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
 
-      // Identify user and track login
-      if (event === 'SIGNED_IN' && currentSession?.user) {
-        identifyUser(currentSession.user.id);
+      logInfo('Auth state change', { event, hasSession: Boolean(authSession) });
+
+      setUser(toUser(authSession));
+      setSession(toSession(authSession));
+
+      if (event === 'SIGNED_IN' && authSession) {
+        identifyUser(authSession.user.id);
         trackEvent(AnalyticsEvents.LOGIN);
       }
 
-      // Reset analytics and track logout
       if (event === 'SIGNED_OUT') {
         trackEvent(AnalyticsEvents.LOGOUT);
         resetAnalytics();
       }
-
-      // Fetch CSRF token when user signs in
-      if (event === 'SIGNED_IN' && currentSession?.access_token) {
-        try {
-          const { data: csrfData, error: csrfError } = await supabase.functions.invoke(
-            'get-csrf-token',
-            {
-              headers: {
-                Authorization: `Bearer ${currentSession.access_token}`,
-              },
-            }
-          );
-
-          if (!mounted) return;
-          if (!csrfError && csrfData?.csrfToken) {
-            sessionStorage.setItem('csrf_token', csrfData.csrfToken);
-            logInfo('CSRF token obtained after auth state change');
-          }
-        } catch (csrfErr) {
-          if (!mounted) return;
-          logError('Error fetching CSRF token on auth change', { csrfErr });
-        }
-      }
-
-      // Clear CSRF token on sign out (also handled in signOut method)
-      if (event === 'SIGNED_OUT') {
-        sessionStorage.removeItem('csrf_token');
-      }
-
-      setLoading(false);
     });
 
-    // Check for existing session
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: currentSession }, error }) => {
+    // Initialize session from persisted storage / refresh token
+    initSession()
+      .then((authSession) => {
         if (!mounted) return;
-        if (error) {
-          logError('Error retrieving existing session', { error });
-        }
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        setUser(toUser(authSession));
+        setSession(toSession(authSession));
         setLoading(false);
       })
       .catch((error) => {
         if (!mounted) return;
-        logError('Session check failed', { error });
+        logError('Session init failed', { error });
         setLoading(false);
       });
 
     return () => {
       mounted = false;
-      // Clean up subscription when component unmounts
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
   const signUp = async (email: string, password: string, userData?: UserData) => {
     try {
-      // Use origin + path as redirect URL for better UX
-      const redirectUrl = getAuthRedirectUrl('/auth/callback', env.APP_URL);
+      const { session: authSession, error } = await authSignUp(email, password, {
+        firstName: userData?.first_name,
+        lastName: userData?.last_name,
+      });
 
-      // Add retry logic for network timeouts
-      let lastError: any = null;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const { data: signUpData, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              emailRedirectTo: redirectUrl,
-              data: {
-                first_name: userData?.first_name || '',
-                last_name: userData?.last_name || '',
-                email: email,
-                ...userData,
-              },
-            },
-          });
-
-          if (!error) {
-            logInfo('Sign up successful', { email, attempt });
-            trackEvent(AnalyticsEvents.SIGNUP);
-
-            // Fire welcome email asynchronously (non-blocking)
-            const newUserId = signUpData?.user?.id || '';
-            supabase.functions
-              .invoke('send-welcome-email', {
-                body: {
-                  userId: newUserId,
-                  email,
-                  firstName: userData?.first_name || '',
-                  lastName: userData?.last_name || '',
-                },
-              })
-              .catch((err) => logError('Welcome email dispatch failed', { err }));
-
-            return { error: null, success: true };
-          }
-
-          // Check if it's a timeout error
-          if (
-            error.message?.includes('timeout') ||
-            error.message?.includes('504') ||
-            error.message?.includes('Gateway') ||
-            error.message?.includes('network')
-          ) {
-            lastError = error;
-            if (attempt < 3) {
-              logInfo(`Sign up attempt ${attempt} failed, retrying...`, { error: error.message });
-              // Wait with exponential backoff
-              await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-              continue;
-            }
-          }
-
-          // Not a timeout error, return immediately
-          return { error, success: false };
-        } catch (fetchError: any) {
-          lastError = fetchError;
-          if (
-            fetchError.name === 'AbortError' ||
-            fetchError.message?.includes('timeout') ||
-            fetchError.message?.includes('504')
-          ) {
-            if (attempt < 3) {
-              logInfo(`Sign up attempt ${attempt} failed with network error, retrying...`, {
-                error: fetchError.message,
-              });
-              // Wait with exponential backoff
-              await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-              continue;
-            }
-          }
-          // Not a retryable error
-          break;
-        }
+      if (error) {
+        return { error: toAuthError(error)!, success: false };
       }
 
-      // All retries exhausted
-      logError('Sign up failed after retries', { error: lastError, email });
-      return {
-        error:
-          lastError || new AuthError('Sign up failed after multiple attempts. Please try again.'),
-        success: false,
-      };
+      logInfo('Sign up successful', { email });
+      trackEvent(AnalyticsEvents.SIGNUP);
+
+      setUser(toUser(authSession));
+      setSession(toSession(authSession));
+
+      return { error: null, success: true };
     } catch (error) {
       logError('Sign up error', { error });
       return {
-        error: new AuthError('An unexpected error occurred during sign up.'),
+        error: { message: 'An unexpected error occurred during sign up.' },
         success: false,
       };
     }
@@ -243,219 +180,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { session: authSession, error } = await authSignIn(email, password);
 
       if (error) {
-        return {
-          error,
-          success: false,
-        };
+        return { error: toAuthError(error)!, success: false };
       }
 
-      // After successful login, fetch CSRF token from server
-      if (authData?.session?.access_token) {
-        try {
-          const { data: csrfData, error: csrfError } = await supabase.functions.invoke(
-            'get-csrf-token',
-            {
-              headers: {
-                Authorization: `Bearer ${authData.session.access_token}`,
-              },
-            }
-          );
+      setUser(toUser(authSession));
+      setSession(toSession(authSession));
 
-          if (!csrfError && csrfData?.csrfToken) {
-            // Store CSRF token in sessionStorage
-            sessionStorage.setItem('csrf_token', csrfData.csrfToken);
-            logInfo('CSRF token obtained after login');
-          } else {
-            logError('Failed to get CSRF token', { csrfError });
-          }
-        } catch (csrfErr) {
-          logError('Error fetching CSRF token', { csrfErr });
-          // Don't fail login if CSRF token fetch fails
-        }
-      }
-
-      return {
-        error: null,
-        success: true,
-      };
+      return { error: null, success: true };
     } catch (error) {
       logError('Sign in error', { error });
       return {
-        error: new AuthError('An unexpected error occurred during sign in.'),
+        error: { message: 'An unexpected error occurred during sign in.' },
         success: false,
       };
     }
   };
 
-  const signInWithProvider = async (provider: 'google' | 'microsoft', email?: string) => {
-    try {
-      const redirectTo = getAuthRedirectUrl('/auth/callback', env.APP_URL);
-
-      // SECURITY FIX: Removed client-side organization selection - now uses ONLY email domain matching
-      // Directly initiate SSO flow - the authorize function will check config availability
-      const { data, error } = await supabase.functions.invoke('sso-authorize', {
-        body: {
-          provider,
-          email,
-          redirect_to: redirectTo,
-        },
-      });
-
-      if (error) {
-        logError('Failed to initiate SSO', { provider, error });
-        return {
-          error: new AuthError(
-            'Single sign-on is not configured for this account. Please use email and password.'
-          ),
-          success: false,
-        };
-      }
-
-      const authorizationUrl = data?.authorization_url ?? data?.authorizationUrl;
-      if (!authorizationUrl) {
-        logError('SSO authorize function did not return authorization URL', { provider, data });
-        return {
-          error: new AuthError('Single sign-on is not configured for this email domain.'),
-          success: false,
-        };
-      }
-
-      // Redirect to provider for authentication
-      if (typeof window !== 'undefined') {
-        window.location.assign(authorizationUrl);
-      }
-
-      return {
-        error: null,
-        success: true,
-      };
-    } catch (error) {
-      logError('Sign in with SSO provider failed', { provider, error });
-      return {
-        error: new AuthError('Unable to start single sign-on. Please try again later.'),
-        success: false,
-      };
-    }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const signInWithProvider = async (_provider: 'google' | 'microsoft', _email?: string) => {
+    // SSO via OAuth providers is not yet implemented in custom auth mode.
+    // This can be added later with a custom OAuth flow.
+    return {
+      error: { message: 'Single sign-on is not available yet. Please use email and password.' },
+      success: false,
+    };
   };
 
-  const signOut = async () => {
+  const signOutHandler = async () => {
     try {
-      // Clear CSRF token on sign out
-      sessionStorage.removeItem('csrf_token');
-      // Clear cached user immediately so in-flight getCurrentUserId() calls return null
-      clearCurrentUser();
-      // Cancel all in-flight queries and clear cache BEFORE signing out
-      // This prevents queries from firing with null user_id after session is destroyed
       queryClient.cancelQueries();
       queryClient.clear();
-      await supabase.auth.signOut();
+      await authSignOut();
+      setUser(null);
+      setSession(null);
     } catch (error) {
       logError('Sign out error', { error });
     }
   };
 
-  const resetPassword = async (email: string) => {
+  const resetPasswordHandler = async (email: string) => {
     try {
-      const redirectUrl = getAuthRedirectUrl('/auth/reset-password', env.APP_URL);
-
-      logInfo('Initiating password reset', {
-        email: email.toLowerCase(),
-        redirectUrl,
-      });
-
-      // Use Resend-based edge function instead of Supabase's built-in email service
-      // Password reset is unauthenticated — call the edge function directly
-      // (invokeFunctionWithCsrf requires an active session which doesn't exist here)
-      const { data: rawData, error: invokeError } = await supabase.functions.invoke(
-        'send-password-reset-email',
-        {
-          body: {
-            email: email.toLowerCase(),
-            redirectUrl,
-          },
-        }
-      );
-
-      // Normalize the invoke result
-      let data = rawData as { error?: string; messageId?: string } | null;
-      let error: Error | null = null;
-      if (invokeError) {
-        const err = invokeError as Error & { context?: Response };
-        if (
-          err.name === 'FunctionsHttpError' &&
-          err.context &&
-          typeof err.context.json === 'function'
-        ) {
-          try {
-            const body = (await err.context.json()) as { error?: string };
-            error = new Error(body?.error || err.message);
-          } catch {
-            error = err;
-          }
-        } else {
-          error = err instanceof Error ? err : new Error(String(err));
-        }
-        data = null;
-      }
-
+      const { error } = await authResetPassword(email);
       if (error) {
-        logError('Password reset error', {
-          error,
-          email: email.toLowerCase(),
-          redirectUrl,
-        });
-        return {
-          error: new AuthError(error.message || 'Failed to send password reset email'),
-          success: false,
-        };
+        return { error: toAuthError(error)!, success: false };
       }
-
-      if (data?.error) {
-        logError('Password reset function error', {
-          error: data.error,
-          email: email.toLowerCase(),
-          redirectUrl,
-        });
-        return {
-          error: new AuthError(data.error || 'Failed to send password reset email'),
-          success: false,
-        };
-      }
-
-      logInfo('Password reset email sent', {
-        email: email.toLowerCase(),
-        redirectUrl,
-        messageId: data?.messageId,
-      });
-
-      return {
-        error: null,
-        success: true,
-      };
+      return { error: null, success: true };
     } catch (error) {
-      logError('Reset password exception', { error });
+      logError('Reset password error', { error });
       return {
-        error: new AuthError('An unexpected error occurred during password reset.'),
+        error: { message: 'An unexpected error occurred during password reset.' },
         success: false,
       };
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     session,
     loading,
     signUp,
     signIn,
-    signOut,
+    signOut: signOutHandler,
     signInWithProvider,
-    resetPassword,
+    resetPassword: resetPasswordHandler,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -478,8 +268,6 @@ const HMR_FALLBACK: AuthContextType = {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    // During Vite HMR, context is briefly undefined as the tree rebuilds.
-    // Return a safe loading state in dev; throw in production to catch real bugs.
     if (import.meta.env.DEV) {
       return HMR_FALLBACK;
     }

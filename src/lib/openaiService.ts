@@ -1,7 +1,8 @@
 // src/lib/openaiService.ts
 // Secure OpenAI service that calls Edge Functions instead of exposing API keys
 
-import { supabase } from '@/integrations/supabase/client';
+import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
+import { invokeNodeApi, isNodeBackendEnabled } from '@/lib/backendApi';
 
 // Supported types of contract analysis
 export type AnalysisType = 'summarize' | 'extractClauses' | 'redline';
@@ -27,25 +28,46 @@ async function callContractAnalysis(text: string, analysisType: AnalysisType): P
 
   let responseData: { analysis?: string; error?: string } | null = null;
 
-  // Try advanced function first
-  const { data, error } = await supabase.functions.invoke('advanced-contract-analysis', {
-    body: advancedPayload,
-  });
-
-  if (error) {
-    console.warn('Advanced contract analysis failed, attempting legacy function.', error);
-    const fallback = await supabase.functions.invoke('contract-analysis-ai', {
-      body: payload,
+  if (isNodeBackendEnabled()) {
+    const nodeResponse = await invokeNodeApi<{
+      success: boolean;
+      analysis?: string;
+      error?: string;
+    }>('/api/v1/ai/advanced-contract-analysis', {
+      method: 'POST',
+      body: advancedPayload,
     });
-
-    if (fallback.error) {
-      console.error('Contract analysis error:', fallback.error);
-      throw new Error(`Analysis failed: ${fallback.error.message}`);
-    }
-
-    responseData = fallback.data as { analysis?: string; error?: string } | null;
+    responseData = {
+      analysis: nodeResponse.analysis,
+      error: nodeResponse.error,
+    };
   } else {
-    responseData = data as { analysis?: string; error?: string } | null;
+    // Try advanced function first
+    const { data, error } = await invokeFunctionWithCsrf<{ analysis?: string; error?: string }>(
+      'advanced-contract-analysis',
+      {
+        body: advancedPayload,
+      }
+    );
+
+    if (error) {
+      console.warn('Advanced contract analysis failed, attempting legacy function.', error);
+      const fallback = await invokeFunctionWithCsrf<{ analysis?: string; error?: string }>(
+        'contract-analysis-ai',
+        {
+          body: payload,
+        }
+      );
+
+      if (fallback.error) {
+        console.error('Contract analysis error:', fallback.error);
+        throw new Error(`Analysis failed: ${fallback.error.message}`);
+      }
+
+      responseData = fallback.data as { analysis?: string; error?: string } | null;
+    } else {
+      responseData = data as { analysis?: string; error?: string } | null;
+    }
   }
 
   // Check for error in response body (edge function may return 200 with error)

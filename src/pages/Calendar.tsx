@@ -45,7 +45,8 @@ import {
   startOfDay,
   isSameDay,
 } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+import { getSession } from '@/lib/authClient';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { toast } from 'sonner';
 import { env } from '@/lib/env';
@@ -112,15 +113,14 @@ export default function Calendar() {
         const firstDay = startOfMonth(currentDate);
         const lastDay = endOfMonth(currentDate);
 
-        const { data, error } = await supabase
-          .from('calendar_events')
-          .select('*')
-          .eq('created_by', ownerId)
-          .gte('start_date', firstDay.toISOString())
-          .lte('end_date', lastDay.toISOString())
-          .order('start_date', { ascending: true });
-
-        if (error) throw error;
+        const data = await invokeNodeApi<CalendarEvent[]>('/api/v1/calendar-events', {
+          query: {
+            created_by: ownerId,
+            start_date_gte: firstDay.toISOString(),
+            end_date_lte: lastDay.toISOString(),
+            order: 'start_date.asc',
+          },
+        });
 
         // Add owner info to events
         const ownerCalendar = sharedCalendars?.find((sc) => sc.calendar_owner_id === ownerId);
@@ -162,29 +162,14 @@ export default function Calendar() {
   useEffect(() => {
     const checkSsoConfig = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
+        const session = getSession();
+        if (!session?.user) return;
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('user_id', user.id)
-          .single();
+        const ssoConfig = await invokeNodeApi<{ hasSso: boolean }>(
+          '/api/v1/organization/sso-status'
+        );
 
-        if (!profile?.organization_id) return;
-
-        const { data } = await supabase
-          .from('organization_sso_configs_view')
-          .select('id, provider, is_enabled')
-          .eq('organization_id', profile.organization_id)
-          .eq('is_enabled', true)
-          .in('provider', ['google', 'microsoft'])
-          .limit(1)
-          .maybeSingle();
-
-        if (data) {
+        if (ssoConfig?.hasSso) {
           setHasSsoConfig(true);
         }
       } catch {

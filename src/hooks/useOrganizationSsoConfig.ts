@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { invokeNodeApi } from '@/lib/backendApi';
 
-// Type definition for SSO config (view may not be in generated types yet)
+// Type definition for SSO config
 export type OrganizationSsoConfig = {
   id: string;
   organization_id: string;
@@ -24,46 +22,7 @@ export type OrganizationSsoConfig = {
 
 export type OrganizationSsoProvider = OrganizationSsoConfig['provider'];
 
-async function fetchOrganizationId(): Promise<string | null> {
-  const userId = await getCurrentUserId();
-  if (!userId) {
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('user_id', userId)
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return (data as { organization_id: string | null } | null)?.organization_id ?? null;
-}
-
-async function fetchOrganizationSsoConfigs(): Promise<OrganizationSsoConfig[]> {
-  const organizationId = await fetchOrganizationId();
-  if (!organizationId) {
-    return [];
-  }
-
-  // Using type assertion since view may not be in generated types yet
-  const { data, error } = (await supabase
-    .from('organization_sso_configs_view' as any)
-    .select('*')
-    .eq('organization_id', organizationId)
-    .order('provider', { ascending: true })) as any;
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []) as OrganizationSsoConfig[];
-}
-
-type ManageSsoConfigFunctionPayload =
+type ManageSsoConfigPayload =
   | {
       action: 'create';
       payload: {
@@ -92,32 +51,21 @@ type ManageSsoConfigFunctionPayload =
   | { action: 'rotate'; payload: { id: string; clientSecret: string } }
   | { action: 'test'; payload: { id: string } };
 
-async function invokeManageSsoConfig<TResponse>(
-  body: ManageSsoConfigFunctionPayload
-): Promise<TResponse> {
-  const { data, error } = await supabase.functions.invoke('manage-sso-config', {
+async function invokeManageSsoConfig<TResponse>(body: ManageSsoConfigPayload): Promise<TResponse> {
+  const result = await invokeNodeApi<{ data: TResponse }>('/api/v1/misc/sso-config/manage', {
+    method: 'POST',
     body,
   });
 
-  if (error) {
-    throw error;
-  }
-
-  if (!data) {
-    throw new Error('No response returned from manage-sso-config function');
-  }
-
-  if (typeof data === 'object' && 'error' in data && data.error) {
-    throw new Error(String(data.error));
-  }
-
-  return (data as { data: TResponse }).data;
+  return result.data;
 }
 
 export function useOrganizationSsoConfigs() {
   return useQuery({
     queryKey: ['organization-sso-configs'],
-    queryFn: fetchOrganizationSsoConfigs,
+    queryFn: async (): Promise<OrganizationSsoConfig[]> => {
+      return invokeNodeApi<OrganizationSsoConfig[]>('/api/v1/misc/sso-config');
+    },
     staleTime: 60 * 1000,
   });
 }
@@ -138,9 +86,9 @@ export function useUpsertOrganizationSsoConfig() {
 
   return useMutation({
     mutationFn: async (input: UpsertOrganizationSsoConfigInput) => {
-      const action: ManageSsoConfigFunctionPayload['action'] = input.id ? 'update' : 'create';
+      const action: ManageSsoConfigPayload['action'] = input.id ? 'update' : 'create';
 
-      const body: ManageSsoConfigFunctionPayload =
+      const body: ManageSsoConfigPayload =
         action === 'create'
           ? {
               action,

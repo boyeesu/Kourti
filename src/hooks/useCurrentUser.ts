@@ -1,72 +1,15 @@
-import type { User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { getSession } from '@/lib/authClient';
 import { useAuth } from './useAuth';
 
-let currentUser: User | null = null;
-let fetchPromise: Promise<User | null> | null = null;
-let listenerInitialized = false;
-
-function initializeListener() {
-  if (listenerInitialized) {
-    return;
-  }
-
-  listenerInitialized = true;
-
-  // Use getUser() instead of getSession() to verify the user server-side
-  // getSession() reads from localStorage and can be spoofed
-  supabase.auth
-    .getUser()
-    .then(({ data }) => {
-      currentUser = data.user ?? null;
-    })
-    .catch(() => {
-      currentUser = null;
-    });
-
-  supabase.auth.onAuthStateChange((_event, session) => {
-    currentUser = session?.user ?? null;
-  });
+interface MinimalUser {
+  id: string;
+  email?: string;
 }
 
-async function fetchCurrentUser(refresh = false): Promise<User | null> {
-  initializeListener();
+let cachedUser: MinimalUser | null = null;
 
-  if (refresh) {
-    fetchPromise = null;
-  }
-
-  if (currentUser && !refresh) {
-    return currentUser;
-  }
-
-  if (!fetchPromise) {
-    // Use getUser() for server-verified user identity instead of getSession()
-    fetchPromise = supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        currentUser = data.user ?? null;
-        return currentUser;
-      })
-      .catch(() => {
-        currentUser = null;
-        return null;
-      })
-      .finally(() => {
-        fetchPromise = null;
-      });
-  }
-
-  return fetchPromise;
-}
-
-/**
- * Clear cached user state. Call this before signOut to prevent
- * in-flight queries from using a stale/null user ID.
- */
 export function clearCurrentUser() {
-  currentUser = null;
-  fetchPromise = null;
+  cachedUser = null;
 }
 
 export function useCurrentUser() {
@@ -74,11 +17,20 @@ export function useCurrentUser() {
   return user;
 }
 
-export async function getCurrentUser(options: { refresh?: boolean } = {}) {
-  return fetchCurrentUser(Boolean(options.refresh));
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function getCurrentUser(_options?: {
+  refresh?: boolean;
+}): Promise<MinimalUser | null> {
+  const session = getSession();
+  if (session) {
+    cachedUser = { id: session.user.id, email: session.user.email };
+    return cachedUser;
+  }
+  return cachedUser;
 }
 
-export async function getCurrentUserId(options: { refresh?: boolean } = {}) {
-  const user = await getCurrentUser(options);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function getCurrentUserId(_options?: { refresh?: boolean }): Promise<string | null> {
+  const user = await getCurrentUser();
   return user?.id ?? null;
 }

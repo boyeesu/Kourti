@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
-import { supabase } from '@/integrations/supabase/client';
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics';
 import { useNotificationPreferences } from '@/hooks/useNotificationsDb';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export function useNotificationTriggers() {
   const createNotification = useCreateNotification();
@@ -58,12 +58,10 @@ export function useNotificationTriggers() {
         }
       }
 
-      const { error } = await supabase.functions.invoke('send-notification-email', {
+      await invokeNodeApi('/api/v1/notifications/email', {
+        method: 'POST',
         body: params,
       });
-      if (error) {
-        logError('Failed to send email notification', error);
-      }
     } catch (err) {
       logError('Email notification error', err);
     }
@@ -300,12 +298,10 @@ export function useNotificationTriggers() {
     lastName?: string;
   }) => {
     try {
-      const { error } = await supabase.functions.invoke('send-welcome-email', {
+      await invokeNodeApi('/api/v1/notifications/welcome-email', {
+        method: 'POST',
         body: params,
       });
-      if (error) {
-        logError('Failed to send welcome email', error);
-      }
     } catch (err) {
       logError('Welcome email error', err);
     }

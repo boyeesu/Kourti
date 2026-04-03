@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface InvoiceItem {
   id: string;
@@ -18,15 +18,8 @@ export function useInvoiceItems(invoiceId: string) {
     queryKey: ['invoice-items', invoiceId],
     queryFn: async () => {
       if (!invoiceId) return [];
-      
-      const { data, error } = await supabase
-        .from('invoice_items')
-        .select('*')
-        .eq('invoice_id', invoiceId)
-        .order('created_at', { ascending: true });
-        
-      if (error) throw error;
-      return data as InvoiceItem[];
+
+      return invokeNodeApi<InvoiceItem[]>(`/api/v1/invoices/${invoiceId}/items`);
     },
     enabled: !!invoiceId,
     staleTime: 2 * 60 * 1000,

@@ -37,7 +37,7 @@ import {
   ALLOWED_CHAT_EXTENSIONS,
   MAX_CHAT_ATTACHMENT_SIZE,
 } from '@/lib/fileValidation';
-import { supabase } from '@/integrations/supabase/client';
+import { getChatFileSignedUrl } from '@/lib/fileApi';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -69,12 +69,10 @@ function FileImagePreview({
       }
 
       try {
-        const { data, error } = await supabase.storage
-          .from('Chat_Storage')
-          .createSignedUrl(metadata.file_path, 3600);
+        const signedUrl = await getChatFileSignedUrl(metadata.file_path, 3600);
 
-        if (!cancelled && data?.signedUrl && !error) {
-          setImageUrl(data.signedUrl);
+        if (!cancelled && signedUrl) {
+          setImageUrl(signedUrl);
         }
       } catch (err) {
         console.error('Failed to load image preview:', err);
@@ -87,7 +85,7 @@ function FileImagePreview({
     return () => {
       cancelled = true;
     };
-  }, [metadata.file_path]);
+  }, [metadata.file_path, metadata.file_name]);
 
   if (loading || isUploading) {
     return (
@@ -299,15 +297,13 @@ export function ChatWindow({
       }
 
       try {
-        const { data, error } = await supabase.storage
-          .from('Chat_Storage')
-          .createSignedUrl(metadata.file_path, 3600); // 1 hour
+        const signedUrl = await getChatFileSignedUrl(metadata.file_path, 3600);
 
-        if (error || !data?.signedUrl) {
-          throw new Error(error?.message || 'Failed to generate download URL');
+        if (!signedUrl) {
+          throw new Error('Failed to generate download URL');
         }
 
-        window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+        window.open(signedUrl, '_blank', 'noopener,noreferrer');
       } catch (err) {
         console.error('Download error:', err);
         toast.error('Download failed', {

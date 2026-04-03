@@ -7,7 +7,8 @@ import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { getSession } from '@/lib/authClient';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { useOrganizationMembers } from '@/hooks/useOrganization';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
@@ -66,19 +67,25 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
 
   async function onSubmit(data: FormData) {
     try {
-      // Create notifications for each recipient
+      const currentUser = getSession()?.user;
+
+      // Create notifications for each recipient via Node backend
       for (const recipientId of data.recipients) {
-        await supabase.from('notifications').insert({
-          user_id: recipientId,
-          type: 'document_shared',
-          title: `Document shared: ${document.name}`,
-          description:
-            data.message || `A document has been shared with you with ${data.access_level} access.`,
-          metadata: {
-            document_id: document.id,
-            document_name: document.name,
-            access_level: data.access_level,
-            shared_by: (await supabase.auth.getUser()).data.user?.id,
+        await invokeNodeApi('/api/v1/notifications', {
+          method: 'POST',
+          body: {
+            user_id: recipientId,
+            type: 'document_shared',
+            title: `Document shared: ${document.name}`,
+            description:
+              data.message ||
+              `A document has been shared with you with ${data.access_level} access.`,
+            metadata: {
+              document_id: document.id,
+              document_name: document.name,
+              access_level: data.access_level,
+              shared_by: currentUser?.id,
+            },
           },
         });
       }

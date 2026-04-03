@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLogAdminAction } from './useAdminActions';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 /**
  * Hook to approve a user (platform admin only)
@@ -14,15 +14,7 @@ export function useApproveUser() {
   return useMutation({
     mutationFn: async (userId: string) => {
       try {
-        const { data, error } = await supabase.rpc('approve_user', {
-          p_user_id: userId,
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        return data;
+        return invokeNodeApi<unknown>(`/api/v1/admin/users/${userId}/approve`, { method: 'POST' });
       } catch (error) {
         logError('Error approving user', error);
         throw error;
@@ -59,16 +51,10 @@ export function useDisableUser() {
   return useMutation({
     mutationFn: async (params: { userId: string; reason?: string }) => {
       try {
-        const { data, error } = await supabase.rpc('disable_user', {
-          p_user_id: params.userId,
-          p_reason: params.reason || undefined,
+        return invokeNodeApi<unknown>(`/api/v1/admin/users/${params.userId}/disable`, {
+          method: 'POST',
+          body: { reason: params.reason },
         });
-
-        if (error) {
-          throw error;
-        }
-
-        return data;
       } catch (error) {
         logError('Error disabling user', error);
         throw error;
@@ -105,16 +91,10 @@ export function useDeleteUser() {
   return useMutation({
     mutationFn: async (params: { userId: string; reason?: string }) => {
       try {
-        const { data, error } = await supabase.rpc('delete_user_safe', {
-          p_user_id: params.userId,
-          p_reason: params.reason || undefined,
+        return invokeNodeApi<unknown>(`/api/v1/admin/users/${params.userId}/delete`, {
+          method: 'POST',
+          body: { reason: params.reason },
         });
-
-        if (error) {
-          throw error;
-        }
-
-        return data;
       } catch (error) {
         logError('Error deleting user', error);
         throw error;
@@ -158,20 +138,10 @@ export function useCreateOrganization() {
       website?: string;
     }) => {
       try {
-        const { data, error } = await supabase.rpc('create_organization_admin', {
-          p_name: params.name,
-          p_email: params.email || undefined,
-          p_description: params.description || undefined,
-          p_address: params.address || undefined,
-          p_phone: params.phone || undefined,
-          p_website: params.website || undefined,
+        return invokeNodeApi<unknown>('/api/v1/admin/organizations', {
+          method: 'POST',
+          body: params,
         });
-
-        if (error) {
-          throw error;
-        }
-
-        return data;
       } catch (error) {
         logError('Error creating organization', error);
         throw error;
@@ -184,7 +154,7 @@ export function useCreateOrganization() {
       await logAction.mutateAsync({
         action_type: 'org_created',
         target_type: 'organization',
-        target_id: orgId,
+        target_id: String(orgId || ''),
         details: { name: params.name, email: params.email },
       });
 

@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 interface ContractTemplate {
   id: string;
@@ -21,17 +20,13 @@ export function useContractTemplates() {
   return useQuery({
     queryKey: ['contract-templates'],
     queryFn: async (): Promise<ContractTemplate[]> => {
-      const { data, error } = await supabase.from('contract_templates').select('*').order('name');
-
-      if (error) throw error;
-      return data || [];
+      return invokeNodeApi<ContractTemplate[]>('/api/v1/misc/contract-templates');
     },
   });
 }
 
 export function useCreateContractTemplate() {
   const queryClient = useQueryClient();
-  const { data: organizationId } = useUserOrganization();
 
   return useMutation({
     mutationFn: async (
@@ -40,22 +35,10 @@ export function useCreateContractTemplate() {
         'id' | 'created_at' | 'updated_at' | 'organization_id' | 'created_by'
       >
     ) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const { data, error } = await supabase
-        .from('contract_templates')
-        .insert({
-          ...templateData,
-          organization_id: organizationId,
-          created_by: user?.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<any>('/api/v1/misc/contract-templates', {
+        method: 'POST',
+        body: templateData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract-templates'] });

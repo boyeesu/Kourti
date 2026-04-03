@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import type { Notification } from '@/components/ui/notifications';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface NotificationFilters {
   status?: 'read' | 'unread' | 'all';
@@ -30,111 +29,34 @@ export interface NotificationPreferences {
 }
 
 export function useNotificationsDb(orgId: string, filters?: NotificationFilters) {
-  const queryClient = useQueryClient();
+  const transformNotifications = (rows: any[]) => {
+    return rows.map((item: any) => ({
+      ...item,
+      date: item.created_at || new Date().toISOString(),
+      read: item.status === 'read',
+      type: item.type || 'info',
+    })) as Notification[];
+  };
+
   const query = useQuery({
     queryKey: ['notifications', orgId, filters],
     queryFn: async () => {
-      let query = supabase
-        .from('notifications')
-        .select('*')
-        .eq('organization_id', orgId as any)
-        .order('created_at', { ascending: false });
+      const data = await invokeNodeApi<any[]>('/api/v1/notifications', {
+        query: {
+          status: filters?.status,
+          type: filters?.type,
+          archived: filters?.archived,
+          search: filters?.search,
+        },
+      });
 
-      // Apply filters
-      if (filters?.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status as any);
-      }
-
-      if (filters?.type) {
-        query = query.eq('type', filters.type as any);
-      }
-
-      if (filters?.archived === false) {
-        query = query.is('archived_at', null);
-      } else if (filters?.archived === true) {
-        query = query.not('archived_at', 'is', null);
-      }
-
-      const { data } = await query;
-
-      // Apply search filter in memory if provided
-      let filteredData = data || [];
-      if (filters?.search) {
-        const searchLower = filters.search.toLowerCase();
-        filteredData = filteredData.filter(
-          (item: any) =>
-            item.title?.toLowerCase().includes(searchLower) ||
-            item.description?.toLowerCase().includes(searchLower)
-        );
-      }
-
-      // Transform database format to Notification interface
-      return filteredData.map((item: any) => ({
-        ...item,
-        date: item.created_at || new Date().toISOString(),
-        read: item.status === 'read',
-        type: item.type || 'info',
-      })) as Notification[];
+      return transformNotifications(data || []);
     },
     enabled: !!orgId,
-    staleTime: 5 * 1000, // 5 seconds
-    gcTime: 60 * 1000, // 1 minute
+    staleTime: 5 * 1000,
+    gcTime: 60 * 1000,
+    refetchInterval: 5 * 1000,
   });
-
-  // Subscribe to real-time inserts
-  useEffect(() => {
-    if (!orgId) return;
-    // Categorize priority
-    const categorize = (notif: Notification) => ({
-      ...notif,
-      priority: (notif as any).urgent ? 'high' : 'medium',
-    });
-    const channel = supabase
-      .channel('public:notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `organization_id=eq.${orgId}`,
-        },
-        (payload) => {
-          const newNotif = categorize(payload.new as Notification);
-          // Prepend to existing notifications
-          queryClient.setQueryData<Notification[]>(
-            ['notifications', orgId, filters],
-            (old = []) => [newNotif, ...old]
-          );
-          // Optionally show toast for high priority
-          if (newNotif.priority === 'high') {
-            // useToast outside hook scope? assume toast available
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `organization_id=eq.${orgId}`,
-        },
-        (payload) => {
-          queryClient.setQueryData<Notification[]>(
-            ['notifications', orgId, filters],
-            (old = []) => {
-              return old.map((n) => (n.id === payload.new.id ? { ...n, ...payload.new } : n));
-            }
-          );
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [orgId, queryClient, filters]);
 
   return query;
 }
@@ -146,21 +68,10 @@ export function useNotificationPreferences(orgId: string) {
       const userId = await getCurrentUserId();
       if (!userId || !orgId) return null;
 
-      const { data, error } = await supabase
-        .from('notification_preferences' as any)
-        .select('*')
-        .eq('user_id', userId)
-        .eq('organization_id', orgId)
-        .maybeSingle();
-
-      if (error) {
-        throw error;
-      }
-
-      return data as NotificationPreferences | null;
+      return invokeNodeApi<NotificationPreferences | null>('/api/v1/notifications/preferences');
     },
     enabled: !!orgId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -174,25 +85,13 @@ export function useUpdateNotificationPreferences() {
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('User not authenticated');
 
-      const { organization_id, ...restPreferences } = preferences;
-      const { data, error } = await supabase
-        .from('notification_preferences' as any)
-        .upsert(
-          {
-            user_id: userId,
-            organization_id: organization_id,
-            ...restPreferences,
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'user_id,organization_id',
-          }
-        )
-        .select()
-        .single();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { organization_id: _orgId, ...restPreferences } = preferences;
 
-      if (error) throw error;
-      return data;
+      return invokeNodeApi<NotificationPreferences>('/api/v1/notifications/preferences', {
+        method: 'PUT',
+        body: restPreferences,
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -203,38 +102,29 @@ export function useUpdateNotificationPreferences() {
 }
 
 export async function pushDbNotification(
-  orgId: string,
+  _orgId: string,
   notif: Omit<Notification, 'id' | 'read' | 'created_at'>
 ) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const userId = user?.id;
-  if (!userId) throw new Error('Not authenticated');
-
-  await supabase.from('notifications').insert([
-    {
-      user_id: userId,
-      organization_id: orgId,
-      ...notif,
-    } as any,
-  ]);
+  await invokeNodeApi('/api/v1/notifications', {
+    method: 'POST',
+    body: {
+      title: notif.title,
+      description: notif.description,
+      type: notif.type,
+    },
+  });
 }
 
 export async function archiveNotification(notificationId: string) {
-  const { error } = await supabase
-    .from('notifications')
-    .update({ status: 'archived' })
-    .eq('id', notificationId);
-
-  if (error) throw error;
+  await invokeNodeApi(`/api/v1/notifications/${notificationId}`, {
+    method: 'PATCH',
+    body: { status: 'archived' },
+  });
 }
 
 export async function unarchiveNotification(notificationId: string) {
-  const { error } = await supabase
-    .from('notifications')
-    .update({ status: 'unread' })
-    .eq('id', notificationId);
-
-  if (error) throw error;
+  await invokeNodeApi(`/api/v1/notifications/${notificationId}`, {
+    method: 'PATCH',
+    body: { status: 'unread' },
+  });
 }

@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCurrentUserId } from '@/hooks/useCurrentUser';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface CalendarIntegration {
   id: string;
@@ -36,14 +36,7 @@ export function useCalendarSync() {
       const userId = await getCurrentUserId();
       if (!userId || !organizationId) return [];
 
-      const { data, error } = await supabase
-        .from('user_calendar_integrations' as any)
-        .select('*')
-        .eq('user_id', userId)
-        .eq('organization_id', organizationId);
-
-      if (error) throw error;
-      return (data as unknown as CalendarIntegration[]) || [];
+      return invokeNodeApi<CalendarIntegration[]>('/api/v1/calendar/integrations');
     },
     enabled: !!organizationId,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -52,14 +45,13 @@ export function useCalendarSync() {
   // Connect calendar
   const connectCalendar = useMutation({
     mutationFn: async (provider: 'google' | 'microsoft') => {
-      const { data, error } = await supabase.functions.invoke(
-        provider === 'google' ? 'google-calendar-sync' : 'teams-calendar-sync',
+      const data = await invokeNodeApi<{ authorization_url: string }>(
+        `/api/v1/calendar/integrations/${provider}/connect`,
         {
+          method: 'POST',
           body: { action: 'connect' },
         }
       );
-
-      if (error) throw error;
       return data?.authorization_url;
     },
     onSuccess: () => {
@@ -76,12 +68,8 @@ export function useCalendarSync() {
       const integration = integrations.find((i) => i.provider === provider);
       if (!integration) throw new Error('Integration not found');
 
-      const { error } = await supabase
-        .from('user_calendar_integrations' as any)
-        .delete()
-        .eq('id', integration.id);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/calendar/integrations/${integration.id}`, { method: 'DELETE' });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-integrations'] });
@@ -105,15 +93,11 @@ export function useCalendarSync() {
       const integration = integrations.find((i) => i.provider === provider);
       if (!integration) throw new Error('Integration not found');
 
-      const { error } = await supabase
-        .from('user_calendar_integrations' as any)
-        .update({
-          ...settings,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', integration.id);
-
-      if (error) throw error;
+      await invokeNodeApi(`/api/v1/calendar/integrations/${integration.id}`, {
+        method: 'PATCH',
+        body: settings,
+      });
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-integrations'] });
@@ -123,15 +107,10 @@ export function useCalendarSync() {
   // Trigger manual sync
   const triggerSync = useMutation({
     mutationFn: async (provider: 'google' | 'microsoft') => {
-      const { data, error } = await supabase.functions.invoke(
-        provider === 'google' ? 'google-calendar-sync' : 'teams-calendar-sync',
-        {
-          body: { action: 'sync-import' },
-        }
-      );
-
-      if (error) throw error;
-      return data;
+      return invokeNodeApi(`/api/v1/calendar/integrations/${provider}/sync`, {
+        method: 'POST',
+        body: { action: 'sync-import' },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-integrations'] });

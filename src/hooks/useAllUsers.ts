@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { logError } from '@/lib/logger';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 export interface PlatformUser {
   id: string;
@@ -32,13 +32,7 @@ export function useAllUsers() {
     queryKey: ['all-users'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.rpc('get_all_users');
-
-        if (error) {
-          throw error;
-        }
-
-        return (data || []) as PlatformUser[];
+        return invokeNodeApi<PlatformUser[]>('/api/v1/users/all');
       } catch (error) {
         logError('Error fetching all users', error);
         throw error;
