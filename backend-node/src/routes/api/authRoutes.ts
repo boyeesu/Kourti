@@ -15,6 +15,7 @@ import {
   resetPasswordRequest,
   resetPasswordConfirm,
 } from '../../services/jwt.js';
+import { sendPasswordResetEmail, sendWelcomeEmail } from '../../services/email.js';
 import { db } from '../../db/pool.js';
 import type { Response } from 'express';
 
@@ -83,6 +84,11 @@ const resetConfirmSchema = z.object({
   password: z.string().min(6),
 });
 
+const setPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(6),
+});
+
 // ── Refresh token expiry in seconds (for cookie maxAge) ─────────────────────
 
 function parseExpiry(val: string): number {
@@ -139,6 +145,11 @@ authRouter.post(
     const tokens = await signUp(email, password, { firstName, lastName });
 
     setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(email, firstName).catch((err) =>
+      console.error('Welcome email failed:', err instanceof Error ? err.message : err)
+    );
 
     res.status(201).json({
       accessToken: tokens.accessToken,
@@ -233,13 +244,158 @@ authRouter.post(
 );
 
 authRouter.post(
+  '/set-password',
+  asyncHandler(async (req, res) => {
+    const { token, password } = setPasswordSchema.parse(req.body);
+
+    const invitationResult = await db.query(
+      `
+      select id, email, first_name, last_name, role, department, organization_id
+      from public.invitations
+      where token = $1
+        and status = 'pending'
+        and expires_at > now()
+      limit 1
+      `,
+      [token]
+    );
+
+    const invitation = invitationResult.rows[0] as
+      | {
+          id: string;
+          email: string;
+          first_name: string | null;
+          last_name: string | null;
+          role: string | null;
+          department: string | null;
+          organization_id: string;
+        }
+      | undefined;
+
+    if (!invitation) {
+      throw new ApiError('Invalid or expired invitation token', 400, 'AUTH_INVALID_INVITATION');
+    }
+
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = await bcrypt.default.hash(password, 12);
+
+    const existingAuthUser = await db.query(
+      `select id from public.auth_users where lower(email) = lower($1) limit 1`,
+      [invitation.email]
+    );
+
+    let userId: string;
+    if (existingAuthUser.rows[0]?.id) {
+      userId = existingAuthUser.rows[0].id as string;
+      await db.query(
+        `
+        update public.auth_users
+        set encrypted_password = $1,
+            is_active = true,
+            email_confirmed_at = coalesce(email_confirmed_at, now()),
+            refresh_token = null,
+            refresh_token_expires_at = null,
+            updated_at = now()
+        where id = $2
+        `,
+        [hashedPassword, userId]
+      );
+    } else {
+      const inserted = await db.query(
+        `
+        insert into public.auth_users (
+          email,
+          encrypted_password,
+          is_active,
+          email_confirmed_at,
+          created_at,
+          updated_at
+        )
+        values (lower($1), $2, true, now(), now(), now())
+        returning id
+        `,
+        [invitation.email, hashedPassword]
+      );
+      userId = inserted.rows[0].id as string;
+    }
+
+    await db.query(
+      `
+      insert into public.profiles (user_id, email, first_name, last_name, role, department, organization_id, must_change_password, password_reset_required, created_at, updated_at)
+      values ($1, lower($2), $3, $4, $5, $6, $7, false, false, now(), now())
+      on conflict (user_id)
+      do update set
+        email = excluded.email,
+        first_name = coalesce(excluded.first_name, public.profiles.first_name),
+        last_name = coalesce(excluded.last_name, public.profiles.last_name),
+        role = coalesce(excluded.role, public.profiles.role),
+        department = coalesce(excluded.department, public.profiles.department),
+        organization_id = excluded.organization_id,
+        must_change_password = false,
+        password_reset_required = false,
+        updated_at = now()
+      `,
+      [
+        userId,
+        invitation.email,
+        invitation.first_name,
+        invitation.last_name,
+        invitation.role || 'user',
+        invitation.department,
+        invitation.organization_id,
+      ]
+    );
+
+    if (invitation.role) {
+      await db.query(
+        `
+        insert into public.user_role_assignments (user_id, role_name, organization_id, assigned_by, created_at)
+        values ($1, $2, $3, $1, now())
+        on conflict do nothing
+        `,
+        [userId, invitation.role, invitation.organization_id]
+      );
+    }
+
+    await db.query(
+      `
+      update public.invitations
+      set status = 'accepted',
+          updated_at = now()
+      where id = $1
+      `,
+      [invitation.id]
+    );
+
+    const tokens = await signIn(invitation.email, password);
+    setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
+
+    res.status(200).json({
+      accessToken: tokens.accessToken,
+      expiresIn: tokens.expiresIn,
+      user: tokens.user,
+    });
+  })
+);
+
+authRouter.post(
   '/reset-password/request',
   asyncHandler(async (req, res) => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     enforceRateLimit(`auth:reset:${ip}`, 3, 60_000); // 3 reset requests per minute per IP
 
     const { email } = resetRequestSchema.parse(req.body);
-    await resetPasswordRequest(email);
+    const token = await resetPasswordRequest(email);
+
+    // Send email if token was generated (user exists)
+    if (token !== 'ok') {
+      try {
+        await sendPasswordResetEmail(email, token);
+      } catch (err) {
+        console.error('Failed to send reset email:', err instanceof Error ? err.message : err);
+      }
+    }
+
     res
       .status(200)
       .json({ ok: true, message: 'If an account exists, a reset link has been sent.' });

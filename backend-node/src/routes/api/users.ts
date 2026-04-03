@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import crypto from 'node:crypto';
 
-import { env } from '../../config/env.js';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { isPlatformAdminUser, requirePlatformAdminUser } from '../../services/authorization.js';
+import { sendInvitationEmail } from '../../services/email.js';
 
 const userIdParamsSchema = z.object({
   userId: z.string().regex(/^[0-9a-fA-F-]{36}$/),
@@ -302,38 +303,112 @@ usersRouter.post(
     const auth = req.auth!;
     const body = inviteUserBodySchema.parse(req.body);
 
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new ApiError('Supabase config missing for invite flow', 503, 'CONFIG_ERROR');
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    const existing = await db.query(
+      `
+      select id
+      from public.invitations
+      where organization_id = $1
+        and lower(email) = lower($2)
+        and status = 'pending'
+      order by created_at desc
+      limit 1
+      `,
+      [auth.organizationId, body.email]
+    );
+
+    let invitationId: string;
+
+    if (existing.rows[0]?.id) {
+      const updated = await db.query(
+        `
+        update public.invitations
+        set first_name = $1,
+            last_name = $2,
+            role = $3,
+            department = $4,
+            invited_by = $5,
+            token = $6,
+            expires_at = $7,
+            status = 'pending',
+            updated_at = now()
+        where id = $8
+        returning id
+        `,
+        [
+          body.firstName,
+          body.lastName,
+          body.role || 'user',
+          body.department || null,
+          auth.userId,
+          token,
+          expiresAt,
+          existing.rows[0].id,
+        ]
+      );
+      invitationId = updated.rows[0].id as string;
+    } else {
+      const inserted = await db.query(
+        `
+        insert into public.invitations (
+          email,
+          first_name,
+          last_name,
+          role,
+          department,
+          organization_id,
+          invited_by,
+          token,
+          expires_at,
+          status,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', now(), now())
+        returning id
+        `,
+        [
+          body.email.toLowerCase(),
+          body.firstName,
+          body.lastName,
+          body.role || 'user',
+          body.department || null,
+          auth.organizationId,
+          auth.userId,
+          token,
+          expiresAt,
+        ]
+      );
+      invitationId = inserted.rows[0].id as string;
     }
 
-    const response = await fetch(`${env.SUPABASE_URL}/functions/v1/create-invited-user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({
-        email: body.email,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        role: body.role || 'user',
-        department: body.department,
-        organizationId: auth.organizationId,
-        invitedBy: auth.userId,
-      }),
-    });
+    const sender = await db.query(
+      `
+      select p.first_name, p.last_name, o.name as org_name
+      from public.profiles p
+      left join public.organizations o on o.id = p.organization_id
+      where p.user_id = $1
+      limit 1
+      `,
+      [auth.userId]
+    );
+    const row = sender.rows[0] as
+      | { first_name?: string | null; last_name?: string | null; org_name?: string | null }
+      | undefined;
 
-    const data = (await response.json().catch(() => null)) as {
-      success?: boolean;
-      error?: string;
-      userId?: string;
-    } | null;
+    const inviterName =
+      `${row?.first_name || ''} ${row?.last_name || ''}`.trim() || 'A team member';
+    const orgName = row?.org_name || 'your organization';
 
-    if (!response.ok) {
-      throw new ApiError(data?.error || 'Failed to create user account', response.status);
+    try {
+      await sendInvitationEmail(body.email, inviterName, orgName, body.role, { token });
+    } catch (err) {
+      console.error('Invitation email failed:', err instanceof Error ? err.message : err);
     }
 
-    res.status(200).json(data ?? { success: false, error: 'Unknown response from invite flow' });
+    res.status(200).json({ success: true, userId: invitationId });
   })
 );
 

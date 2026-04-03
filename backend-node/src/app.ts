@@ -22,6 +22,8 @@ import { miscRouter } from './routes/api/misc.js';
 import { calendarRouter } from './routes/api/calendar.js';
 import { organizationsRouter } from './routes/api/organizations.js';
 import { notificationsRouter } from './routes/api/notifications.js';
+import { invitationsRouter } from './routes/api/invitations.js';
+import { profilesRouter } from './routes/api/profiles.js';
 import { rolesRouter } from './routes/api/roles.js';
 import { searchRouter } from './routes/api/search.js';
 import { tasksRouter } from './routes/api/tasks.js';
@@ -70,6 +72,8 @@ export function createApp() {
   app.use('/api/v1/invoices', requireAuth, invoicesRouter);
   app.use('/api/v1/misc', requireAuth, miscRouter);
   app.use('/api/v1/notifications', requireAuth, notificationsRouter);
+  app.use('/api/v1/invitations', requireAuth, invitationsRouter);
+  app.use('/api/v1/profiles', requireAuth, profilesRouter);
   app.use('/api/v1/tasks', requireAuth, tasksRouter);
   app.use('/api/v1/organizations', requireAuth, organizationsRouter);
   app.use('/api/v1/roles', requireAuth, rolesRouter);

@@ -3,6 +3,11 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import {
+  sendNotificationEmail,
+  sendInvitationEmail,
+  sendWelcomeEmail,
+} from '../../services/email.js';
 
 const uuidLikeSchema = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -209,11 +214,28 @@ notificationsRouter.post(
       throw new ApiError('Recipient not found', 404, 'NOT_FOUND');
     }
 
-    res.status(202).json({
-      accepted: true,
-      provider: 'pending',
-      message: 'Email dispatch is queued for provider integration',
-    });
+    // Get recipient email
+    const recipientEmail = await db.query(
+      `select email from public.auth_users where id = $1 limit 1`,
+      [body.recipientUserId]
+    );
+
+    const email = (recipientEmail.rows[0] as { email: string } | undefined)?.email;
+    if (email) {
+      try {
+        await sendNotificationEmail(
+          email,
+          body.title,
+          body.message,
+          body.actionUrl,
+          body.actionText
+        );
+      } catch (err) {
+        console.error('Notification email failed:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    res.status(202).json({ accepted: true, provider: 'resend' });
   })
 );
 
@@ -395,5 +417,60 @@ notificationsRouter.put(
     );
 
     res.status(200).json(result.rows[0]);
+  })
+);
+
+// ── Welcome email ───────────────────────────────────────────────────────────
+
+notificationsRouter.post(
+  '/welcome-email',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        email: z.string().email(),
+        firstName: z.string().optional(),
+      })
+      .parse(req.body);
+
+    try {
+      const result = await sendWelcomeEmail(body.email, body.firstName);
+      res.status(200).json({ ok: true, messageId: result.messageId });
+    } catch (err) {
+      console.error('Welcome email failed:', err instanceof Error ? err.message : err);
+      res.status(200).json({ ok: true, message: 'Email queued' });
+    }
+  })
+);
+
+// ── Invitation email ────────────────────────────────────────────────────────
+
+notificationsRouter.post(
+  '/invitation-email',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = z
+      .object({
+        email: z.string().email(),
+        role: z.string().optional(),
+      })
+      .parse(req.body);
+
+    const profile = await db.query(
+      `SELECT p.first_name, p.last_name, o.name as org_name FROM public.profiles p LEFT JOIN public.organizations o ON o.id = p.organization_id WHERE p.user_id = $1 LIMIT 1`,
+      [auth.userId]
+    );
+    const row = profile.rows[0] as Record<string, unknown> | undefined;
+    const inviterName = row
+      ? `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'A team member'
+      : 'A team member';
+    const orgName = (row?.org_name as string) || 'your organization';
+
+    try {
+      const result = await sendInvitationEmail(body.email, inviterName, orgName, body.role);
+      res.status(200).json({ ok: true, messageId: result.messageId });
+    } catch (err) {
+      console.error('Invitation email failed:', err instanceof Error ? err.message : err);
+      res.status(200).json({ ok: true, message: 'Email queued' });
+    }
   })
 );

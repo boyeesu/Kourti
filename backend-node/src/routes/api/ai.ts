@@ -554,3 +554,98 @@ aiRouter.post(
     });
   })
 );
+
+// ── Additional AI endpoints ─────────────────────────────────────────────────
+
+aiRouter.post(
+  '/voice-transcription',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        audio: z.string().min(1),
+        format: z.string().default('webm'),
+      })
+      .parse(req.body);
+
+    // Placeholder -- real transcription via Whisper/OpenAI to be wired
+    res.status(200).json({
+      success: true,
+      transcription: '',
+      message: 'Voice transcription endpoint pending Whisper integration',
+    });
+  })
+);
+
+aiRouter.post(
+  '/compare-contracts',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        contractA: z.string().min(1),
+        contractB: z.string().min(1),
+      })
+      .parse(req.body);
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content:
+          'You are a legal contract comparison expert. Compare the two contracts and highlight key differences, risks, and important clauses.',
+      },
+      {
+        role: 'user' as const,
+        content: `Compare these two contracts:\n\n**Contract A:**\n${body.contractA.slice(0, 50000)}\n\n**Contract B:**\n${body.contractB.slice(0, 50000)}`,
+      },
+    ];
+
+    const completion = await requestChatCompletion(messages);
+    res.status(200).json({ success: true, comparison: completion.analysis });
+  })
+);
+
+aiRouter.post(
+  '/contract-generator',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        contractType: z.string().min(1),
+        parties: z.array(z.string()).optional(),
+        terms: z.string().optional(),
+        jurisdiction: z.string().optional(),
+      })
+      .parse(req.body);
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content:
+          'You are a legal contract drafting expert. Generate a professional contract based on the specifications.',
+      },
+      {
+        role: 'user' as const,
+        content: `Generate a ${body.contractType} contract. Parties: ${(body.parties || []).join(', ')}. Terms: ${body.terms || 'Standard'}. Jurisdiction: ${body.jurisdiction || 'Not specified'}.`,
+      },
+    ];
+
+    const completion = await requestChatCompletion(messages);
+    res.status(200).json({ success: true, contract: completion.analysis });
+  })
+);
+
+aiRouter.post(
+  '/generate-invoice-pdf',
+  asyncHandler(async (req, res) => {
+    // Placeholder -- PDF generation to be wired
+    res
+      .status(200)
+      .json({ success: true, message: 'PDF generation pending integration', pdfUrl: null });
+  })
+);
+
+aiRouter.post(
+  '/generate-embeddings',
+  asyncHandler(async (req, res) => {
+    // Placeholder -- embedding generation pending vector store integration
+    res.status(200).json({ success: true, message: 'Embedding generation pending integration' });
+  })
+);

@@ -537,3 +537,278 @@ miscRouter.get(
     res.status(200).json(result.rows[0] || null);
   })
 );
+
+// ── Case types ──────────────────────────────────────────────────────────────
+
+miscRouter.get(
+  '/case-types',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const result = await db
+      .query(`SELECT * FROM public.case_types WHERE organization_id = $1 ORDER BY name`, [
+        auth.organizationId,
+      ])
+      .catch(() => ({ rows: [] }));
+    res.status(200).json(result.rows);
+  })
+);
+
+miscRouter.post(
+  '/case-types',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = z
+      .object({ name: z.string().trim().min(1), description: z.string().optional() })
+      .parse(req.body);
+    const result = await db.query(
+      `INSERT INTO public.case_types (name, description, organization_id, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, now(), now()) RETURNING *`,
+      [body.name, body.description || null, auth.organizationId, auth.userId]
+    );
+    res.status(201).json(result.rows[0]);
+  })
+);
+
+// ── Case fields ─────────────────────────────────────────────────────────────
+
+miscRouter.get(
+  '/case-fields',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const caseTypeId = typeof req.query.caseTypeId === 'string' ? req.query.caseTypeId : undefined;
+    const clauses = ['organization_id = $1'];
+    const values: unknown[] = [auth.organizationId];
+    if (caseTypeId) {
+      values.push(caseTypeId);
+      clauses.push(`case_type_id = $${values.length}`);
+    }
+    const result = await db
+      .query(
+        `SELECT * FROM public.case_fields WHERE ${clauses.join(' AND ')} ORDER BY sort_order, created_at`,
+        values
+      )
+      .catch(() => ({ rows: [] }));
+    res.status(200).json(result.rows);
+  })
+);
+
+miscRouter.post(
+  '/case-fields',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = z
+      .object({
+        case_type_id: uuidLike,
+        name: z.string().trim().min(1),
+        field_type: z.string().default('text'),
+        required: z.boolean().default(false),
+        options: z.array(z.string()).optional(),
+        sort_order: z.number().int().optional(),
+      })
+      .parse(req.body);
+    const result = await db.query(
+      `INSERT INTO public.case_fields (case_type_id, organization_id, name, field_type, required, options, sort_order, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,now(),now()) RETURNING *`,
+      [
+        body.case_type_id,
+        auth.organizationId,
+        body.name,
+        body.field_type,
+        body.required,
+        body.options ? JSON.stringify(body.options) : null,
+        body.sort_order || 0,
+      ]
+    );
+    res.status(201).json(result.rows[0]);
+  })
+);
+
+miscRouter.patch(
+  '/case-fields/:fieldId',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { fieldId } = z.object({ fieldId: uuidLike }).parse(req.params);
+    const body = req.body as Record<string, unknown>;
+    const allowed = ['name', 'field_type', 'required', 'options', 'sort_order'];
+    const updates: Array<{ col: string; val: unknown }> = [];
+    for (const f of allowed) {
+      if (body[f] !== undefined)
+        updates.push({ col: f, val: f === 'options' ? JSON.stringify(body[f]) : body[f] });
+    }
+    if (!updates.length) {
+      res.status(200).json({});
+      return;
+    }
+    const setClause = updates.map((u, i) => `${u.col} = $${i + 1}`).join(', ');
+    const values = updates.map((u) => u.val);
+    const result = await db.query(
+      `UPDATE public.case_fields SET ${setClause}, updated_at = now() WHERE id = $${values.length + 1} AND organization_id = $${values.length + 2} RETURNING *`,
+      [...values, fieldId, auth.organizationId]
+    );
+    res.status(200).json(result.rows[0] || null);
+  })
+);
+
+miscRouter.delete(
+  '/case-fields/:fieldId',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { fieldId } = z.object({ fieldId: uuidLike }).parse(req.params);
+    await db.query('DELETE FROM public.case_fields WHERE id = $1 AND organization_id = $2', [
+      fieldId,
+      auth.organizationId,
+    ]);
+    res.status(204).send();
+  })
+);
+
+// ── Case issues ─────────────────────────────────────────────────────────────
+
+miscRouter.get(
+  '/case-issues',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const caseId = typeof req.query.caseId === 'string' ? req.query.caseId : undefined;
+    const caseTypeId = typeof req.query.caseTypeId === 'string' ? req.query.caseTypeId : undefined;
+    const clauses = ['organization_id = $1'];
+    const values: unknown[] = [auth.organizationId];
+    if (caseId) {
+      values.push(caseId);
+      clauses.push(`case_id = $${values.length}`);
+    }
+    if (caseTypeId) {
+      values.push(caseTypeId);
+      clauses.push(`case_type_id = $${values.length}`);
+    }
+    const result = await db
+      .query(
+        `SELECT * FROM public.case_issues WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC`,
+        values
+      )
+      .catch(() => ({ rows: [] }));
+    res.status(200).json(result.rows);
+  })
+);
+
+// ── Case activities ─────────────────────────────────────────────────────────
+
+miscRouter.get(
+  '/case-activities',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const caseId = typeof req.query.caseId === 'string' ? req.query.caseId : undefined;
+    const clauses = ['ca.organization_id = $1'];
+    const values: unknown[] = [auth.organizationId];
+    if (caseId) {
+      values.push(caseId);
+      clauses.push(`ca.case_id = $${values.length}`);
+    }
+    const result = await db
+      .query(
+        `SELECT ca.*, p.first_name, p.last_name, p.email as user_email FROM public.case_activities ca LEFT JOIN public.profiles p ON p.user_id = ca.user_id WHERE ${clauses.join(' AND ')} ORDER BY ca.created_at DESC`,
+        values
+      )
+      .catch(() => ({ rows: [] }));
+    res.status(200).json(result.rows);
+  })
+);
+
+miscRouter.post(
+  '/case-activities',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = z
+      .object({
+        case_id: uuidLike,
+        activity_type: z.string().trim().min(1),
+        title: z.string().trim().min(1),
+        description: z.string().optional(),
+        date: z.string().optional(),
+        duration_minutes: z.number().int().optional(),
+        billable: z.boolean().optional(),
+      })
+      .parse(req.body);
+    const result = await db.query(
+      `INSERT INTO public.case_activities (case_id, organization_id, user_id, activity_type, title, description, date, duration_minutes, billable, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now()) RETURNING *`,
+      [
+        body.case_id,
+        auth.organizationId,
+        auth.userId,
+        body.activity_type,
+        body.title,
+        body.description || null,
+        body.date || new Date().toISOString(),
+        body.duration_minutes || null,
+        body.billable || false,
+      ]
+    );
+    res.status(201).json(result.rows[0]);
+  })
+);
+
+miscRouter.patch(
+  '/case-activities/:activityId',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { activityId } = z.object({ activityId: uuidLike }).parse(req.params);
+    const body = req.body as Record<string, unknown>;
+    const allowed = [
+      'activity_type',
+      'title',
+      'description',
+      'date',
+      'duration_minutes',
+      'billable',
+    ];
+    const updates: Array<{ col: string; val: unknown }> = [];
+    for (const f of allowed) {
+      if (body[f] !== undefined) updates.push({ col: f, val: body[f] });
+    }
+    if (!updates.length) {
+      res.status(200).json({});
+      return;
+    }
+    const setClause = updates.map((u, i) => `${u.col} = $${i + 1}`).join(', ');
+    const values = updates.map((u) => u.val);
+    const result = await db.query(
+      `UPDATE public.case_activities SET ${setClause}, updated_at = now() WHERE id = $${values.length + 1} AND organization_id = $${values.length + 2} RETURNING *`,
+      [...values, activityId, auth.organizationId]
+    );
+    res.status(200).json(result.rows[0] || null);
+  })
+);
+
+miscRouter.delete(
+  '/case-activities/:activityId',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { activityId } = z.object({ activityId: uuidLike }).parse(req.params);
+    await db.query('DELETE FROM public.case_activities WHERE id = $1 AND organization_id = $2', [
+      activityId,
+      auth.organizationId,
+    ]);
+    res.status(204).send();
+  })
+);
+
+// ── SSO config ──────────────────────────────────────────────────────────────
+
+miscRouter.get(
+  '/sso-config',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const result = await db
+      .query(`SELECT * FROM public.organization_sso_configs WHERE organization_id = $1`, [
+        auth.organizationId,
+      ])
+      .catch(() => ({ rows: [] }));
+    res.status(200).json(result.rows);
+  })
+);
+
+miscRouter.post(
+  '/sso-config/manage',
+  asyncHandler(async (_req, res) => {
+    res
+      .status(200)
+      .json({ ok: true, message: 'SSO config management pending provider integration' });
+  })
+);
