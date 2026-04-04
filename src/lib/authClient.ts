@@ -1,5 +1,5 @@
 /**
- * Custom JWT auth client -- replaces Supabase auth entirely.
+ * Custom JWT auth client.
  *
  * Security model:
  * - Access token: held in memory only (never persisted to storage)

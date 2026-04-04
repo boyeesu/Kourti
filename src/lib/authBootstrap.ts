@@ -1,5 +1,4 @@
 import { env } from '@/lib/env';
-import { isNodeBackendEnabled } from '@/lib/backendApi';
 import { getAccessToken } from '@/lib/authClient';
 
 type NodeMeResponse = {
@@ -50,10 +49,6 @@ export async function getNodeBootstrapUser(options?: {
   accessToken?: string | null;
   refresh?: boolean;
 }): Promise<NodeBootstrapUser | null> {
-  if (!isNodeBackendEnabled()) {
-    return null;
-  }
-
   if (options?.refresh) {
     inFlightNodeUserRequest = null;
     cachedNodeUser = null;
@@ -111,8 +106,6 @@ export async function getNodeBootstrapUser(options?: {
 
 /**
  * Maps a Node bootstrap user to a shape compatible with auth consumers.
- * The fallbackUser parameter is kept for backward compatibility but
- * no longer references Supabase types -- it accepts any object.
  */
 export function mapNodeBootstrapUserToAuthUser(nodeUser: NodeBootstrapUser): {
   id: string;

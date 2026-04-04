@@ -63,7 +63,6 @@ export class AppError extends Error {
 
 /**
  * Shape of a Postgres-style error returned by the backend.
- * Previously this was `PostgrestError` from @supabase/supabase-js.
  */
 interface PostgresStyleError {
   code?: string;
@@ -97,11 +96,6 @@ export function handleApiError(
   // Handle unknown error types
   return new AppError(defaultMessage, ErrorCode.UNEXPECTED_ERROR, { unknownError: error }, error);
 }
-
-/**
- * @deprecated Use handleApiError instead. Kept for backward compatibility.
- */
-export const handleSupabaseError = handleApiError;
 
 /**
  * Type guard for Postgres-style error objects

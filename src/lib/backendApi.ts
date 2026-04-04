@@ -1,11 +1,6 @@
 import { env } from '@/lib/env';
 import { getAccessToken, refreshSession } from '@/lib/authClient';
 
-/** @deprecated Node backend is now always enabled. This always returns true. */
-export function isNodeBackendEnabled() {
-  return true;
-}
-
 type QueryValue = string | number | boolean | null | undefined;
 
 export interface NodeDocumentSignedUrlOptions {

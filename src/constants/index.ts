@@ -7,7 +7,6 @@
  */
 
 export * from './roles';
-export * from './tables';
 export * from './routes';
 export * from './statuses';
 export * from './errors';
