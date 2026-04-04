@@ -37,12 +37,12 @@ import {
 import { useInsights } from '@/hooks/useInsights';
 import { useDashboard } from '@/hooks/useDashboard';
 
-import { useProfile } from '@/hooks/useProfile';
 import { useCases } from '@/hooks/useCases';
 import { useContracts } from '@/hooks/useContracts';
 import { Case, Contract } from '@/types';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
+import GettingStartedChecklist from '@/components/GettingStartedChecklist';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { calculateCaseStatusData } from '@/lib/analyticsUtils';
@@ -71,36 +71,38 @@ const StatCard = ({
   iconBgColor?: string;
 }) => {
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md">
-      <CardContent className="p-6">
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-sm font-medium text-muted-foreground mb-1">{title}</div>
+            <div className="text-xs font-medium text-muted-foreground mb-0.5">{title}</div>
             {loading ? (
-              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-6 w-20" />
             ) : (
-              <h3 className="text-2xl font-bold">{value}</h3>
+              <h3 className="text-xl font-bold">{value}</h3>
             )}
-            {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+            {description && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">{description}</p>
+            )}
             {trend && (
-              <div className="flex items-center mt-2">
+              <div className="flex items-center mt-1.5">
                 <Badge
                   variant={trend.value > 0 ? 'secondary' : 'destructive'}
                   className="px-1.5 h-5"
                 >
                   {trend.value > 0 ? (
-                    <ArrowUpRight className="h-3 w-3 mr-1" />
+                    <ArrowUpRight className="h-3 w-3 mr-0.5" />
                   ) : (
-                    <ArrowRight className="h-3 w-3 mr-1" />
+                    <ArrowRight className="h-3 w-3 mr-0.5" />
                   )}
                   {Math.abs(trend.value)}%
                 </Badge>
-                <span className="text-xs text-muted-foreground ml-2">{trend.label}</span>
+                <span className="text-[11px] text-muted-foreground ml-1.5">{trend.label}</span>
               </div>
             )}
           </div>
-          <div className={cn('p-3 rounded-full', iconBgColor)}>
-            <div className={cn('h-5 w-5', iconColor)}>{icon}</div>
+          <div className={cn('p-2 rounded-lg', iconBgColor)}>
+            <div className={cn('h-4 w-4', iconColor)}>{icon}</div>
           </div>
         </div>
       </CardContent>
@@ -161,9 +163,6 @@ export default function Dashboard() {
   } = useDashboard();
   const { data: casesData, isLoading: casesLoading } = useCases();
   const { data: contractsData, isLoading: contractsLoading } = useContracts();
-  const { data: profileData } = useProfile();
-
-  const welcomeName = profileData?.first_name?.trim();
 
   // Process case status data for pie chart
   const casesByStatus = useMemo(() => {
@@ -360,39 +359,16 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-8">
-      {/* Header with welcome message */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Welcome back{welcomeName ? `, ${welcomeName}` : ''}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Here's what's happening with your legal practice today
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="shadow-sm"
-            onClick={() => navigate('/matters/create')}
-          >
-            <Briefcase className="h-4 w-4 mr-2" />
-            New Matter
-          </Button>
-          <Button className="shadow-sm" onClick={() => navigate('/calendar')}>
-            <Calendar className="h-4 w-4 mr-2" />
-            Calendar
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-4">
+      {/* Getting Started Checklist */}
+      <GettingStartedChecklist />
 
       {/* Stats Cards (Live Data) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <StatCard
           title="Active Matters"
           value={dashboardLoading ? '—' : (dashboardData?.activeCases ?? '0')}
-          icon={<Briefcase className="h-5 w-5" />}
+          icon={<Briefcase className="h-4 w-4" />}
           description="Currently in progress"
           loading={dashboardLoading}
           iconColor="text-blue-500"
@@ -402,7 +378,7 @@ export default function Dashboard() {
         <StatCard
           title="Total Clients"
           value={dashboardLoading ? '—' : (dashboardData?.totalClients ?? '0')}
-          icon={<Users className="h-5 w-5" />}
+          icon={<Users className="h-4 w-4" />}
           loading={dashboardLoading}
           iconColor="text-green-500"
           iconBgColor="bg-green-500/10"
@@ -411,7 +387,7 @@ export default function Dashboard() {
         <StatCard
           title="Documents"
           value={dashboardLoading ? '—' : (dashboardData?.totalDocuments ?? '0')}
-          icon={<FileText className="h-5 w-5" />}
+          icon={<FileText className="h-4 w-4" />}
           description="Across all matters"
           loading={dashboardLoading}
           iconColor="text-amber-500"
@@ -420,15 +396,15 @@ export default function Dashboard() {
       </div>
 
       {/* Today's Focus */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card
-          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-blue-500"
+          className="cursor-pointer hover:shadow-md transition-all"
           onClick={() => navigate('/matters')}
         >
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-full bg-blue-500/10">
-                <Briefcase className="h-5 w-5 text-blue-500" />
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Briefcase className="h-4 w-4 text-blue-500" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{upcomingCases.length}</p>
@@ -439,13 +415,13 @@ export default function Dashboard() {
         </Card>
 
         <Card
-          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-amber-500"
+          className="cursor-pointer hover:shadow-md transition-all"
           onClick={() => navigate('/contracts')}
         >
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-full bg-amber-500/10">
-                <FileCheck className="h-5 w-5 text-amber-500" />
+              <div className="p-2 rounded-lg bg-amber-500/10">
+                <FileCheck className="h-4 w-4 text-amber-500" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{upcomingContracts.length}</p>
@@ -456,13 +432,13 @@ export default function Dashboard() {
         </Card>
 
         <Card
-          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-green-500"
+          className="cursor-pointer hover:shadow-md transition-all"
           onClick={() => navigate('/calendar')}
         >
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-full bg-green-500/10">
-                <Calendar className="h-5 w-5 text-green-500" />
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <Calendar className="h-4 w-4 text-green-500" />
               </div>
               <div>
                 <p className="text-2xl font-bold">
