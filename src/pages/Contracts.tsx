@@ -3,21 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSearch } from '@/hooks/use-search';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useContracts } from '@/hooks/useContracts';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Plus,
-  Search,
   Filter,
   Eye,
   Edit,
@@ -38,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
+import { ModuleFilterBar } from '@/components/filters/ModuleFilterBar';
 
 // Status options constant for consistency
 const CONTRACT_STATUSES = [
@@ -54,6 +46,7 @@ export default function Contracts() {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [expiryFilter, setExpiryFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const { term: globalSearch } = useSearch();
@@ -130,7 +123,7 @@ export default function Contracts() {
     }
   };
 
-  // Client-side filtering only for the search term and client filter
+  // Client-side filtering only for the search term, client filter, and expiry
   // (status filtering is handled server-side for better performance)
   const filteredContracts = contracts.filter((contract) => {
     const termMatches = (t: string) =>
@@ -146,7 +139,15 @@ export default function Contracts() {
         ?.toLowerCase()
         .includes(clientFilter);
 
-    return matchesLocal && matchesGlobal && matchesClient;
+    let matchesExpiry = true;
+    if (expiryFilter !== 'all') {
+      const { isExpiring, isExpired } = getExpiryStatus(contract);
+      if (expiryFilter === 'expiring') matchesExpiry = isExpiring;
+      else if (expiryFilter === 'expired') matchesExpiry = isExpired;
+      else if (expiryFilter === 'valid') matchesExpiry = !isExpiring && !isExpired;
+    }
+
+    return matchesLocal && matchesGlobal && matchesClient && matchesExpiry;
   });
 
   // Calculate contract statistics
@@ -162,7 +163,7 @@ export default function Contracts() {
   const handleNextPage = () => setPage((prev) => Math.min(totalPages, prev + 1));
 
   return (
-    <div className="px-4 py-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-4 max-w-7xl mx-auto">
       <Breadcrumbs />
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -271,40 +272,45 @@ export default function Contracts() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 py-2">
-        {/* Search */}
-        <div className="relative w-full sm:w-[260px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search contracts, clients, or IDs..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        {/* Status */}
-        <div className="sm:w-[130px] w-full">
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => {
+      <ModuleFilterBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search contracts, clients, or IDs..."
+        searchWidth="w-full sm:w-[280px]"
+        filters={[
+          {
+            key: 'status',
+            placeholder: 'Status',
+            value: statusFilter,
+            onChange: (v) => {
               setStatusFilter(v);
               setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-full h-10">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {CONTRACT_STATUSES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            },
+            width: 'w-[150px]',
+            icon: <Filter className="h-4 w-4" />,
+            options: CONTRACT_STATUSES,
+          },
+          {
+            key: 'expiry',
+            placeholder: 'Expiry',
+            value: expiryFilter,
+            onChange: setExpiryFilter,
+            width: 'w-[160px]',
+            options: [
+              { value: 'all', label: 'All Expiry' },
+              { value: 'valid', label: 'Valid' },
+              { value: 'expiring', label: 'Expiring Soon' },
+              { value: 'expired', label: 'Expired' },
+            ],
+          },
+        ]}
+        onClearAll={() => {
+          setSearchTerm('');
+          setStatusFilter('all');
+          setExpiryFilter('all');
+          setPage(1);
+        }}
+      />
 
       {/* Contracts Table */}
       <Card className="shadow-md">

@@ -1,8 +1,7 @@
 // src/lib/openaiService.ts
-// Secure OpenAI service that calls Edge Functions instead of exposing API keys
+// Secure OpenAI service that calls the Node backend for AI analysis
 
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
-import { invokeNodeApi, isNodeBackendEnabled } from '@/lib/backendApi';
+import { invokeNodeApi } from '@/lib/backendApi';
 
 // Supported types of contract analysis
 export type AnalysisType = 'summarize' | 'extractClauses' | 'redline';
@@ -23,65 +22,28 @@ function mapToAdvancedAnalysisType(type: AnalysisType): AdvancedAnalysisType {
 }
 
 async function callContractAnalysis(text: string, analysisType: AnalysisType): Promise<string> {
-  const payload = { text, analysisType };
   const advancedPayload = { text, analysisType: mapToAdvancedAnalysisType(analysisType) };
 
-  let responseData: { analysis?: string; error?: string } | null = null;
+  const nodeResponse = await invokeNodeApi<{
+    success: boolean;
+    analysis?: string;
+    error?: string;
+  }>('/api/v1/ai/advanced-contract-analysis', {
+    method: 'POST',
+    body: advancedPayload,
+  });
 
-  if (isNodeBackendEnabled()) {
-    const nodeResponse = await invokeNodeApi<{
-      success: boolean;
-      analysis?: string;
-      error?: string;
-    }>('/api/v1/ai/advanced-contract-analysis', {
-      method: 'POST',
-      body: advancedPayload,
-    });
-    responseData = {
-      analysis: nodeResponse.analysis,
-      error: nodeResponse.error,
-    };
-  } else {
-    // Try advanced function first
-    const { data, error } = await invokeFunctionWithCsrf<{ analysis?: string; error?: string }>(
-      'advanced-contract-analysis',
-      {
-        body: advancedPayload,
-      }
-    );
-
-    if (error) {
-      console.warn('Advanced contract analysis failed, attempting legacy function.', error);
-      const fallback = await invokeFunctionWithCsrf<{ analysis?: string; error?: string }>(
-        'contract-analysis-ai',
-        {
-          body: payload,
-        }
-      );
-
-      if (fallback.error) {
-        console.error('Contract analysis error:', fallback.error);
-        throw new Error(`Analysis failed: ${fallback.error.message}`);
-      }
-
-      responseData = fallback.data as { analysis?: string; error?: string } | null;
-    } else {
-      responseData = data as { analysis?: string; error?: string } | null;
-    }
+  if (nodeResponse.error) {
+    console.error('Contract analysis returned error:', nodeResponse.error);
+    throw new Error(nodeResponse.error);
   }
 
-  // Check for error in response body (edge function may return 200 with error)
-  if (responseData && responseData.error) {
-    console.error('Contract analysis returned error:', responseData.error);
-    throw new Error(responseData.error);
-  }
-
-  if (!responseData || typeof responseData.analysis !== 'string' || !responseData.analysis.trim()) {
-    console.error('Unexpected or empty contract analysis response:', responseData);
+  if (!nodeResponse.analysis?.trim()) {
+    console.error('Unexpected or empty contract analysis response:', nodeResponse);
     throw new Error('The AI returned an empty analysis. Please try again.');
   }
 
-  return responseData.analysis;
+  return nodeResponse.analysis;
 }
 
 // Summarize contract

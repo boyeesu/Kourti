@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
@@ -112,6 +112,9 @@ export function InternalShareDialog({ open, onOpenChange, document }: InternalSh
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Share Document Internally</DialogTitle>
+          <DialogDescription>
+            Share this document with team members in your organization.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

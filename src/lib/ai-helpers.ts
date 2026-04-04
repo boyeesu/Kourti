@@ -4,10 +4,15 @@
  */
 
 // Token counting utility (approximate)
+// Uses a weighted heuristic: count words and punctuation/special chars separately.
+// English prose averages ~1.3 tokens/word; legal text with long terms is closer to ~1.4.
+// This is more accurate than the naive chars/4 approach, especially for legal documents.
 export function countTokens(text: string): number {
-  // Rough estimation: ~4 characters per token for English text
-  // This is a simplified version; for production, use tiktoken or similar
-  return Math.ceil(text.length / 4);
+  if (!text) return 0;
+  const words = text.split(/\s+/).filter(Boolean).length;
+  // Count special/punctuation characters that typically become their own tokens
+  const specials = (text.match(/[^\w\s]/g) || []).length;
+  return Math.ceil(words * 1.4 + specials * 0.5);
 }
 
 // Context window management
@@ -28,7 +33,9 @@ export function manageContextWindow(
 ): string {
   const queryTokens = countTokens(currentQuery);
   const historyTokens = countTokens(conversationHistory);
-  const availableTokens = MAX_CONTEXT_TOKENS - queryTokens - historyTokens - MAX_HISTORY_TOKENS;
+  // Reserve the larger of actual history or the default reservation, not both
+  const historyReservation = Math.max(historyTokens, MAX_HISTORY_TOKENS);
+  const availableTokens = MAX_CONTEXT_TOKENS - queryTokens - historyReservation;
 
   // Sort chunks by priority (higher is better)
   const sortedChunks = [...chunks].sort((a, b) => b.priority - a.priority);
@@ -85,8 +92,8 @@ interface QueryCacheEntry {
 const queryCache = new Map<string, QueryCacheEntry>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-export function getCachedQuery(query: string): string | null {
-  const cacheKey = query.toLowerCase().trim();
+export function getCachedQuery(query: string, documentId?: string): string | null {
+  const cacheKey = `${documentId || 'no-doc'}:${query.toLowerCase().trim()}`;
   const entry = queryCache.get(cacheKey);
 
   if (!entry) {
@@ -102,8 +109,13 @@ export function getCachedQuery(query: string): string | null {
   return entry.response;
 }
 
-export function setCachedQuery(query: string, response: string, ttl: number = CACHE_TTL): void {
-  const cacheKey = query.toLowerCase().trim();
+export function setCachedQuery(
+  query: string,
+  response: string,
+  ttl: number = CACHE_TTL,
+  documentId?: string
+): void {
+  const cacheKey = `${documentId || 'no-doc'}:${query.toLowerCase().trim()}`;
   queryCache.set(cacheKey, {
     query: cacheKey,
     response,
@@ -161,7 +173,7 @@ export function calculateRelevanceScore(
   const docLower = documentText.toLowerCase();
 
   // Simple keyword matching score
-  const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+  const queryWords = queryLower.split(/\s+/).filter((w) => w.length > 2);
   let matchCount = 0;
   const totalWords = queryWords.length;
 
@@ -220,7 +232,7 @@ export function optimizeConversationHistory(
   maxTokens: number = MAX_HISTORY_TOKENS
 ): string {
   // Keep system message and last few messages
-  const systemMessage = messages.find(m => m.role === 'system');
+  const systemMessage = messages.find((m) => m.role === 'system');
   const recentMessages = messages.slice(-10); // Last 10 messages
 
   let history = systemMessage ? `${systemMessage.content}\n\n` : '';
@@ -242,4 +254,3 @@ export function optimizeConversationHistory(
 
   return history;
 }
-

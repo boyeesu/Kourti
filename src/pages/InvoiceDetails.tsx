@@ -208,7 +208,7 @@ export default function InvoiceDetails() {
   const status = isOverdue && invoice.status !== 'overdue' ? 'overdue' : invoice.status;
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs />
 
       {/* Header */}

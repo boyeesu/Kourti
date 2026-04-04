@@ -261,7 +261,7 @@ export default function Changelog() {
   });
 
   return (
-    <div className="px-4 py-6 space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-4 max-w-6xl mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-3 mb-3">

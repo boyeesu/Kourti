@@ -197,7 +197,7 @@ export default function Notifications() {
   };
 
   return (
-    <div className="px-4 py-6 space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-4 max-w-4xl mx-auto">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Notifications</h1>

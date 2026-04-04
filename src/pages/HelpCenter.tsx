@@ -965,7 +965,7 @@ If you notice any security concerns:
   };
 
   return (
-    <div className="px-4 py-6 space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-4 max-w-5xl mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Help Center</h1>

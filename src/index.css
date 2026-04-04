@@ -53,17 +53,7 @@
   }
 
   .animate-bounce-slow {
-    animation: bounceSlow 2s ease-in-out infinite;
-  }
-
-  @keyframes bounceSlow {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
+    animation: none;
   }
 
   .animate-slide-up {
@@ -82,15 +72,17 @@
   }
 
   .hover-scale {
-    transition: transform 0.2s ease;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
   }
 
   .hover-scale:hover {
-    transform: scale(1.02);
+    transform: none;
   }
 
   .hover-scale:active {
-    transform: scale(0.98);
+    transform: none;
   }
 
   .animate-slide-in {
@@ -251,7 +243,7 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     --transition-smooth: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-fast: all 0.14s ease-out;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     /* Sidebar palette */
     --sidebar-background: 214 28% 96%;
@@ -294,11 +286,13 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
 }
 
 .hover-scale {
-  transition: transform 0.2s ease-out;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .hover-scale:hover {
-  transform: scale(1.05);
+  transform: none;
 }
 
 .story-link {
@@ -450,7 +444,7 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     z-index: 0;
   }
 
-  /* Dark mode: subtle glow effect using brand blue-lavender */
+  /* Dark mode: very subtle ambient tint */
   .dark .app-shell::after {
     content: '';
     position: absolute;
@@ -460,7 +454,7 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     width: 120%;
     height: 60%;
     pointer-events: none;
-    background: radial-gradient(ellipse at center, hsl(217 71% 70% / 0.04) 0%, transparent 70%);
+    background: radial-gradient(ellipse at center, hsl(217 71% 70% / 0.015) 0%, transparent 70%);
     z-index: 0;
   }
 
@@ -470,52 +464,60 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   }
 
   .surface-panel {
-    border-radius: 0.75rem;
+    border-radius: 0.5rem;
     background: hsl(var(--surface));
     border: 1px solid hsl(var(--surface-border) / 0.7);
-    box-shadow: 0 10px 24px -20px rgba(15, 23, 42, 0.25);
+    box-shadow:
+      0 1px 3px 0 rgba(15, 23, 42, 0.06),
+      0 1px 2px -1px rgba(15, 23, 42, 0.06);
   }
 
   .dark .surface-panel {
-    box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.4);
+    box-shadow:
+      0 1px 3px 0 rgba(0, 0, 0, 0.2),
+      0 1px 2px -1px rgba(0, 0, 0, 0.2);
   }
 
   .surface-popover {
-    border-radius: 0.7rem;
+    border-radius: 0.5rem;
     background: hsl(var(--surface));
     border: 1px solid hsl(var(--surface-border) / 0.65);
-    box-shadow: 0 14px 32px -24px rgba(15, 23, 42, 0.2);
+    box-shadow:
+      0 4px 12px -2px rgba(15, 23, 42, 0.12),
+      0 2px 4px -2px rgba(15, 23, 42, 0.06);
   }
 
   .dark .surface-popover {
-    box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.5);
+    box-shadow:
+      0 4px 12px -2px rgba(0, 0, 0, 0.35),
+      0 2px 4px -2px rgba(0, 0, 0, 0.2);
   }
 
   .surface-muted {
-    border-radius: 0.7rem;
+    border-radius: 0.375rem;
     background: hsl(var(--muted));
   }
 
   .workspace-header {
-    border-radius: 0.85rem;
+    border-radius: 0;
     background: hsl(var(--surface));
-    border: 1px solid hsl(var(--surface-border) / 0.7);
-    box-shadow: 0 14px 28px -26px rgba(15, 23, 42, 0.2);
+    border: none;
+    box-shadow: none;
   }
 
   .dark .workspace-header {
-    box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.4);
+    box-shadow: none;
   }
 
   .workspace-body {
-    border-radius: 0.85rem;
-    background: hsl(var(--surface));
-    border: 1px solid hsl(var(--surface-border) / 0.7);
-    box-shadow: 0 18px 32px -28px rgba(15, 23, 42, 0.2);
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
   }
 
   .dark .workspace-body {
-    box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+    box-shadow: none;
   }
 
   .workspace-body__inner {
@@ -525,36 +527,30 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     max-width: 1440px;
     display: flex;
     flex-direction: column;
-    padding: 1rem 1rem;
+    padding: 0.75rem 1rem;
   }
 
   @media (min-width: 640px) {
     .workspace-body__inner {
-      padding: 1.25rem 1.25rem;
-    }
-  }
-
-  @media (min-width: 768px) and (max-width: 1023px) {
-    .workspace-body__inner {
-      padding: 1.25rem 1.25rem;
+      padding: 1rem 1.25rem;
     }
   }
 
   @media (min-width: 1024px) {
     .workspace-body__inner {
-      padding: 1.5rem 1.75rem;
+      padding: 1rem 1.5rem;
     }
   }
 
   .workspace-sidebar {
-    border-radius: 1.15rem;
-    background: hsl(var(--surface));
-    border: 1px solid hsl(var(--surface-border) / 0.7);
-    box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.22);
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
   }
 
   .dark .workspace-sidebar {
-    box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+    box-shadow: none;
   }
 }
 
@@ -571,17 +567,17 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   background: hsl(217 71% 70% / 0.5);
 }
 
-/* Dark mode glow effects - Kourti blue-lavender (#79A5EA) */
+/* Dark mode subtle accent effects - Kourti blue-lavender (#79A5EA) */
 .dark .glow-primary {
-  box-shadow: 0 0 20px hsl(217 71% 70% / 0.15);
+  box-shadow: 0 0 0 1px hsl(217 71% 70% / 0.1);
 }
 
 .dark .glow-primary:hover {
-  box-shadow: 0 0 30px hsl(217 71% 70% / 0.25);
+  box-shadow: 0 0 0 1px hsl(217 71% 70% / 0.2);
 }
 
 .dark .glow-success {
-  box-shadow: 0 0 20px hsl(142 69% 58% / 0.15);
+  box-shadow: 0 0 0 1px hsl(142 69% 58% / 0.1);
 }
 
 /* Signature gradient utility */
@@ -596,14 +592,14 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
   background-clip: text;
 }
 
-/* Glow pulse animation */
+/* Subtle pulse animation */
 @keyframes glow-pulse {
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(121, 165, 234, 0.15);
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 40px rgba(121, 165, 234, 0.3);
+    opacity: 0.85;
   }
 }
 

@@ -16,8 +16,9 @@ import { useInactivityLogout } from '@/hooks/useInactivityLogout';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 // All pages lazy-loaded for code splitting
 import { logInfo, logWarn } from './lib/logger';
-import { FloatingChatWidget } from '@/components/ream-ai/FloatingChatWidget';
+import { FloatingChatWidget as _FloatingChatWidget } from '@/components/ream-ai/FloatingChatWidget';
 import { SuperAdminRoute } from '@/components/SuperAdminRoute';
+import { MessageCircle } from 'lucide-react';
 // LiveChat overlay removed - now using LiveChatPage as a proper route
 // ThemeProvider removed - now handled in main.tsx
 
@@ -67,6 +68,14 @@ const Invoices = lazy(() => import('./pages/Invoices'));
 const InvoiceCreate = lazy(() => import('./pages/InvoiceCreate'));
 const InvoiceDetails = lazy(() => import('./pages/InvoiceDetails'));
 const Analytics = lazy(() => import('./pages/Analytics'));
+const AgentJobs = lazy(() => import('./pages/AgentJobs'));
+const AgentJobDetails = lazy(() => import('./pages/AgentJobDetails'));
+const AgentMonitors = lazy(() => import('./pages/AgentMonitors'));
+const AgentApprovals = lazy(() => import('./pages/AgentApprovals'));
+const AgentDashboard = lazy(() => import('./pages/AgentDashboard'));
+const NegotiationsPage = lazy(() => import('./pages/Negotiations'));
+const NegotiationDetails = lazy(() => import('./pages/NegotiationDetails'));
+const IntelligenceDashboard = lazy(() => import('./pages/IntelligenceDashboard'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 const Changelog = lazy(() => import('./pages/Changelog'));
 const Pricing = lazy(() => import('./pages/Pricing'));
@@ -305,7 +314,12 @@ const protectedRoutes: ProtectedRouteConfig[] = [
     boundaryName: 'Bulk Import',
     permission: { resource: 'documents', action: 'manage' },
   },
-  { path: '/live-chat', component: LiveChatPage, boundaryName: 'Live Chat' },
+  {
+    path: '/live-chat',
+    component: LiveChatPage,
+    boundaryName: 'Live Chat',
+    permission: { resource: 'chat', action: 'read' },
+  },
   { path: '/help-center', component: HelpCenter, boundaryName: 'Help Center' },
   { path: '/changelog', component: Changelog, boundaryName: 'Changelog' },
   { path: '/billing/callback', component: BillingCallback, boundaryName: 'Billing Callback' },
@@ -320,6 +334,54 @@ const protectedRoutes: ProtectedRouteConfig[] = [
     component: Settings,
     boundaryName: 'Settings',
     permission: { resource: 'settings', action: 'manage' },
+  },
+  {
+    path: '/agents',
+    component: AgentJobs,
+    boundaryName: 'Agent Jobs',
+    permission: { resource: 'agents', action: 'read' },
+  },
+  {
+    path: '/agents/monitors',
+    component: AgentMonitors,
+    boundaryName: 'Agent Monitors',
+    permission: { resource: 'agents', action: 'read' },
+  },
+  {
+    path: '/agents/approvals',
+    component: AgentApprovals,
+    boundaryName: 'Agent Approvals',
+    permission: { resource: 'agents', action: 'read' },
+  },
+  {
+    path: '/agents/dashboard',
+    component: AgentDashboard,
+    boundaryName: 'Agent Dashboard',
+    permission: { resource: 'agents', action: 'read' },
+  },
+  {
+    path: '/negotiations',
+    component: NegotiationsPage,
+    boundaryName: 'Negotiations',
+    permission: { resource: 'negotiations', action: 'read' },
+  },
+  {
+    path: '/negotiations/:id',
+    component: NegotiationDetails,
+    boundaryName: 'Negotiation Details',
+    permission: { resource: 'negotiations', action: 'read' },
+  },
+  {
+    path: '/intelligence',
+    component: IntelligenceDashboard,
+    boundaryName: 'Intelligence Dashboard',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/agents/:jobId',
+    component: AgentJobDetails,
+    boundaryName: 'Agent Job Details',
+    permission: { resource: 'agents', action: 'read' },
   },
   { path: '*', component: NotFound },
 ];
@@ -461,6 +523,68 @@ function InactivityHandler() {
   return null;
 }
 
+function FloatingLiveChatButton() {
+  const [open, setOpen] = React.useState(false);
+  const location = useLocation();
+  if (location.pathname === '/live-chat') return null;
+  return (
+    <PermissionGate resource="chat" action="read" fallback={null}>
+      <>
+        {/* Floating trigger */}
+        {!open && (
+          <button
+            onClick={() => setOpen(true)}
+            className="fixed z-50 bottom-5 right-5 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#afc8f0] to-[#79a5ea] text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110 active:scale-95"
+            aria-label="Open Live Chat"
+          >
+            <MessageCircle className="h-5 w-5" />
+          </button>
+        )}
+        {/* Chat modal - centered overlay */}
+        {open && (
+          <>
+            <div
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+              onClick={() => setOpen(false)}
+            />
+            <div className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] h-[85vh] max-w-[1100px] rounded-xl border border-border/60 bg-[hsl(var(--surface))] shadow-2xl flex flex-col overflow-hidden">
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                  </div>
+                }
+              >
+                <LiveChatPage />
+              </Suspense>
+              <button
+                onClick={() => setOpen(false)}
+                className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors z-10"
+                aria-label="Close chat"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </>
+        )}
+      </>
+    </PermissionGate>
+  );
+}
+
 const App = () => (
   <TooltipProvider>
     <Sonner />
@@ -573,7 +697,9 @@ const App = () => (
                               />
                             ))}
                           </Routes>
-                          <FloatingChatWidget />
+                          {/* FloatingChatWidget hidden - replaced by Live Chat trigger */}
+                          {/* <FloatingChatWidget /> */}
+                          <FloatingLiveChatButton />
                         </AppLayout>
                       </SearchProvider>
                     </PasswordChangeCheck>

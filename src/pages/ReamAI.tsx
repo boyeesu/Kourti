@@ -13,8 +13,7 @@ import { useCurrentUserOrganization } from '@/hooks/useOrganization';
 import { useReamAIAssistant } from '@/hooks/useReamAIAssistant';
 import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
 import { Badge } from '@/components/ui/badge';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
-import { invokeNodeApi, isNodeBackendEnabled } from '@/lib/backendApi';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { cn } from '@/lib/utils';
 import { useSearchParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -481,49 +480,28 @@ export default function ReamAI() {
         if (uploadedDoc.file_path) {
           try {
             // Try server-side extraction first (handles PDF, DOCX, etc.)
-            const extractionResponse = isNodeBackendEnabled()
-              ? {
-                  data: await invokeNodeApi<{
-                    content?: string;
-                    error?: string;
-                    warning?: string;
-                    success?: boolean;
-                  }>('/api/v1/ai/extract-document-text', {
-                    method: 'POST',
-                    body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
-                  }),
-                  error: null,
-                }
-              : await invokeFunctionWithCsrf<{
-                  content?: string;
-                  error?: string;
-                  warning?: string;
-                  success?: boolean;
-                }>('extract-document-text', {
-                  body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
-                });
-
-            const extractResult = extractionResponse.data;
-            const extractError = extractionResponse.error;
-
-            if (!extractError && extractResult?.content) {
-              // Only use extracted text if it's valid (not an error message)
-              if (extractResult.content && !extractResult.content.startsWith('[')) {
-                extractedText = extractResult.content;
-                console.log('Server-side extraction successful, length:', extractedText.length);
-              } else {
-                extractionError =
-                  extractResult.error ||
-                  extractResult.warning ||
-                  'Extraction yielded no meaningful content';
-                logWarn('Server-side extraction returned error/warning', { extractionError });
-                if (extractResult.content) {
-                  extractedText = extractResult.content; // Still store it for reference
-                }
-              }
-            } else if (extractError) {
-              extractionError = extractError.message || 'Extraction failed';
-              logError('Server-side extraction error', extractError);
+            const extractResult = await invokeNodeApi<{
+              content?: string;
+              error?: string;
+              warning?: string;
+              success?: boolean;
+            }>('/api/v1/ai/extract-document-text', {
+              method: 'POST',
+              body: { documentId: uploadedDoc.id, filePath: uploadedDoc.file_path },
+            });
+            if (extractResult?.content && !extractResult.content.startsWith('[')) {
+              extractedText = extractResult.content;
+              console.log('Server-side extraction successful, length:', extractedText.length);
+            } else if (extractResult?.content) {
+              extractionError =
+                extractResult.error ||
+                extractResult.warning ||
+                'Extraction yielded no meaningful content';
+              logWarn('Server-side extraction returned error/warning', { extractionError });
+              extractedText = extractResult.content;
+            } else if (extractResult?.error) {
+              extractionError = extractResult.error;
+              logError('Server-side extraction error', { error: extractResult.error });
             }
           } catch (extractErr) {
             const errorMsg = extractErr instanceof Error ? extractErr.message : String(extractErr);
@@ -715,40 +693,23 @@ export default function ReamAI() {
           )
         );
 
-        const extractionResponse = isNodeBackendEnabled()
-          ? {
-              data: await invokeNodeApi<{
-                content?: string;
-                error?: string;
-                warning?: string;
-                success?: boolean;
-              }>('/api/v1/ai/extract-document-text', {
-                method: 'POST',
-                body: { documentId: doc.id, filePath: doc.file_path },
-              }),
-              error: null,
-            }
-          : await invokeFunctionWithCsrf<{
-              content?: string;
-              error?: string;
-              warning?: string;
-              success?: boolean;
-            }>('extract-document-text', {
-              body: { documentId: doc.id, filePath: doc.file_path },
-            });
-
-        const extractResult = extractionResponse.data;
-        const extractError = extractionResponse.error;
-
-        if (extractError) {
-          console.error('Content extraction error:', extractError);
+        const extractResult = await invokeNodeApi<{
+          content?: string;
+          error?: string;
+          warning?: string;
+          success?: boolean;
+        }>('/api/v1/ai/extract-document-text', {
+          method: 'POST',
+          body: { documentId: doc.id, filePath: doc.file_path },
+        });
+        if (extractResult?.content) {
+          contentToProcess = extractResult.content;
+          doc.content = extractResult.content;
+        } else if (extractResult?.error) {
+          console.error('Content extraction error:', extractResult.error);
           toast.success('Extraction Warning', {
             description: 'Could not extract text from the file. Analysis may be limited.',
           });
-        } else if (extractResult?.content) {
-          contentToProcess = extractResult.content;
-          // Update doc object for context
-          doc.content = extractResult.content;
         }
       } catch {
         // Content extraction failed silently - will use basic analysis
@@ -903,7 +864,7 @@ export default function ReamAI() {
 
     try {
       // Check cache first for performance
-      const cachedResponse = getCachedQuery(userMessage);
+      const cachedResponse = getCachedQuery(userMessage, selectedDoc?.id);
       if (cachedResponse) {
         setMessages((msgs) =>
           msgs.map((msg, i) =>
@@ -1131,7 +1092,7 @@ I'll answer based on the relevant information found above.`;
 
         // Cache the response for future queries
         if (response.trim()) {
-          setCachedQuery(userMessage, response);
+          setCachedQuery(userMessage, response, undefined, selectedDoc?.id);
         }
         // Save assistant message to database
         if (currentConversationId && response.trim()) {
@@ -1172,7 +1133,7 @@ I'll answer based on the relevant information found above.`;
 
           setIsTyping(false);
 
-          // Cache the response for future queries
+          // Cache the response for future queries (no document context in this branch)
           if (response.trim()) {
             setCachedQuery(userMessage, response);
           }

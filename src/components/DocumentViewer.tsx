@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { downloadDocument, getDocumentSignedUrl } from '@/lib/fileApi';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
   Loader2,
@@ -223,6 +229,9 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
                 )}
                 {document.name}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Preview and download document
+              </DialogDescription>
               <div className="flex items-center gap-2 mt-2">
                 {document.mime_type && <Badge variant="secondary">{document.mime_type}</Badge>}
                 {document.file_size && (

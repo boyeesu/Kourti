@@ -61,7 +61,11 @@ export function ReamAIChatWidget({
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
-  const { sendMessage: sendAssistantMessage, isLoading: assistantLoading } = useReamAIAssistant();
+  const {
+    sendMessage: sendAssistantMessage,
+    isLoading: assistantLoading,
+    abort: _abortAssistant,
+  } = useReamAIAssistant();
   const uploadDocument = useUploadDocument();
   const { data: organization } = useCurrentUserOrganization();
   const processDocument = useProcessDocument();
@@ -345,8 +349,10 @@ export function ReamAIChatWidget({
     try {
       // All Ream AI chat queries go through ream-ai-assistant (plain text responses).
       // Contract Review (/review) uses advanced-contract-analysis separately for structured JSON.
+      // Send only the last 12 messages to stay within backend limits and reduce token usage
       const conversationHistory = messages
         .filter((msg) => msg.content.trim().length > 0)
+        .slice(-12)
         .map((msg) => ({
           role: msg.role,
           content: msg.content,
@@ -360,16 +366,32 @@ export function ReamAIChatWidget({
               documentContent: docContext,
             }
           : undefined,
+        onProgress: (content, done) => {
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage.role === 'assistant') {
+              lastMessage.content = content;
+            }
+            return newMessages;
+          });
+          if (done) {
+            setIsTyping(false);
+          }
+        },
       });
 
-      setMessages((prev) => {
-        const newMessages = [...prev];
-        const lastMessage = newMessages[newMessages.length - 1];
-        if (lastMessage.role === 'assistant') {
-          lastMessage.content = response;
-        }
-        return newMessages;
-      });
+      // Final update in case non-streaming path was used
+      if (response) {
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          const lastMessage = newMessages[newMessages.length - 1];
+          if (lastMessage.role === 'assistant') {
+            lastMessage.content = response;
+          }
+          return newMessages;
+        });
+      }
 
       setIsTyping(false);
     } catch (error) {

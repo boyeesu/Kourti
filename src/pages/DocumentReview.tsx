@@ -16,8 +16,7 @@ import {
   Copy,
   RotateCcw,
 } from 'lucide-react';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
-import { invokeNodeApi, isNodeBackendEnabled } from '@/lib/backendApi';
+import { invokeNodeApi } from '@/lib/backendApi';
 import { toast } from 'sonner';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
@@ -242,47 +241,17 @@ export default function DocumentReview() {
       setAnalysisProgress(50);
       setProgressLabel('AI is analyzing the document...');
 
-      if (isNodeBackendEnabled()) {
-        const nodeData = await invokeNodeApi<{
-          analysis?: string;
-          persona?: string;
-          analysisType?: string;
-          success?: boolean;
-          tokensUsed?: number;
-        }>('/api/v1/ai/advanced-contract-analysis', {
-          method: 'POST',
-          body: payload,
-        });
-        setResult(normalizeResult(nodeData));
-      } else {
-        const { data, error } = await invokeFunctionWithCsrf<{
-          analysis?: string;
-          persona?: string;
-          analysisType?: string;
-          success?: boolean;
-          tokensUsed?: number;
-        }>('advanced-contract-analysis', {
-          body: payload,
-        });
-
-        if (error) {
-          setAnalysisProgress(60);
-          setProgressLabel('Trying fallback...');
-          const fallback = await invokeFunctionWithCsrf<{
-            analysis?: string;
-            persona?: string;
-            analysisType?: string;
-            success?: boolean;
-            tokensUsed?: number;
-          }>('contract-analysis-ai', {
-            body: payload,
-          });
-          if (fallback.error) throw fallback.error;
-          setResult(normalizeResult(fallback.data));
-        } else {
-          setResult(normalizeResult(data));
-        }
-      }
+      const nodeData = await invokeNodeApi<{
+        analysis?: string;
+        persona?: string;
+        analysisType?: string;
+        success?: boolean;
+        tokensUsed?: number;
+      }>('/api/v1/ai/advanced-contract-analysis', {
+        method: 'POST',
+        body: payload,
+      });
+      setResult(normalizeResult(nodeData));
 
       setAnalysisProgress(100);
       setProgressLabel('Analysis complete!');

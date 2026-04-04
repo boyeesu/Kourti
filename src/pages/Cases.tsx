@@ -5,7 +5,6 @@ import { useSearch } from '@/hooks/use-search';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { TableSkeleton } from '@/components/ui/loading-states';
@@ -13,15 +12,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Briefcase } from 'lucide-react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Plus,
-  Search,
   Filter,
   Eye,
   Edit,
@@ -32,6 +23,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { ModuleFilterBar } from '@/components/filters/ModuleFilterBar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -149,7 +141,7 @@ export default function App() {
   // Display loading state
   if (isLoading) {
     return (
-      <div className="px-4 py-6 space-y-6">
+      <div className="space-y-4">
         <Breadcrumbs />
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -165,7 +157,7 @@ export default function App() {
   // Display error state
   if (error) {
     return (
-      <div className="px-4 py-6 space-y-6">
+      <div className="space-y-4">
         <Breadcrumbs />
         <ErrorState
           title="Failed to load matters"
@@ -243,7 +235,7 @@ export default function App() {
   const handleNextPage = () => setPage((prev: number) => Math.min(totalPages, prev + 1));
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs />
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -271,56 +263,51 @@ export default function App() {
       </div>
 
       {/* Compact Filters Toolbar */}
-      <div className="flex flex-wrap gap-2 items-center justify-between bg-transparent py-2">
-        <div className="relative w-full sm:w-[320px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search matters, clients, or IDs..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 rounded-md border border-input focus:ring-primary focus:border-primary/30"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[150px] h-10">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            {statuses && statuses.length > 0 ? (
-              statuses.map((s: string) => (
-                <SelectItem key={s} value={s.toLowerCase()}>
-                  {s}
-                </SelectItem>
-              ))
-            ) : (
-              <>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="review">Review</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </>
-            )}
-          </SelectContent>
-        </Select>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[140px] h-10">
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Priorities</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-          </SelectContent>
-        </Select>
-        {clientQuery && (
-          <Badge variant="secondary" className="ml-2 px-3 py-1 text-base rounded-full">
-            Client: <span className="font-semibold ml-1">{clientFilterName}</span>
-          </Badge>
-        )}
-      </div>
+      <ModuleFilterBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search matters, clients, or IDs..."
+        searchWidth="w-full sm:w-[320px]"
+        filters={[
+          {
+            key: 'status',
+            placeholder: 'Status',
+            value: statusFilter,
+            onChange: setStatusFilter,
+            width: 'w-[150px]',
+            icon: <Filter className="h-4 w-4" />,
+            options: [
+              { value: 'all', label: 'All Status' },
+              ...statuses.map((s) => ({ value: s.toLowerCase(), label: s })),
+            ],
+          },
+          {
+            key: 'priority',
+            placeholder: 'Priority',
+            value: priorityFilter,
+            onChange: setPriorityFilter,
+            width: 'w-[140px]',
+            options: [
+              { value: 'all', label: 'All Priorities' },
+              { value: 'high', label: 'High' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'low', label: 'Low' },
+            ],
+          },
+        ]}
+        onClearAll={() => {
+          setSearchTerm('');
+          setStatusFilter('all');
+          setPriorityFilter('all');
+        }}
+        trailing={
+          clientQuery ? (
+            <Badge variant="secondary" className="px-3 py-1 text-base rounded-full">
+              Client: <span className="font-semibold ml-1">{clientFilterName}</span>
+            </Badge>
+          ) : undefined
+        }
+      />
 
       {/* Matters Table */}
       <Card className="shadow-lg rounded-lg">

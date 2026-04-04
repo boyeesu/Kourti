@@ -1,8 +1,8 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -10,27 +10,29 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { useProfile, useUpdateProfile, useChangePassword } from "@/hooks/useProfile";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useProfile, useUpdateProfile, useChangePassword } from '@/hooks/useProfile';
 
 const profileSchema = z.object({
-  first_name: z.string().min(2, "First name must be at least 2 characters"),
-  last_name: z.string().min(2, "Last name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
+  first_name: z.string().min(2, 'First name must be at least 2 characters'),
+  last_name: z.string().min(2, 'Last name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
   department: z.string().optional(),
   title: z.string().optional(),
 });
 
-const passwordSchema = z.object({
-  currentPassword: z.string().min(6, "Current password is required"),
-  newPassword: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().min(6, "Confirm password is required"),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(6, 'Current password is required'),
+    newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(6, 'Confirm password is required'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 type ProfileData = z.infer<typeof profileSchema>;
 type PasswordChangeData = z.infer<typeof passwordSchema>;
@@ -43,12 +45,12 @@ export default function ProfileTab() {
   const profileForm = useForm<ProfileData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      first_name: profile?.first_name || "",
-      last_name: profile?.last_name || "",
-      email: profile?.email || "",
-      phone: profile?.phone || "",
-      department: profile?.department || "",
-      title: profile?.title || "",
+      first_name: profile?.first_name || '',
+      last_name: profile?.last_name || '',
+      email: profile?.email || '',
+      phone: profile?.phone || '',
+      department: profile?.department || '',
+      title: profile?.title || '',
     },
   });
 
@@ -60,7 +62,7 @@ export default function ProfileTab() {
     try {
       await updateProfile.mutateAsync(data);
     } catch (error) {
-      console.error("Failed to update profile:", error);
+      console.error('Failed to update profile:', error);
     }
   };
 
@@ -69,7 +71,7 @@ export default function ProfileTab() {
       await changePassword.mutateAsync(data);
       passwordForm.reset();
     } catch (error) {
-      console.error("Failed to change password:", error);
+      console.error('Failed to change password:', error);
     }
   };
 
@@ -78,20 +80,11 @@ export default function ProfileTab() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">Profile</h3>
-        <p className="text-sm text-muted-foreground">
-          Update your profile information and preferences.
-        </p>
-      </div>
-
+    <div className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Personal Information</CardTitle>
-          <CardDescription>
-            Update your personal details and contact information.
-          </CardDescription>
+          <CardDescription>Update your personal details and contact information.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...profileForm}>
@@ -178,11 +171,8 @@ export default function ProfileTab() {
                   )}
                 />
               </div>
-              <Button 
-                type="submit" 
-                disabled={updateProfile.isPending}
-              >
-                {updateProfile.isPending ? "Updating..." : "Update Profile"}
+              <Button type="submit" disabled={updateProfile.isPending}>
+                {updateProfile.isPending ? 'Updating...' : 'Update Profile'}
               </Button>
             </form>
           </Form>
@@ -192,9 +182,7 @@ export default function ProfileTab() {
       <Card>
         <CardHeader>
           <CardTitle>Change Password</CardTitle>
-          <CardDescription>
-            Update your password to keep your account secure.
-          </CardDescription>
+          <CardDescription>Update your password to keep your account secure.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...passwordForm}>
@@ -238,11 +226,8 @@ export default function ProfileTab() {
                   </FormItem>
                 )}
               />
-              <Button 
-                type="submit" 
-                disabled={changePassword.isPending}
-              >
-                {changePassword.isPending ? "Changing..." : "Change Password"}
+              <Button type="submit" disabled={changePassword.isPending}>
+                {changePassword.isPending ? 'Changing...' : 'Change Password'}
               </Button>
             </form>
           </Form>

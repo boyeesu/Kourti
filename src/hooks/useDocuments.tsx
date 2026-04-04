@@ -4,7 +4,7 @@ import { Document } from '@/types';
 import { logError } from '@/lib/logger';
 import { invokeNodeApi } from '@/lib/backendApi';
 
-/** JSON-compatible value (replaces Supabase Json type) */
+/** JSON-compatible value */
 type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export interface CreateDocumentData {

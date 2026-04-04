@@ -1,5 +1,5 @@
 /**
- * File storage API client -- replaces supabase.storage entirely.
+ * File storage API client.
  * All file operations go through the Node backend.
  */
 import { env } from '@/lib/env';

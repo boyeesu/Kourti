@@ -18,7 +18,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, RefreshCcw, AlertCircle, CheckCircle } from 'lucide-react';
+import { Info, RefreshCcw, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   useOrganizationSsoConfigs,
   useUpsertOrganizationSsoConfig,
@@ -395,15 +396,7 @@ export default function SSOTab() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-medium">Single Sign-On</h3>
-          <p className="text-sm text-muted-foreground">
-            Connect your identity provider so members of your organization can access Kourti AI with
-            familiar credentials.
-          </p>
-        </div>
-
+      <div className="space-y-4">
         {isLoading ? (
           <Card>
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -411,364 +404,389 @@ export default function SSOTab() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Google Workspace</CardTitle>
-                <CardDescription>
-                  Enable OAuth-based sign-in for users managed in Google Workspace. Collect the
-                  credentials from the Google Cloud Console.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...googleForm}>
-                  <form
-                    onSubmit={googleForm.handleSubmit(handleGoogleSubmit)}
-                    className="space-y-6"
-                  >
-                    <FormField
-                      control={googleForm.control}
-                      name="enabled"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <FormLabel>Enable Google Workspace SSO</FormLabel>
-                            <FormDescription>
-                              Users will be redirected to Google for authentication when this is
-                              enabled.
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <FormField
-                        control={googleForm.control}
-                        name="clientId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              <HelperLabel
-                                label="OAuth Client ID"
-                                tooltip="In Google Cloud Console, create an OAuth client under APIs & Services → Credentials. Use the Web application type."
-                              />
-                            </FormLabel>
-                            <FormControl>
-                              <Input placeholder="XXXXXXXX.apps.googleusercontent.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={googleForm.control}
-                        name="redirectUri"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              <HelperLabel
-                                label="Redirect URI"
-                                tooltip="Copy the callback URL provided by Kourti AI into the Authorized redirect URIs list in Google Cloud."
-                              />
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="https://app.example.com/auth/google/callback"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={googleForm.control}
-                      name="clientSecret"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            <HelperLabel
-                              label="Client Secret"
-                              tooltip="Download the credentials JSON from Google Cloud and paste the client secret here."
-                            />
-                          </FormLabel>
-                          <FormControl>
-                            <div className="flex gap-2">
-                              <Input
-                                type="password"
-                                placeholder={
-                                  googleSecretStored
-                                    ? 'Stored securely — enter a new secret to rotate'
-                                    : 'Paste the client secret'
-                                }
-                                {...field}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="whitespace-nowrap"
-                                onClick={() => {
-                                  googleForm.setValue('clientSecret', '');
-                                  setGoogleSecretStored(false);
-                                }}
-                              >
-                                <RefreshCcw className="mr-2 h-4 w-4" />
-                                Rotate
-                              </Button>
-                            </div>
-                          </FormControl>
-                          {googleSecretStored && (
-                            <FormDescription>
-                              A client secret is already stored. Provide a new secret only when you
-                              want to rotate credentials.
-                            </FormDescription>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={googleForm.control}
-                      name="domainHint"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            <HelperLabel label="Domain Hint" tooltip={googleDomainHintHelper} />
-                          </FormLabel>
-                          <FormControl>
-                            <Input placeholder="example.com" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            Optional. Restrict sign-in to a single Google Workspace domain.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant={googleEnabled ? 'default' : 'outline'}>
-                        {googleEnabled ? 'SSO Enabled' : 'SSO Disabled'}
-                      </Badge>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleTestGoogle}
-                          disabled={testMutation.isPending || !googleConfig?.id}
-                        >
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          {testMutation.isPending ? 'Testing...' : 'Test Connection'}
-                        </Button>
-                        <Button type="submit" disabled={updateMutation.isPending}>
-                          {updateMutation.isPending
-                            ? 'Saving...'
-                            : 'Save Google Workspace settings'}
-                        </Button>
+          <div className="grid gap-6 grid-cols-1">
+            <Collapsible defaultOpen={googleEnabled}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer select-none hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Google Workspace</CardTitle>
+                        <CardDescription className="mt-1">
+                          Enable OAuth-based sign-in for users managed in Google Workspace
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={googleEnabled ? 'default' : 'outline'} className="shrink-0">
+                          {googleEnabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
                       </div>
                     </div>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Microsoft Entra ID</CardTitle>
-                <CardDescription>
-                  Connect Azure Active Directory (Entra ID) to allow users to authenticate with
-                  Microsoft accounts.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...microsoftForm}>
-                  <form
-                    onSubmit={microsoftForm.handleSubmit(handleMicrosoftSubmit)}
-                    className="space-y-6"
-                  >
-                    <FormField
-                      control={microsoftForm.control}
-                      name="enabled"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <FormLabel>Enable Microsoft Entra ID</FormLabel>
-                            <FormDescription>
-                              Redirect users to the Microsoft login page for authentication.
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <FormField
-                        control={microsoftForm.control}
-                        name="clientId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              <HelperLabel
-                                label="Application (client) ID"
-                                tooltip="In Azure Portal, under App registrations, create a new registration and copy the Application ID."
-                              />
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="00000000-0000-0000-0000-000000000000"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={microsoftForm.control}
-                        name="tenantId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              <HelperLabel
-                                label="Directory (tenant) ID"
-                                tooltip="Find the Directory ID in Azure Portal under Azure Active Directory → Overview."
-                              />
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="00000000-0000-0000-0000-000000000000"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={microsoftForm.control}
-                      name="redirectUri"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            <HelperLabel
-                              label="Redirect URI"
-                              tooltip="Add this redirect URI to the list of allowed URIs in your Azure app's Authentication settings."
-                            />
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="https://app.example.com/auth/microsoft/callback"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={microsoftForm.control}
-                      name="clientSecret"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            <HelperLabel
-                              label="Client Secret"
-                              tooltip="Generate a new client secret in Azure Portal under Certificates & secrets, then paste it here."
-                            />
-                          </FormLabel>
-                          <FormControl>
-                            <div className="flex gap-2">
-                              <Input
-                                type="password"
-                                placeholder={
-                                  microsoftSecretStored
-                                    ? 'Stored securely — enter a new secret to rotate'
-                                    : 'Paste the client secret'
-                                }
-                                {...field}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="whitespace-nowrap"
-                                onClick={() => {
-                                  microsoftForm.setValue('clientSecret', '');
-                                  setMicrosoftSecretStored(false);
-                                }}
-                              >
-                                <RefreshCcw className="mr-2 h-4 w-4" />
-                                Rotate
-                              </Button>
-                            </div>
-                          </FormControl>
-                          {microsoftSecretStored && (
-                            <FormDescription>
-                              A client secret is already stored. Provide a new secret only when you
-                              want to rotate credentials.
-                            </FormDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent>
+                    <Form {...googleForm}>
+                      <form
+                        onSubmit={googleForm.handleSubmit(handleGoogleSubmit)}
+                        className="space-y-6"
+                      >
+                        <FormField
+                          control={googleForm.control}
+                          name="enabled"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel>Enable Google Workspace SSO</FormLabel>
+                                <FormDescription>
+                                  Users will be redirected to Google for authentication when this is
+                                  enabled.
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                              </FormControl>
+                            </FormItem>
                           )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                        />
 
-                    <FormField
-                      control={microsoftForm.control}
-                      name="domainHint"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            <HelperLabel label="Domain Hint" tooltip={microsoftDomainHintHelper} />
-                          </FormLabel>
-                          <FormControl>
-                            <Input placeholder="contoso.com" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            Optional. Pre-fill the Microsoft login page with this domain.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <FormField
+                            control={googleForm.control}
+                            name="clientId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  <HelperLabel
+                                    label="OAuth Client ID"
+                                    tooltip="In Google Cloud Console, create an OAuth client under APIs & Services → Credentials. Use the Web application type."
+                                  />
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="XXXXXXXX.apps.googleusercontent.com"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={googleForm.control}
+                            name="redirectUri"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  <HelperLabel
+                                    label="Redirect URI"
+                                    tooltip="Copy the callback URL provided by Kourti AI into the Authorized redirect URIs list in Google Cloud."
+                                  />
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="https://app.example.com/auth/google/callback"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant={microsoftEnabled ? 'default' : 'outline'}>
-                        {microsoftEnabled ? 'SSO Enabled' : 'SSO Disabled'}
-                      </Badge>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleTestMicrosoft}
-                          disabled={testMutation.isPending || !microsoftConfig?.id}
+                        <FormField
+                          control={googleForm.control}
+                          name="clientSecret"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                <HelperLabel
+                                  label="Client Secret"
+                                  tooltip="Download the credentials JSON from Google Cloud and paste the client secret here."
+                                />
+                              </FormLabel>
+                              <FormControl>
+                                <div className="flex gap-2">
+                                  <Input
+                                    type="password"
+                                    placeholder={
+                                      googleSecretStored
+                                        ? 'Stored securely — enter a new secret to rotate'
+                                        : 'Paste the client secret'
+                                    }
+                                    {...field}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="whitespace-nowrap"
+                                    onClick={() => {
+                                      googleForm.setValue('clientSecret', '');
+                                      setGoogleSecretStored(false);
+                                    }}
+                                  >
+                                    <RefreshCcw className="mr-2 h-4 w-4" />
+                                    Rotate
+                                  </Button>
+                                </div>
+                              </FormControl>
+                              {googleSecretStored && (
+                                <FormDescription>
+                                  A client secret is already stored. Provide a new secret only when
+                                  you want to rotate credentials.
+                                </FormDescription>
+                              )}
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={googleForm.control}
+                          name="domainHint"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                <HelperLabel label="Domain Hint" tooltip={googleDomainHintHelper} />
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="example.com" {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                Optional. Restrict sign-in to a single Google Workspace domain.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleTestGoogle}
+                            disabled={testMutation.isPending || !googleConfig?.id}
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            {testMutation.isPending ? 'Testing...' : 'Test Connection'}
+                          </Button>
+                          <Button type="submit" disabled={updateMutation.isPending}>
+                            {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+
+            <Collapsible defaultOpen={microsoftEnabled}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer select-none hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Microsoft Entra ID</CardTitle>
+                        <CardDescription className="mt-1">
+                          Connect Azure Active Directory for Microsoft account authentication
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={microsoftEnabled ? 'default' : 'outline'}
+                          className="shrink-0"
                         >
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          {testMutation.isPending ? 'Testing...' : 'Test Connection'}
-                        </Button>
-                        <Button type="submit" disabled={updateMutation.isPending}>
-                          {updateMutation.isPending
-                            ? 'Saving...'
-                            : 'Save Microsoft Entra ID settings'}
-                        </Button>
+                          {microsoftEnabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
                       </div>
                     </div>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent>
+                    <Form {...microsoftForm}>
+                      <form
+                        onSubmit={microsoftForm.handleSubmit(handleMicrosoftSubmit)}
+                        className="space-y-6"
+                      >
+                        <FormField
+                          control={microsoftForm.control}
+                          name="enabled"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel>Enable Microsoft Entra ID</FormLabel>
+                                <FormDescription>
+                                  Redirect users to the Microsoft login page for authentication.
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <FormField
+                            control={microsoftForm.control}
+                            name="clientId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  <HelperLabel
+                                    label="Application (client) ID"
+                                    tooltip="In Azure Portal, under App registrations, create a new registration and copy the Application ID."
+                                  />
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="00000000-0000-0000-0000-000000000000"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={microsoftForm.control}
+                            name="tenantId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  <HelperLabel
+                                    label="Directory (tenant) ID"
+                                    tooltip="Find the Directory ID in Azure Portal under Azure Active Directory → Overview."
+                                  />
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="00000000-0000-0000-0000-000000000000"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={microsoftForm.control}
+                          name="redirectUri"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                <HelperLabel
+                                  label="Redirect URI"
+                                  tooltip="Add this redirect URI to the list of allowed URIs in your Azure app's Authentication settings."
+                                />
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="https://app.example.com/auth/microsoft/callback"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={microsoftForm.control}
+                          name="clientSecret"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                <HelperLabel
+                                  label="Client Secret"
+                                  tooltip="Generate a new client secret in Azure Portal under Certificates & secrets, then paste it here."
+                                />
+                              </FormLabel>
+                              <FormControl>
+                                <div className="flex gap-2">
+                                  <Input
+                                    type="password"
+                                    placeholder={
+                                      microsoftSecretStored
+                                        ? 'Stored securely — enter a new secret to rotate'
+                                        : 'Paste the client secret'
+                                    }
+                                    {...field}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="whitespace-nowrap"
+                                    onClick={() => {
+                                      microsoftForm.setValue('clientSecret', '');
+                                      setMicrosoftSecretStored(false);
+                                    }}
+                                  >
+                                    <RefreshCcw className="mr-2 h-4 w-4" />
+                                    Rotate
+                                  </Button>
+                                </div>
+                              </FormControl>
+                              {microsoftSecretStored && (
+                                <FormDescription>
+                                  A client secret is already stored. Provide a new secret only when
+                                  you want to rotate credentials.
+                                </FormDescription>
+                              )}
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={microsoftForm.control}
+                          name="domainHint"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                <HelperLabel
+                                  label="Domain Hint"
+                                  tooltip={microsoftDomainHintHelper}
+                                />
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="contoso.com" {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                Optional. Pre-fill the Microsoft login page with this domain.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleTestMicrosoft}
+                            disabled={testMutation.isPending || !microsoftConfig?.id}
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            {testMutation.isPending ? 'Testing...' : 'Test Connection'}
+                          </Button>
+                          <Button type="submit" disabled={updateMutation.isPending}>
+                            {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           </div>
         )}
       </div>

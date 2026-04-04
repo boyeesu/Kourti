@@ -7,7 +7,6 @@ import { getNodeDocumentSignedUrl } from '@/lib/backendApi';
 import { downloadDocument } from '@/lib/fileApi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { TableSkeleton } from '@/components/ui/loading-states';
@@ -15,7 +14,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import {
   FileText,
   Upload,
-  Search,
   Filter,
   Eye,
   Download,
@@ -30,13 +28,6 @@ import {
 } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -47,11 +38,13 @@ import { DocumentViewer } from '@/components/DocumentViewer';
 import { InternalShareDialog } from '@/components/InternalShareDialog';
 import { exportAsDocx, exportAsPdf } from '@/lib/documentExport';
 import { toast } from 'sonner';
+import { ModuleFilterBar } from '@/components/filters/ModuleFilterBar';
 
 export default function Documents() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [shareDocument, setShareDocument] = useState<Document | null>(null);
   const { term: globalSearch } = useSearch();
@@ -70,10 +63,12 @@ export default function Documents() {
       const matchesGlobal = globalSearch === '' || matchesTerm(globalSearch);
       const matchesType =
         typeFilter === 'all' || (doc.file_type && doc.file_type.toLowerCase() === typeFilter);
+      const matchesStatus =
+        statusFilter === 'all' || (doc.status && doc.status.toLowerCase() === statusFilter);
 
-      return matchesLocal && matchesGlobal && matchesType;
+      return matchesLocal && matchesGlobal && matchesType && matchesStatus;
     });
-  }, [documents, globalSearch, searchTerm, typeFilter]);
+  }, [documents, globalSearch, searchTerm, typeFilter, statusFilter]);
 
   // Helper functions
   const getFileIcon = (type: string) => {
@@ -138,7 +133,7 @@ export default function Documents() {
   // Early return after all hooks
   if (isLoading) {
     return (
-      <div className="px-4 py-6 space-y-6">
+      <div className="space-y-4">
         <Breadcrumbs />
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -152,7 +147,7 @@ export default function Documents() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -226,33 +221,50 @@ export default function Documents() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 py-2">
-        {/* Search */}
-        <div className="relative w-full sm:w-[260px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search documents, cases, or file names..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        {/* Type */}
-        <div className="sm:w-[130px] w-full">
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full h-10">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="pdf">PDF</SelectItem>
-              <SelectItem value="docx">Word</SelectItem>
-              <SelectItem value="jpg">Images</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <ModuleFilterBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search documents, cases, or file names..."
+        searchWidth="w-full sm:w-[280px]"
+        filters={[
+          {
+            key: 'type',
+            placeholder: 'Type',
+            value: typeFilter,
+            onChange: setTypeFilter,
+            width: 'w-[130px]',
+            icon: <Filter className="h-4 w-4" />,
+            options: [
+              { value: 'all', label: 'All Types' },
+              { value: 'pdf', label: 'PDF' },
+              { value: 'docx', label: 'Word' },
+              { value: 'doc', label: 'Word (.doc)' },
+              { value: 'jpg', label: 'Images' },
+              { value: 'png', label: 'PNG' },
+            ],
+          },
+          {
+            key: 'status',
+            placeholder: 'Status',
+            value: statusFilter,
+            onChange: setStatusFilter,
+            width: 'w-[150px]',
+            options: [
+              { value: 'all', label: 'All Status' },
+              { value: 'draft', label: 'Draft' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'signed', label: 'Signed' },
+              { value: 'review', label: 'Under Review' },
+              { value: 'archived', label: 'Archived' },
+            ],
+          },
+        ]}
+        onClearAll={() => {
+          setSearchTerm('');
+          setTypeFilter('all');
+          setStatusFilter('all');
+        }}
+      />
 
       {/* Documents Table */}
       <Card className="shadow-card">

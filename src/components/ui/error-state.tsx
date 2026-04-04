@@ -1,8 +1,8 @@
-import { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, RefreshCw, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { AlertTriangle, RefreshCw, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ErrorStateProps {
   title?: string;
@@ -11,39 +11,45 @@ interface ErrorStateProps {
   onRetry?: () => void;
   onDismiss?: () => void;
   className?: string;
-  variant?: "default" | "destructive" | "warning";
+  variant?: 'default' | 'destructive' | 'warning';
   children?: ReactNode;
 }
 
 export function ErrorState({
-  title = "Something went wrong",
+  title = 'Something went wrong',
   message,
   error,
   onRetry,
   onDismiss,
   className,
-  variant = "destructive",
-  children
+  variant = 'destructive',
+  children,
 }: ErrorStateProps) {
   const variantStyles = {
-    default: "bg-muted/50",
-    destructive: "bg-destructive/10",
-    warning: "bg-warning/10"
+    default: 'bg-muted/50',
+    destructive: 'bg-destructive/10',
+    warning: 'bg-warning/10',
   };
 
   const iconStyles = {
-    default: "text-muted-foreground",
-    destructive: "text-destructive",
-    warning: "text-warning"
+    default: 'text-muted-foreground',
+    destructive: 'text-destructive',
+    warning: 'text-warning',
   };
 
-  const errorMessage = error instanceof Error ? error.message : typeof error === "string" ? error : undefined;
+  const errorMessage =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : undefined;
 
   return (
-    <Card className={cn("border", className)}>
+    <Card className={cn('border', className)}>
       <CardContent className="flex flex-col items-center justify-center py-12 px-6 text-center">
-        <div className={cn("mx-auto mb-4 h-16 w-16 rounded-full flex items-center justify-center", variantStyles[variant])}>
-          <AlertTriangle className={cn("h-8 w-8", iconStyles[variant])} />
+        <div
+          className={cn(
+            'mx-auto mb-4 h-12 w-12 rounded-lg flex items-center justify-center',
+            variantStyles[variant]
+          )}
+        >
+          <AlertTriangle className={cn('h-6 w-6', iconStyles[variant])} />
         </div>
         <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
         <p className="text-muted-foreground mb-2 max-w-md">{message}</p>
@@ -55,7 +61,11 @@ export function ErrorState({
         {children}
         <div className="flex flex-col sm:flex-row gap-3 mt-4">
           {onRetry && (
-            <Button onClick={onRetry} variant={variant === "destructive" ? "default" : "outline"} className="shadow-sm">
+            <Button
+              onClick={onRetry}
+              variant={variant === 'destructive' ? 'default' : 'outline'}
+              className="shadow-sm"
+            >
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
@@ -89,14 +99,14 @@ export function PermissionErrorState({ resource, action }: { resource?: string; 
   return (
     <ErrorState
       title="Access Denied"
-      message={`You don't have permission to ${action || "access"} ${resource || "this resource"}. Please contact your administrator.`}
+      message={`You don't have permission to ${action || 'access'} ${resource || 'this resource'}. Please contact your administrator.`}
       variant="warning"
     />
   );
 }
 
 // Not found error state
-export function NotFoundErrorState({ resource = "Resource" }: { resource?: string }) {
+export function NotFoundErrorState({ resource = 'Resource' }: { resource?: string }) {
   return (
     <ErrorState
       title={`${resource} Not Found`}
@@ -105,4 +115,3 @@ export function NotFoundErrorState({ resource = "Resource" }: { resource?: strin
     />
   );
 }
-

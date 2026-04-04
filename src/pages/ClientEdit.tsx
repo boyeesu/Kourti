@@ -1,12 +1,12 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useClient, useUpdateClient, useDeleteClient } from "@/hooks/useClients";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useNavigate, useParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useClient, useUpdateClient, useDeleteClient } from '@/hooks/useClients';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Form,
   FormControl,
@@ -14,14 +14,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,15 +32,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { ArrowLeft, Trash2 } from "lucide-react";
-import { useEffect } from "react";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+} from '@/components/ui/alert-dialog';
+import { ArrowLeft, Trash2 } from 'lucide-react';
+import { useEffect } from 'react';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 const clientSchema = z.object({
-  name: z.string().min(1, "Client name is required"),
-  status: z.string().min(1, "Status is required"),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  name: z.string().min(1, 'Client name is required'),
+  status: z.string().min(1, 'Status is required'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phone: z.string().optional(),
   address: z.string().optional(),
   company: z.string().optional(),
@@ -59,13 +59,13 @@ export default function ClientEdit() {
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      address: "",
-      company: "",
-      notes: "",
-      status: "active",
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      company: '',
+      notes: '',
+      status: 'active',
     },
   });
 
@@ -73,11 +73,11 @@ export default function ClientEdit() {
     if (client) {
       form.reset({
         name: client.name,
-        email: client.email || "",
-        phone: client.phone || "",
-        address: client.address || "",
-        company: client.company || "",
-        notes: client.notes || "",
+        email: client.email || '',
+        phone: client.phone || '',
+        address: client.address || '',
+        company: client.company || '',
+        notes: client.notes || '',
         status: client.status,
       });
     }
@@ -106,7 +106,7 @@ export default function ClientEdit() {
   const handleDelete = async () => {
     try {
       await deleteClient.mutateAsync(clientId!);
-      navigate("/clients");
+      navigate('/clients');
     } catch {
       // Error is handled by the mutation
     }
@@ -124,13 +124,13 @@ export default function ClientEdit() {
     return (
       <div className="px-4 py-6 text-center">
         <h1 className="text-2xl font-bold mb-4">Client not found</h1>
-        <Button onClick={() => navigate("/clients")}>Back to Clients</Button>
+        <Button onClick={() => navigate('/clients')}>Back to Clients</Button>
       </div>
     );
   }
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -296,11 +296,15 @@ export default function ClientEdit() {
               />
 
               <div className="flex justify-end gap-4">
-                <Button type="button" variant="outline" onClick={() => navigate(`/clients/${clientId}`)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate(`/clients/${clientId}`)}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={updateClient.isPending}>
-                  {updateClient.isPending ? "Updating..." : "Update Client"}
+                  {updateClient.isPending ? 'Updating...' : 'Update Client'}
                 </Button>
               </div>
             </form>

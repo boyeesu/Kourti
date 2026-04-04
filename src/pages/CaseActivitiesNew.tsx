@@ -106,7 +106,7 @@ export default function CaseActivities() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">

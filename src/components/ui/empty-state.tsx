@@ -1,8 +1,8 @@
-import { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import { ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { LucideIcon } from 'lucide-react';
 
 interface EmptyStateProps {
   icon?: LucideIcon;
@@ -28,14 +28,14 @@ export function EmptyState({
   action,
   secondaryAction,
   className,
-  children
+  children,
 }: EmptyStateProps) {
   return (
-    <Card className={cn("border-dashed", className)}>
+    <Card className={cn('border-dashed', className)}>
       <CardContent className="flex flex-col items-center justify-center py-12 px-6 text-center">
         {Icon && (
-          <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-            <Icon className="h-8 w-8 text-muted-foreground" />
+          <div className="mx-auto mb-4 h-12 w-12 rounded-lg bg-muted flex items-center justify-center">
+            <Icon className="h-6 w-6 text-muted-foreground" />
           </div>
         )}
         <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
@@ -61,24 +61,20 @@ export function EmptyState({
 
 // Pre-configured empty states for common scenarios
 export function EmptyTableState({
-  title = "No data available",
-  description = "Get started by adding your first item.",
-  action
-}: Omit<EmptyStateProps, "icon">) {
+  title = 'No data available',
+  description = 'Get started by adding your first item.',
+  action,
+}: Omit<EmptyStateProps, 'icon'>) {
   return (
     <div className="py-12 text-center">
-      <EmptyState
-        title={title}
-        description={description}
-        action={action}
-      />
+      <EmptyState title={title} description={description} action={action} />
     </div>
   );
 }
 
 export function EmptySearchState({
   searchTerm,
-  onClear
+  onClear,
 }: {
   searchTerm: string;
   onClear: () => void;
@@ -88,10 +84,9 @@ export function EmptySearchState({
       title="No results found"
       description={`No items match "${searchTerm}". Try adjusting your search or filters.`}
       action={{
-        label: "Clear filters",
-        onClick: onClear
+        label: 'Clear filters',
+        onClick: onClear,
       }}
     />
   );
 }
-

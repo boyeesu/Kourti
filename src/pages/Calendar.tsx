@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,8 +15,6 @@ import {
   Download,
   Plus,
   Filter,
-  Search,
-  X,
   CalendarDays,
 } from 'lucide-react';
 import { useCalendarEvents } from '@/hooks/useCalendar';
@@ -47,7 +44,6 @@ import {
 } from 'date-fns';
 import { getSession } from '@/lib/authClient';
 import { invokeNodeApi } from '@/lib/backendApi';
-import { invokeFunctionWithCsrf } from '@/lib/csrfClient';
 import { toast } from 'sonner';
 import { env } from '@/lib/env';
 import {
@@ -62,13 +58,7 @@ import { TableSkeleton } from '@/components/ui/loading-states';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { ModuleFilterBar } from '@/components/filters/ModuleFilterBar';
 
 type CalendarView = 'month' | 'week' | 'day' | 'workWeek' | 'list';
 type EventTypeFilter =
@@ -166,7 +156,7 @@ export default function Calendar() {
         if (!session?.user) return;
 
         const ssoConfig = await invokeNodeApi<{ hasSso: boolean }>(
-          '/api/v1/organization/sso-status'
+          '/api/v1/organizations/sso-status'
         );
 
         if (ssoConfig?.hasSso) {
@@ -195,18 +185,18 @@ export default function Calendar() {
       const timeMax = lastDay.toISOString();
 
       try {
-        const { data: googleData } = await invokeFunctionWithCsrf<{ events?: CalendarEvent[] }>(
-          'google-calendar-sync',
+        const googleData = await invokeNodeApi<{ events?: CalendarEvent[] }>(
+          '/api/v1/calendar/external-sync',
           {
-            body: { action: 'list-events', timeMin, timeMax },
+            method: 'POST',
+            body: { provider: 'google_calendar', action: 'list-events', timeMin, timeMax },
           }
         );
 
-        if (googleData?.events) {
-          const events = googleData.events;
+        if (googleData?.events?.length) {
           setExternalEvents((prev) => [
             ...prev.filter((e) => e.source !== 'google_calendar'),
-            ...events,
+            ...googleData.events!,
           ]);
           syncedCount++;
         }
@@ -215,17 +205,18 @@ export default function Calendar() {
       }
 
       try {
-        const { data: teamsData } = await invokeFunctionWithCsrf<{ events?: CalendarEvent[] }>(
-          'teams-calendar-sync',
+        const teamsData = await invokeNodeApi<{ events?: CalendarEvent[] }>(
+          '/api/v1/calendar/external-sync',
           {
-            body: { action: 'list-events', timeMin, timeMax },
+            method: 'POST',
+            body: { provider: 'microsoft_teams', action: 'list-events', timeMin, timeMax },
           }
         );
 
-        if (teamsData?.events) {
+        if (teamsData?.events?.length) {
           setExternalEvents((prev) => [
             ...prev.filter((e) => e.source !== 'microsoft_teams'),
-            ...(teamsData.events || []),
+            ...teamsData.events!,
           ]);
           syncedCount++;
         }
@@ -357,7 +348,7 @@ export default function Calendar() {
 
   if (isLoading) {
     return (
-      <div className="px-4 py-6 space-y-6">
+      <div className="space-y-4">
         <Breadcrumbs />
         <div className="flex items-center justify-between">
           <div>
@@ -371,7 +362,7 @@ export default function Calendar() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs />
 
       {/* Header */}
@@ -399,45 +390,35 @@ export default function Calendar() {
       </div>
 
       {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search events..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => setSearchTerm('')}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-        <Select
-          value={eventTypeFilter}
-          onValueChange={(v) => setEventTypeFilter(v as EventTypeFilter)}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="meeting">Meetings</SelectItem>
-            <SelectItem value="hearing">Hearings</SelectItem>
-            <SelectItem value="deadline">Deadlines</SelectItem>
-            <SelectItem value="deposition">Depositions</SelectItem>
-            <SelectItem value="review">Reviews</SelectItem>
-            <SelectItem value="consultation">Consultations</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <ModuleFilterBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search events..."
+        searchWidth="flex-1"
+        filters={[
+          {
+            key: 'eventType',
+            placeholder: 'Filter by type',
+            value: eventTypeFilter,
+            onChange: (v) => setEventTypeFilter(v as EventTypeFilter),
+            width: 'w-full sm:w-[180px]',
+            icon: <Filter className="h-4 w-4" />,
+            options: [
+              { value: 'all', label: 'All Types' },
+              { value: 'meeting', label: 'Meetings' },
+              { value: 'hearing', label: 'Hearings' },
+              { value: 'deadline', label: 'Deadlines' },
+              { value: 'deposition', label: 'Depositions' },
+              { value: 'review', label: 'Reviews' },
+              { value: 'consultation', label: 'Consultations' },
+            ],
+          },
+        ]}
+        onClearAll={() => {
+          setSearchTerm('');
+          setEventTypeFilter('all');
+        }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar View */}

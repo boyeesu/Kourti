@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { MessageCircle, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useConversations, Conversation } from '@/hooks/useChat';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -26,37 +33,47 @@ export function ChatSidebar({
   const { user } = useAuth();
   const { data: conversations = [], isLoading } = useConversations();
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'direct' | 'group'>('all');
+  const [readFilter, setReadFilter] = useState<'all' | 'unread'>('all');
 
-  const filteredConversations = conversations.filter((conv) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    
-    // Search in participant names
-    const participantNames = conv.participants
-      ?.filter(p => p.user_id !== user?.id)
-      .map(p => `${p.first_name || ''} ${p.last_name || ''} ${p.email || ''}`.toLowerCase())
-      .join(' ') || '';
-    
-    // Search in last message
-    const lastMessage = conv.last_message?.content.toLowerCase() || '';
-    
-    return participantNames.includes(query) || lastMessage.includes(query);
-  });
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((conv) => {
+      // Type filter
+      if (typeFilter !== 'all' && conv.type !== typeFilter) return false;
+
+      // Unread filter
+      if (readFilter === 'unread' && !(conv.unread_count && conv.unread_count > 0)) return false;
+
+      // Search filter
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+
+      const participantNames =
+        conv.participants
+          ?.filter((p) => p.user_id !== user?.id)
+          .map((p) => `${p.first_name || ''} ${p.last_name || ''} ${p.email || ''}`.toLowerCase())
+          .join(' ') || '';
+
+      const lastMessage = conv.last_message?.content.toLowerCase() || '';
+
+      return participantNames.includes(query) || lastMessage.includes(query);
+    });
+  }, [conversations, searchQuery, typeFilter, readFilter, user?.id]);
 
   const getConversationName = (conv: Conversation) => {
     if (conv.type === 'group' && conv.name) {
       return conv.name;
     }
-    
+
     // For direct conversations, get the other participant's name
-    const otherParticipant = conv.participants?.find(p => p.user_id !== user?.id);
+    const otherParticipant = conv.participants?.find((p) => p.user_id !== user?.id);
     if (otherParticipant) {
       if (otherParticipant.first_name || otherParticipant.last_name) {
         return `${otherParticipant.first_name || ''} ${otherParticipant.last_name || ''}`.trim();
       }
       return otherParticipant.email || 'Unknown';
     }
-    
+
     return 'Chat';
   };
 
@@ -64,8 +81,8 @@ export function ChatSidebar({
     if (conv.type === 'group' && conv.name) {
       return conv.name.slice(0, 2).toUpperCase();
     }
-    
-    const otherParticipant = conv.participants?.find(p => p.user_id !== user?.id);
+
+    const otherParticipant = conv.participants?.find((p) => p.user_id !== user?.id);
     if (otherParticipant) {
       if (otherParticipant.first_name && otherParticipant.last_name) {
         return `${otherParticipant.first_name[0]}${otherParticipant.last_name[0]}`.toUpperCase();
@@ -74,16 +91,18 @@ export function ChatSidebar({
         return otherParticipant.email.slice(0, 2).toUpperCase();
       }
     }
-    
+
     return 'C';
   };
 
   return (
-    <div className={cn(
-      "flex flex-col h-full shrink-0 border-r border-border bg-background",
-      "w-full md:w-80", // Full width on mobile, fixed on desktop
-      className
-    )}>
+    <div
+      className={cn(
+        'flex flex-col h-full shrink-0 border-r border-border bg-background',
+        'w-full md:w-80', // Full width on mobile, fixed on desktop
+        className
+      )}
+    >
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
@@ -110,6 +129,30 @@ export function ChatSidebar({
             className="pl-8"
           />
         </div>
+        <div className="flex gap-2">
+          <Select
+            value={typeFilter}
+            onValueChange={(v) => setTypeFilter(v as 'all' | 'direct' | 'group')}
+          >
+            <SelectTrigger className="h-8 text-xs flex-1">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Chats</SelectItem>
+              <SelectItem value="direct">Direct</SelectItem>
+              <SelectItem value="group">Group</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={readFilter} onValueChange={(v) => setReadFilter(v as 'all' | 'unread')}>
+            <SelectTrigger className="h-8 text-xs flex-1">
+              <SelectValue placeholder="Read" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="unread">Unread</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Conversations List */}
@@ -125,12 +168,7 @@ export function ChatSidebar({
               {searchQuery ? 'No conversations found' : 'No conversations yet'}
             </p>
             {!searchQuery && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onNewChat}
-                className="mt-2"
-              >
+              <Button variant="outline" size="sm" onClick={onNewChat} className="mt-2">
                 <Plus className="h-3 w-3 mr-1" />
                 Start a conversation
               </Button>
@@ -141,16 +179,16 @@ export function ChatSidebar({
             {filteredConversations.map((conv) => {
               const isSelected = conv.id === selectedConversationId;
               const unreadCount = conv.unread_count || 0;
-              
+
               return (
                 <button
                   key={conv.id}
                   onClick={() => onSelectConversation(conv.id, getConversationName(conv))}
                   className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left",
+                    'w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left',
                     isSelected
-                      ? "bg-primary/10 border border-primary/20"
-                      : "hover:bg-muted border border-transparent"
+                      ? 'bg-primary/10 border border-primary/20'
+                      : 'hover:bg-muted border border-transparent'
                   )}
                 >
                   <Avatar className="h-10 w-10 shrink-0">
@@ -161,24 +199,30 @@ export function ChatSidebar({
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <p className={cn(
-                        "text-sm font-medium truncate",
-                        isSelected ? "text-primary" : "text-foreground",
-                        unreadCount > 0 && "font-semibold"
-                      )}>
+                      <p
+                        className={cn(
+                          'text-sm font-medium truncate',
+                          isSelected ? 'text-primary' : 'text-foreground',
+                          unreadCount > 0 && 'font-semibold'
+                        )}
+                      >
                         {getConversationName(conv)}
                       </p>
                       {conv.last_message && (
                         <span className="text-xs text-muted-foreground shrink-0 ml-2">
-                          {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(conv.last_message.created_at), {
+                            addSuffix: true,
+                          })}
                         </span>
                       )}
                     </div>
                     {conv.last_message && (
-                      <p className={cn(
-                        "text-xs truncate",
-                        unreadCount > 0 ? "text-foreground font-medium" : "text-muted-foreground"
-                      )}>
+                      <p
+                        className={cn(
+                          'text-xs truncate',
+                          unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'
+                        )}
+                      >
                         {conv.last_message.sender_id === user?.id ? 'You: ' : ''}
                         {conv.last_message.content}
                       </p>

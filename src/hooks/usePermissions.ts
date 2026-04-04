@@ -33,6 +33,9 @@ export const RESOURCES = [
   'tasks',
   'settings',
   'users',
+  'agents',
+  'chat',
+  'negotiations',
 ] as const;
 
 export const ACTIONS = ['create', 'read', 'update', 'delete', 'manage'] as const;

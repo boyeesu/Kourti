@@ -10,13 +10,13 @@ import {
   UserCheck,
   Settings,
   LogOut,
-  Receipt,
-  Bot,
   Gauge,
   Mic,
   LucideIcon,
-  MessageCircle,
   Shield,
+  Cpu,
+  Handshake,
+  Brain,
 } from 'lucide-react';
 import {
   Dialog,
@@ -30,7 +30,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -44,14 +43,12 @@ import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { KourtiKLogo } from '@/components/ui/KourtiKLogo';
 import { cn } from '@/lib/utils';
 import { useTotalUnreadCount } from '@/hooks/useChat';
 
-// Navigation item type definition
 interface NavigationItem {
   title: string;
   url: string;
@@ -62,99 +59,72 @@ interface NavigationItem {
   permission?: { resource: Resource; action: Action };
 }
 
-interface NavigationGroup {
-  label: string;
-  icon?: LucideIcon;
-  items: NavigationItem[];
-  collapsible?: boolean;
-}
+// Main navigation — flat list, no group labels (Startbutton style)
+const mainNavItems: NavigationItem[] = [
+  { title: 'Dashboard', url: '/', icon: LayoutDashboard, end: true },
+  {
+    title: 'Matters',
+    url: '/matters',
+    icon: Briefcase,
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    title: 'Clients',
+    url: '/clients',
+    icon: UserCheck,
+    permission: { resource: 'clients', action: 'read' },
+  },
+  {
+    title: 'Calendar',
+    url: '/calendar',
+    icon: Calendar,
+    permission: { resource: 'calendars', action: 'read' },
+  },
+  {
+    title: 'Documents',
+    url: '/documents',
+    icon: FileText,
+    permission: { resource: 'documents', action: 'read' },
+  },
+  {
+    title: 'Contracts',
+    url: '/contracts',
+    icon: FileCheck,
+    permission: { resource: 'contracts', action: 'read' },
+  },
+  {
+    title: 'AI Agents',
+    url: '/agents',
+    icon: Cpu,
+    badge: 'New',
+    badgeVariant: 'default',
+    permission: { resource: 'agents', action: 'read' },
+  },
+  {
+    title: 'Negotiations',
+    url: '/negotiations',
+    icon: Handshake,
+    permission: { resource: 'negotiations', action: 'read' },
+  },
+  {
+    title: 'Intelligence',
+    url: '/intelligence',
+    icon: Brain,
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    title: 'Voice & Transcriptions',
+    url: '/voice-recorder',
+    icon: Mic,
+    permission: { resource: 'documents', action: 'create' },
+  },
+];
 
-const coreNavigation: NavigationGroup = {
-  label: 'Core',
-  items: [
-    { title: 'Dashboard', url: '/', icon: LayoutDashboard, end: true },
-    {
-      title: 'Matters',
-      url: '/matters',
-      icon: Briefcase,
-      permission: { resource: 'cases', action: 'read' },
-    },
-    {
-      title: 'Clients',
-      url: '/clients',
-      icon: UserCheck,
-      permission: { resource: 'clients', action: 'read' },
-    },
-    {
-      title: 'Calendar',
-      url: '/calendar',
-      icon: Calendar,
-      permission: { resource: 'calendars', action: 'read' },
-    },
-  ],
-};
-
-const legalToolsNavigation: NavigationGroup = {
-  label: 'Legal Tools',
-  items: [
-    {
-      title: 'Documents',
-      url: '/documents',
-      icon: FileText,
-      permission: { resource: 'documents', action: 'read' },
-    },
-    {
-      title: 'Contracts',
-      url: '/contracts',
-      icon: FileCheck,
-      permission: { resource: 'contracts', action: 'read' },
-    },
-    {
-      title: 'AI Assistant',
-      url: '/ream-ai',
-      icon: Bot,
-      badge: 'New',
-      badgeVariant: 'default',
-      permission: { resource: 'documents', action: 'read' },
-    },
-    {
-      title: 'Voice & Transcriptions',
-      url: '/voice-recorder',
-      icon: Mic,
-      permission: { resource: 'documents', action: 'create' },
-    },
-  ],
-};
-
-const workspaceNavigation: NavigationGroup = {
-  label: 'Workspace',
-  items: [
-    {
-      title: 'Live Chat',
-      url: '/live-chat',
-      icon: MessageCircle,
-    },
-    {
-      title: 'Invoicing',
-      url: '/invoices',
-      icon: Receipt,
-      badge: 'Soon',
-      badgeVariant: 'outline',
-      permission: { resource: 'invoices', action: 'read' },
-    },
-  ],
-};
-
-// Footer navigation items (rendered outside the scrollable area)
-const footerSettingsItem: NavigationItem = {
-  title: 'Settings',
-  url: '/settings',
-  icon: Settings,
-};
-
+// Footer items
+const footerSettingsItem: NavigationItem = { title: 'Settings', url: '/settings', icon: Settings };
 const footerAdminItems: NavigationItem[] = [
   {
-    title: 'Admin Panel',
+    title: 'Analytics',
     url: '/analytics',
     icon: Gauge,
     permission: { resource: 'cases', action: 'manage' },
@@ -166,22 +136,18 @@ const footerAdminItems: NavigationItem[] = [
     permission: { resource: 'users', action: 'manage' },
   },
 ];
-
 const footerPlatformAdminItem: NavigationItem = {
   title: 'Platform Admin',
   url: '/thanos',
   icon: Shield,
 };
 
-const groups = [coreNavigation, legalToolsNavigation, workspaceNavigation];
-
 const AppSidebar: React.FC = () => {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
-  const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
+  const { signOut } = useAuth();
   const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
   const totalUnreadCount = useTotalUnreadCount();
 
@@ -190,28 +156,16 @@ const AppSidebar: React.FC = () => {
   const isAdmin = role === 'superadmin' || role === 'admin';
   const { data: isPlatformAdmin = false } = usePlatformAdmin();
 
-  const filteredGroups = React.useMemo(() => {
-    return groups
-      .map((group) => {
-        if (group === workspaceNavigation) {
-          const filteredItems = group.items.filter((item: NavigationItem) => {
-            if (item.url === '/invoices' && !isAdmin) {
-              return false;
-            }
-            return true;
-          });
-          return { ...group, items: filteredItems };
-        }
-        return group;
-      })
-      .filter((group): group is NavigationGroup => group !== null && group.items.length > 0);
+  const filteredMainNav = React.useMemo(() => {
+    return mainNavItems.filter((item) => {
+      if (item.url === '/invoices' && !isAdmin) return false;
+      return true;
+    });
   }, [isAdmin]);
 
   const isActive = React.useCallback(
     (path: string, end?: boolean) => {
-      if (end) {
-        return location.pathname === path;
-      }
+      if (end) return location.pathname === path;
       return location.pathname.startsWith(path);
     },
     [location.pathname]
@@ -229,17 +183,11 @@ const AppSidebar: React.FC = () => {
 
   const NavItemWithPermission = React.forwardRef<HTMLLIElement, { item: NavigationItem }>(
     ({ item }, ref) => {
-      // Check if user has read access to this resource
       const hasAccess = useCanPerformAction(
         item.permission?.resource || 'cases',
         item.permission?.action || 'read'
       );
-
-      // Hide item if user doesn't have access
-      if (item.permission && !hasAccess) {
-        return null;
-      }
-
+      if (item.permission && !hasAccess) return null;
       return <NavItemContent item={item} ref={ref} />;
     }
   );
@@ -248,29 +196,27 @@ const AppSidebar: React.FC = () => {
   const NavItemContent = React.forwardRef<HTMLLIElement, { item: NavigationItem }>(
     ({ item }, ref) => {
       const active = isActive(item.url, item.end);
+      const isLiveChat = item.url === '/live-chat';
 
       const linkClass = cn(
-        'flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
+        'flex h-10 w-full items-center gap-3 rounded-xl px-3 text-[15px] transition-all duration-150',
         collapsed && 'justify-center px-0 gap-0',
         active
-          ? 'bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]'
-          : 'text-muted-foreground hover:bg-[hsl(var(--primary))/0.08] hover:text-foreground'
+          ? 'font-semibold text-primary bg-primary/8'
+          : 'font-normal text-muted-foreground hover:text-foreground hover:bg-muted/50'
       );
 
       const iconClass = cn(
-        'h-[18px] w-[18px]',
-        active ? 'text-[hsl(var(--primary))]' : 'text-muted-foreground'
+        'h-5 w-5 flex-shrink-0',
+        active ? 'text-primary' : 'text-muted-foreground/60'
       );
-
-      // Handle Live Chat with unread badge
-      const isLiveChat = item.url === '/live-chat';
 
       const content = (
         <SidebarMenuItem ref={ref} key={item.url}>
           <SidebarMenuButton
             asChild
             isActive={active}
-            className={cn('h-9 px-0', collapsed && 'justify-center')}
+            className={cn('h-10 px-0', collapsed && 'justify-center')}
           >
             <NavLink
               to={item.url}
@@ -306,9 +252,7 @@ const AppSidebar: React.FC = () => {
         </SidebarMenuItem>
       );
 
-      if (!item.permission) {
-        return content;
-      }
+      if (!item.permission) return content;
 
       return (
         <PermissionGate
@@ -339,48 +283,36 @@ const AppSidebar: React.FC = () => {
           </Button>
         </DialogContent>
       </Dialog>
-      <Sidebar
-        variant="sidebar"
-        collapsible="icon"
-        className="h-full border-r border-[hsl(var(--sidebar-border)/.8)] bg-[hsl(var(--sidebar-background))]"
-      >
-        <SidebarHeader className="border-b border-[hsl(var(--sidebar-border))] px-3 py-2">
-          <div className="flex items-center justify-start w-full pl-3">
+      <Sidebar variant="sidebar" collapsible="icon" className="h-full border-none bg-transparent">
+        {/* Logo */}
+        <SidebarHeader className="px-5 pt-5 pb-4">
+          <div className="flex items-center justify-start w-full">
             <KourtiKLogo size="md" className="max-w-full" />
           </div>
         </SidebarHeader>
-        <SidebarContent className="flex h-full flex-col px-3 py-2">
-          <div className="flex-1 space-y-1 overflow-y-auto">
-            {filteredGroups.map((group) => {
-              if (!group) return null;
 
-              return (
-                <SidebarGroup key={group.label} className="p-0">
-                  {!collapsed && (
-                    <SidebarGroupLabel className="mb-0.5 px-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                      {group.label}
-                    </SidebarGroupLabel>
-                  )}
-                  <SidebarGroupContent>
-                    <SidebarMenu className="space-y-0.5">
-                      {group.items.map((item) => (
-                        <Tooltip key={item.url} disableHoverableContent={!collapsed}>
-                          <TooltipTrigger asChild>
-                            <NavItemWithPermission item={item} />
-                          </TooltipTrigger>
-                          {collapsed && <TooltipContent side="right">{item.title}</TooltipContent>}
-                        </Tooltip>
-                      ))}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              );
-            })}
+        <SidebarContent className="flex h-full flex-col px-3 py-0">
+          {/* Main navigation - flat list */}
+          <div className="flex-1 overflow-y-auto">
+            <SidebarGroup className="p-0">
+              <SidebarGroupContent>
+                <SidebarMenu className="space-y-0.5">
+                  {filteredMainNav.map((item) => (
+                    <Tooltip key={item.url} disableHoverableContent={!collapsed}>
+                      <TooltipTrigger asChild>
+                        <NavItemWithPermission item={item} />
+                      </TooltipTrigger>
+                      {collapsed && <TooltipContent side="right">{item.title}</TooltipContent>}
+                    </Tooltip>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
           </div>
 
-          <div className="mt-auto space-y-2 border-t border-[hsl(var(--sidebar-border))] pt-2">
+          {/* Footer */}
+          <div className="mt-auto pt-3 pb-4 space-y-0.5">
             <SidebarMenu className="space-y-0.5">
-              {/* Settings - always visible */}
               <Tooltip disableHoverableContent={!collapsed}>
                 <TooltipTrigger asChild>
                   <NavItemContent item={footerSettingsItem} />
@@ -390,7 +322,6 @@ const AppSidebar: React.FC = () => {
                 )}
               </Tooltip>
 
-              {/* Admin Panel & Users - admin only */}
               {isAdmin &&
                 footerAdminItems.map((item) => (
                   <Tooltip key={item.url} disableHoverableContent={!collapsed}>
@@ -401,7 +332,6 @@ const AppSidebar: React.FC = () => {
                   </Tooltip>
                 ))}
 
-              {/* Platform Admin - super admin only */}
               {isPlatformAdmin && (
                 <Tooltip disableHoverableContent={!collapsed}>
                   <TooltipTrigger asChild>
@@ -412,35 +342,26 @@ const AppSidebar: React.FC = () => {
                   )}
                 </Tooltip>
               )}
-            </SidebarMenu>
-            <div className="flex items-center gap-3 rounded-lg border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--surface))] px-3 py-3">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user?.user_metadata?.avatar_url as string | undefined} />
-                <AvatarFallback>{userInitials}</AvatarFallback>
-              </Avatar>
-              {!collapsed && (
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {(user?.user_metadata?.name as string) || user?.email}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Workspace Lead</p>
-                </div>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
+
+              {/* Logout - same style as other nav items */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  className={cn('h-10 px-0', collapsed && 'justify-center')}
+                >
+                  <button
                     onClick={handleSignOut}
-                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                    aria-label="Sign out"
+                    className={cn(
+                      'flex h-10 w-full items-center gap-3 rounded-xl px-3 text-[15px] font-normal text-muted-foreground transition-all duration-150 hover:text-foreground hover:bg-muted/50',
+                      collapsed && 'justify-center px-0 gap-0'
+                    )}
                   >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Sign Out</TooltipContent>
-              </Tooltip>
-            </div>
+                    <LogOut className="h-5 w-5 flex-shrink-0 text-muted-foreground/60" />
+                    {!collapsed && <span>Logout</span>}
+                  </button>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </div>
         </SidebarContent>
       </Sidebar>

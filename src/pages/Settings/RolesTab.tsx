@@ -148,12 +148,7 @@ export default function RolesTab() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">User Roles</h3>
-        <p className="text-sm text-muted-foreground">Manage user roles in your organization</p>
-      </div>
-
+    <div className="space-y-4">
       {!isCurrentUserAdmin && (
         <Alert>
           <AlertCircle className="h-4 w-4" />

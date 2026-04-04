@@ -1,17 +1,27 @@
-import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { InvoiceForm } from "@/components/invoices/InvoiceForm";
-import { useCreateInvoice } from "@/hooks/useInvoices";
-import { ArrowLeft } from "lucide-react";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { useNavigate } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { InvoiceForm } from '@/components/invoices/InvoiceForm';
+import { useCreateInvoice } from '@/hooks/useInvoices';
+import { ArrowLeft } from 'lucide-react';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 export default function InvoiceCreate() {
   const navigate = useNavigate();
   const createInvoice = useCreateInvoice();
 
   // Handle form submission
-  const handleSubmitInvoice = async (formData: { title: string; client_id: string; case_id?: string; vat: number; status: string; issue_date: Date; due_date: Date; notes?: string; items: Array<{ description: string; quantity: number; unit_price: number }> }) => {
+  const handleSubmitInvoice = async (formData: {
+    title: string;
+    client_id: string;
+    case_id?: string;
+    vat: number;
+    status: string;
+    issue_date: Date;
+    due_date: Date;
+    notes?: string;
+    items: Array<{ description: string; quantity: number; unit_price: number }>;
+  }) => {
     const payload = {
       title: formData.title,
       client_id: formData.client_id,
@@ -33,15 +43,15 @@ export default function InvoiceCreate() {
   };
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs />
-      
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Create New Invoice</h1>
           <p className="text-muted-foreground">Generate a professional invoice for your client</p>
         </div>
-        <Button variant="outline" onClick={() => navigate("/invoices")}>
+        <Button variant="outline" onClick={() => navigate('/invoices')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Invoices
         </Button>

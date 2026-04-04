@@ -49,6 +49,7 @@ import { useDeleteActivity } from '@/features/activities/api/useDeleteActivity';
 import { ActivityDialog } from '@/components/ActivityDialog';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { getActivityIcon, getActivityStatusColor } from '@/utils/activityUtils';
+import { MatterReviewButton } from '@/components/agents/MatterReviewButton';
 
 export default function CaseDetails() {
   const { id } = useParams<{ id: string }>();
@@ -125,7 +126,7 @@ export default function CaseDetails() {
   };
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -136,7 +137,8 @@ export default function CaseDetails() {
           <h1 className="text-3xl font-bold text-foreground">{caseData.title}</h1>
           <p className="text-muted-foreground">Matter #{caseData.case_number || caseData.id}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <MatterReviewButton caseId={caseData.id} caseTitle={caseData.title} />
           <Badge className={getStatusColor(caseData.status)}>
             {caseData.status.replace('_', ' ')}
           </Badge>

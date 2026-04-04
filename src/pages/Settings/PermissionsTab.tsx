@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Shield, Users, Lock, Save } from 'lucide-react';
+import { AlertCircle, Users, Lock, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function PermissionsTab() {
@@ -130,7 +130,7 @@ export default function PermissionsTab() {
   };
 
   const getResourceIcon = (resource: Resource) => {
-    const icons = {
+    const icons: Record<string, string> = {
       cases: '⚖️',
       clients: '👥',
       documents: '📄',
@@ -140,6 +140,9 @@ export default function PermissionsTab() {
       tasks: '✅',
       settings: '⚙️',
       users: '👤',
+      agents: '🤖',
+      chat: '💬',
+      negotiations: '🤝',
     };
     return icons[resource] || '📁';
   };
@@ -168,17 +171,7 @@ export default function PermissionsTab() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          Role Permissions
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Configure fine-grained permissions for each role in your organization
-        </p>
-      </div>
-
+    <div className="space-y-4">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

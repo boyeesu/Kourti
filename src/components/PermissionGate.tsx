@@ -9,11 +9,11 @@ interface PermissionGateProps {
   fallback?: React.ReactNode;
 }
 
-export function PermissionGate({ 
-  resource, 
-  action, 
-  children, 
-  fallback = null 
+export function PermissionGate({
+  resource,
+  action,
+  children,
+  fallback = null,
 }: PermissionGateProps) {
   const { data: hasPermission, isLoading, error } = useUserPermission(resource, action);
 
@@ -26,7 +26,6 @@ export function PermissionGate({
   }
 
   // Fail-closed: deny access on error for defense-in-depth security
-  // RLS policies on Supabase tables still enforce actual authorization
   if (error) {
     console.error('Permission check failed:', error);
     return <>{fallback}</>;
