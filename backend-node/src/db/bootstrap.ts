@@ -3,6 +3,22 @@ import { db } from './pool.js';
 const bootstrapStatements = [
   `create extension if not exists pgcrypto`,
   `
+  create table if not exists public.auth_users (
+    id uuid primary key default gen_random_uuid(),
+    email text unique not null,
+    encrypted_password text not null,
+    is_active boolean not null default true,
+    email_confirmed_at timestamptz,
+    refresh_token text,
+    refresh_token_expires_at timestamptz,
+    password_reset_token text,
+    password_reset_expires_at timestamptz,
+    last_sign_in_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  `
   create table if not exists public.profiles (
     id uuid primary key default gen_random_uuid(),
     user_id uuid unique not null,
@@ -197,6 +213,38 @@ const bootstrapStatements = [
     updated_at timestamptz not null default now()
   )
   `,
+  `
+  create table if not exists public.invitations (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null,
+    email text not null,
+    first_name text,
+    last_name text,
+    role text,
+    department text,
+    token text unique not null,
+    status text not null default 'pending',
+    invited_by uuid,
+    expires_at timestamptz not null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  `
+  create table if not exists public.user_role_assignments (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null,
+    role_name text not null,
+    organization_id uuid not null,
+    assigned_by uuid,
+    created_at timestamptz not null default now(),
+    unique (user_id, role_name, organization_id)
+  )
+  `,
+  `alter table public.profiles add column if not exists role text`,
+  `alter table public.profiles add column if not exists department text`,
+  `alter table public.profiles add column if not exists must_change_password boolean default false`,
+  `alter table public.profiles add column if not exists password_reset_required boolean default false`,
   `alter table public.contracts add column if not exists content text`,
   `alter table public.contracts add column if not exists metadata jsonb`,
   `alter table public.cases add column if not exists custom_fields jsonb`,
@@ -233,6 +281,17 @@ const bootstrapStatements = [
     'User'
   )
   on conflict (user_id) do nothing
+  `,
+  `
+  insert into public.auth_users (id, email, encrypted_password, is_active, email_confirmed_at)
+  values (
+    '00000000-0000-0000-0000-000000000001',
+    'dev@kourti.local',
+    '$2b$12$/8EAYMwovKMeiAFPEhQ4geMawJ.EbVzwsPaMTGa7VIMkHFoV7Uwya',
+    true,
+    now()
+  )
+  on conflict (id) do nothing
   `,
 ];
 

@@ -1,62 +1,61 @@
-# Node Backend Migration Plan
+# Node Backend Migration - Complete
 
-## Goals
+## Status: ✅ MIGRATION COMPLETE
 
-- Move business logic from Supabase Edge Functions to a dedicated Node backend incrementally.
-- Keep Supabase Auth and Postgres in place during transition to avoid risky big-bang rewrites.
-- Introduce one API gateway (`backend-node`) with explicit ownership for auth, rate limiting, and observability.
+All business logic has been migrated from Supabase Edge Functions to the dedicated Node.js backend (`backend-node/`).
 
-## Phased rollout
+## Architecture
 
-1. **Foundation**
-   - Stand up `backend-node` with health checks, request IDs, structured errors, and shared middleware.
-   - Add environment contracts and deployment pipeline for staging.
+- **Backend**: Node.js + Express (`backend-node/`)
+- **Database**: PostgreSQL (direct connection via `pg`)
+- **Auth**: Custom JWT (access + refresh tokens)
+- **AI**: OpenAI API via Node backend
+- **Email**: Resend
+- **File Storage**: Local filesystem or S3-compatible
 
-2. **Dual-run AI endpoints (highest cost first)**
-   - Mirror `advanced-contract-analysis` in Node and route a small percentage of traffic.
-   - Keep Supabase function as fallback until parity in latency, quality, and error rates is verified.
+## Migrated Endpoints
 
-3. **Core domain APIs**
-   - Introduce `/api/contracts`, `/api/documents`, and `/api/cases` read endpoints.
-   - Migrate write paths after RBAC and audit logging parity checks pass.
+All API endpoints are served by the Node backend at `/api/v1/`:
 
-4. **Deprecate Supabase function surface**
-   - Freeze new edge-function additions.
-   - Remove or proxy legacy functions once equivalent Node routes are stable.
+- `/api/v1/auth/*` - Authentication (sign-in, sign-up, refresh, password reset)
+- `/api/v1/cases/*` - Case management CRUD
+- `/api/v1/contracts/*` - Contract management CRUD
+- `/api/v1/documents/*` - Document handling CRUD
+- `/api/v1/clients/*` - Client management CRUD
+- `/api/v1/ai/*` - AI-powered analysis (contract analysis, comparison, document extraction, Ream AI assistant)
+- `/api/v1/chat/*` - Real-time chat/conversations
+- `/api/v1/files/*` - File upload/download with signed URLs
+- `/api/v1/users/*` - User management and invitations
+- `/api/v1/organizations/*` - Organization management
+- `/api/v1/calendar/*` - Calendar events
+- `/api/v1/invoices/*` - Invoice handling
+- `/api/v1/dashboard/*` - Dashboard data
+- `/api/v1/search/*` - Global search
+- `/api/v1/notifications/*` - Notification management
+- `/api/v1/admin/*` - Admin operations
+- `/api/v1/roles/*` - Role management
+- `/api/v1/tasks/*` - Task management
 
-## Security baseline for Node API
+## Security Baseline
 
-- JWT verification against Supabase Auth JWKs.
-- CSRF protection for browser-originating state-changing requests.
-- Distributed-first rate limiting with clear headers and retry semantics.
-- Request-scoped logging with redaction rules for sensitive fields.
+- JWT verification with custom signing keys
+- RBAC authorization via role assignments
+- Rate limiting with clear headers
+- Helmet security headers
+- Request-scoped logging with request IDs
+- Zod input validation
+- Centralized error handling
 
-## Data and compatibility strategy
+## Frontend Configuration
 
-- Keep current Postgres schema and RLS policies active until Node authorization checks are production-proven.
-- Use contract tests against existing edge-function payloads to preserve frontend compatibility.
-- Add feature flags so frontend can switch endpoint by capability (not by release branch).
+```bash
+VITE_USE_NODE_BACKEND=true
+VITE_BACKEND_API_URL=http://localhost:4000
+```
 
-## Immediate next steps
+## Deployment
 
-1. Implement Node server bootstrap and health endpoint (scaffold added).
-2. Add authenticated `POST /api/ai/advanced-contract-analysis` route with the same payload contract.
-3. Add parity tests comparing Node response envelope vs current edge function response envelope.
-4. Deploy staging and run shadow traffic before enabling production routing.
-
-## Progress snapshot
-
-- `backend-node` now includes authenticated routes for contracts, cases, documents, global search, and advanced contract analysis.
-- Contracts and cases now support CRUD + single-item fetch in Node API (`/api/v1/contracts`, `/api/v1/cases`).
-- Documents now support CRUD + single-item fetch + signed URL generation in Node API (`/api/v1/documents`).
-- RAG search and processing now have Node endpoints (`/api/v1/ai/rag/search`, `/api/v1/ai/rag/process-document`) and frontend routing support.
-- Ream AI assistant now has a Node endpoint (`/api/v1/ai/ream-assistant`) and frontend routing support.
-- AI conversations/messages now have Node CRUD endpoints and frontend hook routing support.
-- Chat conversations/messages/read + file signed-url now have Node endpoints and frontend hook routing support.
-- Frontend feature flags now allow migrated reads to run through Node:
-  - `VITE_USE_NODE_BACKEND=true`
-  - `VITE_BACKEND_API_URL=<node-api-base-url>`
-- Frontend hooks now route contracts/cases reads and mutations to Node when flag is enabled.
-- Frontend document hooks/context/viewers now use Node API paths when enabled.
-- Local backend startup auto-bootstraps required schema for dockerized Postgres development.
-- Supabase remains available as fallback while parity validation is ongoing.
+- **Backend**: Railway (or any Node.js host)
+- **Frontend**: Vercel
+- **Database**: Any PostgreSQL provider
+- **Docker**: Full stack via `docker-compose.yml`

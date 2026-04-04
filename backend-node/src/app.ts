@@ -39,7 +39,7 @@ export function createApp() {
   app.use(helmet());
   app.use(
     cors({
-      origin: corsOrigins.length ? corsOrigins : true,
+      origin: corsOrigins.length ? corsOrigins : false,
       credentials: true,
     })
   );

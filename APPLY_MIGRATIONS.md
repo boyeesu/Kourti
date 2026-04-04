@@ -1,93 +1,54 @@
-# Apply Calendar Migrations to Supabase
+# Apply Database Migrations
 
-## Project ID
+## Overview
 
-`zjbvnvydgsxqmmrrmvif`
+Database schema is managed by the Node backend (`backend-node/`). On startup, the backend runs `ensureDatabaseSchema()` which creates all required tables using `CREATE TABLE IF NOT EXISTS`.
 
-## Method 1: Supabase Dashboard (Easiest)
+## Method 1: Docker (Recommended)
 
-1. Go to: https://app.supabase.com/project/zjbvnvydgsxqmmrrmvif/editor/sql
-
-2. Run each migration file in order:
-   - Go to "New Query"
-   - Copy SQL from each migration file
-   - Paste and click "Run"
-
-### Migration Order:
-
-1. ✅ `20260307000001_add_calendar_sharing.sql` - Team sharing, calendar colors
-2. ✅ `20260307000002_add_recurring_event_instances.sql` - Recurring events
-3. ✅ `20260307000003_add_event_invitations.sql` - RSVP system
-4. ✅ `20260307000004_enhanced_reminders.sql` - Multi-channel notifications
-5. ✅ `20260307000005_calendar_digest_emails.sql` - Digest system
-6. ✅ `20260307000006_webhook_system.sql` - Webhooks with HMAC
-7. ✅ `20260307000007_rest_api.sql` - API keys and request logs
-8. ✅ `20260307000008_security_audit_logs.sql` - Security audit trail
-
-## Method 2: Combined SQL File
-
-A combined file has been created at:
-`supabase/all_migrations_combined.sql`
-
-**WARNING**: This is 21,740 lines. Run in chunks if needed.
-
-## Method 3: Supabase CLI
+The Docker Compose stack automatically bootstraps the database:
 
 ```bash
-# Login
-npx supabase login
-
-# Push migrations
-npx supabase db push
-
-# Or push specific migrations
-npx supabase db push --include-all
+docker compose up --build
 ```
 
-## After Migrations
+Postgres bootstraps from `docker/postgres/init/001_backend_node_bootstrap.sql`, and the backend applies additional schema checks on startup.
 
-### 1. Regenerate TypeScript Types
+## Method 2: Manual SQL
+
+If running Postgres standalone, apply the bootstrap SQL manually:
 
 ```bash
-npx supabase gen types typescript --project-id zjbvnvydgsxqmmrrmvif --schema public > src/integrations/supabase/types.ts
+psql -U postgres -d kourti_local -f docker/postgres/init/001_backend_node_bootstrap.sql
 ```
 
-### 2. Deploy Edge Functions
+## Method 3: Backend Auto-Bootstrap
+
+In development mode, the Node backend auto-creates tables on startup:
 
 ```bash
-npx supabase functions deploy
+cd backend-node
+DATABASE_URL="postgresql://kourti:kourti@localhost:5432/kourti_local" npm run dev
 ```
 
-### 3. Set Environment Variables
+Set `RUN_BOOTSTRAP=1` in production if you need to run bootstrap there.
 
-Add to your `.env`:
+## Calendar Migrations
 
-```bash
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
-TWILIO_PHONE_NUMBER=+1234567890
-```
+Calendar-related tables (shares, recurring events, invitations, reminders, webhooks, API keys, audit logs) are included in the bootstrap SQL:
 
-### 4. Setup Cron Jobs
-
-Run these SQL commands in Supabase SQL Editor:
-
-```sql
--- Process reminders every minute
-SELECT cron.schedule('process-reminders', '* * * * *', $$
-  SELECT net.http_get('https://zjbvnvydgsxqmmrrmvif.supabase.co/functions/v1/process-multi-channel-reminders');
-$$);
-
--- Send digests every hour
-SELECT cron.schedule('send-digests', '0 * * * *', $$
-  SELECT net.http_get('https://zjbvnvydgsxqmmrrmvif.supabase.co/functions/v1/send-calendar-digest');
-$$);
-
--- Deliver webhooks every minute
-SELECT cron.schedule('deliver-webhooks', '* * * * *', $$
-  SELECT net.http_get('https://zjbvnvydgsxqmmrrmvif.supabase.co/functions/v1/deliver-webhooks');
-$$);
-```
+1. `calendar_shares` - Team calendar sharing
+2. `calendar_event_instances` - Recurring event instances
+3. `event_invitations` - Meeting invitations/RSVP
+4. `user_notification_preferences` - Notification settings
+5. `reminder_templates` - Reminder templates
+6. `reminder_queue` - Multi-channel reminder queue
+7. `calendar_digest_logs` - Digest email tracking
+8. `webhook_subscriptions` - Webhook configs
+9. `webhook_deliveries` - Webhook delivery logs
+10. `api_keys` - REST API authentication
+11. `api_request_logs` - API request audit
+12. `security_audit_logs` - Security events
 
 ## Verification
 
@@ -97,40 +58,19 @@ After applying migrations, verify tables exist:
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
-AND table_name IN (
-  'calendar_shares',
-  'calendar_event_instances',
-  'event_invitations',
-  'user_notification_preferences',
-  'reminder_templates',
-  'reminder_queue',
-  'calendar_digest_logs',
-  'webhook_subscriptions',
-  'webhook_deliveries',
-  'api_keys',
-  'api_request_logs',
-  'security_audit_logs'
-);
+ORDER BY table_name;
 ```
 
 ## Troubleshooting
 
 **Error: "relation already exists"**
 
-- Migration already applied, skip it
+- Safe to ignore — uses `IF NOT EXISTS`
 
 **Error: "permission denied"**
 
-- Make sure you're using the `postgres` role or service role key
+- Ensure you're using the correct database user with CREATE privileges
 
 **Error: "function does not exist"**
 
-- Run migrations in correct order (01 → 08)
-
-## Need Help?
-
-If you get stuck, you can:
-
-1. Run migrations one at a time
-2. Check Supabase logs in Dashboard → Database → Logs
-3. Ask me for specific migration SQL
+- Run the full bootstrap script, not individual fragments

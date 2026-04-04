@@ -6,7 +6,7 @@ Unlock the power of AI and automation in your legal workflows. Kourti AI deliver
 
 ## Key Features
 
-- **AI-Powered Contract Generation**: Instantly draft new contracts based on user prompts utilizing embedded OpenAI models (via Supabase Edge Functions).
+- **AI-Powered Contract Generation**: Instantly draft new contracts based on user prompts utilizing embedded OpenAI models (via Node backend).
 - **AI Document & Contract Analysis**: Summarize, extract clauses, surface risks, or generate redlines using the latest LLMs.
 - **AI Document Comparison**: Compare two legal documents/contracts side-by-side with clause-level highlights, similarity scoring, and AI change detection.
 - **Smart Document Export**: Export contracts, cases, and documents to PDF or Word (DOCX) with a single click — all versions supported.
@@ -15,8 +15,8 @@ Unlock the power of AI and automation in your legal workflows. Kourti AI deliver
 - **Smart Notifications & Reminders**: Automated reminders, due dates, and case activity notifications.
 - **Dark Mode Support**: Full dark mode with light, dark, and system theme options for comfortable viewing in any environment.
 - **Modern UI/UX**: Built with React, shadcn-ui, TypeScript, and Tailwind CSS.
-- **Seamless Integrations**: Native OpenAI, Supabase Edge Functions, embeddable API for e-signature, and more.
-- **Enterprise SSO**: Per-organization OAuth (Google Workspace / Microsoft Entra ID) with secure Supabase Edge functions.
+- **Seamless Integrations**: Native OpenAI, embeddable API for e-signature, and more.
+- **Enterprise SSO**: Per-organization OAuth (Google Workspace / Microsoft Entra ID) with secure Node backend endpoints.
 
 ---
 
@@ -60,20 +60,18 @@ Follow these steps to get started:
     npm i
     ```
 
-4.  **(Optional) Set up the Supabase CLI for local development:**
+4.  **(Optional) Start the Node backend for local development:**
 
-    The Supabase configuration lives in the `supabase/` folder. To run the local database, authentication, and Edge Functions, install the Supabase CLI and start the stack:
+    The backend lives in the `backend-node/` folder. To run it locally with Docker:
 
     ```sh
-    npm install -g supabase           # or follow https://supabase.com/docs/guides/cli/getting-started
-    npm run supabase:start            # starts the local Supabase services
+    docker compose up --build         # starts Postgres, Node backend, and frontend
     ```
 
-    Additional helper scripts are available:
+    Or run the backend standalone:
 
     ```sh
-    npm run supabase:status           # check the local stack status
-    npm run supabase:stop             # stop the local Supabase stack
+    cd backend-node && npm install && npm run dev
     ```
 
 5.  **Start the development server:**
@@ -108,7 +106,8 @@ If you prefer an online IDE, you can use GitHub Codespaces.
 - **React**
 - **shadcn-ui**
 - **Tailwind CSS**
-- **Supabase/Postgres** (for data & authentication)
+- **Node.js / Express** (backend API)
+- **PostgreSQL** (database)
 - **OpenAI API / LLMs** (for all contract/document AI and NLP tasks)
 
 ---

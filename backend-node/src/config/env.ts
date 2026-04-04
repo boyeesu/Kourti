@@ -38,6 +38,10 @@ const envSchema = z.object({
 
 export const env = envSchema.parse(process.env);
 
+if (env.NODE_ENV === 'production' && env.AUTH_MODE === 'development') {
+  throw new Error('AUTH_MODE=development is not allowed in production');
+}
+
 if (env.AUTH_MODE === 'supabase' && (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY)) {
   throw new Error(
     'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required when AUTH_MODE=supabase'

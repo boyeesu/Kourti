@@ -41,12 +41,14 @@ export interface AuthUser {
 
 function signAccessToken(payload: JwtPayload): string {
   return jwt.sign(payload, env.JWT_SECRET!, {
+    algorithm: 'HS256',
     expiresIn: parseExpiresIn(env.JWT_EXPIRES_IN),
   });
 }
 
 function signRefreshToken(userId: string): string {
   return jwt.sign({ sub: userId, type: 'refresh' }, env.JWT_REFRESH_SECRET!, {
+    algorithm: 'HS256',
     expiresIn: parseExpiresIn(env.JWT_REFRESH_EXPIRES_IN),
   });
 }
@@ -186,7 +188,7 @@ export async function signUp(
 
 export function verifyAccessToken(token: string): AuthUser {
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET!) as JwtPayload;
+    const payload = jwt.verify(token, env.JWT_SECRET!, { algorithms: ['HS256'] }) as JwtPayload;
     return {
       id: payload.sub,
       email: payload.email,
@@ -204,7 +206,9 @@ export async function refreshTokens(refreshToken: string): Promise<AuthTokens> {
   // Verify the refresh token signature
   let userId: string;
   try {
-    const payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET!) as { sub: string };
+    const payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET!, {
+      algorithms: ['HS256'],
+    }) as { sub: string };
     userId = payload.sub;
   } catch {
     throw new ApiError('Invalid refresh token', 401, 'AUTH_INVALID_REFRESH_TOKEN');
