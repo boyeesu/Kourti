@@ -1,10 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { env } from '../../config/env.js';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { createSignedUrl } from '../../services/storage.js';
 
 const conversationIdParamsSchema = z.object({
   conversationId: z.string().uuid(),
@@ -32,27 +31,6 @@ const chatSignedUrlSchema = z.object({
   disposition: z.enum(['inline', 'attachment']).default('inline'),
   filename: z.string().trim().min(1).max(255).optional(),
 });
-
-let cachedSupabaseAdmin: ReturnType<typeof createClient> | null = null;
-
-function getSupabaseAdminClient() {
-  if (cachedSupabaseAdmin) {
-    return cachedSupabaseAdmin;
-  }
-
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new ApiError('Supabase storage is not configured', 503, 'CONFIG_ERROR');
-  }
-
-  cachedSupabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-
-  return cachedSupabaseAdmin;
-}
 
 async function ensureConversationParticipant(
   conversationId: string,
@@ -520,19 +498,10 @@ chatRouter.get(
 
     const safeFilename = (parsed.filename || 'download').replace(/[\r\n/\\]+/g, '_');
 
-    const supabaseAdmin = getSupabaseAdminClient();
-    const { data, error } = await supabaseAdmin.storage
-      .from('Chat_Storage')
-      .createSignedUrl(parsed.filePath, parsed.expiresIn, {
-        download: parsed.disposition === 'attachment' ? safeFilename : false,
-      });
-
-    if (error || !data?.signedUrl) {
-      throw new ApiError(error?.message || 'Could not create signed URL', 502, 'STORAGE_ERROR');
-    }
+    const signedUrl = createSignedUrl('Chat_Storage', parsed.filePath, parsed.expiresIn);
 
     res.status(200).json({
-      signedUrl: data.signedUrl,
+      signedUrl,
       expiresIn: parsed.expiresIn,
       expiresAt: new Date(Date.now() + parsed.expiresIn * 1000).toISOString(),
       fileName: safeFilename,

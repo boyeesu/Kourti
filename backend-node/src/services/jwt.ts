@@ -129,6 +129,7 @@ export async function signIn(email: string, password: string): Promise<AuthToken
        refresh_token = $1,
        refresh_token_expires_at = $2,
        last_sign_in_at = now(),
+       login_count = COALESCE(login_count, 0) + 1,
        updated_at = now()
      WHERE id = $3`,
     [refreshHash, refreshExpires.toISOString(), user.id]

@@ -341,6 +341,47 @@ calendarRouter.patch(
   })
 );
 
+// ── External calendar sync ──────────────────────────────────────────────────
+
+const externalSyncBodySchema = z.object({
+  provider: z.enum(['google_calendar', 'microsoft_teams']),
+  action: z.enum(['list-events']),
+  timeMin: z.string().optional(),
+  timeMax: z.string().optional(),
+});
+
+calendarRouter.post(
+  '/external-sync',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = externalSyncBodySchema.parse(req.body);
+
+    // Check if user has an active integration for this provider
+    const integration = await db.query(
+      `SELECT id, access_token, refresh_token, sync_enabled
+       FROM public.user_calendar_integrations
+       WHERE user_id = $1 AND organization_id = $2 AND provider = $3 AND sync_enabled = true
+       LIMIT 1`,
+      [auth.userId, auth.organizationId, body.provider]
+    );
+
+    if (!integration.rows[0]) {
+      // No integration configured — return empty events (not an error)
+      res.status(200).json({ events: [], provider: body.provider, configured: false });
+      return;
+    }
+
+    // TODO: Implement actual Google/Microsoft API calls using stored OAuth tokens.
+    // For now, return empty events to prevent frontend errors.
+    res.status(200).json({
+      events: [],
+      provider: body.provider,
+      configured: true,
+      message: `${body.provider} sync is configured but real-time API integration is pending.`,
+    });
+  })
+);
+
 // ── Integrations (calendar sync) ────────────────────────────────────────────
 
 calendarRouter.get(

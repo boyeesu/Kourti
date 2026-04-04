@@ -30,6 +30,10 @@ import { tasksRouter } from './routes/api/tasks.js';
 import { usersRouter } from './routes/api/users.js';
 import { healthRouter } from './routes/health.js';
 import { contractsRouter } from './routes/api/contracts.js';
+import { agentsRouter } from './routes/api/agents.js';
+import { negotiationsRouter } from './routes/api/negotiations.js';
+import { playbooksRouter } from './routes/api/playbooks.js';
+import { intelligenceRouter } from './routes/api/intelligence.js';
 
 export function createApp() {
   const app = express();
@@ -78,6 +82,10 @@ export function createApp() {
   app.use('/api/v1/organizations', requireAuth, organizationsRouter);
   app.use('/api/v1/roles', requireAuth, rolesRouter);
   app.use('/api/v1/users', requireAuth, usersRouter);
+  app.use('/api/v1/agents', requireAuth, agentsRouter);
+  app.use('/api/v1/negotiations', requireAuth, negotiationsRouter);
+  app.use('/api/v1/playbooks', requireAuth, playbooksRouter);
+  app.use('/api/v1/intelligence', requireAuth, intelligenceRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

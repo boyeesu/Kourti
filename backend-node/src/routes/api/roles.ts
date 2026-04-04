@@ -15,7 +15,9 @@ rolesRouter.get(
 
     const [globals, customs] = await Promise.all([
       db
-        .query<Record<string, unknown>>('select * from public.global_roles order by role asc')
+        .query<Record<string, unknown>>(
+          'select distinct on (role) * from public.global_roles order by role asc'
+        )
         .then((result) => result.rows)
         .catch(() => []),
       db

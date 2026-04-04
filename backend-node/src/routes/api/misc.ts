@@ -298,6 +298,33 @@ miscRouter.post(
   })
 );
 
+// ── Onboarding status (combined login count + steps) ───────────────────────
+
+miscRouter.get(
+  '/onboarding-status',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+
+    const [loginResult, stepsResult] = await Promise.all([
+      db.query(`SELECT login_count FROM public.auth_users WHERE id = $1`, [auth.userId]),
+      db
+        .query(
+          `SELECT * FROM public.user_onboarding_steps WHERE user_id = $1 AND organization_id = $2 ORDER BY created_at ASC`,
+          [auth.userId, auth.organizationId]
+        )
+        .catch(() => ({ rows: [] })),
+    ]);
+
+    const loginCount = (loginResult.rows[0]?.login_count as number) ?? 0;
+
+    res.status(200).json({
+      loginCount,
+      steps: stepsResult.rows,
+      showChecklist: loginCount <= 3,
+    });
+  })
+);
+
 // ── Onboarding steps ────────────────────────────────────────────────────────
 
 miscRouter.get(
@@ -806,9 +833,174 @@ miscRouter.get(
 
 miscRouter.post(
   '/sso-config/manage',
-  asyncHandler(async (_req, res) => {
-    res
-      .status(200)
-      .json({ ok: true, message: 'SSO config management pending provider integration' });
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { action, payload } = req.body;
+
+    if (!action || !payload) {
+      return res.status(400).json({ error: 'Missing action or payload' });
+    }
+
+    const ssoKey = (await import('../../config/env.js')).env.SSO_SECRET_KEY;
+
+    switch (action) {
+      case 'create': {
+        const { provider, clientId, clientSecret, tenantId, domainHint, redirectUri, isEnabled } =
+          payload;
+        const result = await db.query(
+          `INSERT INTO public.organization_sso_configs
+            (organization_id, provider, client_id, client_secret, tenant_id, domain_hint, redirect_uri, is_enabled, created_by, updated_by)
+           VALUES ($1, $2, $3,
+             CASE WHEN $4::text IS NOT NULL THEN pgp_sym_encrypt($4::text, $8::text) ELSE NULL END,
+             $5, $6, $7, $9, $10, $10)
+           RETURNING id, organization_id, provider, client_id, tenant_id, domain_hint, redirect_uri, is_enabled,
+             client_secret IS NOT NULL AS has_client_secret,
+             CASE WHEN client_secret IS NOT NULL THEN '••••••••' ELSE NULL END AS client_secret_masked,
+             created_by, updated_by, created_at, updated_at`,
+          [
+            auth.organizationId,
+            provider,
+            clientId,
+            clientSecret || null,
+            tenantId || null,
+            domainHint || null,
+            redirectUri || null,
+            ssoKey,
+            isEnabled ?? false,
+            auth.userId,
+          ]
+        );
+        return res.status(200).json({ data: result.rows[0] });
+      }
+
+      case 'update': {
+        const { id, clientId, clientSecret, tenantId, domainHint, redirectUri, isEnabled } =
+          payload;
+        const result = await db.query(
+          `UPDATE public.organization_sso_configs
+           SET
+             client_id = COALESCE($2, client_id),
+             client_secret = CASE WHEN $3::text IS NOT NULL AND $3::text != '' THEN pgp_sym_encrypt($3::text, $8::text) ELSE client_secret END,
+             tenant_id = $4,
+             domain_hint = $5,
+             redirect_uri = $6,
+             is_enabled = COALESCE($7, is_enabled),
+             updated_by = $9,
+             updated_at = timezone('utc', now())
+           WHERE id = $1 AND organization_id = $10
+           RETURNING id, organization_id, provider, client_id, tenant_id, domain_hint, redirect_uri, is_enabled,
+             client_secret IS NOT NULL AS has_client_secret,
+             CASE WHEN client_secret IS NOT NULL THEN '••••••••' ELSE NULL END AS client_secret_masked,
+             created_by, updated_by, created_at, updated_at`,
+          [
+            id,
+            clientId,
+            clientSecret || null,
+            tenantId ?? null,
+            domainHint ?? null,
+            redirectUri ?? null,
+            isEnabled,
+            ssoKey,
+            auth.userId,
+            auth.organizationId,
+          ]
+        );
+        if (result.rows.length === 0) {
+          return res.status(404).json({ error: 'SSO config not found' });
+        }
+        return res.status(200).json({ data: result.rows[0] });
+      }
+
+      case 'delete': {
+        const { id } = payload;
+        await db.query(
+          `DELETE FROM public.organization_sso_configs WHERE id = $1 AND organization_id = $2`,
+          [id, auth.organizationId]
+        );
+        return res.status(200).json({ data: true });
+      }
+
+      case 'rotate': {
+        const { id, clientSecret } = payload;
+        if (!clientSecret) {
+          return res.status(400).json({ error: 'clientSecret is required for rotation' });
+        }
+        const result = await db.query(
+          `UPDATE public.organization_sso_configs
+           SET client_secret = pgp_sym_encrypt($2::text, $3::text),
+               updated_by = $4, updated_at = timezone('utc', now())
+           WHERE id = $1 AND organization_id = $5
+           RETURNING id, organization_id, provider, client_id, tenant_id, domain_hint, redirect_uri, is_enabled,
+             client_secret IS NOT NULL AS has_client_secret,
+             CASE WHEN client_secret IS NOT NULL THEN '••••••••' ELSE NULL END AS client_secret_masked,
+             created_by, updated_by, created_at, updated_at`,
+          [id, clientSecret, ssoKey, auth.userId, auth.organizationId]
+        );
+        if (result.rows.length === 0) {
+          return res.status(404).json({ error: 'SSO config not found' });
+        }
+        return res.status(200).json({ data: result.rows[0] });
+      }
+
+      case 'test': {
+        const { id } = payload;
+        const configResult = await db.query(
+          `SELECT id, provider, client_id, tenant_id, domain_hint, redirect_uri, is_enabled,
+                  client_secret IS NOT NULL AS has_client_secret
+           FROM public.organization_sso_configs
+           WHERE id = $1 AND organization_id = $2`,
+          [id, auth.organizationId]
+        );
+        if (configResult.rows.length === 0) {
+          return res.status(200).json({
+            data: { success: false, message: 'SSO configuration not found.' },
+          });
+        }
+        const config = configResult.rows[0];
+        const errors: string[] = [];
+
+        if (!config.client_id) errors.push('Client ID is missing');
+        if (!config.has_client_secret) errors.push('Client secret is not set');
+        if (!config.redirect_uri) errors.push('Redirect URI is missing');
+        if (config.provider === 'microsoft' && !config.tenant_id)
+          errors.push('Tenant ID is required for Microsoft Entra ID');
+
+        if (errors.length > 0) {
+          return res.status(200).json({
+            data: {
+              success: false,
+              message: 'Configuration has issues that need to be resolved.',
+              errors,
+              config: {
+                provider: config.provider,
+                client_id: config.client_id,
+                redirect_uri: config.redirect_uri,
+                tenant_id: config.tenant_id,
+                domain_hint: config.domain_hint,
+                is_enabled: config.is_enabled,
+              },
+            },
+          });
+        }
+
+        return res.status(200).json({
+          data: {
+            success: true,
+            message: `${config.provider === 'google' ? 'Google Workspace' : 'Microsoft Entra ID'} configuration looks valid. All required fields are present.`,
+            config: {
+              provider: config.provider,
+              client_id: config.client_id,
+              redirect_uri: config.redirect_uri,
+              tenant_id: config.tenant_id,
+              domain_hint: config.domain_hint,
+              is_enabled: config.is_enabled,
+            },
+          },
+        });
+      }
+
+      default:
+        return res.status(400).json({ error: `Unknown action: ${action}` });
+    }
   })
 );

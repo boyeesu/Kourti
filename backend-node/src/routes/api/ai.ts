@@ -1,10 +1,13 @@
 import { Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import { env } from '../../config/env.js';
 import { db } from '../../db/pool.js';
-import { requestChatCompletion } from '../../lib/openai.js';
+import {
+  requestChatCompletion,
+  streamChatCompletion,
+  generateEmbedding,
+  generateEmbeddingsBatch,
+} from '../../lib/openai.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { checkRateLimit } from '../../lib/rateLimit.js';
 
@@ -41,6 +44,7 @@ const reamAssistantRequestSchema = z.object({
       documentContent: z.string().max(100_000).optional(),
     })
     .optional(),
+  stream: z.boolean().optional(),
 });
 
 const ragSearchRequestSchema = z.object({
@@ -91,28 +95,45 @@ function buildPrompt(text: string, analysisType: string, goal?: string) {
 
 export const aiRouter = Router();
 
-let cachedSupabaseAdmin: ReturnType<typeof createClient> | null = null;
+// ── Chunking utility ────────────────────────────────────────────────────────
 
-function getSupabaseAdminClient() {
-  if (cachedSupabaseAdmin) {
-    return cachedSupabaseAdmin;
-  }
+const CHUNK_MAX_TOKENS = 600;
+const CHUNK_OVERLAP_TOKENS = 80;
 
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new ApiError('Supabase function integration is not configured', 503, 'CONFIG_ERROR');
-  }
-
-  cachedSupabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-
-  return cachedSupabaseAdmin;
+function estimateTokens(text: string): number {
+  return Math.ceil(text.split(/\s+/).filter(Boolean).length * 1.4);
 }
 
-type FallbackChunkRow = {
+function chunkText(
+  text: string,
+  maxTokens = CHUNK_MAX_TOKENS,
+  overlapTokens = CHUNK_OVERLAP_TOKENS
+): string[] {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const sentence of sentences) {
+    const candidate = current ? `${current} ${sentence}` : sentence;
+    if (estimateTokens(candidate) > maxTokens && current) {
+      chunks.push(current.trim());
+      // Overlap: keep the tail of the current chunk
+      const words = current.split(/\s+/);
+      const overlapWords = Math.floor(overlapTokens / 1.4);
+      current = words.slice(-overlapWords).join(' ') + ' ' + sentence;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current.trim()) {
+    chunks.push(current.trim());
+  }
+  return chunks;
+}
+
+// ── RAG search helpers ──────────────────────────────────────────────────────
+
+type ChunkRow = {
   id: string;
   document_id: string | null;
   contract_id: string | null;
@@ -122,7 +143,85 @@ type FallbackChunkRow = {
   contract_title: string | null;
 };
 
-async function fallbackRagSearch(query: string, organizationId: string, limit: number) {
+function escapeIlike(str: string): string {
+  return str.replace(/[%_\\]/g, '\\$&');
+}
+
+type RagResult = {
+  id: string;
+  document_id: string | null;
+  contract_id: string | null;
+  content: string;
+  similarity: number;
+  metadata: Record<string, unknown>;
+  documentName: string;
+  documentType: string;
+};
+
+/**
+ * Vector-based RAG search using pgvector. Falls back to text search if
+ * pgvector is not available or embedding generation fails.
+ */
+async function ragSearch(
+  query: string,
+  organizationId: string,
+  limit: number,
+  matchThreshold = 0.6
+): Promise<RagResult[]> {
+  // Try vector search first
+  try {
+    const queryEmbedding = await generateEmbedding(query);
+    const vectorStr = `[${queryEmbedding.join(',')}]`;
+
+    const sql = `
+      SELECT
+        dc.id,
+        dc.document_id,
+        dc.contract_id,
+        dc.content,
+        dc.metadata,
+        1 - (dc.embedding <=> $1::vector) AS similarity,
+        d.name AS document_name,
+        c.title AS contract_title
+      FROM public.document_chunks dc
+      LEFT JOIN public.documents d ON d.id = dc.document_id
+      LEFT JOIN public.contracts c ON c.id = dc.contract_id
+      WHERE dc.organization_id = $2
+        AND dc.embedding IS NOT NULL
+        AND 1 - (dc.embedding <=> $1::vector) > $3
+      ORDER BY dc.embedding <=> $1::vector
+      LIMIT $4
+    `;
+
+    const result = await db.query<ChunkRow & { similarity: number }>(sql, [
+      vectorStr,
+      organizationId,
+      matchThreshold,
+      limit,
+    ]);
+
+    if (result.rows.length > 0) {
+      return result.rows.map((row) => ({
+        id: row.id,
+        document_id: row.document_id,
+        contract_id: row.contract_id,
+        content: row.content,
+        similarity: row.similarity,
+        metadata: (row.metadata as Record<string, unknown>) || {},
+        documentName: row.document_id
+          ? row.document_name || 'Unknown Document'
+          : row.contract_title || 'Unknown Contract',
+        documentType: row.document_id ? 'document' : 'contract',
+      }));
+    }
+  } catch {
+    // pgvector not available or embedding failed — fall through to text search
+  }
+
+  return textRagSearch(query, organizationId, limit);
+}
+
+async function textRagSearch(query: string, organizationId: string, limit: number) {
   const sql = `
     select
       dc.id,
@@ -142,9 +241,9 @@ async function fallbackRagSearch(query: string, organizationId: string, limit: n
   `;
 
   const rows = await db
-    .query<FallbackChunkRow>(sql, [organizationId, `%${query}%`, limit])
+    .query<ChunkRow>(sql, [organizationId, `%${escapeIlike(query)}%`, limit])
     .then((result) => result.rows)
-    .catch(() => [] as FallbackChunkRow[]);
+    .catch(() => [] as ChunkRow[]);
 
   return rows.map((row) => ({
     id: row.id,
@@ -348,23 +447,49 @@ aiRouter.post(
       throw new ApiError('Invalid file path for organization', 403, 'FORBIDDEN_FILE_PATH');
     }
 
-    const supabaseAdmin = getSupabaseAdminClient();
-    const response = await supabaseAdmin.functions.invoke('extract-document-text', {
-      body: {
-        documentId: parsed.documentId,
-        filePath: parsed.filePath,
-      },
-    });
+    // Try to get stored content from the documents table
+    const docResult = await db.query<{ content: string | null }>(
+      `SELECT content FROM public.documents WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [parsed.documentId, auth.organizationId]
+    );
 
-    if (response.error) {
-      throw new ApiError(
-        response.error.message || 'Failed to extract document text',
-        502,
-        'UPSTREAM_ERROR'
-      );
+    const content = docResult.rows[0]?.content;
+    if (content && content.trim()) {
+      res.status(200).json({ success: true, content });
+      return;
     }
 
-    res.status(200).json(response.data || { success: false, error: 'No extraction response' });
+    // Try contract terms
+    const contractResult = await db.query<{ terms: string | null }>(
+      `SELECT terms FROM public.contracts WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [parsed.documentId, auth.organizationId]
+    );
+
+    const terms = contractResult.rows[0]?.terms;
+    if (terms && terms.trim()) {
+      res.status(200).json({ success: true, content: terms });
+      return;
+    }
+
+    // Check if we have any processed chunks for this document
+    const chunksResult = await db.query<{ content: string }>(
+      `SELECT content FROM public.document_chunks
+       WHERE (document_id = $1 OR contract_id = $1) AND organization_id = $2
+       ORDER BY chunk_index ASC`,
+      [parsed.documentId, auth.organizationId]
+    );
+
+    if (chunksResult.rows.length > 0) {
+      const reconstructed = chunksResult.rows.map((r) => r.content).join('\n\n');
+      res.status(200).json({ success: true, content: reconstructed });
+      return;
+    }
+
+    res.status(200).json({
+      success: false,
+      error: 'No text content available. Upload a text-based document (TXT, DOCX) for extraction.',
+      warning: 'PDF server-side extraction requires the document to be re-uploaded as text.',
+    });
   })
 );
 
@@ -384,28 +509,12 @@ aiRouter.post(
       throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
     }
 
-    let results: Array<Record<string, unknown>> = [];
-
-    try {
-      const supabaseAdmin = getSupabaseAdminClient();
-      const response = await supabaseAdmin.functions.invoke('rag-search', {
-        body: {
-          query: parsed.query,
-          matchThreshold: parsed.matchThreshold ?? 0.6,
-          matchCount: limit,
-        },
-      });
-
-      if (!response.error && response.data?.success && Array.isArray(response.data.results)) {
-        results = response.data.results;
-      }
-    } catch {
-      // Ignore and fallback to SQL text search
-    }
-
-    if (!results.length) {
-      results = await fallbackRagSearch(parsed.query, auth.organizationId, limit);
-    }
+    const results = await ragSearch(
+      parsed.query,
+      auth.organizationId,
+      limit,
+      parsed.matchThreshold ?? 0.6
+    );
 
     res.status(200).json({
       success: true,
@@ -430,30 +539,67 @@ aiRouter.post(
       throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
     }
 
-    const supabaseAdmin = getSupabaseAdminClient();
-    const response = await supabaseAdmin.functions.invoke('process-document-chunks', {
-      body: {
-        documentId: parsed.documentId,
-        contractId: parsed.contractId,
-        content: parsed.content,
-        documentType: parsed.documentType,
-        organizationId: auth.organizationId,
-      },
+    // Delete existing chunks before re-processing to prevent duplicates
+    const entityCol = parsed.documentId ? 'document_id' : 'contract_id';
+    const entityId = parsed.documentId || parsed.contractId;
+    await db
+      .query(
+        `DELETE FROM public.document_chunks WHERE ${entityCol} = $1 AND organization_id = $2`,
+        [entityId, auth.organizationId]
+      )
+      .catch(() => {
+        // Table may not exist yet; ignore
+      });
+
+    // Chunk the document text
+    const chunks = chunkText(parsed.content);
+
+    // Generate embeddings in batches of 20
+    const BATCH_SIZE = 20;
+    let chunksProcessed = 0;
+
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+      const batch = chunks.slice(i, i + BATCH_SIZE);
+
+      let embeddings: number[][] | null = null;
+      try {
+        embeddings = await generateEmbeddingsBatch(batch);
+      } catch {
+        // Embedding generation failed — store chunks without embeddings
+      }
+
+      for (let j = 0; j < batch.length; j++) {
+        const chunkIndex = i + j;
+        const embedding = embeddings?.[j] ?? null;
+        const embeddingStr = embedding ? `[${embedding.join(',')}]` : null;
+
+        await db.query(
+          `INSERT INTO public.document_chunks
+            (document_id, contract_id, organization_id, content, chunk_index, embedding, token_count, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6::vector, $7, $8)`,
+          [
+            parsed.documentId || null,
+            parsed.contractId || null,
+            auth.organizationId,
+            batch[j],
+            chunkIndex,
+            embeddingStr,
+            estimateTokens(batch[j]),
+            JSON.stringify({
+              documentType: parsed.documentType,
+              processedAt: new Date().toISOString(),
+            }),
+          ]
+        );
+        chunksProcessed++;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      chunksProcessed,
+      totalChunks: chunks.length,
     });
-
-    if (response.error) {
-      throw new ApiError(
-        response.error.message || 'Failed to process document',
-        502,
-        'UPSTREAM_ERROR'
-      );
-    }
-
-    if (!response.data) {
-      throw new ApiError('No response from processing function', 502, 'UPSTREAM_ERROR');
-    }
-
-    res.status(200).json(response.data);
   })
 );
 
@@ -472,11 +618,26 @@ aiRouter.post(
       throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
     }
 
+    // Auto-search RAG knowledge base for relevant context (unless inline document content is provided)
+    let ragContext = '';
+    if (!parsed.context?.documentContent) {
+      try {
+        const ragResults = await ragSearch(parsed.message, auth.organizationId, 5);
+        if (ragResults.length > 0) {
+          ragContext = ragResults
+            .map((r) => `[Source: ${r.documentName}]\n${r.content}`)
+            .join('\n\n---\n\n');
+        }
+      } catch {
+        // RAG search failure should not block the assistant response
+      }
+    }
+
     const messages = [
       {
         role: 'system' as const,
         content:
-          'You are REAM AI, a legal assistant. Provide concise, practical, and risk-aware legal guidance. If information is missing, clearly state assumptions.',
+          'You are REAM AI, a legal assistant. Provide concise, practical, and risk-aware legal guidance. If information is missing, clearly state assumptions. When referencing knowledge base context, cite the source document name.',
       },
       {
         role: 'system' as const,
@@ -490,12 +651,49 @@ aiRouter.post(
             },
           ]
         : []),
+      ...(ragContext
+        ? [
+            {
+              role: 'system' as const,
+              content: `Relevant context from the organization's knowledge base:\n${ragContext}`,
+            },
+          ]
+        : []),
       ...(parsed.conversationHistory ?? []).slice(-12),
       {
         role: 'user' as const,
         content: parsed.message,
       },
     ];
+
+    // Stream response via SSE when requested
+    if (parsed.stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
+
+      try {
+        const completion = await streamChatCompletion(
+          messages,
+          (delta) => {
+            res.write(`data: ${JSON.stringify({ type: 'delta', content: delta })}\n\n`);
+          },
+          3000
+        );
+
+        res.write(
+          `data: ${JSON.stringify({ type: 'done', tokensUsed: completion.tokensUsed, modelUsed: completion.modelUsed })}\n\n`
+        );
+        res.end();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Streaming failed';
+        res.write(`data: ${JSON.stringify({ type: 'error', error: msg })}\n\n`);
+        res.end();
+      }
+      return;
+    }
 
     const completion = await requestChatCompletion(messages, 3000);
 
@@ -529,7 +727,7 @@ aiRouter.post(
         content:
           'You are an expert legal AI assistant. Provide concise, practical, and risk-aware guidance based only on the supplied content.',
       },
-      ...(parsed.conversationHistory ?? []).slice(-10),
+      ...(parsed.conversationHistory ?? []).slice(-12),
       ...(parsed.ragContext
         ? [
             {
@@ -645,7 +843,73 @@ aiRouter.post(
 aiRouter.post(
   '/generate-embeddings',
   asyncHandler(async (req, res) => {
-    // Placeholder -- embedding generation pending vector store integration
-    res.status(200).json({ success: true, message: 'Embedding generation pending integration' });
+    const body = z
+      .object({
+        documentId: z.string().uuid().optional(),
+        contractId: z.string().uuid().optional(),
+        documentType: z.enum(['document', 'contract']).default('document'),
+        content: z.string().min(1).max(800_000),
+      })
+      .refine((v) => v.documentId || v.contractId, {
+        message: 'documentId or contractId is required',
+      })
+      .parse(req.body);
+    const auth = req.auth!;
+
+    const rate = checkRateLimit(auth.userId, 20, 60_000);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', String(rate.retryAfter));
+      throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
+    }
+
+    // Delete existing chunks then chunk + embed directly
+    const entityCol = body.documentId ? 'document_id' : 'contract_id';
+    const entityId = body.documentId || body.contractId;
+    await db
+      .query(
+        `DELETE FROM public.document_chunks WHERE ${entityCol} = $1 AND organization_id = $2`,
+        [entityId, auth.organizationId]
+      )
+      .catch(() => undefined);
+
+    const chunks = chunkText(body.content);
+    let chunksProcessed = 0;
+    const BATCH_SIZE = 20;
+
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+      const batch = chunks.slice(i, i + BATCH_SIZE);
+      let embeddings: number[][] | null = null;
+      try {
+        embeddings = await generateEmbeddingsBatch(batch);
+      } catch {
+        // Store without embeddings
+      }
+
+      for (let j = 0; j < batch.length; j++) {
+        const embedding = embeddings?.[j] ?? null;
+        const embeddingStr = embedding ? `[${embedding.join(',')}]` : null;
+        await db.query(
+          `INSERT INTO public.document_chunks
+            (document_id, contract_id, organization_id, content, chunk_index, embedding, token_count, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6::vector, $7, $8)`,
+          [
+            body.documentId || null,
+            body.contractId || null,
+            auth.organizationId,
+            batch[j],
+            i + j,
+            embeddingStr,
+            estimateTokens(batch[j]),
+            JSON.stringify({
+              documentType: body.documentType,
+              processedAt: new Date().toISOString(),
+            }),
+          ]
+        );
+        chunksProcessed++;
+      }
+    }
+
+    res.status(200).json({ success: true, chunksProcessed });
   })
 );

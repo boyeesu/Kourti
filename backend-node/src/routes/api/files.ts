@@ -14,7 +14,7 @@ import {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 26 * 1024 * 1024 }, // 26MB max (matches Supabase documents bucket)
+  limits: { fileSize: 26 * 1024 * 1024 }, // 26MB max
 });
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);

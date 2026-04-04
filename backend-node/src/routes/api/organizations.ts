@@ -23,6 +23,22 @@ const createDefaultOrganizationSchema = z.object({
 
 export const organizationsRouter = Router();
 
+// Check if org has any enabled SSO config
+organizationsRouter.get(
+  '/sso-status',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const result = await db.query(
+      `SELECT EXISTS(
+        SELECT 1 FROM public.organization_sso_configs
+        WHERE organization_id = $1 AND is_enabled = true
+      ) AS has_sso`,
+      [auth.organizationId]
+    );
+    res.json({ hasSso: result.rows[0]?.has_sso ?? false });
+  })
+);
+
 organizationsRouter.post(
   '/create-default',
   asyncHandler(async (req, res) => {
@@ -203,7 +219,7 @@ organizationsRouter.get(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
 
-    // Combine profiles + invitations (like the Supabase RPC get_organization_users)
+    // Combine profiles + pending invitations
     const [profiles, invitations] = await Promise.all([
       db.query(
         `

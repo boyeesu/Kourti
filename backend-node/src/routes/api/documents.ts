@@ -1,10 +1,9 @@
 import { Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import { env } from '../../config/env.js';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { createSignedUrl } from '../../services/storage.js';
 
 const listDocumentsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -47,27 +46,6 @@ const updateDocumentBodySchema = createDocumentBodySchema.partial().extend({
 });
 
 export const documentsRouter = Router();
-
-let cachedStorageClient: ReturnType<typeof createClient> | null = null;
-
-function getStorageClient() {
-  if (cachedStorageClient) {
-    return cachedStorageClient;
-  }
-
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new ApiError('Supabase storage is not configured', 503, 'CONFIG_ERROR');
-  }
-
-  cachedStorageClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-
-  return cachedStorageClient;
-}
 
 type DocumentFileRow = {
   id: string;
@@ -306,7 +284,6 @@ documentsRouter.get(
     const organizationId = req.auth!.organizationId;
 
     const document = await getAuthorizedDocumentFile(id, organizationId);
-    const supabaseStorage = getStorageClient();
 
     const originalFilename =
       filename ||
@@ -316,18 +293,10 @@ documentsRouter.get(
 
     const safeFilename = originalFilename.replace(/[\r\n/\\]+/g, '_');
 
-    const { data, error } = await supabaseStorage.storage
-      .from('documents')
-      .createSignedUrl(document.file_path, expiresIn, {
-        download: disposition === 'attachment' ? safeFilename : false,
-      });
-
-    if (error || !data?.signedUrl) {
-      throw new ApiError(error?.message || 'Could not create signed URL', 502, 'STORAGE_ERROR');
-    }
+    const signedUrl = createSignedUrl('documents', document.file_path, expiresIn);
 
     res.status(200).json({
-      signedUrl: data.signedUrl,
+      signedUrl,
       expiresIn,
       expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
       fileName: safeFilename,

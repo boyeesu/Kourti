@@ -113,8 +113,9 @@ notificationsRouter.get(
       clauses.push(`type = $${values.length}`);
     }
 
+    // archived_at column may not exist on all deployments — skip filter if not available
     if (archived !== undefined) {
-      clauses.push(archived ? 'archived_at is not null' : 'archived_at is null');
+      clauses.push(archived ? "status = 'archived'" : "status != 'archived'");
     }
 
     if (search) {
@@ -150,7 +151,6 @@ notificationsRouter.get(
       where organization_id = $1
         and user_id = $2
         and status = 'unread'
-        and archived_at is null
       `,
       [auth.organizationId, targetUserId]
     );
@@ -165,31 +165,36 @@ notificationsRouter.post(
     const auth = req.auth!;
     const body = createNotificationBodySchema.parse(req.body);
 
-    const result = await db.query(
-      `
-      insert into public.notifications (
-        user_id,
-        organization_id,
-        title,
-        description,
-        type,
-        status,
-        created_at,
-        updated_at
-      )
-      values ($1, $2, $3, $4, $5, 'unread', now(), now())
-      returning *
-      `,
-      [
-        body.user_id || auth.userId,
-        auth.organizationId,
-        body.title,
-        body.description || null,
-        body.type,
-      ]
-    );
+    try {
+      const result = await db.query(
+        `
+        insert into public.notifications (
+          user_id,
+          organization_id,
+          title,
+          description,
+          type,
+          status,
+          created_at
+        )
+        values ($1, $2, $3, $4, $5, 'unread', now())
+        returning *
+        `,
+        [
+          body.user_id || auth.userId,
+          auth.organizationId,
+          body.title,
+          body.description || null,
+          body.type,
+        ]
+      );
 
-    res.status(201).json(result.rows[0]);
+      res.status(201).json(result.rows[0]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[notifications] POST / error:', message);
+      res.status(500).json({ error: 'Failed to create notification', detail: message });
+    }
   })
 );
 
@@ -253,14 +258,7 @@ notificationsRouter.patch(
     const result = await db.query(
       `
       update public.notifications
-      set
-        status = $1,
-        archived_at = case
-          when $1 = 'archived' then coalesce(archived_at, now())
-          when $1 in ('read', 'unread') then null
-          else archived_at
-        end,
-        updated_at = now()
+      set status = $1
       where id = $2
         and organization_id = $3
       returning *
@@ -284,11 +282,10 @@ notificationsRouter.post(
     const result = await db.query(
       `
       update public.notifications
-      set status = 'read', updated_at = now()
+      set status = 'read'
       where organization_id = $1
         and user_id = $2
         and status = 'unread'
-        and archived_at is null
       `,
       [auth.organizationId, auth.userId]
     );
