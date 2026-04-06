@@ -66,6 +66,7 @@ export default function ContractCompare() {
           primaryText,
           comparisonText,
         },
+        timeout: 120_000,
       });
 
       setResults(data);

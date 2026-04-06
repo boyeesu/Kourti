@@ -384,6 +384,88 @@ function FindingCard({
   );
 }
 
+// --- Document text formatter ---
+
+/**
+ * Renders extracted document text with proper formatting:
+ * - Detects section headings (numbered sections, ALL CAPS lines)
+ * - Adds paragraph spacing between blocks
+ * - Preserves numbered/lettered list structure
+ */
+function FormattedDocumentText({ text }: { text: string }) {
+  if (!text) return null;
+
+  const paragraphs = text.split(/\n{2,}|\r\n\r\n/);
+
+  if (paragraphs.length <= 1) {
+    // Single block — try to split on single newlines or detect run-on sections
+    const lines = text.split(/\n/);
+    if (lines.length <= 1) {
+      // Truly flat text — try to split on sentence boundaries near section patterns
+      const sections = text.split(
+        /(?=(?:^|\s)(?:\d+\.(?:\d+\.?)*\s|ARTICLE\s|SECTION\s|CLAUSE\s|SCHEDULE\s|EXHIBIT\s|APPENDIX\s))/i
+      );
+      if (sections.length > 1) {
+        return (
+          <>
+            {sections.map((section, i) => (
+              <span key={i}>
+                {i > 0 && <span className="block mt-4" />}
+                <DocumentLine text={section.trim()} />
+              </span>
+            ))}
+          </>
+        );
+      }
+      return <span className="whitespace-pre-wrap">{text}</span>;
+    }
+
+    return (
+      <>
+        {lines.map((line, i) => (
+          <span key={i}>
+            {i > 0 && <br />}
+            <DocumentLine text={line} />
+          </span>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {paragraphs.map((para, i) => (
+        <span key={i} className="block mb-3">
+          <DocumentLine text={para.trim()} />
+        </span>
+      ))}
+    </>
+  );
+}
+
+function DocumentLine({ text }: { text: string }) {
+  if (!text) return null;
+
+  // Section headings: "1. TITLE", "ARTICLE I", "SECTION 4.2", all-caps lines
+  const isHeading =
+    /^(?:\d+\.(?:\d+\.?)*\s+[A-Z])/.test(text) ||
+    /^(?:ARTICLE|SECTION|CLAUSE|SCHEDULE|EXHIBIT|APPENDIX)\s/i.test(text) ||
+    (text.length < 80 && text === text.toUpperCase() && /[A-Z]/.test(text));
+
+  if (isHeading) {
+    const headingText = text.split('\n')[0];
+    const rest = text.slice(headingText.length).trim();
+    return (
+      <>
+        <span className="block font-semibold text-foreground mt-4 mb-1">{headingText}</span>
+        {rest && <span className="whitespace-pre-wrap">{rest}</span>}
+      </>
+    );
+  }
+
+  return <span className="whitespace-pre-wrap">{text}</span>;
+}
+
 // --- Document viewer with highlights ---
 
 function HighlightedDocument({
@@ -590,39 +672,41 @@ function HighlightedDocument({
       <ScrollArea className="flex-1">
         <div
           ref={containerRef}
-          className="px-6 py-4 text-sm leading-relaxed whitespace-pre-wrap font-[system-ui]"
+          className="px-6 py-4 text-sm leading-relaxed font-[system-ui] contract-document"
         >
-          {highlightedContent
-            ? highlightedContent.map((segment, i) =>
-                segment.match ? (
-                  <TooltipProvider key={i}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <mark
-                          data-finding-id={segment.match.findingId}
-                          className={cn(
-                            'cursor-pointer rounded-sm px-0.5 transition-all inline',
-                            activeFindingId === segment.match.findingId
-                              ? activeHighlightColorMap[segment.match.severity]
-                              : highlightColorMap[segment.match.severity]
-                          )}
-                          onClick={() => onSelectFinding(segment.match!.findingId)}
-                        >
-                          {segment.text}
-                        </mark>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">
-                        <p className="text-xs">
-                          {findings.find((f) => f.id === segment.match!.findingId)?.title}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <span key={i}>{segment.text}</span>
-                )
+          {highlightedContent ? (
+            highlightedContent.map((segment, i) =>
+              segment.match ? (
+                <TooltipProvider key={i}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <mark
+                        data-finding-id={segment.match.findingId}
+                        className={cn(
+                          'cursor-pointer rounded-sm px-0.5 transition-all inline',
+                          activeFindingId === segment.match.findingId
+                            ? activeHighlightColorMap[segment.match.severity]
+                            : highlightColorMap[segment.match.severity]
+                        )}
+                        onClick={() => onSelectFinding(segment.match!.findingId)}
+                      >
+                        {segment.text}
+                      </mark>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs">
+                        {findings.find((f) => f.id === segment.match!.findingId)?.title}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <FormattedDocumentText key={i} text={segment.text} />
               )
-            : content}
+            )
+          ) : (
+            <FormattedDocumentText text={content} />
+          )}
         </div>
       </ScrollArea>
     </div>

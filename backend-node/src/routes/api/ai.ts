@@ -88,10 +88,38 @@ const extractDocumentTextSchema = z.object({
 });
 
 function buildPrompt(text: string, analysisType: string, goal?: string) {
-  const base = `Analyze this legal document and return clear, structured findings with practical recommendations.`;
-  const typeDirective = `Analysis type: ${analysisType}.`;
-  const goalDirective = goal ? `Goal: ${goal}` : '';
-  return [base, typeDirective, goalDirective, `Document:\n${text}`].filter(Boolean).join('\n\n');
+  const goalDirective = goal ? `\nFocus: ${goal}` : '';
+  return `Analyze this legal document (analysis type: ${analysisType}).${goalDirective}
+
+Return ONLY a JSON code block in the format below — no prose before or after.
+
+\`\`\`json
+{
+  "summary": "2-4 sentence executive summary of the document and its key risks",
+  "riskScore": 0-100,
+  "findings": [
+    {
+      "severity": "critical|warning|info|positive",
+      "title": "Short finding title (max 80 chars)",
+      "description": "Detailed explanation of why this matters and the legal implication",
+      "matchText": "Exact quote from the document this finding references (copy verbatim, 20-200 chars)",
+      "recommendation": "Specific actionable suggestion to address the issue",
+      "section": "Section/clause reference if identifiable (e.g. 'Section 4.2', 'Clause 7')",
+      "category": "One of: Liability, Termination, Payment, IP, Confidentiality, Non-Compete, Indemnification, Compliance, Force Majeure, General"
+    }
+  ]
+}
+\`\`\`
+
+Rules:
+- matchText MUST be an exact verbatim substring from the document (not paraphrased)
+- Include 5-15 findings covering the most important issues
+- Use "critical" sparingly — only for genuinely dangerous clauses
+- Every finding must have a recommendation
+- Categories should reflect the actual clause topic
+
+Document:
+${text}`;
 }
 
 export const aiRouter = Router();

@@ -31,6 +31,7 @@ async function callContractAnalysis(text: string, analysisType: AnalysisType): P
   }>('/api/v1/ai/advanced-contract-analysis', {
     method: 'POST',
     body: advancedPayload,
+    timeout: 120_000,
   });
 
   if (nodeResponse.error) {
