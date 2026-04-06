@@ -11,7 +11,9 @@ import { hydrateRateLimits } from './lib/rateLimit.js';
 import './agents/matterReview.js';
 import './agents/monitorScheduler.js';
 import './agents/intelligenceSynthesis.js';
+import './agents/weeklyDigest.js';
 import { startMonitorScheduler } from './agents/monitorScheduler.js';
+import { startWeeklyDigestScheduler } from './agents/weeklyDigest.js';
 
 const app = createApp();
 const server = createServer(app);
@@ -35,6 +37,7 @@ async function start() {
   try {
     await startAgentWorker();
     await startMonitorScheduler();
+    await startWeeklyDigestScheduler();
   } catch (error) {
     console.error(
       'Agent worker startup failed (server will still start):',

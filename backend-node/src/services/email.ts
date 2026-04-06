@@ -5,6 +5,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || 'noreply@kourti.com';
 const APP_URL = process.env.APP_URL || env.APP_URL || 'https://app.kourti.com';
 const BRAND_NAME = 'Kourti AI';
+const LOGO_URL = `${APP_URL}/kourti-dark-full.png`;
 
 let resend: Resend | null = null;
 
@@ -18,23 +19,71 @@ function getResend(): Resend {
   return resend;
 }
 
+// ── Brand colours ───────────────────────────────────────────────────────────
+
+const BRAND = {
+  primary: '#4B7FD6',
+  primaryLight: '#79A5EA',
+  accent: '#AFC8F0',
+  dark: '#09090B',
+  darkSurface: '#111318',
+  lightBg: '#F2F5F9',
+  lightText: '#1A2137',
+  mutedText: '#6b7280',
+  border: '#E5E7EB',
+  white: '#FFFFFF',
+  success: '#5FB65F',
+  warning: '#FFCC00',
+  destructive: '#FF4444',
+} as const;
+
 // ── Email templates ─────────────────────────────────────────────────────────
 
 function wrapHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>${title}</title></head>
-<body style="margin:0;padding:0;background:#f7f8fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f8fa;padding:40px 0;">
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${title}</title></head>
+<body style="margin:0;padding:0;background:${BRAND.lightBg};font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.lightBg};padding:40px 0;">
 <tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;border:1px solid #e5e7eb;">
-<tr><td>
-  <h2 style="color:#111827;font-size:22px;margin:0 0 8px;">${BRAND_NAME}</h2>
+
+<!-- Gradient accent bar -->
+<table width="600" cellpadding="0" cellspacing="0" style="border-radius:16px 16px 0 0;overflow:hidden;">
+<tr><td style="height:4px;background:linear-gradient(135deg,${BRAND.accent} 0%,${BRAND.primary} 100%);"></td></tr>
+</table>
+
+<!-- Main card -->
+<table width="600" cellpadding="0" cellspacing="0" style="background:${BRAND.white};border-radius:0 0 16px 16px;border:1px solid ${BRAND.border};border-top:none;">
+<tr><td style="padding:40px 48px;">
+
+  <!-- Logo -->
+  <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+  <tr><td>
+    <a href="${APP_URL}" style="text-decoration:none;">
+      <img src="${LOGO_URL}" alt="${BRAND_NAME}" width="140" style="display:block;height:auto;border:0;" />
+    </a>
+  </td></tr>
+  </table>
+
+  <!-- Body content -->
   ${body}
-  <p style="color:#6b7280;font-size:13px;margin:32px 0 0;border-top:1px solid #e5e7eb;padding-top:20px;">
-    &copy; ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved.
-  </p>
+
+  <!-- Footer -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:36px 0 0;border-top:1px solid ${BRAND.border};padding-top:24px;">
+  <tr><td>
+    <p style="color:${BRAND.mutedText};font-size:12px;line-height:1.5;margin:0;">
+      &copy; ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved.
+    </p>
+    <p style="color:${BRAND.mutedText};font-size:11px;line-height:1.5;margin:8px 0 0;">
+      <a href="${APP_URL}/settings" style="color:${BRAND.primary};text-decoration:none;">Manage preferences</a>
+      &nbsp;&middot;&nbsp;
+      <a href="${APP_URL}" style="color:${BRAND.primary};text-decoration:none;">Open ${BRAND_NAME}</a>
+    </p>
+  </td></tr>
+  </table>
+
 </td></tr>
 </table>
+
 </td></tr>
 </table>
 </body></html>`;
@@ -42,7 +91,7 @@ function wrapHtml(title: string, body: string): string {
 
 function ctaButton(text: string, url: string): string {
   return `<table cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td>
-    <a href="${url}" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;">${text}</a>
+    <a href="${url}" style="display:inline-block;background:${BRAND.primary};color:${BRAND.white};font-size:14px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:100px;letter-spacing:0.5px;">${text}</a>
   </td></tr></table>`;
 }
 
@@ -163,8 +212,8 @@ export async function sendNotificationEmail(
   const html = wrapHtml(
     title,
     `
-    <p style="color:#374151;font-size:15px;line-height:1.6;">Hi,</p>
-    <p style="color:#374151;font-size:15px;line-height:1.6;">${message}</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">Hi,</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">${message}</p>
     ${actionUrl ? ctaButton(actionText || 'View Details', actionUrl) : ''}
     `
   );
@@ -173,6 +222,153 @@ export async function sendNotificationEmail(
     from: `${BRAND_NAME} <${FROM_EMAIL}>`,
     to: [email.toLowerCase()],
     subject: title,
+    html,
+  });
+
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
+// ── Weekly Insights Digest ─────────────────────────────────────────────────
+
+export interface WeeklyDigestMetrics {
+  firstName?: string;
+  weekLabel: string; // e.g. "Mar 31 – Apr 6, 2026"
+  activeCases: number;
+  newCasesThisWeek: number;
+  casesClosedThisWeek: number;
+  totalPendingTasks: number;
+  tasksCompletedThisWeek: number;
+  overdueTasks: number;
+  taskCompletionRate: number; // 0–100
+  totalClients: number;
+  newClientsThisWeek: number;
+  documentsUploadedThisWeek: number;
+  activeContracts: number;
+  contractsExpiringSoon: number; // within next 30 days
+  invoicesPaidThisWeek: number;
+  revenuePaidThisWeek: number;
+  invoicesOverdue: number;
+}
+
+function metricCard(
+  label: string,
+  value: string | number,
+  subtext?: string,
+  color?: string
+): string {
+  const valueColor = color || BRAND.lightText;
+  return `
+  <td width="50%" style="padding:8px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.lightBg};border-radius:12px;padding:20px 16px;">
+    <tr><td>
+      <p style="color:${BRAND.mutedText};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 8px;">${label}</p>
+      <p style="color:${valueColor};font-size:28px;font-weight:700;margin:0;line-height:1.2;">${value}</p>
+      ${subtext ? `<p style="color:${BRAND.mutedText};font-size:12px;margin:6px 0 0;">${subtext}</p>` : ''}
+    </td></tr>
+    </table>
+  </td>`;
+}
+
+function sectionHeading(text: string): string {
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 12px;">
+  <tr>
+    <td style="width:4px;background:linear-gradient(180deg,${BRAND.accent},${BRAND.primary});border-radius:2px;"></td>
+    <td style="padding-left:12px;">
+      <p style="color:${BRAND.lightText};font-size:14px;font-weight:700;margin:0;letter-spacing:0.3px;">${text}</p>
+    </td>
+  </tr>
+  </table>`;
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function changeIndicator(value: number, label: string): string {
+  if (value === 0) return `<span style="color:${BRAND.mutedText};">No change</span>`;
+  const arrow = value > 0 ? '&#9650;' : '&#9660;';
+  const color = value > 0 ? BRAND.success : BRAND.destructive;
+  return `<span style="color:${color};font-size:12px;">${arrow} ${Math.abs(value)} ${label}</span>`;
+}
+
+export async function sendWeeklyDigestEmail(
+  email: string,
+  metrics: WeeklyDigestMetrics
+): Promise<{ messageId?: string }> {
+  const r = getResend();
+  const greeting = metrics.firstName ? `Hi ${metrics.firstName}` : 'Hi';
+
+  const body = `
+    <!-- Greeting -->
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;margin:0 0 4px;">${greeting},</p>
+    <p style="color:${BRAND.mutedText};font-size:14px;line-height:1.6;margin:0 0 8px;">Here's your weekly snapshot for <strong style="color:${BRAND.lightText};">${metrics.weekLabel}</strong></p>
+
+    <!-- Cases -->
+    ${sectionHeading('Cases')}
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      ${metricCard('Active Cases', metrics.activeCases, changeIndicator(metrics.newCasesThisWeek, 'new this week'))}
+      ${metricCard('Closed This Week', metrics.casesClosedThisWeek)}
+    </tr>
+    </table>
+
+    <!-- Tasks -->
+    ${sectionHeading('Tasks')}
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      ${metricCard('Completed', metrics.tasksCompletedThisWeek, `${metrics.taskCompletionRate}% completion rate`, BRAND.success)}
+      ${metricCard('Pending', metrics.totalPendingTasks, metrics.overdueTasks > 0 ? `${metrics.overdueTasks} overdue` : 'All on track', metrics.overdueTasks > 0 ? BRAND.warning : undefined)}
+    </tr>
+    </table>
+
+    <!-- Clients & Documents -->
+    ${sectionHeading('Clients & Documents')}
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      ${metricCard('Total Clients', metrics.totalClients, changeIndicator(metrics.newClientsThisWeek, 'new this week'))}
+      ${metricCard('Docs Uploaded', metrics.documentsUploadedThisWeek, 'This week')}
+    </tr>
+    </table>
+
+    <!-- Contracts -->
+    ${sectionHeading('Contracts')}
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      ${metricCard('Active Contracts', metrics.activeContracts)}
+      ${metricCard('Expiring Soon', metrics.contractsExpiringSoon, 'Within 30 days', metrics.contractsExpiringSoon > 0 ? BRAND.warning : undefined)}
+    </tr>
+    </table>
+
+    <!-- Revenue -->
+    ${sectionHeading('Revenue')}
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      ${metricCard('Paid This Week', formatCurrency(metrics.revenuePaidThisWeek), `${metrics.invoicesPaidThisWeek} invoice${metrics.invoicesPaidThisWeek !== 1 ? 's' : ''}`, BRAND.success)}
+      ${metricCard('Overdue Invoices', metrics.invoicesOverdue, '', metrics.invoicesOverdue > 0 ? BRAND.destructive : undefined)}
+    </tr>
+    </table>
+
+    <!-- CTA -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 0;">
+    <tr><td align="center">
+      ${ctaButton('View Full Dashboard', `${APP_URL}/dashboard`)}
+    </td></tr>
+    </table>
+  `;
+
+  const html = wrapHtml(`Your Weekly Insights — ${metrics.weekLabel}`, body);
+
+  const { data, error } = await r.emails.send({
+    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+    to: [email.toLowerCase()],
+    subject: `Your Week in Review — ${metrics.weekLabel}`,
     html,
   });
 

@@ -8,6 +8,7 @@ import {
   sendInvitationEmail,
   sendWelcomeEmail,
 } from '../../services/email.js';
+import { triggerDigestForUser, gatherMetrics } from '../../agents/weeklyDigest.js';
 
 const uuidLikeSchema = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -469,5 +470,43 @@ notificationsRouter.post(
       console.error('Invitation email failed:', err instanceof Error ? err.message : err);
       res.status(200).json({ ok: true, message: 'Email queued' });
     }
+  })
+);
+
+// ── Weekly digest ──────────────────────────────────────────────────────────
+
+notificationsRouter.post(
+  '/weekly-digest',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+
+    // Get the requesting user's email and name
+    const userResult = await db.query(
+      `select au.email, p.first_name
+       from public.auth_users au
+       left join public.profiles p on p.user_id = au.id and p.organization_id = $2
+       where au.id = $1
+       limit 1`,
+      [auth.userId, auth.organizationId]
+    );
+
+    const user = userResult.rows[0] as { email: string; first_name?: string } | undefined;
+    if (!user?.email) {
+      throw new ApiError('User email not found', 404, 'NOT_FOUND');
+    }
+
+    await triggerDigestForUser(auth.userId, auth.organizationId, user.email, user.first_name);
+
+    res.status(202).json({ ok: true, message: 'Weekly digest queued' });
+  })
+);
+
+notificationsRouter.get(
+  '/weekly-digest/preview',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+
+    const metrics = await gatherMetrics(auth.organizationId, auth.userId);
+    res.status(200).json(metrics);
   })
 );
