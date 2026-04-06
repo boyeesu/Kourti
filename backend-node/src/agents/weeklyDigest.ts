@@ -128,16 +128,17 @@ async function gatherMetrics(
        where organization_id = $1 and status = 'closed' and updated_at >= now() - interval '7 days'`,
       [orgId]
     ),
-    // Tasks summary
+    // Tasks summary (tasks linked via case_id → cases.organization_id)
     db.query(
       `select
          count(*)::int as total,
-         count(*) filter (where completed = true)::int as completed_total,
-         count(*) filter (where completed = true and updated_at >= now() - interval '7 days')::int as completed_week,
-         count(*) filter (where completed = false)::int as pending,
-         count(*) filter (where completed = false and due_date < now())::int as overdue
-       from public.tasks
-       where organization_id = $1`,
+         count(*) filter (where t.completed = true)::int as completed_total,
+         count(*) filter (where t.completed = true and t.updated_at >= now() - interval '7 days')::int as completed_week,
+         count(*) filter (where t.completed = false)::int as pending,
+         count(*) filter (where t.completed = false and t.due_date < now())::int as overdue
+       from public.tasks t
+       join public.cases c on c.id = t.case_id
+       where c.organization_id = $1`,
       [orgId]
     ),
     // Total clients
