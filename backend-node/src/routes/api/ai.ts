@@ -15,6 +15,7 @@ const analysisRequestSchema = z.object({
   text: z.string().min(1).max(200_000),
   analysisType: z.enum(['summarize', 'general', 'risk', 'extract', 'compare']).default('general'),
   goal: z.string().optional(),
+  stream: z.boolean().optional(),
   conversationHistory: z
     .array(
       z.object({
@@ -741,6 +742,34 @@ aiRouter.post(
         content: buildPrompt(parsed.text, parsed.analysisType, parsed.goal),
       },
     ];
+
+    if (parsed.stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
+
+      try {
+        const completion = await streamChatCompletion(
+          messages,
+          (delta) => {
+            res.write(`data: ${JSON.stringify({ type: 'delta', content: delta })}\n\n`);
+          },
+          4000
+        );
+
+        res.write(
+          `data: ${JSON.stringify({ type: 'done', tokensUsed: completion.tokensUsed, modelUsed: completion.modelUsed })}\n\n`
+        );
+        res.end();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Streaming failed';
+        res.write(`data: ${JSON.stringify({ type: 'error', error: msg })}\n\n`);
+        res.end();
+      }
+      return;
+    }
 
     const completion = await requestChatCompletion(messages);
 

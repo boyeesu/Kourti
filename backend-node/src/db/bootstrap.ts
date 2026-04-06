@@ -634,7 +634,7 @@ const bootstrapStatements = [
 ];
 
 export async function ensureDatabaseSchema() {
-  // In production, the database schema is managed by Supabase migrations.
+  // In production, the database schema is managed by Railway migrations.
   // Bootstrap is only needed for local Docker dev where we start from scratch.
   if (process.env.NODE_ENV === 'production' && !process.env.RUN_BOOTSTRAP) {
     console.log('Skipping bootstrap in production (set RUN_BOOTSTRAP=1 to force)');

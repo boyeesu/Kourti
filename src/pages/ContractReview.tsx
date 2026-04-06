@@ -24,6 +24,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { env } from '@/lib/env';
 import { getNodeDocumentSignedUrl, invokeNodeApi } from '@/lib/backendApi';
 import { getAccessToken, refreshSession } from '@/lib/authClient';
 import { downloadDocument } from '@/lib/fileApi';
@@ -377,9 +378,11 @@ export default function ContractReview() {
       };
 
       // Verify authentication before proceeding
-      if (!getAccessToken()) {
+      let accessToken = getAccessToken();
+      if (!accessToken) {
         try {
-          await refreshSession();
+          const session = await refreshSession();
+          accessToken = session.accessToken;
         } catch {
           throw new Error('Authentication required. Please sign in again.');
         }
@@ -388,19 +391,78 @@ export default function ContractReview() {
       setAnalysisProgress(20);
       setProgressLabel('Connecting to REAM AI...');
 
-      const nodeResponse = await invokeNodeApi<{ analysis?: string }>(
-        '/api/v1/ai/advanced-contract-analysis',
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120_000);
+
+      const response = await fetch(
+        new URL('/api/v1/ai/advanced-contract-analysis', env.BACKEND_API_URL).toString(),
         {
           method: 'POST',
-          body: {
-            ...payload,
-            stream: undefined,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
           },
-          timeout: 120_000,
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+          credentials: 'include',
         }
       );
 
-      const analysisText = nodeResponse.analysis || '';
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errData = (await response.json().catch(() => null)) as {
+          error?: string;
+          message?: string;
+        } | null;
+        throw new Error(
+          errData?.error || errData?.message || `Analysis failed (${response.status})`
+        );
+      }
+
+      setAnalysisProgress(40);
+      setProgressLabel('REAM AI is analyzing your document...');
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response stream');
+
+      const decoder = new TextDecoder();
+      let analysisText = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          const jsonStr = trimmed.slice(6);
+
+          try {
+            const event = JSON.parse(jsonStr) as
+              | { type: 'delta'; content: string }
+              | { type: 'done'; tokensUsed: number; modelUsed: string }
+              | { type: 'error'; error: string };
+
+            if (event.type === 'delta') {
+              analysisText += event.content;
+              // Update progress based on content length growth
+              const progress = Math.min(80, 40 + analysisText.length / 100);
+              setAnalysisProgress(progress);
+            } else if (event.type === 'error') {
+              throw new Error(event.error);
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e;
+          }
+        }
+      }
+
       if (!analysisText) {
         throw new Error('Analysis returned empty results. Please try again.');
       }
