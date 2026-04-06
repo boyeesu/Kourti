@@ -53,7 +53,7 @@ export default function ContractCompare() {
       if (!primaryText || !comparisonText) {
         toast.error('Extraction Failed', {
           description:
-            'Could not extract text from one or both documents. Please use .txt or .docx formats. PDF files are not yet supported for comparison.',
+            'Could not extract text from one or both documents. Please use PDF, DOCX, or TXT formats.',
         });
         setIsAnalyzing(false);
         return;
@@ -86,6 +86,37 @@ export default function ContractCompare() {
       // Plain text files
       if (file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')) {
         return await file.text();
+      }
+
+      // PDF extraction via pdfjs-dist
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+            'pdfjs-dist/build/pdf.worker.min.mjs',
+            import.meta.url
+          ).toString();
+
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const pageTexts: string[] = [];
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item) => ('str' in item ? item.str : '') || '')
+              .join(' ');
+            pageTexts.push(pageText);
+          }
+
+          const extracted = pageTexts.join('\n\n');
+          if (extracted && extracted.length > 10) {
+            return extracted;
+          }
+        } catch (e) {
+          logError('PDF extraction failed', e);
+        }
       }
 
       // DOCX extraction via mammoth
@@ -158,7 +189,7 @@ export default function ContractCompare() {
             <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <div className="space-y-2">
               <p className="font-medium">{label}</p>
-              <p className="text-sm text-muted-foreground">Upload TXT, DOC, or DOCX file</p>
+              <p className="text-sm text-muted-foreground">Upload PDF, DOCX, or TXT file</p>
             </div>
             <Button
               variant="outline"
