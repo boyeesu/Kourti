@@ -5,7 +5,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || 'noreply@kourti.com';
 const APP_URL = process.env.APP_URL || env.APP_URL || 'https://app.kourti.com';
 const BRAND_NAME = 'Kourti AI';
-const LOGO_URL = `${APP_URL}/kourti-dark-full.png`;
+const LOGO_URL = `${APP_URL}/kourti-light-full.png`;
 
 let resend: Resend | null = null;
 

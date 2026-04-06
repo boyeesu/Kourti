@@ -12,7 +12,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || 'noreply@kourti.com';
 const APP_URL = process.env.APP_URL || 'https://app.kourti.com';
 const BRAND_NAME = 'Kourti AI';
-const LOGO_URL = `${APP_URL}/kourti-dark-full.png`;
+const LOGO_URL = `${APP_URL}/kourti-light-full.png`;
 
 if (!RESEND_API_KEY) { console.error('Missing RESEND_API_KEY'); process.exit(1); }
 if (!DATABASE_URL) { console.error('Missing DATABASE_URL'); process.exit(1); }
