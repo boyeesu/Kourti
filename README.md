@@ -12,6 +12,7 @@ Unlock the power of AI and automation in your legal workflows. Kourti AI deliver
 - **Smart Document Export**: Export contracts, cases, and documents to PDF or Word (DOCX) with a single click — all versions supported.
 - **Case & Client Management**: Organize, search, and manage all legal case data, clients, and client interactions securely.
 - **Role-Based Dashboards**: Customized dashboards and widgets per user role (admin, lawyer, staff, client).
+- **Weekly Insights Digest**: Automated weekly email summarizing key metrics — cases, tasks, clients, documents, contracts, and revenue — delivered every Monday.
 - **Smart Notifications & Reminders**: Automated reminders, due dates, and case activity notifications.
 - **Dark Mode Support**: Full dark mode with light, dark, and system theme options for comfortable viewing in any environment.
 - **Modern UI/UX**: Built with React, shadcn-ui, TypeScript, and Tailwind CSS.
@@ -109,6 +110,8 @@ If you prefer an online IDE, you can use GitHub Codespaces.
 - **Node.js / Express** (backend API)
 - **PostgreSQL** (database)
 - **OpenAI API / LLMs** (for all contract/document AI and NLP tasks)
+- **Resend** (transactional & digest emails)
+- **pg-boss** (job queue & scheduled tasks)
 
 ---
 

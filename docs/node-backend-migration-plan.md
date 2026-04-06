@@ -10,7 +10,8 @@ All business logic has been migrated from Supabase Edge Functions to the dedicat
 - **Database**: PostgreSQL (direct connection via `pg`)
 - **Auth**: Custom JWT (access + refresh tokens)
 - **AI**: OpenAI API via Node backend
-- **Email**: Resend
+- **Email**: Resend (branded templates with Kourti logo, gradient accents, and brand colours)
+- **Job Queue**: pg-boss (PostgreSQL-backed) — monitors, weekly digest, async AI tasks
 - **File Storage**: Local filesystem or S3-compatible
 
 ## Migrated Endpoints
@@ -31,7 +32,7 @@ All API endpoints are served by the Node backend at `/api/v1/`:
 - `/api/v1/invoices/*` - Invoice handling
 - `/api/v1/dashboard/*` - Dashboard data
 - `/api/v1/search/*` - Global search
-- `/api/v1/notifications/*` - Notification management
+- `/api/v1/notifications/*` - Notification management, weekly digest trigger & preview
 - `/api/v1/admin/*` - Admin operations
 - `/api/v1/roles/*` - Role management
 - `/api/v1/tasks/*` - Task management
