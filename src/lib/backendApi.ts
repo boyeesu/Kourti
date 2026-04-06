@@ -60,12 +60,14 @@ export async function invokeNodeApi<T>(
     query?: Record<string, QueryValue>;
     body?: unknown;
     headers?: Record<string, string>;
+    /** Override the default API timeout in milliseconds */
+    timeout?: number;
   }
 ): Promise<T> {
   const accessToken = await getValidAccessToken();
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.API_TIMEOUT);
+  const timeout = setTimeout(() => controller.abort(), options?.timeout ?? env.API_TIMEOUT);
 
   const response = await fetch(buildUrl(path, options?.query), {
     method: options?.method || 'GET',

@@ -396,6 +396,7 @@ export default function ContractReview() {
             ...payload,
             stream: undefined,
           },
+          timeout: 120_000,
         }
       );
 
