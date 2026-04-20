@@ -91,7 +91,7 @@ function buildPrompt(text: string, analysisType: string, goal?: string) {
   const goalDirective = goal ? `\nFocus: ${goal}` : '';
   return `Analyze this legal document (analysis type: ${analysisType}).${goalDirective}
 
-Return ONLY a JSON code block in the format below — no prose before or after.
+You MUST return ONLY a JSON code block — no text, explanation, or commentary before or after it. Start your response with \`\`\`json and end with \`\`\`.
 
 \`\`\`json
 {
@@ -784,7 +784,7 @@ aiRouter.post(
           (delta) => {
             res.write(`data: ${JSON.stringify({ type: 'delta', content: delta })}\n\n`);
           },
-          4000
+          8000
         );
 
         res.write(
@@ -799,7 +799,7 @@ aiRouter.post(
       return;
     }
 
-    const completion = await requestChatCompletion(messages);
+    const completion = await requestChatCompletion(messages, 8000);
 
     res.status(200).json({
       success: true,

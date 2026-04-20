@@ -1111,9 +1111,12 @@ export function parseAnalysisToFindings(
 
   // Try to parse as JSON first (if AI returns structured data)
   try {
-    const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[1]);
+    const jsonMatch =
+      analysisText.match(/```json\s*([\s\S]*?)\s*```/) ||
+      analysisText.match(/```\s*(\{[\s\S]*?\})\s*```/);
+    const rawJson = jsonMatch ? jsonMatch[1] : analysisText.trim();
+    const parsed = JSON.parse(rawJson);
+    if (parsed) {
       if (parsed.findings && Array.isArray(parsed.findings)) {
         const parsedFindings = parsed.findings.map(
           (f: {

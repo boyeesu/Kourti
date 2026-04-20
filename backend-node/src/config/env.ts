@@ -29,7 +29,7 @@ const envSchema = z.object({
   OPENAI_FALLBACK_CHAT_MODEL: z.string().default('gpt-4o'),
 
   ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_CHAT_MODEL: z.string().default('claude-sonnet-4-6'),
+  ANTHROPIC_CHAT_MODEL: z.string().default('claude-opus-4-6'),
   ANTHROPIC_API_VERSION: z.string().default('2023-06-01'),
 
   LLM_PRIMARY_PROVIDER: z.enum(['anthropic', 'openai']).default('anthropic'),
