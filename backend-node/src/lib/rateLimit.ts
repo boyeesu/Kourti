@@ -7,28 +7,12 @@ type RateLimitResult = {
   resetAt: number;
 };
 
-// In-memory fallback used when the DB table doesn't exist yet
+// In-memory fallback for the same instance. The authoritative table is
+// public.rate_limits, created by bootstrap.ts. We sync from in-memory to
+// DB asynchronously so a single hot path stays synchronous.
 const memoryStore = new Map<string, { count: number; resetAt: number }>();
 
 let useDbStore = true;
-
-async function ensureTable() {
-  if (!useDbStore) return;
-  try {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS public.rate_limits (
-        key TEXT PRIMARY KEY,
-        count INTEGER NOT NULL DEFAULT 1,
-        reset_at TIMESTAMPTZ NOT NULL
-      )
-    `);
-  } catch {
-    useDbStore = false;
-  }
-}
-
-// Called once at import time (fire-and-forget)
-const tableReady = ensureTable();
 
 export function checkRateLimit(
   identifier: string,
@@ -70,18 +54,19 @@ export function checkRateLimit(
 
 function syncToDb(key: string, count: number, resetAt: number) {
   if (!useDbStore) return;
-  tableReady.then(() =>
-    db
-      .query(
-        `INSERT INTO public.rate_limits (key, count, reset_at)
-         VALUES ($1, $2, to_timestamp($3 / 1000.0))
-         ON CONFLICT (key) DO UPDATE SET count = $2, reset_at = to_timestamp($3 / 1000.0)`,
-        [key, count, resetAt]
-      )
-      .catch(() => {
-        // Non-critical — in-memory store still enforces limits for this instance
-      })
-  );
+  db.query(
+    `INSERT INTO public.rate_limits (key, count, reset_at)
+     VALUES ($1, $2, to_timestamp($3 / 1000.0))
+     ON CONFLICT (key) DO UPDATE SET count = $2, reset_at = to_timestamp($3 / 1000.0)`,
+    [key, count, resetAt]
+  ).catch((err) => {
+    // First failure flips us to in-memory-only; we already log loudly
+    // because bootstrap should have created the table.
+    if (useDbStore) {
+      console.warn('[rateLimit] DB sync failed, falling back to in-memory:', err?.message ?? err);
+      useDbStore = false;
+    }
+  });
 }
 
 /**
@@ -91,7 +76,6 @@ function syncToDb(key: string, count: number, resetAt: number) {
 export async function hydrateRateLimits() {
   if (!useDbStore) return;
   try {
-    await tableReady;
     const result = await db.query<{ key: string; count: number; reset_at: string }>(
       `SELECT key, count, extract(epoch from reset_at) * 1000 as reset_at
        FROM public.rate_limits

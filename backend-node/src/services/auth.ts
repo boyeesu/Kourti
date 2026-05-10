@@ -13,7 +13,11 @@ export async function authenticateRequest(headers: {
   'x-dev-organization-id'?: string | string[];
 }) {
   // ── Development mode ────────────────────────────────────────────────────
-  if (env.AUTH_MODE === 'development') {
+  // Only honor the dev-headers escape hatch when both AUTH_MODE and
+  // NODE_ENV say we're in development. The env validator forbids
+  // production+development; this also closes staging/preview envs
+  // that might otherwise accept any user/org via headers.
+  if (env.AUTH_MODE === 'development' && env.NODE_ENV === 'development') {
     return {
       userId: normalizeHeaderValue(headers['x-dev-user-id']) || env.DEV_DEFAULT_USER_ID,
       email: null,
@@ -28,10 +32,13 @@ export async function authenticateRequest(headers: {
     throw new ApiError('Authentication required', 401, 'UNAUTHORIZED');
   }
 
-  const token = authorizationHeader.replace('Bearer ', '').trim();
-  if (!token) {
-    throw new ApiError('Invalid authentication token', 401, 'UNAUTHORIZED');
+  // Strict Bearer scheme check so a non-Bearer credential (e.g. "Basic …")
+  // can't get reflected through verifyAccessToken.
+  const bearerMatch = authorizationHeader.match(/^Bearer\s+(\S+)$/);
+  if (!bearerMatch) {
+    throw new ApiError('Invalid authentication scheme', 401, 'UNAUTHORIZED');
   }
+  const token = bearerMatch[1];
 
   // ── Custom JWT mode ─────────────────────────────────────────────────────
   const authUser = verifyAccessToken(token);

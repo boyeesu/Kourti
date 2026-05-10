@@ -34,6 +34,9 @@ import { agentsRouter } from './routes/api/agents.js';
 import { negotiationsRouter } from './routes/api/negotiations.js';
 import { playbooksRouter } from './routes/api/playbooks.js';
 import { intelligenceRouter } from './routes/api/intelligence.js';
+import { documentVersionsRouter } from './routes/api/documentVersions.js';
+import { redlineRouter } from './routes/api/redline.js';
+import { tabularReviewsRouter } from './routes/api/tabularReviews.js';
 
 export function createApp() {
   const app = express();
@@ -86,6 +89,9 @@ export function createApp() {
   app.use('/api/v1/negotiations', requireAuth, negotiationsRouter);
   app.use('/api/v1/playbooks', requireAuth, playbooksRouter);
   app.use('/api/v1/intelligence', requireAuth, intelligenceRouter);
+  app.use('/api/v1/documents/:id/versions', requireAuth, documentVersionsRouter);
+  app.use('/api/v1/redline', requireAuth, redlineRouter);
+  app.use('/api/v1/tabular-reviews', requireAuth, tabularReviewsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

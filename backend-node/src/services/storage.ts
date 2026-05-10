@@ -6,7 +6,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { Readable } from 'node:stream';
+
+import { env } from '../config/env.js';
 
 const STORAGE_ROOT = process.env.STORAGE_PATH || '/app/storage';
 
@@ -24,10 +25,43 @@ export interface FileMetadata {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+/**
+ * Reject any path that contains `..`, absolute roots, NUL bytes, or
+ * Windows drive letters. The previous implementation only stripped
+ * leading `../`, leaving cross-tenant traversal viable through middle
+ * segments like `orgA/../orgB/secret.pdf` (CWE-22, CWE-639).
+ *
+ * Throws on invalid input so callers get an explicit failure rather
+ * than silently serving the wrong file.
+ */
 function bucketPath(bucket: string, filePath: string): string {
-  // Prevent path traversal
-  const safe = path.normalize(filePath).replace(/^(\.\.[/\\])+/, '');
-  return path.join(STORAGE_ROOT, bucket, safe);
+  if (typeof filePath !== 'string' || filePath.length === 0) {
+    throw new Error('Invalid file path');
+  }
+  if (filePath.includes('\0')) {
+    throw new Error('Invalid file path: NUL byte');
+  }
+  // Normalize separators on POSIX for consistent comparisons.
+  const normalized = path.posix.normalize(filePath.replace(/\\/g, '/'));
+  if (
+    normalized.startsWith('/') ||
+    normalized.startsWith('\\') ||
+    /^[a-zA-Z]:[\\/]/.test(normalized) ||
+    normalized === '..' ||
+    normalized.startsWith('../') ||
+    normalized.includes('/../') ||
+    normalized.endsWith('/..')
+  ) {
+    throw new Error('Invalid file path: traversal segment');
+  }
+  // Final safety check: the resolved absolute path must remain inside
+  // STORAGE_ROOT/bucket.
+  const bucketRoot = path.resolve(STORAGE_ROOT, bucket);
+  const resolved = path.resolve(bucketRoot, normalized);
+  if (resolved !== bucketRoot && !resolved.startsWith(bucketRoot + path.sep)) {
+    throw new Error('Invalid file path: escapes bucket');
+  }
+  return resolved;
 }
 
 async function ensureDir(dirPath: string) {
@@ -88,16 +122,31 @@ export async function fileExists(bucket: string, filePath: string): Promise<bool
 
 /**
  * Generate a time-limited signed URL.
- * For local storage, we generate a token-based URL that the backend validates.
+ *
+ * The signature covers `bucket:filePath:expires:audience` where `audience`
+ * is the organization id the URL was issued to. The verifier later
+ * cross-checks that the filePath actually starts with that org prefix —
+ * defense in depth so that even if a code path forgets to org-scope its
+ * filePath, the URL is rejected at retrieval time.
+ *
+ * `expiresInSeconds` defaults to 5 minutes — short-lived URLs limit the
+ * blast radius if one is logged or shared accidentally.
  */
 export function createSignedUrl(
   bucket: string,
   filePath: string,
-  expiresInSeconds: number
+  expiresInSeconds: number,
+  audience?: string
 ): string {
   const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
-  const payload = `${bucket}:${filePath}:${expires}`;
-  const secret = process.env.JWT_SECRET || 'dev-secret';
+  const aud = audience ?? '';
+  const payload = `${bucket}:${filePath}:${expires}:${aud}`;
+  // Use the validated env so we never fall back to a public 'dev-secret'
+  // string; if JWT_SECRET is missing, env.ts already refused to boot.
+  const secret = env.JWT_SECRET ?? '';
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured');
+  }
   const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
   const backendUrl =
@@ -107,25 +156,42 @@ export function createSignedUrl(
 
   const baseUrl = process.env.BACKEND_PUBLIC_URL || backendUrl;
 
-  return `${baseUrl}/api/v1/files/${bucket}/${encodeURIComponent(filePath)}?expires=${expires}&sig=${signature}`;
+  const audSegment = aud ? `&aud=${encodeURIComponent(aud)}` : '';
+  return `${baseUrl}/api/v1/files/${bucket}/${encodeURIComponent(filePath)}?expires=${expires}&sig=${signature}${audSegment}`;
 }
 
 export function verifySignedUrl(
   bucket: string,
   filePath: string,
   expires: string,
-  signature: string
+  signature: string,
+  audience?: string
 ): boolean {
   const expiresNum = parseInt(expires, 10);
   if (isNaN(expiresNum) || expiresNum < Math.floor(Date.now() / 1000)) {
     return false; // expired
   }
 
-  const payload = `${bucket}:${filePath}:${expiresNum}`;
-  const secret = process.env.JWT_SECRET || 'dev-secret';
+  const aud = audience ?? '';
+  // If an audience is embedded, the file path MUST start with `${aud}/`.
+  // This catches the case where a caller forgot to org-scope the path.
+  if (aud && !filePath.startsWith(`${aud}/`)) {
+    return false;
+  }
+
+  const payload = `${bucket}:${filePath}:${expiresNum}:${aud}`;
+  // Use the validated env so we never fall back to a public 'dev-secret'
+  // string; if JWT_SECRET is missing, env.ts already refused to boot.
+  const secret = env.JWT_SECRET ?? '';
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured');
+  }
   const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  const expectedBuf = Buffer.from(expected);
+  const sigBuf = Buffer.from(signature);
+  if (expectedBuf.length !== sigBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, sigBuf);
 }
 
 // ── MIME helper ─────────────────────────────────────────────────────────────

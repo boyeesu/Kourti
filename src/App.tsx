@@ -16,7 +16,6 @@ import { useInactivityLogout } from '@/hooks/useInactivityLogout';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 // All pages lazy-loaded for code splitting
 import { logInfo, logWarn } from './lib/logger';
-import { FloatingChatWidget as _FloatingChatWidget } from '@/components/ream-ai/FloatingChatWidget';
 import { SuperAdminRoute } from '@/components/SuperAdminRoute';
 import { MessageCircle } from 'lucide-react';
 // LiveChat overlay removed - now using LiveChatPage as a proper route
@@ -76,6 +75,10 @@ const AgentDashboard = lazy(() => import('./pages/AgentDashboard'));
 const NegotiationsPage = lazy(() => import('./pages/Negotiations'));
 const NegotiationDetails = lazy(() => import('./pages/NegotiationDetails'));
 const IntelligenceDashboard = lazy(() => import('./pages/IntelligenceDashboard'));
+const TabularReviews = lazy(() => import('./pages/TabularReviews'));
+const TabularReviewCreate = lazy(() => import('./pages/TabularReviewCreate'));
+const TabularReviewDetail = lazy(() => import('./pages/TabularReviewDetail'));
+const DocumentRedline = lazy(() => import('./pages/DocumentRedline'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 const Changelog = lazy(() => import('./pages/Changelog'));
 const Pricing = lazy(() => import('./pages/Pricing'));
@@ -382,6 +385,30 @@ const protectedRoutes: ProtectedRouteConfig[] = [
     component: AgentJobDetails,
     boundaryName: 'Agent Job Details',
     permission: { resource: 'agents', action: 'read' },
+  },
+  {
+    path: '/tabular-reviews',
+    component: TabularReviews,
+    boundaryName: 'Tabular Reviews',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/tabular-reviews/new',
+    component: TabularReviewCreate,
+    boundaryName: 'New Tabular Review',
+    permission: { resource: 'cases', action: 'create' },
+  },
+  {
+    path: '/tabular-reviews/:reviewId',
+    component: TabularReviewDetail,
+    boundaryName: 'Tabular Review',
+    permission: { resource: 'cases', action: 'read' },
+  },
+  {
+    path: '/documents/:id/redline',
+    component: DocumentRedline,
+    boundaryName: 'Document Redline',
+    permission: { resource: 'documents', action: 'update' },
   },
   { path: '*', component: NotFound },
 ];

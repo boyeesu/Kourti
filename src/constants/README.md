@@ -14,8 +14,8 @@ if (user.role === USER_ROLES.ADMIN) {
   // ...
 }
 
-// Query database
-const { data } = await supabase.from(TABLES.CASES).select('*');
+// Reference a backend table name (e.g. when constructing search params)
+const tableName = TABLES.CASES;
 
 // Navigate
 navigate(ROUTES.CASES);
@@ -39,7 +39,9 @@ User roles and role-related utility functions:
 
 ### `tables.ts`
 
-Database table names for Supabase queries:
+Database table name constants. The frontend talks to the Node backend
+over `invokeNodeApi`; these names are useful for things like search
+filters and audit logs that reference a table by name.
 
 - `TABLES` - All database table name constants
 
@@ -77,30 +79,6 @@ Error codes and user-friendly error messages:
 3. **Consistency**: Ensures same values used everywhere
 4. **Documentation**: Constants serve as documentation of valid values
 5. **Testing**: Easy to mock and test with known constant values
-
-## Migration Guide
-
-When replacing magic strings with constants:
-
-### Before:
-
-```typescript
-if (user.role === 'admin') {
-}
-const data = await supabase.from('cases').select('*');
-navigate('/cases');
-```
-
-### After:
-
-```typescript
-import { USER_ROLES, TABLES, ROUTES } from '@/constants';
-
-if (user.role === USER_ROLES.ADMIN) {
-}
-const data = await supabase.from(TABLES.CASES).select('*');
-navigate(ROUTES.CASES);
-```
 
 ## Adding New Constants
 

@@ -498,7 +498,12 @@ chatRouter.get(
 
     const safeFilename = (parsed.filename || 'download').replace(/[\r\n/\\]+/g, '_');
 
-    const signedUrl = createSignedUrl('Chat_Storage', parsed.filePath, parsed.expiresIn);
+    const signedUrl = createSignedUrl(
+      'Chat_Storage',
+      parsed.filePath,
+      parsed.expiresIn,
+      auth.organizationId
+    );
 
     res.status(200).json({
       signedUrl,

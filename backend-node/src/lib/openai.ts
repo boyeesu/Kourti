@@ -11,6 +11,52 @@ function getOpenAIModelCandidates() {
   return Array.from(new Set([env.OPENAI_CHAT_MODEL, env.OPENAI_FALLBACK_CHAT_MODEL]));
 }
 
+function getOpenRouterModelCandidates() {
+  return Array.from(new Set([env.OPENROUTER_CHAT_MODEL, env.OPENROUTER_FALLBACK_CHAT_MODEL]));
+}
+
+// OpenRouter is OpenAI-compatible; only the base URL, auth header,
+// and a couple of attribution headers differ.
+type OpenAICompatibleConfig = {
+  label: 'OpenAI' | 'OpenRouter';
+  baseUrl: string;
+  apiKey: string | undefined;
+  models: string[];
+  extraHeaders?: Record<string, string>;
+  configMissingCode: string;
+  upstreamErrorCode: string;
+  emptyResponseCode: string;
+};
+
+function openAIConfig(): OpenAICompatibleConfig {
+  return {
+    label: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: env.OPENAI_API_KEY,
+    models: getOpenAIModelCandidates(),
+    configMissingCode: 'OPENAI_CONFIG_MISSING',
+    upstreamErrorCode: 'OPENAI_UPSTREAM_ERROR',
+    emptyResponseCode: 'OPENAI_EMPTY_RESPONSE',
+  };
+}
+
+function openRouterConfig(): OpenAICompatibleConfig {
+  return {
+    label: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    apiKey: env.OPENROUTER_API_KEY,
+    models: getOpenRouterModelCandidates(),
+    extraHeaders: {
+      // OpenRouter recommends these for app attribution / rankings.
+      ...(env.APP_URL ? { 'HTTP-Referer': env.APP_URL } : {}),
+      'X-Title': env.OPENROUTER_APP_NAME,
+    },
+    configMissingCode: 'OPENROUTER_CONFIG_MISSING',
+    upstreamErrorCode: 'OPENROUTER_UPSTREAM_ERROR',
+    emptyResponseCode: 'OPENROUTER_EMPTY_RESPONSE',
+  };
+}
+
 /** Split a ChatMessage[] into an Anthropic-compatible { system, messages } pair. */
 function toAnthropicMessages(messages: ChatMessage[]) {
   const systemParts: string[] = [];
@@ -74,23 +120,27 @@ async function requestAnthropicCompletion(messages: ChatMessage[], maxTokens: nu
 }
 
 // ---------------------------------------------------------------------------
-// OpenAI chat completion (non-streaming)
+// OpenAI-compatible chat completion (non-streaming) — used for OpenAI + OpenRouter
 // ---------------------------------------------------------------------------
 
-async function requestOpenAICompletion(messages: ChatMessage[], maxTokens: number) {
-  if (!env.OPENAI_API_KEY) {
-    throw new ApiError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+async function requestOpenAICompatibleCompletion(
+  cfg: OpenAICompatibleConfig,
+  messages: ChatMessage[],
+  maxTokens: number
+) {
+  if (!cfg.apiKey) {
+    throw new ApiError(`${cfg.label} API key not configured`, 503, cfg.configMissingCode);
   }
 
-  const models = getOpenAIModelCandidates();
   let lastError: string | null = null;
 
-  for (const model of models) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  for (const model of cfg.models) {
+    const response = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${cfg.apiKey}`,
         'Content-Type': 'application/json',
+        ...(cfg.extraHeaders ?? {}),
       },
       body: JSON.stringify({ model, messages, max_completion_tokens: maxTokens }),
     });
@@ -103,7 +153,7 @@ async function requestOpenAICompletion(messages: ChatMessage[], maxTokens: numbe
 
       const content = data.choices?.[0]?.message?.content;
       if (!content?.trim()) {
-        throw new ApiError('Empty analysis content from OpenAI', 502, 'OPENAI_EMPTY_RESPONSE');
+        throw new ApiError(`Empty analysis content from ${cfg.label}`, 502, cfg.emptyResponseCode);
       }
 
       return { analysis: content, tokensUsed: data.usage?.total_tokens ?? 0, modelUsed: model };
@@ -116,10 +166,19 @@ async function requestOpenAICompletion(messages: ChatMessage[], maxTokens: numbe
   }
 
   throw new ApiError(
-    `OpenAI request failed (${lastError || 'unknown'})`,
+    `${cfg.label} request failed (${lastError || 'unknown'})`,
     502,
-    'OPENAI_UPSTREAM_ERROR'
+    cfg.upstreamErrorCode
   );
+}
+
+function requestOpenAICompletion(messages: ChatMessage[], maxTokens: number) {
+  return requestOpenAICompatibleCompletion(openAIConfig(), messages, maxTokens);
+}
+
+async function requestOpenRouterCompletion(messages: ChatMessage[], maxTokens: number) {
+  if (!env.OPENROUTER_API_KEY) return null;
+  return requestOpenAICompatibleCompletion(openRouterConfig(), messages, maxTokens);
 }
 
 // ---------------------------------------------------------------------------
@@ -127,10 +186,18 @@ async function requestOpenAICompletion(messages: ChatMessage[], maxTokens: numbe
 // ---------------------------------------------------------------------------
 
 export async function requestChatCompletion(messages: ChatMessage[], maxTokens = 4000) {
-  const providers =
-    env.LLM_PRIMARY_PROVIDER === 'anthropic'
-      ? ([requestAnthropicCompletion, requestOpenAICompletion] as const)
-      : ([requestOpenAICompletion, requestAnthropicCompletion] as const);
+  const allProviders = {
+    anthropic: requestAnthropicCompletion,
+    openai: requestOpenAICompletion,
+    openrouter: requestOpenRouterCompletion,
+  } as const;
+
+  const primary = env.LLM_PRIMARY_PROVIDER;
+  const order: Array<keyof typeof allProviders> = [
+    primary,
+    ...(['anthropic', 'openai', 'openrouter'] as const).filter((p) => p !== primary),
+  ];
+  const providers = order.map((k) => allProviders[k]);
 
   for (const provider of providers) {
     try {
@@ -238,27 +305,28 @@ async function streamAnthropicCompletion(
 }
 
 // ---------------------------------------------------------------------------
-// OpenAI streaming chat completion
+// OpenAI-compatible streaming chat completion — used for OpenAI + OpenRouter
 // ---------------------------------------------------------------------------
 
-async function streamOpenAICompletion(
+async function streamOpenAICompatibleCompletion(
+  cfg: OpenAICompatibleConfig,
   messages: ChatMessage[],
   onChunk: (delta: string) => void,
   maxTokens: number
 ) {
-  if (!env.OPENAI_API_KEY) {
-    throw new ApiError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+  if (!cfg.apiKey) {
+    throw new ApiError(`${cfg.label} API key not configured`, 503, cfg.configMissingCode);
   }
 
-  const models = getOpenAIModelCandidates();
   let lastError: string | null = null;
 
-  for (const model of models) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  for (const model of cfg.models) {
+    const response = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${cfg.apiKey}`,
         'Content-Type': 'application/json',
+        ...(cfg.extraHeaders ?? {}),
       },
       body: JSON.stringify({
         model,
@@ -278,7 +346,7 @@ async function streamOpenAICompletion(
 
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new ApiError('No response body from OpenAI', 502, 'OPENAI_EMPTY_RESPONSE');
+      throw new ApiError(`No response body from ${cfg.label}`, 502, cfg.emptyResponseCode);
     }
 
     const decoder = new TextDecoder();
@@ -320,17 +388,34 @@ async function streamOpenAICompletion(
     }
 
     if (!fullContent.trim()) {
-      throw new ApiError('Empty analysis content from OpenAI', 502, 'OPENAI_EMPTY_RESPONSE');
+      throw new ApiError(`Empty analysis content from ${cfg.label}`, 502, cfg.emptyResponseCode);
     }
 
     return { analysis: fullContent, tokensUsed, modelUsed: model };
   }
 
   throw new ApiError(
-    `OpenAI request failed (${lastError || 'unknown'})`,
+    `${cfg.label} request failed (${lastError || 'unknown'})`,
     502,
-    'OPENAI_UPSTREAM_ERROR'
+    cfg.upstreamErrorCode
   );
+}
+
+function streamOpenAICompletion(
+  messages: ChatMessage[],
+  onChunk: (delta: string) => void,
+  maxTokens: number
+) {
+  return streamOpenAICompatibleCompletion(openAIConfig(), messages, onChunk, maxTokens);
+}
+
+async function streamOpenRouterCompletion(
+  messages: ChatMessage[],
+  onChunk: (delta: string) => void,
+  maxTokens: number
+) {
+  if (!env.OPENROUTER_API_KEY) return null;
+  return streamOpenAICompatibleCompletion(openRouterConfig(), messages, onChunk, maxTokens);
 }
 
 // ---------------------------------------------------------------------------
@@ -342,10 +427,18 @@ export async function streamChatCompletion(
   onChunk: (delta: string) => void,
   maxTokens = 3000
 ): Promise<{ analysis: string; tokensUsed: number; modelUsed: string }> {
-  const providers =
-    env.LLM_PRIMARY_PROVIDER === 'anthropic'
-      ? ([streamAnthropicCompletion, streamOpenAICompletion] as const)
-      : ([streamOpenAICompletion, streamAnthropicCompletion] as const);
+  const allProviders = {
+    anthropic: streamAnthropicCompletion,
+    openai: streamOpenAICompletion,
+    openrouter: streamOpenRouterCompletion,
+  } as const;
+
+  const primary = env.LLM_PRIMARY_PROVIDER;
+  const order: Array<keyof typeof allProviders> = [
+    primary,
+    ...(['anthropic', 'openai', 'openrouter'] as const).filter((p) => p !== primary),
+  ];
+  const providers = order.map((k) => allProviders[k]);
 
   for (const provider of providers) {
     try {

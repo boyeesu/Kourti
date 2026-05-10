@@ -12,12 +12,50 @@ import {
   verifySignedUrl,
 } from '../../services/storage.js';
 
+// MIME allowlist. Anything not on this list is rejected at upload time
+// rather than risk it being served back via a signed URL where the
+// browser may render it (e.g. HTML / SVG → stored XSS on the auth domain).
+const ALLOWED_MIME = new Set<string>([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'audio/webm',
+  'audio/mpeg',
+  'audio/wav',
+]);
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 26 * 1024 * 1024 }, // 26MB max
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_MIME.has(file.mimetype)) {
+      cb(new ApiError(`Unsupported file type: ${file.mimetype}`, 415, 'UNSUPPORTED_MEDIA_TYPE'));
+      return;
+    }
+    cb(null, true);
+  },
 });
 
-const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
+/**
+ * Pick a safe Content-Disposition for a given MIME. PDFs and images may
+ * be inlined; everything else is forced as an attachment so it never
+ * renders on our origin even if a signed URL escapes the app.
+ */
+function safeDisposition(mime: string, filename?: string): string {
+  const inlineSafe = mime === 'application/pdf' || mime.startsWith('image/');
+  const verb = inlineSafe ? 'inline' : 'attachment';
+  if (!filename) return verb;
+  const safe = filename.replace(/[\r\n"\\]+/g, '_');
+  return `${verb}; filename="${safe}"`;
+}
 
 export const filesRouter = Router();
 
@@ -34,8 +72,10 @@ filesRouter.post(
       throw new ApiError('No file provided', 400, 'VALIDATION_ERROR');
     }
 
-    // Scope file path to organization
-    const fileName = `${auth.organizationId}/${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    // Scope file path to organization. Strip every char that isn't safe so
+    // ".." and similar can't survive inside the original filename.
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '');
+    const fileName = `${auth.organizationId}/${Date.now()}-${safeName || 'file'}`;
 
     const result = await uploadFile('documents', fileName, file.buffer, file.mimetype);
 
@@ -61,7 +101,8 @@ filesRouter.post(
       throw new ApiError('No file provided', 400, 'VALIDATION_ERROR');
     }
 
-    const fileName = `${auth.organizationId}/${auth.userId}/${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '');
+    const fileName = `${auth.organizationId}/${auth.userId}/${Date.now()}-${safeName || 'file'}`;
 
     const result = await uploadFile('Chat_Storage', fileName, file.buffer, file.mimetype);
 
@@ -94,6 +135,8 @@ filesRouter.get(
     const { data, contentType } = await downloadFile('documents', filePath);
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Length', data.length);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', safeDisposition(contentType));
     res.send(data);
   })
 );
@@ -112,7 +155,7 @@ filesRouter.get(
       throw new ApiError('Access denied', 403, 'FORBIDDEN');
     }
 
-    const signedUrl = createSignedUrl('documents', filePath, expiresIn);
+    const signedUrl = createSignedUrl('documents', filePath, expiresIn, auth.organizationId);
 
     res.status(200).json({
       signedUrl,
@@ -126,10 +169,11 @@ filesRouter.get(
   '/chat/signed-url',
   requireAuth,
   asyncHandler(async (req, res) => {
+    const auth = req.auth!;
     const filePath = z.string().min(1).parse(req.query.filePath);
     const expiresIn = Number(req.query.expiresIn) || 3600;
 
-    const signedUrl = createSignedUrl('Chat_Storage', filePath, expiresIn);
+    const signedUrl = createSignedUrl('Chat_Storage', filePath, expiresIn, auth.organizationId);
 
     res.status(200).json({
       signedUrl,
@@ -146,19 +190,21 @@ filesRouter.get(
   asyncHandler(async (req, res) => {
     const bucket = req.params.bucket;
     const filePath = req.params[0];
-    const { expires, sig } = req.query as { expires?: string; sig?: string };
+    const { expires, sig, aud } = req.query as { expires?: string; sig?: string; aud?: string };
 
     if (!bucket || !filePath || !expires || !sig) {
       throw new ApiError('Invalid signed URL', 400, 'VALIDATION_ERROR');
     }
 
-    if (!verifySignedUrl(bucket, filePath, expires, sig)) {
+    if (!verifySignedUrl(bucket, filePath, expires, sig, aud)) {
       throw new ApiError('Expired or invalid signed URL', 403, 'FORBIDDEN');
     }
 
     const { data, contentType } = await downloadFile(bucket, filePath);
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Length', data.length);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', safeDisposition(contentType));
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.send(data);
   })

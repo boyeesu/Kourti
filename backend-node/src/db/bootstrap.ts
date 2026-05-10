@@ -300,6 +300,34 @@ const bootstrapStatements = [
   )
   `,
   `alter table public.auth_users add column if not exists login_count integer default 0`,
+  // L1 fix — drop the all-zeros placeholder org UUID. profiles.organization_id
+  // was previously non-null with a zero-UUID sentinel for "no org yet";
+  // a stray `WHERE organization_id IS NOT NULL` could have leaked data
+  // across the placeholder. Make the column nullable and convert
+  // existing zero-UUID rows to NULL.
+  `alter table public.profiles alter column organization_id drop not null`,
+  `update public.profiles set organization_id = null where organization_id = '00000000-0000-0000-0000-000000000000'`,
+  // Functional index on lower(email) so case-insensitive sign-in lookups
+  // are O(log n) rather than seq-scan, and so the timing of WHERE
+  // lower(email)=lower($1) doesn't depend on table size (defense in
+  // depth against user-enumeration timing attacks; also performance).
+  `create unique index if not exists idx_auth_users_email_lower on public.auth_users (lower(email))`,
+  // Rate-limit table previously created at runtime via lib import.
+  // Moved here so DB sync failures are loud at startup instead of
+  // silently degrading rate limits to in-memory only.
+  `
+  create table if not exists public.rate_limits (
+    key text primary key,
+    count integer not null default 1,
+    reset_at timestamptz not null
+  )
+  `,
+  `create index if not exists idx_rate_limits_reset on public.rate_limits(reset_at)`,
+  // 2FA / TOTP columns. nullable by default — existing users keep
+  // single-factor sign-in until they enrol.
+  `alter table public.auth_users add column if not exists totp_secret text`,
+  `alter table public.auth_users add column if not exists totp_enabled boolean not null default false`,
+  `alter table public.auth_users add column if not exists totp_recovery_codes_hash text[]`,
   `
   create table if not exists public.user_onboarding_steps (
     id uuid primary key default gen_random_uuid(),
@@ -594,6 +622,229 @@ const bootstrapStatements = [
   )
   `,
   `create index if not exists idx_intel_recs_org on public.intelligence_recommendations(organization_id, status)`,
+
+  // ── Playbook prompt templates ─────────────────────────────────────
+  // Distinct from negotiation_playbooks above (which carries rules /
+  // escalation config). These are free-text AI prompt templates used by
+  // the assistant chat and the tabular review engine. System templates
+  // have organization_id = null and is_system = true; org templates own
+  // an organization_id.
+  `
+  create table if not exists public.playbook_templates (
+    id              uuid primary key default gen_random_uuid(),
+    organization_id uuid references public.organizations(id) on delete cascade,
+    created_by      uuid,
+    is_system       boolean not null default false,
+    slug            text unique,
+    title           text not null,
+    description     text,
+    kind            text not null default 'assistant'
+                    check (kind in ('assistant', 'tabular')),
+    prompt_md       text not null,
+    columns_config  jsonb,
+    practice        text,
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now(),
+    constraint playbook_templates_org_or_system check (
+      (is_system = true and organization_id is null)
+      or (is_system = false and organization_id is not null)
+    )
+  )
+  `,
+  `create index if not exists idx_playbook_templates_org on public.playbook_templates(organization_id)`,
+  `create index if not exists idx_playbook_templates_kind on public.playbook_templates(kind)`,
+
+  // ── Document versions ─────────────────────────────────────────────
+  `
+  create table if not exists public.document_versions (
+    id                uuid primary key default gen_random_uuid(),
+    document_id       uuid not null references public.documents(id) on delete cascade,
+    organization_id   uuid not null references public.organizations(id) on delete cascade,
+    version_number    integer not null,
+    source            text not null default 'upload'
+                      check (source in ('upload','assistant_edit','user_accept','user_reject','generated')),
+    storage_path      text not null,
+    pdf_storage_path  text,
+    display_name      text,
+    size_bytes        bigint,
+    mime_type         text,
+    created_by        uuid,
+    created_at        timestamptz not null default now(),
+    unique (document_id, version_number)
+  )
+  `,
+  `create index if not exists idx_document_versions_document on public.document_versions(document_id)`,
+  `create index if not exists idx_document_versions_org on public.document_versions(organization_id)`,
+  `alter table public.documents add column if not exists current_version_id uuid references public.document_versions(id)`,
+  `create index if not exists idx_documents_current_version on public.documents(current_version_id)`,
+
+  // ── DOCX tracked-change edits ─────────────────────────────────────
+  `
+  create table if not exists public.document_edits (
+    id              uuid primary key default gen_random_uuid(),
+    document_id     uuid not null references public.documents(id) on delete cascade,
+    organization_id uuid not null references public.organizations(id) on delete cascade,
+    version_id      uuid references public.document_versions(id) on delete set null,
+    ins_w_id        text,
+    del_w_id        text,
+    deleted_text    text,
+    inserted_text   text,
+    context_before  text,
+    context_after   text,
+    reason          text,
+    status          text not null default 'pending'
+                    check (status in ('pending','accepted','rejected')),
+    created_by      uuid,
+    created_at      timestamptz not null default now(),
+    resolved_at     timestamptz,
+    resolved_by     uuid
+  )
+  `,
+  `create index if not exists idx_document_edits_document on public.document_edits(document_id)`,
+  `create index if not exists idx_document_edits_status on public.document_edits(status)`,
+  `create index if not exists idx_document_edits_version on public.document_edits(version_id)`,
+
+  // ── Tabular review ────────────────────────────────────────────────
+  `
+  create table if not exists public.tabular_reviews (
+    id              uuid primary key default gen_random_uuid(),
+    organization_id uuid not null references public.organizations(id) on delete cascade,
+    case_id         uuid references public.cases(id) on delete set null,
+    template_id     uuid references public.playbook_templates(id) on delete set null,
+    title           text not null,
+    practice        text,
+    columns_config  jsonb not null default '[]'::jsonb,
+    document_ids    uuid[] not null default '{}',
+    created_by      uuid,
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_tabular_reviews_org on public.tabular_reviews(organization_id)`,
+  `create index if not exists idx_tabular_reviews_case on public.tabular_reviews(case_id)`,
+  `
+  create table if not exists public.tabular_cells (
+    id            uuid primary key default gen_random_uuid(),
+    review_id     uuid not null references public.tabular_reviews(id) on delete cascade,
+    document_id   uuid not null references public.documents(id) on delete cascade,
+    column_index  integer not null,
+    content       jsonb,
+    status        text not null default 'pending'
+                  check (status in ('pending','generating','done','error')),
+    error_message text,
+    created_at    timestamptz not null default now(),
+    updated_at    timestamptz not null default now(),
+    unique (review_id, document_id, column_index)
+  )
+  `,
+  `create index if not exists idx_tabular_cells_review on public.tabular_cells(review_id)`,
+  `create index if not exists idx_tabular_cells_status on public.tabular_cells(status)`,
+  `
+  create table if not exists public.tabular_review_chats (
+    id          uuid primary key default gen_random_uuid(),
+    review_id   uuid not null references public.tabular_reviews(id) on delete cascade,
+    user_id     uuid,
+    title       text,
+    created_at  timestamptz not null default now()
+  )
+  `,
+  `
+  create table if not exists public.tabular_review_chat_messages (
+    id           uuid primary key default gen_random_uuid(),
+    chat_id      uuid not null references public.tabular_review_chats(id) on delete cascade,
+    role         text not null check (role in ('user','assistant','system','tool')),
+    content      text,
+    tool_calls   jsonb,
+    created_at   timestamptz not null default now()
+  )
+  `,
+
+  // ── Backfill: legacy documents.file_path → document_versions v1 ──
+  // Documents created before versioning landed have a file_path but no
+  // matching document_versions row. This idempotent backfill creates a
+  // v1 (source='upload') for each such document and points
+  // documents.current_version_id at it. Safe to re-run; the WHERE clause
+  // skips documents that already have a version.
+  `
+  insert into public.document_versions
+    (document_id, organization_id, version_number, source, storage_path,
+     mime_type, size_bytes, display_name, created_by, created_at)
+  select
+    d.id,
+    d.organization_id,
+    1,
+    'upload',
+    d.file_path,
+    d.mime_type,
+    d.file_size,
+    'Original upload',
+    d.created_by,
+    coalesce(d.created_at, now())
+  from public.documents d
+  where d.file_path is not null
+    and d.organization_id is not null
+    and not exists (
+      select 1 from public.document_versions v where v.document_id = d.id
+    )
+  `,
+  `
+  update public.documents d
+     set current_version_id = v.id
+    from public.document_versions v
+   where v.document_id = d.id
+     and v.version_number = 1
+     and d.current_version_id is null
+  `,
+
+  // ── Seed built-in playbook prompt templates ───────────────────────
+  `insert into public.playbook_templates
+     (is_system, slug, title, description, kind, prompt_md, practice)
+   values (
+     true, 'builtin-cp-checklist',
+     'Generate Conditions Precedent Checklist',
+     'Reviews a credit/financing agreement and produces a downloadable CP checklist (.docx, landscape) grouped by category.',
+     'assistant',
+     E'## Generate Conditions Precedent Checklist\n\nReview the uploaded credit agreement or financing document and generate a comprehensive Conditions Precedent (CP) checklist.\n\nYou MUST use the generate_docx tool to produce the checklist as a downloadable Word document. You MUST pass landscape: true to the generate_docx tool — the document must be in landscape orientation. Do not display the checklist inline — generate the .docx file and provide the download link.\n\nStructure the document as follows:\n- For each category of conditions (e.g. Corporate, Financial, Legal, Security), add a section with a heading\n- Under each category heading, include a table with exactly these four columns in this order:\n  1. Index — sequential number within the category (1, 2, 3…)\n  2. Clause Number — the clause or schedule reference from the agreement\n  3. Clause — a concise description of the condition precedent\n  4. Status — leave blank (empty string) for the user to fill in\n\nUse the table field in the section object (not content) for each category''s rows.\n\nBefore finalizing, double-check that every table is formatted correctly: each table must have exactly the four columns above in the same order, headers must match exactly (Index, Clause Number, Clause, Status), every row must have the same number of cells as the headers, the Index column must be sequential starting from 1 within each category, and no cells should contain stray markdown, newlines, or placeholder text (use an empty string for Status).',
+     'Banking & Finance'
+   )
+   on conflict (slug) do update set
+     title       = excluded.title,
+     description = excluded.description,
+     prompt_md   = excluded.prompt_md,
+     practice    = excluded.practice,
+     updated_at  = now()`,
+  `insert into public.playbook_templates
+     (is_system, slug, title, description, kind, prompt_md, practice)
+   values (
+     true, 'builtin-credit-summary',
+     'Credit Agreement Summary',
+     'Produces a 21-point legal summary of a credit agreement, flagging unusual or non-market terms.',
+     'assistant',
+     E'## Credit Agreement Summary\n\nReview the uploaded credit agreement and produce a comprehensive legal summary covering the following topics. For each section, identify the key provisions, quote the relevant clause or schedule references, and flag any unusual, onerous, or non-market terms.\n\n1. **Lenders** — All lenders or members of the lender syndicate, including their full legal name and role (e.g. mandated lead arranger, original lender, agent bank)\n2. **Borrowers** — All borrowers, including their full legal name and jurisdiction of incorporation\n3. **Guarantors** — All guarantors, including their full legal name and the scope of their guarantee obligation\n4. **Other Parties** — Any other material parties (e.g. facility agent, security agent, hedge counterparties, issuing bank) and their roles\n5. **Date of Agreement** — Date of the credit agreement\n6. **Facilities** — Each facility available (e.g. Revolving Credit Facility, Term Loan A, Term Loan B, Term Loan C), the facility type, tranche name, and any key structural features\n7. **Amount** — Total committed amount across all facilities, the currency, and breakdown by tranche if applicable\n8. **Purpose** — Stated purpose for which borrowings may be used and any restrictions on use of proceeds\n9. **Interest** — Applicable reference rate (e.g. SOFR, EURIBOR, base rate), the margin, any margin ratchet mechanism, and how interest periods are structured\n10. **Commitment Fee** — Commitment or utilisation fees, the applicable rate, how they are calculated, and the basis (e.g. undrawn commitment, average utilisation)\n11. **Repayment Schedule** — Repayment profile for each facility, whether by scheduled instalments or bullet repayment, and the repayment dates and amounts\n12. **Maturity** — Final maturity date for each facility\n13. **Security** — Each class of security granted or required (e.g. share pledges, fixed and floating charges, real estate mortgages, account pledges) and the assets or entities over which security is taken\n14. **Guarantees** — Guarantee obligations, the guarantors, the scope of the guarantee, and any limitations (e.g. up-stream guarantee limitations, guarantor coverage test)\n15. **Financial Covenants** — Each financial covenant, the metric (e.g. leverage ratio, interest cover, cashflow cover), the applicable test, testing frequency, and any equity cure rights\n16. **Events of Default** — Each event of default, noting any grace periods, materiality thresholds, or cross-default provisions\n17. **Assignment** — Restrictions or permissions on assignment or transfer (e.g. white/blacklists, borrower consent for lender transfers; restrictions on borrower assignment)\n18. **Change of Control** — What constitutes a change of control, what obligations it triggers (e.g. mandatory prepayment, cancellation, lender consent), and any cure period\n19. **Prepayment Fee** — Any prepayment fees, make-whole premiums, or soft-call protections, the applicable fee, the period during which it applies, and any exceptions (e.g. prepayment from insurance proceeds or asset disposals)\n20. **Governing Law** — Governing law of the agreement\n21. **Dispute Resolution** — Whether disputes go to litigation or arbitration, the chosen forum or seat, and any submission to jurisdiction provisions\n\nDeliver the summary inline in your chat response — do NOT call generate_docx. Only produce a downloadable Word document if the user explicitly asks for one.',
+     'Banking & Finance'
+   )
+   on conflict (slug) do update set
+     title       = excluded.title,
+     description = excluded.description,
+     prompt_md   = excluded.prompt_md,
+     practice    = excluded.practice,
+     updated_at  = now()`,
+  `insert into public.playbook_templates
+     (is_system, slug, title, description, kind, prompt_md, practice)
+   values (
+     true, 'builtin-sha-summary',
+     'Shareholder Agreement Summary',
+     'Produces a 15-point legal summary of a shareholder agreement, flagging unusual provisions.',
+     'assistant',
+     E'## Shareholder Agreement Summary\n\nReview the uploaded shareholder agreement and produce a comprehensive legal summary covering the following topics. For each section, identify the key provisions, quote the relevant clause references, and flag any unusual, onerous, or market-standard deviations.\n\n1. **Parties & Shareholdings** — Full legal names, roles, share classes held, and percentage interests (on a fully diluted basis if stated)\n2. **Share Classes & Rights** — For each class: voting rights, dividend rights, liquidation preference, conversion or redemption features\n3. **Board Composition & Governance** — Board size, director appointment rights (and the shareholding thresholds required to maintain them), quorum, and casting vote\n4. **Reserved Matters** — Decisions requiring a special majority, unanimity, or a specific shareholder''s consent; note the threshold and whose consent is required for each\n5. **Pre-emption on New Shares** — Who holds pre-emption rights, procedure, timeline, and any carve-outs (e.g. employee option schemes)\n6. **Transfer Restrictions** — Lock-up periods, prohibited transfers, permitted transfers (e.g. to affiliates), and any board or shareholder approval requirements\n7. **Right of First Refusal / Pre-emption on Transfer** — Trigger, procedure, pricing mechanics, and any exceptions\n8. **Drag-Along Rights** — Who holds the right, threshold to trigger, conditions (e.g. minimum price, independent valuation), and minority protections\n9. **Tag-Along Rights** — Who holds the right, triggering threshold, exercise procedure, and price terms\n10. **Anti-Dilution Protections** — Type (full ratchet, weighted average), trigger events, calculation mechanics, and exceptions\n11. **Dividend Policy** — Any obligation or target to pay dividends, preferential dividend rights, and restrictions on distributions\n12. **Exit & Liquidity** — Agreed exit routes (trade sale, IPO, drag sale), timelines, and liquidation preferences on exit\n13. **Deadlock** — Deadlock definition, escalation and resolution mechanisms (e.g. Russian roulette, put/call options), and consequences if unresolved\n14. **Non-Compete & Non-Solicitation** — Who is bound, scope of activities and geography, duration, and carve-outs\n15. **Governing Law & Dispute Resolution** — Applicable law, forum, arbitration or litigation, and any mandatory escalation steps\n\nGenerate the summary as a downloadable Word document.',
+     'Corporate / M&A'
+   )
+   on conflict (slug) do update set
+     title       = excluded.title,
+     description = excluded.description,
+     prompt_md   = excluded.prompt_md,
+     practice    = excluded.practice,
+     updated_at  = now()`,
 
   `
   insert into public.organizations (id, name, email)

@@ -45,10 +45,6 @@ export default defineConfig(({ mode }) => ({
             return 'react-vendor';
           }
 
-          if (id.includes('node_modules/@supabase')) {
-            return 'supabase';
-          }
-
           if (id.includes('node_modules/@tanstack/react-query')) {
             return 'react-query';
           }

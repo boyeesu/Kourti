@@ -9,6 +9,11 @@ import { requireAuth } from '../../middleware/auth.js';
 import {
   signIn,
   signUp,
+  verifyTotpChallenge,
+  verifyRecoveryChallenge,
+  startTotpEnrolment,
+  confirmTotpEnrolment,
+  disableTotp,
   signOut,
   refreshTokens,
   changePassword,
@@ -63,16 +68,25 @@ const signInSchema = z.object({
   password: z.string().min(1),
 });
 
+// Password policy: min 12 characters per NIST SP 800-63B guidance.
+// Length over complexity — research shows complexity rules push users
+// toward weaker, predictable patterns.
+const PASSWORD_MIN = 12;
+const passwordSchema = z
+  .string()
+  .min(PASSWORD_MIN, `Password must be at least ${PASSWORD_MIN} characters`)
+  .max(256);
+
 const signUpSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: passwordSchema,
   firstName: z.string().optional(),
   lastName: z.string().optional(),
 });
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(6),
+  newPassword: passwordSchema,
 });
 
 const resetRequestSchema = z.object({
@@ -81,12 +95,12 @@ const resetRequestSchema = z.object({
 
 const resetConfirmSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(6),
+  password: passwordSchema,
 });
 
 const setPasswordSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(6),
+  password: passwordSchema,
 });
 
 // ── Refresh token expiry in seconds (for cookie maxAge) ─────────────────────
@@ -113,20 +127,117 @@ const refreshMaxAge = parseExpiry(env.JWT_REFRESH_EXPIRES_IN);
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 
+/**
+ * Resolve the client IP. We require a non-empty value so that all
+ * unknown-IP traffic doesn't share the same `'unknown'` rate-limit
+ * bucket. Behind Railway/Cloudflare `req.ip` honors `trust proxy: 1`.
+ */
+function clientIp(req: import('express').Request): string {
+  const ip = req.ip || req.socket.remoteAddress;
+  if (!ip) {
+    throw new ApiError('Could not determine client IP', 400, 'NO_CLIENT_IP');
+  }
+  return ip;
+}
+
 export const authRouter = Router();
 
 authRouter.post(
   '/sign-in',
   asyncHandler(async (req, res) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    enforceRateLimit(`auth:sign-in:${ip}`, 10, 60_000); // 10 attempts per minute per IP
+    const ip = clientIp(req);
+    // Per-IP limit catches casual brute force.
+    enforceRateLimit(`auth:sign-in:ip:${ip}`, 10, 60_000);
+
+    // Per-email limit catches credential stuffing across rotating IPs.
+    // Lower limit, longer window. Rate-limit BEFORE schema parsing so a
+    // malformed-email payload can't be used to bypass the email limit.
+    const emailFromBody =
+      typeof req.body?.email === 'string' ? req.body.email.toLowerCase().slice(0, 254) : null;
+    if (emailFromBody) {
+      enforceRateLimit(`auth:sign-in:email:${emailFromBody}`, 5, 600_000);
+    }
 
     const { email, password } = signInSchema.parse(req.body);
-    const tokens = await signIn(email, password);
+    const result = await signIn(email, password);
 
+    if (result.kind === 'mfa_required') {
+      // 2FA enabled — caller must redeem this token at /2fa/verify-totp
+      // (or /2fa/verify-recovery) to receive session tokens.
+      res.status(200).json({
+        mfaRequired: true,
+        mfaToken: result.mfaToken,
+        expiresIn: result.mfaTokenExpiresIn,
+      });
+      return;
+    }
+
+    setRefreshCookie(res, result.refreshToken, refreshMaxAge);
+    res.status(200).json({
+      accessToken: result.accessToken,
+      expiresIn: result.expiresIn,
+      user: result.user,
+    });
+  })
+);
+
+authRouter.post(
+  '/sign-up',
+  asyncHandler(async (req, res) => {
+    const ip = clientIp(req);
+    enforceRateLimit(`auth:sign-up:${ip}`, 5, 60_000); // 5 sign-ups per minute per IP
+
+    const { email, password, firstName, lastName } = signUpSchema.parse(req.body);
+    const result = await signUp(email, password, { firstName, lastName });
+
+    // Fresh sign-ups never have 2FA enabled; defensive guard.
+    if (result.kind === 'mfa_required') {
+      res.status(200).json({
+        mfaRequired: true,
+        mfaToken: result.mfaToken,
+        expiresIn: result.mfaTokenExpiresIn,
+      });
+      return;
+    }
+
+    setRefreshCookie(res, result.refreshToken, refreshMaxAge);
+
+    sendWelcomeEmail(email, firstName).catch((err) =>
+      console.error('Welcome email failed:', err instanceof Error ? err.message : err)
+    );
+
+    res.status(201).json({
+      accessToken: result.accessToken,
+      expiresIn: result.expiresIn,
+      user: result.user,
+    });
+  })
+);
+
+// ── 2FA / TOTP ──────────────────────────────────────────────────────
+
+const totpChallengeSchema = z.object({
+  mfaToken: z.string().min(1),
+  code: z.string().min(1).max(20),
+});
+
+const enrolConfirmSchema = z.object({
+  code: z.string().regex(/^\d{6}$/),
+});
+
+const disableTotpSchema = z.object({
+  currentPassword: z.string().min(1),
+});
+
+// Public — redeem the short-lived MFA token from /sign-in for session tokens.
+authRouter.post(
+  '/2fa/verify-totp',
+  asyncHandler(async (req, res) => {
+    const ip = clientIp(req);
+    enforceRateLimit(`auth:2fa:ip:${ip}`, 10, 60_000);
+    const { mfaToken, code } = totpChallengeSchema.parse(req.body);
+    const tokens = await verifyTotpChallenge(mfaToken, code);
     setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
-
-    // Don't send refresh token in body -- it's in the httpOnly cookie
     res.status(200).json({
       accessToken: tokens.accessToken,
       expiresIn: tokens.expiresIn,
@@ -136,26 +247,59 @@ authRouter.post(
 );
 
 authRouter.post(
-  '/sign-up',
+  '/2fa/verify-recovery',
   asyncHandler(async (req, res) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    enforceRateLimit(`auth:sign-up:${ip}`, 5, 60_000); // 5 sign-ups per minute per IP
-
-    const { email, password, firstName, lastName } = signUpSchema.parse(req.body);
-    const tokens = await signUp(email, password, { firstName, lastName });
-
+    const ip = clientIp(req);
+    enforceRateLimit(`auth:2fa:ip:${ip}`, 10, 60_000);
+    const { mfaToken, code } = totpChallengeSchema.parse(req.body);
+    const tokens = await verifyRecoveryChallenge(mfaToken, code);
     setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
-
-    // Send welcome email (non-blocking)
-    sendWelcomeEmail(email, firstName).catch((err) =>
-      console.error('Welcome email failed:', err instanceof Error ? err.message : err)
-    );
-
-    res.status(201).json({
+    res.status(200).json({
       accessToken: tokens.accessToken,
       expiresIn: tokens.expiresIn,
       user: tokens.user,
     });
+  })
+);
+
+// Authenticated — manage your own 2FA.
+authRouter.post(
+  '/2fa/enrol',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    if (!auth.email) {
+      throw new ApiError('Email not available on session', 400, 'AUTH_NO_EMAIL');
+    }
+    const { currentPassword } = req.body ?? {};
+    const { secret, otpauthUri } = await startTotpEnrolment(
+      auth.userId,
+      auth.email,
+      currentPassword
+    );
+    res.status(200).json({ secret, otpauthUri });
+  })
+);
+
+authRouter.post(
+  '/2fa/enrol/confirm',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { code } = enrolConfirmSchema.parse(req.body);
+    const { recoveryCodes } = await confirmTotpEnrolment(auth.userId, code);
+    res.status(200).json({ enabled: true, recoveryCodes });
+  })
+);
+
+authRouter.post(
+  '/2fa/disable',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { currentPassword } = disableTotpSchema.parse(req.body);
+    await disableTotp(auth.userId, currentPassword);
+    res.status(200).json({ enabled: false });
   })
 );
 
@@ -367,13 +511,22 @@ authRouter.post(
       [invitation.id]
     );
 
-    const tokens = await signIn(invitation.email, password);
-    setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
-
+    const result = await signIn(invitation.email, password);
+    if (result.kind === 'mfa_required') {
+      // Brand-new invitation flow: 2FA shouldn't be enabled yet, but if
+      // somehow it is, surface the challenge instead of silently failing.
+      res.status(200).json({
+        mfaRequired: true,
+        mfaToken: result.mfaToken,
+        expiresIn: result.mfaTokenExpiresIn,
+      });
+      return;
+    }
+    setRefreshCookie(res, result.refreshToken, refreshMaxAge);
     res.status(200).json({
-      accessToken: tokens.accessToken,
-      expiresIn: tokens.expiresIn,
-      user: tokens.user,
+      accessToken: result.accessToken,
+      expiresIn: result.expiresIn,
+      user: result.user,
     });
   })
 );
@@ -381,7 +534,7 @@ authRouter.post(
 authRouter.post(
   '/reset-password/request',
   asyncHandler(async (req, res) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const ip = clientIp(req);
     enforceRateLimit(`auth:reset:${ip}`, 3, 60_000); // 3 reset requests per minute per IP
 
     const { email } = resetRequestSchema.parse(req.body);

@@ -815,12 +815,10 @@ aiRouter.post(
 aiRouter.post(
   '/voice-transcription',
   asyncHandler(async (req, res) => {
-    const body = z
-      .object({
-        audio: z.string().min(1),
-        format: z.string().default('webm'),
-      })
-      .parse(req.body);
+    z.object({
+      audio: z.string().min(1),
+      format: z.string().default('webm'),
+    }).parse(req.body);
 
     // Placeholder -- real transcription via Whisper/OpenAI to be wired
     res.status(200).json({
@@ -831,6 +829,52 @@ aiRouter.post(
   })
 );
 
+/**
+ * Stream a long-form completion as SSE if the caller passed `stream: true`,
+ * otherwise return the full response as JSON. Long-running batch endpoints
+ * (compare-contracts, contract-generator) benefit from streaming because
+ * the user otherwise sees a 30s+ blank screen.
+ */
+async function respondWithCompletion(
+  res: import('express').Response,
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  opts: { stream: boolean; maxTokens?: number; jsonKey: string }
+) {
+  if (opts.stream) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+    try {
+      const completion = await streamChatCompletion(
+        messages,
+        (delta) => {
+          res.write(`data: ${JSON.stringify({ type: 'delta', content: delta })}\n\n`);
+        },
+        opts.maxTokens ?? 4000
+      );
+      res.write(
+        `data: ${JSON.stringify({ type: 'done', tokensUsed: completion.tokensUsed, modelUsed: completion.modelUsed })}\n\n`
+      );
+      res.end();
+    } catch (err) {
+      res.write(
+        `data: ${JSON.stringify({ type: 'error', error: err instanceof Error ? err.message : 'Streaming failed' })}\n\n`
+      );
+      res.end();
+    }
+    return;
+  }
+  const completion = await requestChatCompletion(messages, opts.maxTokens);
+  res.status(200).json({
+    success: true,
+    [opts.jsonKey]: completion.analysis,
+    tokensUsed: completion.tokensUsed,
+    modelUsed: completion.modelUsed,
+  });
+}
+
 aiRouter.post(
   '/compare-contracts',
   asyncHandler(async (req, res) => {
@@ -838,6 +882,7 @@ aiRouter.post(
       .object({
         contractA: z.string().min(1),
         contractB: z.string().min(1),
+        stream: z.boolean().optional().default(false),
       })
       .parse(req.body);
 
@@ -853,8 +898,11 @@ aiRouter.post(
       },
     ];
 
-    const completion = await requestChatCompletion(messages);
-    res.status(200).json({ success: true, comparison: completion.analysis });
+    await respondWithCompletion(res, messages, {
+      stream: body.stream,
+      maxTokens: 4000,
+      jsonKey: 'comparison',
+    });
   })
 );
 
@@ -867,6 +915,7 @@ aiRouter.post(
         parties: z.array(z.string()).optional(),
         terms: z.string().optional(),
         jurisdiction: z.string().optional(),
+        stream: z.boolean().optional().default(false),
       })
       .parse(req.body);
 
@@ -882,8 +931,11 @@ aiRouter.post(
       },
     ];
 
-    const completion = await requestChatCompletion(messages);
-    res.status(200).json({ success: true, contract: completion.analysis });
+    await respondWithCompletion(res, messages, {
+      stream: body.stream,
+      maxTokens: 4000,
+      jsonKey: 'contract',
+    });
   })
 );
 

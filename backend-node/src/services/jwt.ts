@@ -2,11 +2,26 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 
+import {
+  generateTotpSecret,
+  buildTotpUri,
+  verifyTotp,
+  generateRecoveryCodes,
+  hashRecoveryCode,
+  verifyRecoveryCode,
+} from './totp.js';
+
 const BCRYPT_COST = 12;
 
 import { env } from '../config/env.js';
 import { db } from '../db/pool.js';
 import { ApiError } from '../lib/http.js';
+
+// Pre-computed bcrypt hash of a fixed dummy string. Used when an email
+// doesn't exist so signIn always runs a real bcrypt.compare and the
+// response time matches the success path — closing the user-enumeration
+// timing oracle (CWE-203).
+const DUMMY_PASSWORD_HASH = '$2b$12$N9qo8uLOickgx2ZMRZoMye.IjPeZgSdBmkqPxxnkNLpfZ2y0yV2eC';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -73,9 +88,19 @@ function parseExpiresIn(val: string): number {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-export async function signIn(email: string, password: string): Promise<AuthTokens> {
+/**
+ * Result of `signIn`. Either we issued tokens straight away, or we
+ * issued a short-lived MFA-pending token that the client redeems via
+ * `verifyTotpChallenge`/`verifyRecoveryChallenge` to actually log in.
+ */
+export type SignInResult =
+  | (AuthTokens & { kind: 'tokens' })
+  | { kind: 'mfa_required'; mfaToken: string; mfaTokenExpiresIn: number };
+
+export async function signIn(email: string, password: string): Promise<SignInResult> {
   const result = await db.query(
     `SELECT au.id, au.email, au.encrypted_password, au.is_active,
+            au.totp_enabled, au.totp_secret,
             p.organization_id, p.first_name, p.last_name
      FROM public.auth_users au
      LEFT JOIN public.profiles p ON p.user_id = au.id
@@ -90,13 +115,22 @@ export async function signIn(email: string, password: string): Promise<AuthToken
         email: string;
         encrypted_password: string;
         is_active: boolean;
+        totp_enabled: boolean | null;
+        totp_secret: string | null;
         organization_id: string | null;
         first_name: string | null;
         last_name: string | null;
       }
     | undefined;
 
-  if (!user) {
+  // Always run bcrypt.compare against either the real hash or a fixed
+  // dummy hash so the response time doesn't reveal whether the email
+  // exists. Then fold the user-existence check into the credential check
+  // so we surface a single generic error.
+  const hashToCheck = user?.encrypted_password ?? DUMMY_PASSWORD_HASH;
+  const passwordValid = await bcrypt.compare(password, hashToCheck);
+
+  if (!user || !passwordValid) {
     throw new ApiError('Invalid email or password', 401, 'AUTH_INVALID_CREDENTIALS');
   }
 
@@ -104,11 +138,31 @@ export async function signIn(email: string, password: string): Promise<AuthToken
     throw new ApiError('Account is disabled', 403, 'AUTH_ACCOUNT_DISABLED');
   }
 
-  const passwordValid = await bcrypt.compare(password, user.encrypted_password);
-  if (!passwordValid) {
-    throw new ApiError('Invalid email or password', 401, 'AUTH_INVALID_CREDENTIALS');
+  // If 2FA is enabled, return a short-lived MFA-pending token instead of
+  // session tokens. The client must POST it to /auth/2fa/verify-totp
+  // (or .../verify-recovery) along with the 6-digit code to complete
+  // sign-in.
+  if (user.totp_enabled && user.totp_secret) {
+    const mfaTokenExpiresIn = 300; // 5 minutes
+    const mfaToken = jwt.sign({ sub: user.id, email: user.email, mfa: true }, env.JWT_SECRET!, {
+      algorithm: 'HS256',
+      expiresIn: mfaTokenExpiresIn,
+    });
+    return { kind: 'mfa_required', mfaToken, mfaTokenExpiresIn };
   }
 
+  return issueTokensForUser(user);
+}
+
+interface UserRow {
+  id: string;
+  email: string;
+  organization_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+async function issueTokensForUser(user: UserRow): Promise<AuthTokens & { kind: 'tokens' }> {
   const organizationId = user.organization_id || '';
 
   const payload: JwtPayload = {
@@ -136,6 +190,7 @@ export async function signIn(email: string, password: string): Promise<AuthToken
   );
 
   return {
+    kind: 'tokens',
     accessToken,
     refreshToken,
     expiresIn: parseExpiresIn(env.JWT_EXPIRES_IN),
@@ -149,11 +204,183 @@ export async function signIn(email: string, password: string): Promise<AuthToken
   };
 }
 
+// ── 2FA / TOTP ───────────────────────────────────────────────────────
+
+interface MfaTokenPayload {
+  sub: string;
+  email: string;
+  mfa: true;
+}
+
+function verifyMfaToken(mfaToken: string): MfaTokenPayload {
+  try {
+    const payload = jwt.verify(mfaToken, env.JWT_SECRET!, {
+      algorithms: ['HS256'],
+    }) as MfaTokenPayload;
+    if (!payload?.mfa) throw new Error('not an mfa token');
+    return payload;
+  } catch {
+    throw new ApiError('Invalid or expired 2FA challenge', 401, 'AUTH_MFA_INVALID');
+  }
+}
+
+async function loadUserForMfa(
+  userId: string
+): Promise<
+  UserRow & {
+    totp_enabled: boolean;
+    totp_secret: string | null;
+    totp_recovery_codes_hash: string[] | null;
+    is_active: boolean;
+  }
+> {
+  const r = await db.query(
+    `SELECT au.id, au.email, au.is_active, au.totp_enabled, au.totp_secret, au.totp_recovery_codes_hash,
+            p.organization_id, p.first_name, p.last_name
+     FROM public.auth_users au
+     LEFT JOIN public.profiles p ON p.user_id = au.id
+     WHERE au.id = $1`,
+    [userId]
+  );
+  const user = r.rows[0];
+  if (!user || !user.is_active) {
+    throw new ApiError('Invalid 2FA challenge', 401, 'AUTH_MFA_INVALID');
+  }
+  return user;
+}
+
+export async function verifyTotpChallenge(
+  mfaToken: string,
+  code: string
+): Promise<AuthTokens & { kind: 'tokens' }> {
+  const payload = verifyMfaToken(mfaToken);
+  const user = await loadUserForMfa(payload.sub);
+  if (!user.totp_enabled || !user.totp_secret) {
+    throw new ApiError('2FA not enabled for this user', 400, 'AUTH_MFA_NOT_ENABLED');
+  }
+  if (!verifyTotp(user.totp_secret, code)) {
+    throw new ApiError('Invalid 2FA code', 401, 'AUTH_MFA_INVALID_CODE');
+  }
+  return issueTokensForUser(user);
+}
+
+export async function verifyRecoveryChallenge(
+  mfaToken: string,
+  code: string
+): Promise<AuthTokens & { kind: 'tokens' }> {
+  const payload = verifyMfaToken(mfaToken);
+  const user = await loadUserForMfa(payload.sub);
+  const hashes = user.totp_recovery_codes_hash ?? [];
+  const { ok, index } = verifyRecoveryCode(code, hashes);
+  if (!ok) {
+    throw new ApiError('Invalid recovery code', 401, 'AUTH_MFA_INVALID_RECOVERY');
+  }
+  // Single-use: blank out the matching hash so the same code can't be replayed.
+  const next = [...hashes];
+  next[index] = '';
+  await db.query(
+    'UPDATE public.auth_users SET totp_recovery_codes_hash = $1, updated_at = now() WHERE id = $2',
+    [next, user.id]
+  );
+  return issueTokensForUser(user);
+}
+
+/**
+ * Begin TOTP enrolment. Returns the secret (base32) and otpauth URI for
+ * QR display. The secret is stored on the user but `totp_enabled` stays
+ * false until they confirm with `confirmTotpEnrolment`.
+ */
+export async function startTotpEnrolment(
+  userId: string,
+  email: string,
+  currentPassword?: string
+): Promise<{ secret: string; otpauthUri: string }> {
+  // If TOTP is already enabled, require password to prevent an attacker
+  // with a stolen access token from replacing the second factor.
+  const existing = await db.query<{ totp_enabled: boolean; encrypted_password: string }>(
+    'SELECT totp_enabled, encrypted_password FROM public.auth_users WHERE id = $1',
+    [userId]
+  );
+  const row = existing.rows[0];
+  if (!row) throw new ApiError('User not found', 404, 'NOT_FOUND');
+  if (row.totp_enabled) {
+    if (!currentPassword) {
+      throw new ApiError(
+        'Current password is required to re-enrol 2FA',
+        400,
+        'AUTH_PASSWORD_REQUIRED'
+      );
+    }
+    const ok = await bcrypt.compare(currentPassword, row.encrypted_password);
+    if (!ok) {
+      throw new ApiError('Current password is incorrect', 401, 'AUTH_INVALID_CREDENTIALS');
+    }
+  }
+
+  const secret = generateTotpSecret();
+  await db.query(
+    'UPDATE public.auth_users SET totp_secret = $1, totp_enabled = false, updated_at = now() WHERE id = $2',
+    [secret, userId]
+  );
+  return { secret, otpauthUri: buildTotpUri(secret, email) };
+}
+
+/**
+ * Confirm TOTP enrolment. The user must successfully verify a code
+ * generated from the freshly-issued secret. On success: flip
+ * `totp_enabled` to true and return a one-time list of recovery codes.
+ */
+export async function confirmTotpEnrolment(
+  userId: string,
+  code: string
+): Promise<{ recoveryCodes: string[] }> {
+  const r = await db.query<{ totp_secret: string | null; totp_enabled: boolean }>(
+    'SELECT totp_secret, totp_enabled FROM public.auth_users WHERE id = $1',
+    [userId]
+  );
+  const row = r.rows[0];
+  if (!row?.totp_secret) {
+    throw new ApiError('Start TOTP enrolment first', 400, 'AUTH_MFA_NO_SECRET');
+  }
+  if (!verifyTotp(row.totp_secret, code)) {
+    throw new ApiError('Invalid 2FA code', 401, 'AUTH_MFA_INVALID_CODE');
+  }
+  const recoveryCodes = generateRecoveryCodes(10);
+  const recoveryHashes = recoveryCodes.map(hashRecoveryCode);
+  await db.query(
+    'UPDATE public.auth_users SET totp_enabled = true, totp_recovery_codes_hash = $1, updated_at = now() WHERE id = $2',
+    [recoveryHashes, userId]
+  );
+  return { recoveryCodes };
+}
+
+/**
+ * Disable TOTP. Requires the current password to prevent an attacker
+ * with a stolen access token from removing the second factor.
+ */
+export async function disableTotp(userId: string, currentPassword: string): Promise<void> {
+  const r = await db.query<{ encrypted_password: string }>(
+    'SELECT encrypted_password FROM public.auth_users WHERE id = $1',
+    [userId]
+  );
+  const row = r.rows[0];
+  if (!row) throw new ApiError('User not found', 404, 'NOT_FOUND');
+  const ok = await bcrypt.compare(currentPassword, row.encrypted_password);
+  if (!ok) {
+    throw new ApiError('Current password is incorrect', 401, 'AUTH_INVALID_CREDENTIALS');
+  }
+  await db.query(
+    `UPDATE public.auth_users SET totp_enabled = false, totp_secret = NULL,
+       totp_recovery_codes_hash = NULL, updated_at = now() WHERE id = $1`,
+    [userId]
+  );
+}
+
 export async function signUp(
   email: string,
   password: string,
   metadata?: { firstName?: string; lastName?: string }
-): Promise<AuthTokens> {
+): Promise<SignInResult> {
   // Check if user exists
   const existing = await db.query(
     'SELECT id FROM public.auth_users WHERE lower(email) = lower($1)',
@@ -175,10 +402,11 @@ export async function signUp(
   );
   const newUser = userResult.rows[0] as { id: string; email: string };
 
-  // Create profile (without org -- they'll create/join one during onboarding)
+  // Create profile (without org -- they'll create/join one during onboarding).
+  // organization_id is nullable; null means "no org yet".
   await db.query(
     `INSERT INTO public.profiles (user_id, email, first_name, last_name, organization_id, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, '00000000-0000-0000-0000-000000000000', now(), now())
+     VALUES ($1, $2, $3, $4, NULL, now(), now())
      ON CONFLICT (user_id) DO NOTHING`,
     [newUser.id, newUser.email, metadata?.firstName || null, metadata?.lastName || null]
   );
@@ -314,22 +542,24 @@ export async function resetPasswordRequest(email: string): Promise<string> {
   const result = await db.query('SELECT id FROM public.auth_users WHERE lower(email) = lower($1)', [
     email,
   ]);
-  if (!result.rows[0]) {
-    // Don't reveal whether email exists
-    return 'ok';
-  }
 
+  // Always do equivalent work — generating a token and running an UPDATE
+  // — so the response time doesn't reveal whether the email exists
+  // (CWE-203). When the user doesn't exist, the UPDATE targets a sentinel
+  // id that matches no row.
   const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const expires = new Date(Date.now() + 3600000); // 1 hour
+  const targetId = result.rows[0]?.id ?? '00000000-0000-0000-0000-000000000000';
 
   await db.query(
     'UPDATE public.auth_users SET password_reset_token = $1, password_reset_expires_at = $2, updated_at = now() WHERE id = $3',
-    [
-      crypto.createHash('sha256').update(token).digest('hex'),
-      expires.toISOString(),
-      result.rows[0].id,
-    ]
+    [tokenHash, expires.toISOString(), targetId]
   );
+
+  // If no real user, return a sentinel so the caller can decide whether
+  // to actually send an email. Either way the timing matches.
+  if (!result.rows[0]) return 'ok';
 
   // Return the raw token -- caller is responsible for emailing it
   return token;

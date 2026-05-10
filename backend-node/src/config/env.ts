@@ -26,13 +26,25 @@ const envSchema = z.object({
 
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_CHAT_MODEL: z.string().default('gpt-5.4-2026-03-05'),
-  OPENAI_FALLBACK_CHAT_MODEL: z.string().default('gpt-4o'),
+  // Fallback used when the primary model rejects (4xx) — also a sensible
+  // choice for structured-extraction workloads where a smaller model
+  // suffices. Override via env in prod if you want the same model on
+  // both tiers.
+  OPENAI_FALLBACK_CHAT_MODEL: z.string().default('gpt-5-mini'),
 
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_CHAT_MODEL: z.string().default('claude-opus-4-6'),
   ANTHROPIC_API_VERSION: z.string().default('2023-06-01'),
 
-  LLM_PRIMARY_PROVIDER: z.enum(['anthropic', 'openai']).default('anthropic'),
+  // OpenRouter: OpenAI-compatible gateway giving access to any model
+  // (Claude, GPT, Llama, Gemini, etc.) behind a single key.
+  OPENROUTER_API_KEY: z.string().optional(),
+  OPENROUTER_CHAT_MODEL: z.string().default('anthropic/claude-opus-4'),
+  OPENROUTER_FALLBACK_CHAT_MODEL: z.string().default('openai/gpt-5-mini'),
+  // Sent as HTTP-Referer / X-Title to OpenRouter for usage analytics.
+  OPENROUTER_APP_NAME: z.string().default('Kourti Legal'),
+
+  LLM_PRIMARY_PROVIDER: z.enum(['anthropic', 'openai', 'openrouter']).default('anthropic'),
 
   API_TIMEOUT_MS: z.coerce.number().int().positive().default(90000),
   DEV_DEFAULT_USER_ID: z.string().default('00000000-0000-0000-0000-000000000001'),
@@ -58,7 +70,33 @@ if (env.AUTH_MODE === 'custom' && (!env.JWT_SECRET || !env.JWT_REFRESH_SECRET)) 
   throw new Error('JWT_SECRET and JWT_REFRESH_SECRET are required when AUTH_MODE=custom');
 }
 
+// Refuse to boot if access and refresh secrets match — otherwise an
+// access JWT can be replayed as a refresh token (CWE-326).
+if (env.JWT_SECRET && env.JWT_REFRESH_SECRET && env.JWT_SECRET === env.JWT_REFRESH_SECRET) {
+  throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must differ');
+}
+
+// Minimum entropy guard — a leaked production secret with <32 bytes is
+// brute-forceable. Both should be ≥32 chars in production.
+if (env.NODE_ENV === 'production') {
+  for (const [name, val] of [
+    ['JWT_SECRET', env.JWT_SECRET],
+    ['JWT_REFRESH_SECRET', env.JWT_REFRESH_SECRET],
+  ] as const) {
+    if (val && val.length < 32) {
+      throw new Error(`${name} must be at least 32 characters in production`);
+    }
+  }
+}
+
 export const corsOrigins = (env.CORS_ORIGINS || env.APP_URL || '')
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean);
+
+if (env.NODE_ENV === 'production' && corsOrigins.length === 0) {
+  console.warn(
+    '[env] WARNING: NODE_ENV=production but CORS_ORIGINS / APP_URL are empty. ' +
+      'All cross-origin browser requests will be denied.'
+  );
+}

@@ -293,7 +293,7 @@ documentsRouter.get(
 
     const safeFilename = originalFilename.replace(/[\r\n/\\]+/g, '_');
 
-    const signedUrl = createSignedUrl('documents', document.file_path, expiresIn);
+    const signedUrl = createSignedUrl('documents', document.file_path, expiresIn, organizationId);
 
     res.status(200).json({
       signedUrl,
