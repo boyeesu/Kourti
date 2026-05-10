@@ -44,12 +44,16 @@ RUN mkdir -p /var/cache/nginx/client_temp \
     && chown -R appuser:appgroup /etc/nginx/conf.d \
     && touch /run/nginx.pid && chown appuser:appgroup /run/nginx.pid
 
+# Remove the default nginx config (we generate ours at runtime)
+RUN rm -f /etc/nginx/conf.d/default.conf
+
 # Copy the build output
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx config template to a custom location (NOT /etc/nginx/templates/
-# which triggers the entrypoint's envsubst that would destroy nginx variables)
+# Copy nginx config template and entrypoint
 COPY nginx.conf.template /etc/nginx/nginx.conf.template
+COPY docker-entrypoint-custom.sh /docker-entrypoint-custom.sh
+RUN chmod +x /docker-entrypoint-custom.sh
 
 # Default port (Railway overrides via $PORT)
 ENV PORT=80
@@ -57,4 +61,4 @@ ENV BACKEND_URL=http://backend:4000
 
 USER appuser
 
-CMD ["/bin/sh", "-c", "envsubst '${PORT} ${BACKEND_URL}' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
+ENTRYPOINT ["/docker-entrypoint-custom.sh"]
