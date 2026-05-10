@@ -52,6 +52,9 @@ services:
         VITE_API_TIMEOUT: ${VITE_API_TIMEOUT}
         VITE_USE_NODE_BACKEND: ${VITE_USE_NODE_BACKEND:-true}
         VITE_BACKEND_API_URL: ${VITE_BACKEND_API_URL:-http://localhost:4000}
+    environment:
+      PORT: 80
+      BACKEND_URL: http://backend:4000
     security_opt:
       - "no-new-privileges:true"
     ports:

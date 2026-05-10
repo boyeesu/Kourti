@@ -47,11 +47,14 @@ RUN mkdir -p /var/cache/nginx/client_temp \
 # Copy the build output
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx config template to a custom location (NOT /etc/nginx/templates/
+# which triggers the entrypoint's envsubst that would destroy nginx variables)
+COPY nginx.conf.template /etc/nginx/nginx.conf.template
 
-EXPOSE 80
+# Default port (Railway overrides via $PORT)
+ENV PORT=80
+ENV BACKEND_URL=http://backend:4000
 
 USER appuser
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/bin/sh", "-c", "envsubst '${PORT} ${BACKEND_URL}' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]

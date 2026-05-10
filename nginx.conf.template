@@ -1,14 +1,14 @@
 server {
-    listen 80;
+    listen ${PORT};
 
-    # Security headers (mirrors vercel.json)
+    # Security headers
     add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(self), geolocation=()" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-XSS-Protection "1; mode=block" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms http://cdn.mxpnl.com https://cdn.mxpnl.com; connect-src 'self' http://localhost:4000 https://www.clarity.ms https://*.clarity.ms http://api-js.mixpanel.com https://api-js.mixpanel.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://storage.googleapis.com https://www.clarity.ms https://*.clarity.ms https://*.bing.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms http://cdn.mxpnl.com https://cdn.mxpnl.com; connect-src 'self' https://*.railway.app https://www.clarity.ms https://*.clarity.ms http://api-js.mixpanel.com https://api-js.mixpanel.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://storage.googleapis.com https://www.clarity.ms https://*.clarity.ms https://*.bing.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
 
     # Gzip compression
     gzip on;
@@ -18,7 +18,7 @@ server {
 
     # Proxy API requests to backend
     location /api/ {
-        proxy_pass http://backend:4000;
+        proxy_pass ${BACKEND_URL};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
