@@ -885,15 +885,10 @@ const bootstrapStatements = [
 ];
 
 export async function ensureDatabaseSchema() {
-  // In production, the database schema is managed by Railway migrations.
-  // Bootstrap is only needed for local Docker dev where we start from scratch.
-  if (process.env.NODE_ENV === 'production' && !process.env.RUN_BOOTSTRAP) {
-    console.log('Skipping bootstrap in production (set RUN_BOOTSTRAP=1 to force)');
-    // Still verify DB connectivity
-    await db.query('select 1');
-    console.log('Database connection verified');
-    return;
-  }
+  // Bootstrap uses idempotent DDL (CREATE IF NOT EXISTS, ADD COLUMN IF
+  // NOT EXISTS) so it is safe to run on every boot — including production.
+  // Previously gated behind RUN_BOOTSTRAP=1 in prod, but that caused 500s
+  // when new columns were deployed without running the migration first.
 
   console.log('Running database bootstrap...');
   for (const statement of bootstrapStatements) {
