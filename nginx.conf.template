@@ -1,6 +1,17 @@
 server {
     listen ${PORT};
 
+    # Re-declare MIME types so .mjs (ES modules) and .wasm are served correctly.
+    # Without this, nginx falls back to application/octet-stream and browsers
+    # refuse to execute the module (X-Content-Type-Options: nosniff).
+    # Required for pdfjs-dist's pdf.worker.min.mjs.
+    include       /etc/nginx/mime.types;
+    types {
+        application/javascript mjs;
+        application/wasm       wasm;
+    }
+    default_type  application/octet-stream;
+
     # Security headers
     add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -29,7 +40,7 @@ server {
     }
 
     # Cache static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    location ~* \.(js|mjs|wasm|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         root /usr/share/nginx/html;
         expires 1y;
         add_header Cache-Control "public, immutable";
