@@ -16,6 +16,7 @@ import { TableSkeleton } from '@/components/ui/loading-states';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Bot, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { AgentNav } from '@/components/agents/AgentNav';
 
 const agentTypeLabels: Record<string, string> = {
   matter_review: 'Matter Review',
@@ -44,6 +45,8 @@ export default function AgentJobs() {
           <p className="text-sm text-muted-foreground">Monitor and manage autonomous agent tasks</p>
         </div>
       </div>
+
+      <AgentNav />
 
       <div className="flex items-center gap-3">
         <Select

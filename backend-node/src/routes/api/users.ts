@@ -7,6 +7,17 @@ import { ApiError, asyncHandler } from '../../lib/http.js';
 import { isPlatformAdminUser, requirePlatformAdminUser } from '../../services/authorization.js';
 import { sendInvitationEmail } from '../../services/email.js';
 
+const ROLE_LEVELS: Record<string, number> = {
+  user: 1,
+  admin: 2,
+  superadmin: 3,
+  platform_admin: 4,
+};
+
+function getRoleLevel(role: string): number {
+  return ROLE_LEVELS[role] ?? 0;
+}
+
 const userIdParamsSchema = z.object({
   userId: z.string().regex(/^[0-9a-fA-F-]{36}$/),
 });
@@ -108,8 +119,31 @@ usersRouter.get(
 usersRouter.patch(
   '/:userId/status',
   asyncHandler(async (req, res) => {
+    const auth = req.auth!;
     const { userId } = userIdParamsSchema.parse(req.params);
     const { disable } = toggleUserStatusBodySchema.parse(req.body);
+
+    // Require admin/superadmin role or platform admin
+    const isPlatAdmin = await isPlatformAdminUser(auth.userId);
+    if (!isPlatAdmin) {
+      const roleResult = await db.query(
+        `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
+        [auth.userId, auth.organizationId]
+      );
+      const roles = roleResult.rows.map((r: Record<string, unknown>) => r.role_name as string);
+      if (!roles.includes('admin') && !roles.includes('superadmin')) {
+        throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+      }
+    }
+
+    // Ensure target user belongs to the same organization
+    const targetUser = await db.query(
+      `SELECT organization_id FROM public.profiles WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    );
+    if (!targetUser.rows[0] || targetUser.rows[0].organization_id !== auth.organizationId) {
+      throw new ApiError('User not found', 404, 'NOT_FOUND');
+    }
 
     const result = await db.query(
       'select public.toggle_user_status($1::uuid, $2::boolean) as result',
@@ -123,8 +157,31 @@ usersRouter.patch(
 usersRouter.patch(
   '/:userId/role',
   asyncHandler(async (req, res) => {
+    const auth = req.auth!;
     const { userId } = userIdParamsSchema.parse(req.params);
     const { role } = changeUserRoleBodySchema.parse(req.body);
+
+    // Require admin/superadmin role or platform admin
+    const isPlatAdmin = await isPlatformAdminUser(auth.userId);
+    if (!isPlatAdmin) {
+      const roleResult = await db.query(
+        `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
+        [auth.userId, auth.organizationId]
+      );
+      const roles = roleResult.rows.map((r: Record<string, unknown>) => r.role_name as string);
+      if (!roles.includes('admin') && !roles.includes('superadmin')) {
+        throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+      }
+    }
+
+    // Ensure target user belongs to the same organization
+    const targetUser = await db.query(
+      `SELECT organization_id FROM public.profiles WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    );
+    if (!targetUser.rows[0] || targetUser.rows[0].organization_id !== auth.organizationId) {
+      throw new ApiError('User not found', 404, 'NOT_FOUND');
+    }
 
     if (role === 'platform_admin') {
       throw new ApiError('Platform admin role cannot be assigned through the application.', 400);
@@ -302,6 +359,24 @@ usersRouter.post(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
     const body = inviteUserBodySchema.parse(req.body);
+
+    // Require admin/superadmin role or platform admin
+    const isPlatAdmin = await isPlatformAdminUser(auth.userId);
+    const roleResult = await db.query(
+      `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
+      [auth.userId, auth.organizationId]
+    );
+    const inviterRoles = roleResult.rows.map((r: Record<string, unknown>) => r.role_name as string);
+    if (!isPlatAdmin && !inviterRoles.includes('admin') && !inviterRoles.includes('superadmin')) {
+      throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+    }
+
+    // Prevent inviting a user with a higher role than the inviter
+    const inviterMaxLevel = Math.max(...inviterRoles.map(getRoleLevel), 0);
+    const invitedRole = body.role || 'user';
+    if (getRoleLevel(invitedRole) > inviterMaxLevel && !isPlatAdmin) {
+      throw new ApiError('Cannot assign a role higher than your own', 403, 'FORBIDDEN');
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();

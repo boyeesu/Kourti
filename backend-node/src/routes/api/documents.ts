@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { escapeIlike } from '../../lib/escapeIlike.js';
+import { sanitizeHtml } from '../../lib/sanitizeHtml.js';
 import { createSignedUrl } from '../../services/storage.js';
 
 const listDocumentsQuerySchema = z.object({
@@ -205,7 +207,7 @@ documentsRouter.get(
     const parsed = listDocumentsQuerySchema.parse(req.query);
     const page = parsed.page;
     const pageSize = parsed.pageSize;
-    const search = parsed.search ? `%${parsed.search}%` : null;
+    const search = parsed.search ? `%${escapeIlike(parsed.search)}%` : null;
     const clientId = parsed.clientId || null;
     const caseId = parsed.caseId || null;
     const organizationId = req.auth!.organizationId;
@@ -396,9 +398,13 @@ documentsRouter.patch(
     const updateData = updateDocumentBodySchema.parse(req.body);
     const organizationId = req.auth!.organizationId;
 
+    // Server-side HTML sanitisation (defence-in-depth; client uses DOMPurify)
+    const sanitizedContent =
+      updateData.content != null ? sanitizeHtml(updateData.content) : updateData.content;
+
     const updates: Array<{ column: string; value: unknown; isJson?: boolean }> = [
       { column: 'name', value: updateData.name },
-      { column: 'content', value: updateData.content },
+      { column: 'content', value: sanitizedContent },
       { column: 'summary', value: updateData.summary },
       {
         column: 'metadata',

@@ -11,11 +11,11 @@ export function useAnalyzeDocument() {
     mutationFn: async ({ docId, content }: { docId: string; content: string }) => {
       const cacheKey = `ai-summary-${docId}`;
       const lastCallKey = `ai-lastcall`;
-      const lastCall = localStorage.getItem(lastCallKey);
+      const lastCall = sessionStorage.getItem(lastCallKey);
       if (lastCall && Date.now() - Number(lastCall) < 1000) {
         throw new Error('API rate limit exceeded');
       }
-      const cached = localStorage.getItem(cacheKey);
+      const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
         return { analysis: cached, docId };
       }
@@ -29,8 +29,8 @@ export function useAnalyzeDocument() {
       );
       const analysis = result.analysis;
       if (!analysis) throw new Error('No analysis returned');
-      localStorage.setItem(cacheKey, analysis);
-      localStorage.setItem(lastCallKey, Date.now().toString());
+      sessionStorage.setItem(cacheKey, analysis);
+      sessionStorage.setItem(lastCallKey, Date.now().toString());
       return { analysis, docId };
     },
     onSuccess: async ({ analysis, docId }) => {

@@ -5,7 +5,19 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { isPlatformAdminUser } from '../../services/authorization.js';
 import { sendInvitationEmail } from '../../services/email.js';
+
+const ROLE_LEVELS: Record<string, number> = {
+  user: 1,
+  admin: 2,
+  superadmin: 3,
+  platform_admin: 4,
+};
+
+function getRoleLevel(role: string): number {
+  return ROLE_LEVELS[role] ?? 0;
+}
 
 const invitationIdParamsSchema = z.object({
   invitationId: z.string().regex(/^[0-9a-fA-F-]{36}$/),
@@ -48,7 +60,26 @@ invitationsRouter.post(
     const auth = req.auth!;
     const body = inviteSchema.parse(req.body);
 
+    // Require admin/superadmin role or platform admin
+    const isPlatAdmin = await isPlatformAdminUser(auth.userId);
+    const roleResult = await db.query(
+      `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
+      [auth.userId, auth.organizationId]
+    );
+    const inviterRoles = roleResult.rows.map((r: Record<string, unknown>) => r.role_name as string);
+    if (!isPlatAdmin && !inviterRoles.includes('admin') && !inviterRoles.includes('superadmin')) {
+      throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+    }
+
+    // Prevent inviting a user with a higher role than the inviter
+    const inviterMaxLevel = Math.max(...inviterRoles.map(getRoleLevel), 0);
+    const invitedRole = body.role || 'user';
+    if (getRoleLevel(invitedRole) > inviterMaxLevel && !isPlatAdmin) {
+      throw new ApiError('Cannot assign a role higher than your own', 403, 'FORBIDDEN');
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     const existing = await db.query(
@@ -88,7 +119,7 @@ invitationsRouter.post(
           body.role || 'user',
           body.department || null,
           auth.userId,
-          token,
+          tokenHash,
           expiresAt,
           existing.rows[0].id,
         ]
@@ -122,7 +153,7 @@ invitationsRouter.post(
           body.department || null,
           auth.organizationId,
           auth.userId,
-          token,
+          tokenHash,
           expiresAt,
         ]
       );
@@ -212,6 +243,7 @@ invitationsRouter.post(
     }
 
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     await db.query(
@@ -223,7 +255,7 @@ invitationsRouter.post(
           updated_at = now()
       where id = $3
       `,
-      [token, expiresAt, invitation.id]
+      [tokenHash, expiresAt, invitation.id]
     );
 
     const profile = await db.query(

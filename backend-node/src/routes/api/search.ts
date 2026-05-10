@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
+import { escapeIlike } from '../../lib/escapeIlike.js';
 import { asyncHandler } from '../../lib/http.js';
 
 const globalSearchSchema = z.object({
@@ -15,7 +16,7 @@ searchRouter.get(
   asyncHandler(async (req, res) => {
     const parsed = globalSearchSchema.parse(req.query);
     const organizationId = req.auth!.organizationId;
-    const term = `%${parsed.term}%`;
+    const term = `%${escapeIlike(parsed.term)}%`;
 
     const [casesResult, documentsResult, contractsResult, clientsResult] = await Promise.all([
       db.query(

@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { Check, X, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { AgentNav } from '@/components/agents/AgentNav';
 
 function ConfidenceBadge({ confidence }: { confidence: number }) {
   const pct = Math.round(confidence * 100);
@@ -70,6 +71,8 @@ export default function AgentApprovals() {
           </Badge>
         ) : null}
       </div>
+
+      <AgentNav />
 
       <Select
         value={statusFilter ?? 'all'}

@@ -88,6 +88,10 @@ if (env.NODE_ENV === 'production') {
       throw new Error(`${name} must be at least 32 characters in production`);
     }
   }
+
+  if (env.SSO_SECRET_KEY === 'kourti-dev-sso-key-change-in-production') {
+    throw new Error('SSO_SECRET_KEY must be changed from the default value in production');
+  }
 }
 
 export const corsOrigins = (env.CORS_ORIGINS || env.APP_URL || '')

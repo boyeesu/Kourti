@@ -9,7 +9,9 @@ const needsSsl = env.NODE_ENV === 'production' || env.DATABASE_URL.includes('rai
 
 export const db = new Pool({
   connectionString: env.DATABASE_URL,
-  ssl: needsSsl ? { rejectUnauthorized: false } : false,
+  ssl: needsSsl
+    ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+    : false,
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,

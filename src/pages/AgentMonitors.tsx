@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { FileCheck, Gavel, FileText, Play, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { AgentNav } from '@/components/agents/AgentNav';
 
 const monitorMeta: Record<string, { label: string; description: string; icon: React.ReactNode }> = {
   contract_expiration: {
@@ -35,6 +36,8 @@ export default function AgentMonitors() {
 
   return (
     <div className="space-y-4">
+      <AgentNav />
+
       <Tabs defaultValue="alerts">
         <TabsList>
           <TabsTrigger value="alerts">Alerts</TabsTrigger>

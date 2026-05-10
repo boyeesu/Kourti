@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Cpu, AlertTriangle, Shield, Zap, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { AgentNav } from '@/components/agents/AgentNav';
 
 export default function AgentDashboard() {
   const { data: dashData, isLoading } = useAgentDashboard();
@@ -30,6 +31,8 @@ export default function AgentDashboard() {
           Overview of agent activity across your organization
         </p>
       </div>
+
+      <AgentNav />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>

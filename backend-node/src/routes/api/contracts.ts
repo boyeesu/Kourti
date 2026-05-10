@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
+import { escapeIlike } from '../../lib/escapeIlike.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 
 const listContractsQuerySchema = z.object({
@@ -99,7 +100,7 @@ contractsRouter.get(
     const status = parsed.status && parsed.status !== 'all' ? parsed.status : null;
     const clientId = parsed.clientId || null;
     const expiringDays = parsed.expiringDays || null;
-    const search = parsed.search ? `%${parsed.search}%` : null;
+    const search = parsed.search ? `%${escapeIlike(parsed.search)}%` : null;
     const organizationId = req.auth!.organizationId;
 
     const offset = (page - 1) * pageSize;

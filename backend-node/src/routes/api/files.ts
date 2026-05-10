@@ -173,6 +173,10 @@ filesRouter.get(
     const filePath = z.string().min(1).parse(req.query.filePath);
     const expiresIn = Number(req.query.expiresIn) || 3600;
 
+    if (!filePath.startsWith(`${auth.organizationId}/`)) {
+      throw new ApiError('Access denied', 403, 'FORBIDDEN');
+    }
+
     const signedUrl = createSignedUrl('Chat_Storage', filePath, expiresIn, auth.organizationId);
 
     res.status(200).json({
@@ -232,10 +236,16 @@ filesRouter.delete(
   '/chat/*',
   requireAuth,
   asyncHandler(async (req, res) => {
+    const auth = req.auth!;
     const filePath = req.params[0];
     if (!filePath) {
       throw new ApiError('File path required', 400, 'VALIDATION_ERROR');
     }
+
+    if (!filePath.startsWith(`${auth.organizationId}/`)) {
+      throw new ApiError('Access denied', 403, 'FORBIDDEN');
+    }
+
     await deleteFile('Chat_Storage', filePath);
     res.status(204).send();
   })

@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -306,6 +308,7 @@ authRouter.post(
 authRouter.post(
   '/refresh',
   asyncHandler(async (req, res) => {
+    enforceRateLimit(`auth:refresh:${clientIp(req)}`, 20, 60_000);
     // Accept refresh token from httpOnly cookie OR body (for backward compat / mobile)
     const refreshToken =
       req.cookies?.[REFRESH_COOKIE] || (req.body as { refreshToken?: string })?.refreshToken;
@@ -354,7 +357,7 @@ authRouter.post(
   '/force-change-password',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const body = z.object({ newPassword: z.string().min(6) }).parse(req.body);
+    const body = z.object({ newPassword: passwordSchema }).parse(req.body);
     const auth = req.auth!;
 
     const hashedPassword = await import('bcryptjs').then((b) =>
@@ -390,7 +393,9 @@ authRouter.post(
 authRouter.post(
   '/set-password',
   asyncHandler(async (req, res) => {
+    enforceRateLimit(`auth:set-password:${clientIp(req)}`, 5, 60_000);
     const { token, password } = setPasswordSchema.parse(req.body);
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     const invitationResult = await db.query(
       `
@@ -401,7 +406,7 @@ authRouter.post(
         and expires_at > now()
       limit 1
       `,
-      [token]
+      [tokenHash]
     );
 
     const invitation = invitationResult.rows[0] as

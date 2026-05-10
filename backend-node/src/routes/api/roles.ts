@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { isPlatformAdminUser } from '../../services/authorization.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -75,6 +76,20 @@ rolesRouter.post(
   '/org',
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
+
+    // Require admin/superadmin role or platform admin
+    const isPlatAdmin = await isPlatformAdminUser(auth.userId);
+    if (!isPlatAdmin) {
+      const roleResult = await db.query(
+        `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
+        [auth.userId, auth.organizationId]
+      );
+      const roles = roleResult.rows.map((r: Record<string, unknown>) => r.role_name as string);
+      if (!roles.includes('admin') && !roles.includes('superadmin')) {
+        throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+      }
+    }
+
     const body = z
       .object({
         role_name: z.string().trim().min(1),
@@ -232,6 +247,20 @@ rolesRouter.put(
   '/permissions',
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
+
+    // Require admin/superadmin role or platform admin
+    const isPlatAdmin = await isPlatformAdminUser(auth.userId);
+    if (!isPlatAdmin) {
+      const roleResult = await db.query(
+        `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
+        [auth.userId, auth.organizationId]
+      );
+      const roles = roleResult.rows.map((r: Record<string, unknown>) => r.role_name as string);
+      if (!roles.includes('admin') && !roles.includes('superadmin')) {
+        throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+      }
+    }
+
     const body = z
       .object({
         role_name: z.string().trim().min(1),

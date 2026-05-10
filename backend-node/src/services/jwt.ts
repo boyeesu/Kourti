@@ -224,9 +224,7 @@ function verifyMfaToken(mfaToken: string): MfaTokenPayload {
   }
 }
 
-async function loadUserForMfa(
-  userId: string
-): Promise<
+async function loadUserForMfa(userId: string): Promise<
   UserRow & {
     totp_enabled: boolean;
     totp_secret: string | null;
@@ -417,7 +415,12 @@ export async function signUp(
 
 export function verifyAccessToken(token: string): AuthUser {
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET!, { algorithms: ['HS256'] }) as JwtPayload;
+    const payload = jwt.verify(token, env.JWT_SECRET!, { algorithms: ['HS256'] }) as JwtPayload & {
+      mfa?: boolean;
+    };
+    if (payload.mfa) {
+      throw new ApiError('MFA verification required', 401, 'AUTH_MFA_REQUIRED');
+    }
     return {
       id: payload.sub,
       email: payload.email,
