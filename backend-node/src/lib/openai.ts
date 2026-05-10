@@ -457,22 +457,24 @@ export async function streamChatCompletion(
 }
 
 // ---------------------------------------------------------------------------
-// Embeddings (OpenAI-only — Anthropic does not offer an embeddings API)
+// Embeddings (via OpenRouter — OpenAI-compatible endpoint)
 // ---------------------------------------------------------------------------
 
 export async function generateEmbedding(
   text: string,
-  model = 'text-embedding-3-small'
+  model = env.OPENROUTER_EMBEDDING_MODEL
 ): Promise<number[]> {
-  if (!env.OPENAI_API_KEY) {
-    throw new ApiError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+  if (!env.OPENROUTER_API_KEY) {
+    throw new ApiError('OpenRouter API key not configured', 503, 'OPENROUTER_CONFIG_MISSING');
   }
 
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
+  const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
+      'HTTP-Referer': env.OPENROUTER_APP_NAME,
+      'X-Title': env.OPENROUTER_APP_NAME,
     },
     body: JSON.stringify({ model, input: text }),
   });
@@ -482,7 +484,7 @@ export async function generateEmbedding(
     throw new ApiError(
       `Embedding request failed: ${response.status}: ${errorText}`,
       502,
-      'OPENAI_UPSTREAM_ERROR'
+      'OPENROUTER_UPSTREAM_ERROR'
     );
   }
 
@@ -492,7 +494,7 @@ export async function generateEmbedding(
 
   const embedding = data.data?.[0]?.embedding;
   if (!embedding) {
-    throw new ApiError('No embedding returned from OpenAI', 502, 'OPENAI_EMPTY_RESPONSE');
+    throw new ApiError('No embedding returned from OpenRouter', 502, 'OPENROUTER_EMPTY_RESPONSE');
   }
 
   return embedding;
@@ -500,19 +502,21 @@ export async function generateEmbedding(
 
 export async function generateEmbeddingsBatch(
   texts: string[],
-  model = 'text-embedding-3-small'
+  model = env.OPENROUTER_EMBEDDING_MODEL
 ): Promise<number[][]> {
-  if (!env.OPENAI_API_KEY) {
-    throw new ApiError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+  if (!env.OPENROUTER_API_KEY) {
+    throw new ApiError('OpenRouter API key not configured', 503, 'OPENROUTER_CONFIG_MISSING');
   }
 
   if (texts.length === 0) return [];
 
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
+  const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
+      'HTTP-Referer': env.OPENROUTER_APP_NAME,
+      'X-Title': env.OPENROUTER_APP_NAME,
     },
     body: JSON.stringify({ model, input: texts }),
   });
@@ -522,7 +526,7 @@ export async function generateEmbeddingsBatch(
     throw new ApiError(
       `Batch embedding request failed: ${response.status}: ${errorText}`,
       502,
-      'OPENAI_UPSTREAM_ERROR'
+      'OPENROUTER_UPSTREAM_ERROR'
     );
   }
 
@@ -531,7 +535,7 @@ export async function generateEmbeddingsBatch(
   };
 
   if (!data.data?.length) {
-    throw new ApiError('No embeddings returned from OpenAI', 502, 'OPENAI_EMPTY_RESPONSE');
+    throw new ApiError('No embeddings returned from OpenRouter', 502, 'OPENROUTER_EMPTY_RESPONSE');
   }
 
   return data.data.sort((a, b) => a.index - b.index).map((d) => d.embedding!);

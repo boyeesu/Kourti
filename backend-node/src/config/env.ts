@@ -41,6 +41,7 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_CHAT_MODEL: z.string().default('anthropic/claude-opus-4'),
   OPENROUTER_FALLBACK_CHAT_MODEL: z.string().default('openai/gpt-5-mini'),
+  OPENROUTER_EMBEDDING_MODEL: z.string().default('openai/text-embedding-3-small'),
   // Sent as HTTP-Referer / X-Title to OpenRouter for usage analytics.
   OPENROUTER_APP_NAME: z.string().default('Kourti Legal'),
 
