@@ -132,12 +132,20 @@ filesRouter.get(
       throw new ApiError('Access denied', 403, 'FORBIDDEN');
     }
 
-    const { data, contentType } = await downloadFile('documents', filePath);
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Length', data.length);
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Disposition', safeDisposition(contentType));
-    res.send(data);
+    try {
+      const { data, contentType } = await downloadFile('documents', filePath);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', data.length);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Disposition', safeDisposition(contentType));
+      res.send(data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.startsWith('File not found')) {
+        throw new ApiError('Document not found', 404, 'NOT_FOUND');
+      }
+      throw err;
+    }
   })
 );
 

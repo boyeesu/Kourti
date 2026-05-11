@@ -43,13 +43,16 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
     if (open && document.file_path) {
       loadFile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, document.file_path]);
+
+  useEffect(() => {
     return () => {
       if (fileUrl && isObjectUrl) {
         URL.revokeObjectURL(fileUrl);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, document.file_path, fileUrl, isObjectUrl]);
+  }, [fileUrl, isObjectUrl]);
 
   const loadFile = async () => {
     if (!document.file_path) return;
@@ -62,8 +65,15 @@ export function DocumentViewer({ open, onOpenChange, document }: DocumentViewerP
       const url = URL.createObjectURL(blob);
       setFileUrl(url);
       setIsObjectUrl(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load document');
+    } catch {
+      // Direct download failed — fall back to a signed URL
+      try {
+        const signedUrl = await getDocumentSignedUrl(document.file_path, 3600);
+        setFileUrl(signedUrl);
+        setIsObjectUrl(false);
+      } catch (err2) {
+        setError(err2 instanceof Error ? err2.message : 'Failed to load document');
+      }
     } finally {
       setLoading(false);
     }
