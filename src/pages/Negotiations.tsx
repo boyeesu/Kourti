@@ -19,7 +19,7 @@ const statusColors: Record<string, string> = {
 
 export default function Negotiations() {
   const { data, isLoading } = useNegotiations();
-  const negotiations = data?.data ?? [];
+  const negotiations = useMemo(() => data?.data ?? [], [data?.data]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [playbookFilter, setPlaybookFilter] = useState('all');

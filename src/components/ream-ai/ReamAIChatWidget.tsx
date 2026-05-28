@@ -61,11 +61,7 @@ export function ReamAIChatWidget({
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
-  const {
-    sendMessage: sendAssistantMessage,
-    isLoading: assistantLoading,
-    abort: _abortAssistant,
-  } = useReamAIAssistant();
+  const { sendMessage: sendAssistantMessage, isLoading: assistantLoading } = useReamAIAssistant();
   const uploadDocument = useUploadDocument();
   const { data: organization } = useCurrentUserOrganization();
   const processDocument = useProcessDocument();

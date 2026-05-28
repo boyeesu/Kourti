@@ -540,8 +540,6 @@ function AppLayoutInner({
   hasSearchTerm,
   isGlobalSearchLoading,
   globalSearchError,
-  moduleMeta: _moduleMeta,
-  breadcrumbLabels: _breadcrumbLabels,
   navigate,
   user,
   userInitials,
