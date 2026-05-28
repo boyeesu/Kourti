@@ -87,6 +87,12 @@ export async function invokeNodeApi<T>(
   } | null;
 
   if (!response.ok) {
+    if (response.status === 402 && typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path !== '/pricing' && path !== '/onboarding' && !path.startsWith('/settings/billing')) {
+        window.location.assign('/pricing');
+      }
+    }
     const message = data?.error || data?.message || `Node API request failed (${response.status})`;
     throw new Error(message);
   }
