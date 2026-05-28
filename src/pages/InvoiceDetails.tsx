@@ -81,6 +81,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 export default function InvoiceDetails() {
   const { id } = useParams<{ id: string }>();
@@ -168,32 +169,36 @@ export default function InvoiceDetails() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </PageContainer>
     );
   }
 
   // Error state
   if (error || !invoice) {
     return (
-      <div className="px-4 py-6 flex flex-col items-center justify-center space-y-4">
-        <AlertCircle className="h-12 w-12 text-destructive" />
-        <h2 className="text-xl font-semibold">Error Loading Invoice</h2>
-        <p className="text-muted-foreground">
-          {error instanceof Error ? error.message : 'Invoice not found'}
-        </p>
-        <div className="flex gap-4">
-          <Button onClick={() => navigate('/invoices')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Invoices
-          </Button>
-          <Button onClick={() => refetch()} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
+      <PageContainer>
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive" />
+          <h2 className="text-xl font-semibold">Error Loading Invoice</h2>
+          <p className="text-muted-foreground">
+            {error instanceof Error ? error.message : 'Invoice not found'}
+          </p>
+          <div className="flex gap-4">
+            <Button onClick={() => navigate('/invoices')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Invoices
+            </Button>
+            <Button onClick={() => refetch()} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -208,40 +213,39 @@ export default function InvoiceDetails() {
   const status = isOverdue && invoice.status !== 'overdue' ? 'overdue' : invoice.status;
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Invoice #{invoice.invoice_number}</h1>
-          <p className="text-muted-foreground">{invoice.title}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => navigate('/invoices')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Download PDF
-          </Button>
-          <Button variant="outline">
-            <Printer className="h-4 w-4 mr-2" />
-            Print
-          </Button>
-          {invoice.status !== 'sent' && (
-            <Button>
-              <Send className="h-4 w-4 mr-2" />
-              Send Invoice
+      <PageHeader
+        title={`Invoice #${invoice.invoice_number}`}
+        description={invoice.title}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => navigate('/invoices')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
             </Button>
-          )}
-        </div>
-      </div>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Download PDF
+            </Button>
+            <Button variant="outline">
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </Button>
+            {invoice.status !== 'sent' && (
+              <Button>
+                <Send className="h-4 w-4 mr-2" />
+                Send Invoice
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* Status & Key Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -597,6 +601,6 @@ export default function InvoiceDetails() {
         onSubmit={handleSubmitEdit}
         isLoading={updateInvoice.isPending}
       />
-    </div>
+    </PageContainer>
   );
 }

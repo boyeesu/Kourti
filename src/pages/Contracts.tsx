@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useContracts } from '@/hooks/useContracts';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import {
   Plus,
@@ -163,57 +164,54 @@ export default function Contracts() {
   const handleNextPage = () => setPage((prev) => Math.min(totalPages, prev + 1));
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
+    <PageContainer>
       <Breadcrumbs />
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <PageHeader
+        title="Contracts"
+        description="Manage contracts with version control and AI-powered analysis"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className="shadow-sm flex-1 sm:flex-none"
+              onClick={() => navigate('/contracts/create')}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Contract
+            </Button>
+            <Button
+              variant="default"
+              className="shadow-md flex-1 sm:flex-none"
+              onClick={() => navigate('/contracts/review')}
+            >
+              <ScanSearch className="h-4 w-4 mr-2" />
+              AI Review
+            </Button>
+            <Button
+              variant="outline"
+              className="shadow-sm flex-1 sm:flex-none"
+              onClick={() => navigate('/contracts/compare')}
+            >
+              <GitBranch className="h-4 w-4 mr-2" />
+              Compare Contracts
+            </Button>
+          </>
+        }
+      />
+      {clientFilter && (
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Contracts</h1>
-          <p className="text-muted-foreground">
-            Manage contracts with version control and AI-powered analysis
-          </p>
-          {clientFilter && (
-            <div className="mt-2">
-              <Badge variant="outline" className="px-2 py-1">
-                Client: {clientFilter}
-                <button
-                  className="ml-2 hover:text-destructive"
-                  onClick={() => navigate('/contracts')}
-                  aria-label="Clear client filter"
-                >
-                  ×
-                </button>
-              </Badge>
-            </div>
-          )}
+          <Badge variant="outline" className="px-2 py-1">
+            Client: {clientFilter}
+            <button
+              className="ml-2 hover:text-destructive"
+              onClick={() => navigate('/contracts')}
+              aria-label="Clear client filter"
+            >
+              ×
+            </button>
+          </Badge>
         </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            className="shadow-sm flex-1 sm:flex-none"
-            onClick={() => navigate('/contracts/create')}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Contract
-          </Button>
-          <Button
-            variant="default"
-            className="shadow-md flex-1 sm:flex-none"
-            onClick={() => navigate('/contracts/review')}
-          >
-            <ScanSearch className="h-4 w-4 mr-2" />
-            AI Review
-          </Button>
-          <Button
-            variant="outline"
-            className="shadow-sm flex-1 sm:flex-none"
-            onClick={() => navigate('/contracts/compare')}
-          >
-            <GitBranch className="h-4 w-4 mr-2" />
-            Compare Contracts
-          </Button>
-        </div>
-      </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -521,6 +519,6 @@ export default function Contracts() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

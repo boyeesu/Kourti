@@ -26,6 +26,7 @@ import { CalendarDayView } from '@/components/calendar/CalendarDayView';
 import { CalendarWorkWeekView } from '@/components/calendar/CalendarWorkWeekView';
 import { FindAvailableTimeDialog } from '@/components/calendar/FindAvailableTimeDialog';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { CalendarEvent, CalendarEventWithOwner } from '@/types';
@@ -348,46 +349,40 @@ export default function Calendar() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <PageContainer>
         <Breadcrumbs />
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
-            <p className="text-muted-foreground">Schedule and manage your legal events</p>
-          </div>
-        </div>
+        <PageHeader title="Calendar" description="Schedule and manage your legal events" />
         <TableSkeleton rows={6} columns={7} />
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
-          <p className="text-muted-foreground">Schedule and manage your legal events</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="shadow-sm"
-            onClick={() => setShowFindTimeDialog(true)}
-          >
-            <CalendarDays className="h-4 w-4 mr-2" />
-            Schedule Meeting
-          </Button>
-          <EventCreateDialog>
-            <Button className="shadow-sm">
-              <Plus className="h-4 w-4 mr-2" />
-              New Event
+      <PageHeader
+        title="Calendar"
+        description="Schedule and manage your legal events"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className="shadow-sm"
+              onClick={() => setShowFindTimeDialog(true)}
+            >
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Schedule Meeting
             </Button>
-          </EventCreateDialog>
-        </div>
-      </div>
+            <EventCreateDialog>
+              <Button className="shadow-sm">
+                <Plus className="h-4 w-4 mr-2" />
+                New Event
+              </Button>
+            </EventCreateDialog>
+          </>
+        }
+      />
 
       {/* Filters and Search */}
       <ModuleFilterBar
@@ -958,6 +953,6 @@ export default function Calendar() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </PageContainer>
   );
 }

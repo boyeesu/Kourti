@@ -27,6 +27,7 @@ import {
   ScanSearch,
 } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,49 +134,41 @@ export default function Documents() {
   // Early return after all hooks
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <PageContainer>
         <Breadcrumbs />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Documents</h1>
-            <p className="text-muted-foreground">Manage and organize your legal documents</p>
-          </div>
-        </div>
+        <PageHeader title="Documents" description="Manage and organize your legal documents" />
         <TableSkeleton rows={8} columns={5} />
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Documents</h1>
-          <p className="text-muted-foreground">
-            Manage and review legal documents with AI-powered analysis
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="default"
-            className="shadow-md"
-            onClick={() => navigate('/contracts/review')}
-          >
-            <ScanSearch className="h-4 w-4 mr-2" />
-            AI Review
-          </Button>
-          <Button
-            variant="outline"
-            className="shadow-sm"
-            onClick={() => navigate('/documents/upload')}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Document
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Documents"
+        description="Manage and review legal documents with AI-powered analysis"
+        actions={
+          <>
+            <Button
+              variant="default"
+              className="shadow-md"
+              onClick={() => navigate('/contracts/review')}
+            >
+              <ScanSearch className="h-4 w-4 mr-2" />
+              AI Review
+            </Button>
+            <Button
+              variant="outline"
+              className="shadow-sm"
+              onClick={() => navigate('/documents/upload')}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Document
+            </Button>
+          </>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -551,6 +544,6 @@ export default function Documents() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -1,17 +1,18 @@
-import { ContractUploadDialog } from "@/components/contracts/ContractUploadDialog";
-import { useNavigate } from "react-router-dom";
+import { ContractUploadDialog } from '@/components/contracts/ContractUploadDialog';
+import { useNavigate } from 'react-router-dom';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 export default function ContractUpload() {
   const navigate = useNavigate();
-  
+
   return (
-    <div className="p-6">
-      <ContractUploadDialog 
-        open={true} 
+    <PageContainer>
+      <ContractUploadDialog
+        open={true}
         onOpenChange={(open) => {
-          if (!open) navigate("/contracts");
-        }} 
+          if (!open) navigate('/contracts');
+        }}
       />
-    </div>
+    </PageContainer>
   );
 }

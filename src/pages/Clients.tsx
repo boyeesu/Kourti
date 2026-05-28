@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { useClients } from '@/hooks/useClients';
 import type { Client } from '@/types';
 import { TableSkeleton } from '@/components/ui/loading-states';
@@ -30,22 +31,17 @@ export default function Clients() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <PageContainer>
         <Breadcrumbs />
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Clients</h1>
-            <p className="text-muted-foreground">Manage your client database and relationships</p>
-          </div>
-        </div>
+        <PageHeader title="Clients" description="Manage your client database and relationships" />
         <TableSkeleton rows={6} columns={4} />
-      </div>
+      </PageContainer>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <PageContainer>
         <Breadcrumbs />
         <ErrorState
           title="Failed to load clients"
@@ -56,7 +52,7 @@ export default function Clients() {
           }
           error={error}
         />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -94,30 +90,29 @@ export default function Clients() {
 
   // -------------------------------------------------------------------------
   return (
-    <div className="space-y-4 animate-fade-in">
+    <PageContainer className="animate-fade-in">
       <Breadcrumbs />
 
-      {/* Header ----------------------------------------------------------- */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Clients</h1>
-          <p className="text-muted-foreground">Manage your client database and relationships</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => navigate('/clients/create')} className="shadow-md hover-scale">
-            <Plus className="h-4 w-4 mr-2" />
-            New Client
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => navigate('/bulk-import?type=clients')}
-            className="hover-scale"
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Bulk Import
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Clients"
+        description="Manage your client database and relationships"
+        actions={
+          <>
+            <Button onClick={() => navigate('/clients/create')} className="shadow-md hover-scale">
+              <Plus className="h-4 w-4 mr-2" />
+              New Client
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/bulk-import?type=clients')}
+              className="hover-scale"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Bulk Import
+            </Button>
+          </>
+        }
+      />
 
       {/* Metrics ---------------------------------------------------------- */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -318,7 +313,7 @@ export default function Clients() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 

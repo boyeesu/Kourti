@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 export default function UserManagement() {
   const [email, setEmail] = useState('');
@@ -185,21 +186,20 @@ export default function UserManagement() {
 
   if (isLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-          <p className="text-muted-foreground">Manage organization members and permissions</p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="User Management"
+        description="Manage organization members and permissions"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Invite User Form */}
@@ -530,6 +530,6 @@ export default function UserManagement() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageContainer>
   );
 }

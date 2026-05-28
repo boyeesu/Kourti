@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useNegotiations } from '@/hooks/useNegotiations';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,15 +52,13 @@ export default function Negotiations() {
   }, [negotiations, searchTerm, statusFilter, playbookFilter]);
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <Breadcrumbs />
 
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Negotiations</h1>
-        <p className="text-sm text-muted-foreground">
-          Track and manage contract negotiations with AI assistance
-        </p>
-      </div>
+      <PageHeader
+        title="Negotiations"
+        description="Track and manage contract negotiations with AI assistance"
+      />
 
       {/* Filters */}
       <ModuleFilterBar
@@ -156,6 +155,6 @@ export default function Negotiations() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

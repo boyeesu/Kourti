@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AIReviewDialog } from '@/components/AIReviewDialog';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 export default function ContractView() {
   const { id } = useParams();
@@ -50,18 +51,20 @@ export default function ContractView() {
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Loading contract...</p>
+      <PageContainer>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground">Loading contract...</p>
+          </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   if (error || !contract) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <Card className="shadow-card">
           <CardContent className="p-12 text-center">
             <AlertTriangle className="h-16 w-16 text-destructive mx-auto mb-4" />
@@ -79,7 +82,7 @@ export default function ContractView() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -192,7 +195,7 @@ export default function ContractView() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <PageContainer>
       <Breadcrumbs />
 
       {/* Header */}
@@ -207,7 +210,9 @@ export default function ContractView() {
             </Button>
           </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">{contract.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+              {contract.title}
+            </h1>
             <Badge variant="outline" className={getStatusColor(contract.status)}>
               {contract.status}
             </Badge>
@@ -510,6 +515,6 @@ export default function ContractView() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

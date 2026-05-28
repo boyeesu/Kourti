@@ -37,6 +37,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const caseSchema = z.object({
   title: z.string().min(1, 'Matter title is required'),
@@ -133,7 +134,7 @@ export default function CaseCreate() {
   };
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -142,7 +143,9 @@ export default function CaseCreate() {
           <ArrowLeft className="h-4 w-4" />{' '}
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Create New Matter</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+            Create New Matter
+          </h1>
           <p className="text-muted-foreground">Add a new matter to your organization</p>
         </div>
       </div>
@@ -452,6 +455,6 @@ export default function CaseCreate() {
           </Form>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

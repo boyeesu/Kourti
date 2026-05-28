@@ -19,6 +19,7 @@ import {
   FileText,
   Clock,
 } from 'lucide-react';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 interface ChangelogEntry {
   version: string;
@@ -261,12 +262,14 @@ export default function Changelog() {
   });
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto">
+    <PageContainer size="wide">
       {/* Header */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-3 mb-3">
           <FileText className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold text-foreground">Changelog</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+            Changelog
+          </h1>
         </div>
         <p className="text-muted-foreground max-w-2xl mx-auto">
           Track all customer-facing changes, new features, improvements, and bug fixes to Kourti AI
@@ -455,6 +458,6 @@ export default function Changelog() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

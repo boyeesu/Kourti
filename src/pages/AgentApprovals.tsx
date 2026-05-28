@@ -22,6 +22,7 @@ import {
 import { Check, X, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AgentNav } from '@/components/agents/AgentNav';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 function ConfidenceBadge({ confidence }: { confidence: number }) {
   const pct = Math.round(confidence * 100);
@@ -57,20 +58,20 @@ export default function AgentApprovals() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <Breadcrumbs />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Approval Queue</h1>
-          <p className="text-sm text-muted-foreground">Review and approve agent-proposed actions</p>
-        </div>
-        {data?.pendingCount ? (
-          <Badge variant="destructive" className="text-sm">
-            {data.pendingCount} pending
-          </Badge>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Approval Queue"
+        description="Review and approve agent-proposed actions"
+        actions={
+          data?.pendingCount ? (
+            <Badge variant="destructive" className="text-sm">
+              {data.pendingCount} pending
+            </Badge>
+          ) : null
+        }
+      />
 
       <AgentNav />
 
@@ -218,6 +219,6 @@ export default function AgentApprovals() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
