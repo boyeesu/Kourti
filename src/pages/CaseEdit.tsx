@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 export default function CaseEdit() {
   const { id } = useParams();
@@ -65,14 +66,18 @@ export default function CaseEdit() {
 
   if (isLoading || !form) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <div className="animate-spin h-8 w-8 mr-2 border-b-2 border-primary rounded-full mx-auto my-12" />
-      </div>
+      </PageContainer>
     );
   }
 
   if (error || !caseData) {
-    return <div className="p-6 text-center text-destructive">Could not load case for editing.</div>;
+    return (
+      <PageContainer>
+        <div className="text-center text-destructive">Could not load case for editing.</div>
+      </PageContainer>
+    );
   }
 
   function handleChange(key: string, value: any) {
@@ -98,14 +103,16 @@ export default function CaseEdit() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <PageContainer size="narrow">
       <Breadcrumbs />
       <div className="flex items-center gap-2 mb-4">
         <Button variant="ghost" size="sm" onClick={() => navigate(`/matters/${caseData.id}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Matter
         </Button>
-        <h1 className="text-xl font-bold">Edit Matter: {caseData.title}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+          Edit Matter: {caseData.title}
+        </h1>
       </div>
       <Card className="shadow-card">
         <CardHeader>
@@ -245,6 +252,6 @@ export default function CaseEdit() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { useActivities } from '@/features/activities/api/useActivities';
 import { useCreateActivity } from '@/features/activities/api/useCreateActivity';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const activityTypes = [
   'Meeting',
@@ -99,14 +100,16 @@ export default function CaseActivities() {
 
   if (isLoading) {
     return (
-      <div className="p-6 flex justify-center">
-        <div className="animate-spin h-8 w-8 border-b-2 border-primary rounded-full" />
-      </div>
+      <PageContainer>
+        <div className="flex justify-center">
+          <div className="animate-spin h-8 w-8 border-b-2 border-primary rounded-full" />
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -114,7 +117,9 @@ export default function CaseActivities() {
           <Button variant="ghost" size="icon" onClick={() => navigate(`/matters/${caseId}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">Matter Activities</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+            Matter Activities
+          </h1>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -203,6 +208,6 @@ export default function CaseActivities() {
           <p className="text-muted-foreground text-center">No activities yet.</p>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

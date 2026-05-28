@@ -21,6 +21,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 // Define local notification type to match database
 interface Notification {
@@ -197,14 +198,11 @@ export default function Notifications() {
   };
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Notifications</h1>
-        <p className="text-muted-foreground">
-          Stay updated with important events, cases, and document activities
-        </p>
-      </div>
+    <PageContainer size="narrow">
+      <PageHeader
+        title="Notifications"
+        description="Stay updated with important events, cases, and document activities"
+      />
 
       {/* Main content */}
       <Card className="shadow-sm">
@@ -350,6 +348,6 @@ export default function Notifications() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

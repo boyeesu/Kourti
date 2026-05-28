@@ -31,6 +31,7 @@ import {
   Mail,
   History,
 } from 'lucide-react';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 export default function HelpCenter() {
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -965,18 +966,14 @@ If you notice any security concerns:
   };
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Help Center</h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Find answers to common questions and comprehensive guides to help you make the most of
-          Kourti AI
-        </p>
-      </div>
+    <PageContainer size="wide">
+      <PageHeader
+        title="Help Center"
+        description="Find answers to common questions and comprehensive guides to help you make the most of Kourti AI"
+      />
 
       {/* Search */}
-      <div className="relative max-w-xl mx-auto mb-8">
+      <div className="relative max-w-2xl mb-8">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           type="text"
@@ -1244,6 +1241,6 @@ If you notice any security concerns:
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Table2, Trash2 } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { listTabularReviews, deleteTabularReview, type TabularReview } from '@/lib/featuresApi';
 import { toast } from 'sonner';
 
@@ -43,21 +44,19 @@ export default function TabularReviews() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <Breadcrumbs />
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Tabular Reviews</h1>
-          <p className="text-sm text-muted-foreground">
-            Build a spreadsheet of LLM extractions across multiple documents.
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/tabular-reviews/new">
-            <Plus className="h-4 w-4 mr-2" /> New review
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Tabular Reviews"
+        description="Build a spreadsheet of LLM extractions across multiple documents."
+        actions={
+          <Button asChild>
+            <Link to="/tabular-reviews/new">
+              <Plus className="h-4 w-4 mr-2" /> New review
+            </Link>
+          </Button>
+        }
+      />
 
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
@@ -106,6 +105,6 @@ export default function TabularReviews() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

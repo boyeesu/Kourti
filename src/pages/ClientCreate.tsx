@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const clientSchema = z.object({
   name: z.string().min(1, 'Client name is required'),
@@ -84,7 +85,7 @@ export default function ClientCreate({ onSuccess, showHeader = true }: ClientCre
   };
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
       {/* Header */}
       {showHeader && (
@@ -93,7 +94,9 @@ export default function ClientCreate({ onSuccess, showHeader = true }: ClientCre
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Create New Client</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+              Create New Client
+            </h1>
             <p className="text-muted-foreground">Add a new client to your organization</p>
           </div>
         </div>
@@ -240,6 +243,6 @@ export default function ClientCreate({ onSuccess, showHeader = true }: ClientCre
           </Form>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

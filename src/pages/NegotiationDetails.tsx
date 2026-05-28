@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Bot, ArrowDown, ArrowUp, AlertTriangle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 export default function NegotiationDetails() {
   const { id } = useParams<{ id: string }>();
@@ -36,7 +37,7 @@ export default function NegotiationDetails() {
   const positions = neg.positions ?? [];
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <Breadcrumbs />
 
       <div className="flex items-center justify-between">
@@ -47,7 +48,7 @@ export default function NegotiationDetails() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
               {neg.contract_title ?? 'Negotiation'}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -224,6 +225,6 @@ export default function NegotiationDetails() {
           </Card>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

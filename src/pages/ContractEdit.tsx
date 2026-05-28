@@ -1,24 +1,34 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { useContract, useUpdateContract, useDeleteContract } from "@/hooks/useContracts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { 
-  ArrowLeft, 
-  Save, 
-  FileText, 
-  AlertTriangle,
-  Eye,
-  Loader2
-} from "lucide-react";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useContract, useUpdateContract, useDeleteContract } from '@/hooks/useContracts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { ArrowLeft, Save, FileText, AlertTriangle, Eye, Loader2 } from 'lucide-react';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 export default function ContractEdit() {
   const { id } = useParams();
@@ -27,47 +37,49 @@ export default function ContractEdit() {
   const updateContract = useUpdateContract();
   const deleteContract = useDeleteContract();
   const [isModified, setIsModified] = useState(false);
-  const [activeTab, setActiveTab] = useState("content");
+  const [activeTab, setActiveTab] = useState('content');
 
   const [contractData, setContractData] = useState({
-    title: "",
-    description: "",
-    status: "draft" as string,
-    contract_type: "",
+    title: '',
+    description: '',
+    status: 'draft' as string,
+    contract_type: '',
     value: 0,
-    currency: "USD",
-    start_date: "",
-    end_date: "",
-    terms: "",
+    currency: 'USD',
+    start_date: '',
+    end_date: '',
+    terms: '',
   });
 
   useEffect(() => {
     if (contract) {
       setContractData({
-        title: contract.title || "",
-        description: contract.description || "",
-        status: contract.status || "draft",
-        contract_type: contract.contract_type || "",
+        title: contract.title || '',
+        description: contract.description || '',
+        status: contract.status || 'draft',
+        contract_type: contract.contract_type || '',
         value: contract.value || 0,
-        currency: contract.currency || "USD",
-        start_date: contract.start_date || "",
-        end_date: contract.end_date || "",
-        terms: contract.terms || "",
+        currency: contract.currency || 'USD',
+        start_date: contract.start_date || '',
+        end_date: contract.end_date || '',
+        terms: contract.terms || '',
       });
     }
   }, [contract]);
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </PageContainer>
     );
   }
 
   if (!contract) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <Breadcrumbs />
         <Card className="shadow-card">
           <CardContent className="p-12 text-center">
@@ -84,7 +96,7 @@ export default function ContractEdit() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -104,22 +116,22 @@ export default function ContractEdit() {
   const handleDelete = async () => {
     try {
       await deleteContract.mutateAsync(id!);
-      navigate("/contracts");
+      navigate('/contracts');
     } catch {
       // Error handled by mutation
     }
   };
 
   const handleChange = (field: string, value: unknown) => {
-    setContractData(prev => ({
+    setContractData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
     setIsModified(true);
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <PageContainer>
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -131,7 +143,9 @@ export default function ContractEdit() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold">Edit Contract</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+              Edit Contract
+            </h1>
             <p className="text-muted-foreground">{contract.title}</p>
           </div>
           {isModified && (
@@ -141,7 +155,7 @@ export default function ContractEdit() {
             </Badge>
           )}
         </div>
-        
+
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link to={`/contracts/${id}`}>
@@ -153,7 +167,7 @@ export default function ContractEdit() {
             <AlertDialogTrigger asChild>
               <Button disabled={!isModified || updateContract.isPending}>
                 <Save className="h-4 w-4 mr-2" />
-                {updateContract.isPending ? "Saving..." : "Save Changes"}
+                {updateContract.isPending ? 'Saving...' : 'Save Changes'}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -195,7 +209,7 @@ export default function ContractEdit() {
                   placeholder="Enter contract title"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="contractDescription">Description</Label>
                 <Textarea
@@ -230,14 +244,21 @@ export default function ContractEdit() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Contract Type</Label>
-                  <Select value={contractData.contract_type} onValueChange={(value) => handleChange('contract_type', value)}>
+                  <Select
+                    value={contractData.contract_type}
+                    onValueChange={(value) => handleChange('contract_type', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Software License Agreement">Software License Agreement</SelectItem>
+                      <SelectItem value="Software License Agreement">
+                        Software License Agreement
+                      </SelectItem>
                       <SelectItem value="Service Agreement">Service Agreement</SelectItem>
-                      <SelectItem value="Non-Disclosure Agreement">Non-Disclosure Agreement</SelectItem>
+                      <SelectItem value="Non-Disclosure Agreement">
+                        Non-Disclosure Agreement
+                      </SelectItem>
                       <SelectItem value="Employment Contract">Employment Contract</SelectItem>
                       <SelectItem value="Purchase Agreement">Purchase Agreement</SelectItem>
                     </SelectContent>
@@ -246,7 +267,10 @@ export default function ContractEdit() {
 
                 <div className="space-y-2">
                   <Label>Status</Label>
-                  <Select value={contractData.status} onValueChange={(value) => handleChange('status', value)}>
+                  <Select
+                    value={contractData.status}
+                    onValueChange={(value) => handleChange('status', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -268,7 +292,10 @@ export default function ContractEdit() {
                       onChange={(e) => handleChange('value', parseFloat(e.target.value) || 0)}
                       placeholder="0"
                     />
-                    <Select value={contractData.currency} onValueChange={(value) => handleChange('currency', value)}>
+                    <Select
+                      value={contractData.currency}
+                      onValueChange={(value) => handleChange('currency', value)}
+                    >
                       <SelectTrigger className="w-24">
                         <SelectValue />
                       </SelectTrigger>
@@ -316,9 +343,7 @@ export default function ContractEdit() {
           </p>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                Delete Contract
-              </Button>
+              <Button variant="destructive">Delete Contract</Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -340,6 +365,6 @@ export default function ContractEdit() {
           </AlertDialog>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

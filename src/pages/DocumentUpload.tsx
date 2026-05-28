@@ -35,6 +35,7 @@ import { UploadCloud, Sparkles, Bot, Bell, ShieldCheck, FileText } from 'lucide-
 import { useCases } from '@/hooks/useCases';
 import { useUploadDocument } from '@/hooks/useDocuments';
 import { Case } from '@/types';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -196,14 +197,8 @@ export default function DocumentUpload() {
   });
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Upload Document</h1>
-          <p className="text-muted-foreground">Upload a new document to the system</p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader title="Upload Document" description="Upload a new document to the system" />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
         <Card className="shadow-card">
@@ -582,6 +577,6 @@ export default function DocumentUpload() {
           </Card>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

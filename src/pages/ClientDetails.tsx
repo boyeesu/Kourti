@@ -1,7 +1,6 @@
-
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Case, Document } from "@/types";
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Case, Document } from '@/types';
 import {
   ArrowLeft,
   Edit,
@@ -16,34 +15,35 @@ import {
   FileText,
   Briefcase,
   Eye,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { useClient } from "@/hooks/useClients";
-import { useClientLogs, useCreateClientLog } from "@/hooks/useClientLogs";
-import { useCasesByClient } from "@/hooks/useCases";
-import { useContractsByClient } from "@/hooks/useContracts";
-import { useCalendarEventsByClient } from "@/hooks/useCalendar";
-import { useDocumentsByClient } from "@/hooks/useDocuments";
-import { DocumentViewer } from "@/components/DocumentViewer";
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { useClient } from '@/hooks/useClients';
+import { useClientLogs, useCreateClientLog } from '@/hooks/useClientLogs';
+import { useCasesByClient } from '@/hooks/useCases';
+import { useContractsByClient } from '@/hooks/useContracts';
+import { useCalendarEventsByClient } from '@/hooks/useCalendar';
+import { useDocumentsByClient } from '@/hooks/useDocuments';
+import { DocumentViewer } from '@/components/DocumentViewer';
 
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer } from '@/components/layout/PageContainer';
 import {
   Table,
   TableBody,
@@ -51,7 +51,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 
 export default function ClientDetails() {
   const { clientId } = useParams();
@@ -66,15 +66,15 @@ export default function ClientDetails() {
   const { data: documents = [] } = useDocumentsByClient(clientId!);
 
   const createLog = useCreateClientLog();
-  const [logContent, setLogContent] = useState("");
-  const [logType, setLogType] = useState<'email' | 'phone' | 'note'>("note");
+  const [logContent, setLogContent] = useState('');
+  const [logType, setLogType] = useState<'email' | 'phone' | 'note'>('note');
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
 
   const getInitials = (name: string) =>
     name
-      .split(" ")
+      .split(' ')
       .map((word) => word[0])
-      .join("")
+      .join('')
       .slice(0, 2)
       .toUpperCase();
 
@@ -97,32 +97,36 @@ export default function ClientDetails() {
 
   if (clientLoading) {
     return (
-      <div className="px-6 py-8 flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </PageContainer>
     );
   }
 
   if (!client) {
     return (
-      <div className="px-6 py-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">Client not found</h1>
-        <Button onClick={() => navigate("/clients")}>Back to Clients</Button>
-      </div>
+      <PageContainer>
+        <div className="text-center py-12">
+          <h1 className="text-2xl font-bold mb-4">Client not found</h1>
+          <Button onClick={() => navigate('/clients')}>Back to Clients</Button>
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="px-6 py-8 space-y-8 max-w-7xl mx-auto animate-fade-in">
+    <PageContainer className="animate-fade-in">
       <Breadcrumbs />
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Button
             variant="outline"
             size="icon"
-            onClick={() => navigate("/clients")}
+            onClick={() => navigate('/clients')}
             className="hover-scale"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -142,9 +146,7 @@ export default function ClientDetails() {
                     {client.company}
                   </p>
                 )}
-                <Badge className={getStatusColor(client.status)}>
-                  {client.status}
-                </Badge>
+                <Badge className={getStatusColor(client.status)}>{client.status}</Badge>
               </div>
             </div>
           </div>
@@ -258,13 +260,16 @@ export default function ClientDetails() {
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <StickyNote className="h-5 w-5" /> 
+            <StickyNote className="h-5 w-5" />
             Communication Log ({commLogs.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-4 gap-3 items-end">
-            <Select value={logType} onValueChange={(v) => setLogType(v as 'email' | 'phone' | 'note')}>
+            <Select
+              value={logType}
+              onValueChange={(v) => setLogType(v as 'email' | 'phone' | 'note')}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -283,18 +288,18 @@ export default function ClientDetails() {
             <Button
               disabled={createLog.isPending || !logContent.trim()}
               onClick={() => {
-                createLog.mutate({ 
+                createLog.mutate({
                   type: logType,
                   content: logContent,
                   client_id: clientId!,
                 });
-                setLogContent("");
+                setLogContent('');
               }}
             >
               Add Log
             </Button>
           </div>
-          
+
           {commLogs.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">No communications logged yet.</p>
           ) : (
@@ -353,13 +358,13 @@ export default function ClientDetails() {
                       </Button>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(c.status)}>
-                        {c.status}
-                      </Badge>
+                      <Badge className={getStatusColor(c.status)}>{c.status}</Badge>
                     </TableCell>
                     <TableCell>{c.priority}</TableCell>
                     <TableCell>
-                      {c.next_hearing_date ? new Date(c.next_hearing_date).toLocaleDateString() : '-'}
+                      {c.next_hearing_date
+                        ? new Date(c.next_hearing_date).toLocaleDateString()
+                        : '-'}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -384,13 +389,15 @@ export default function ClientDetails() {
               <p className="text-center py-8 text-muted-foreground">No events scheduled</p>
             ) : (
               <div className="space-y-3">
-                {calEvents.slice(0, 5).map(ev => (
+                {calEvents.slice(0, 5).map((ev) => (
                   <div key={ev.id} className="p-3 border rounded-lg hover:bg-muted/30">
                     <p className="font-medium">{ev.title}</p>
                     <p className="text-sm text-muted-foreground">
                       {new Date(ev.start_date).toLocaleString()}
                     </p>
-                    <Badge variant="outline" className="mt-1">{ev.event_type}</Badge>
+                    <Badge variant="outline" className="mt-1">
+                      {ev.event_type}
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -432,20 +439,21 @@ export default function ClientDetails() {
           ) : (
             <div className="space-y-3">
               {contracts.map((ct) => (
-                <div key={ct.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
+                <div
+                  key={ct.id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30"
+                >
                   <div>
                     <Button variant="link" onClick={() => navigate(`/contracts/${ct.id}`)}>
                       {ct.title}
                     </Button>
                     <p className="text-sm text-muted-foreground">
-                      {ct.start_date && ct.end_date && 
-                        `${new Date(ct.start_date).toLocaleDateString()} - ${new Date(ct.end_date).toLocaleDateString()}`
-                      }
+                      {ct.start_date &&
+                        ct.end_date &&
+                        `${new Date(ct.start_date).toLocaleDateString()} - ${new Date(ct.end_date).toLocaleDateString()}`}
                     </p>
                   </div>
-                  <Badge className={getStatusColor(ct.status)}>
-                    {ct.status}
-                  </Badge>
+                  <Badge className={getStatusColor(ct.status)}>{ct.status}</Badge>
                 </div>
               ))}
             </div>
@@ -458,10 +466,13 @@ export default function ClientDetails() {
         <DocumentViewer
           open={!!selectedDocument}
           onOpenChange={() => setSelectedDocument(null)}
-          document={{ ...selectedDocument, name: selectedDocument.name || selectedDocument.title || 'Untitled' }}
+          document={{
+            ...selectedDocument,
+            name: selectedDocument.name || selectedDocument.title || 'Untitled',
+          }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -480,13 +491,17 @@ function DocumentsSection({ documents }: { documents: Document[] }) {
       ) : (
         <div className="space-y-3">
           {documents.slice(0, 10).map((d) => (
-            <div key={d.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30">
+            <div
+              key={d.id}
+              className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30"
+            >
               <div className="flex items-center gap-3">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="font-medium">{d.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {d.file_size && `${Math.round(d.file_size / 1024)} KB`} • {new Date(d.created_at).toLocaleDateString()}
+                    {d.file_size && `${Math.round(d.file_size / 1024)} KB`} •{' '}
+                    {new Date(d.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -498,13 +513,16 @@ function DocumentsSection({ documents }: { documents: Document[] }) {
           ))}
         </div>
       )}
-      
+
       {/* Document Viewer */}
       {selectedDocument && (
         <DocumentViewer
           open={!!selectedDocument}
           onOpenChange={() => setSelectedDocument(null)}
-          document={{ ...selectedDocument, name: selectedDocument.name || selectedDocument.title || 'Untitled' }}
+          document={{
+            ...selectedDocument,
+            name: selectedDocument.name || selectedDocument.title || 'Untitled',
+          }}
         />
       )}
     </>
