@@ -16,18 +16,30 @@ const caseIdParamsSchema = z.object({
   id: z.string().uuid(),
 });
 
+const optionalUuid = z
+  .union([z.string().uuid(), z.literal(''), z.null()])
+  .optional()
+  .transform((v) => (v ? v : undefined));
+const optionalString = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((v) => (v == null ? undefined : v.trim() || undefined));
+
 const createCaseBodySchema = z.object({
   title: z.string().trim().min(1),
-  description: z.string().trim().optional(),
-  client_id: z.string().uuid().optional(),
-  status: z.string().trim().optional(),
-  priority: z.string().trim().optional(),
-  case_type_id: z.string().uuid().optional(),
-  case_issue_id: z.string().uuid().optional(),
-  court: z.string().trim().optional(),
-  next_hearing_date: z.string().optional(),
-  assigned_to: z.string().uuid().optional(),
-  custom_fields: z.record(z.string(), z.unknown()).optional(),
+  description: optionalString,
+  client_id: optionalUuid,
+  status: optionalString,
+  priority: optionalString,
+  case_type_id: optionalUuid,
+  case_issue_id: optionalUuid,
+  court: optionalString,
+  next_hearing_date: optionalString,
+  assigned_to: optionalUuid,
+  custom_fields: z
+    .record(z.string(), z.unknown())
+    .nullish()
+    .transform((v) => v ?? undefined),
 });
 
 const updateCaseBodySchema = createCaseBodySchema.partial().extend({
