@@ -8,6 +8,7 @@ import {
   generateEmbedding,
   generateEmbeddingsBatch,
 } from '../../lib/openai.js';
+import { env } from '../../config/env.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { checkRateLimit } from '../../lib/rateLimit.js';
 
@@ -815,16 +816,82 @@ aiRouter.post(
 aiRouter.post(
   '/voice-transcription',
   asyncHandler(async (req, res) => {
-    z.object({
-      audio: z.string().min(1),
-      format: z.string().default('webm'),
-    }).parse(req.body);
+    const auth = req.auth!;
 
-    // Placeholder -- real transcription via Whisper/OpenAI to be wired
+    // Base64-encoded 25 MB cap matches OpenAI/OpenRouter STT limits and
+    // bounds memory + per-call cost from a hostile client.
+    const MAX_AUDIO_BASE64_LEN = 34_000_000;
+    const { audio, format } = z
+      .object({
+        audio: z
+          .string()
+          .min(1)
+          .max(MAX_AUDIO_BASE64_LEN)
+          .regex(/^[A-Za-z0-9+/=\r\n]+$/, 'audio must be base64-encoded'),
+        format: z.enum(['webm', 'mp3', 'wav', 'm4a', 'ogg', 'flac']).default('webm'),
+      })
+      .parse(req.body);
+
+    const limit = checkRateLimit(auth.userId, 10, 60_000);
+    res.setHeader('X-RateLimit-Remaining', String(limit.remaining));
+    res.setHeader('X-RateLimit-Reset', new Date(limit.resetAt).toISOString());
+    if (!limit.allowed) {
+      res.setHeader('Retry-After', String(limit.retryAfter));
+      throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
+    }
+
+    if (!env.OPENROUTER_API_KEY) {
+      throw new ApiError('OpenRouter API key not configured', 503, 'OPENROUTER_CONFIG_MISSING');
+    }
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        ...(env.APP_URL ? { 'HTTP-Referer': env.APP_URL } : {}),
+        'X-Title': env.OPENROUTER_APP_NAME,
+      },
+      body: JSON.stringify({
+        model: env.OPENROUTER_STT_MODEL,
+        modalities: ['text'],
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_audio', input_audio: { data: audio, format } },
+              {
+                type: 'text',
+                text: 'Transcribe this audio verbatim. Output only the transcription text, no commentary.',
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new ApiError(
+        `OpenRouter transcription failed: ${response.status}: ${errorText}`,
+        502,
+        'OPENROUTER_UPSTREAM_ERROR'
+      );
+    }
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { total_tokens?: number };
+      model?: string;
+    };
+
+    const transcription = data.choices?.[0]?.message?.content?.trim() ?? '';
+
     res.status(200).json({
       success: true,
-      transcription: '',
-      message: 'Voice transcription endpoint pending Whisper integration',
+      transcription,
+      modelUsed: data.model ?? env.OPENROUTER_STT_MODEL,
+      tokensUsed: data.usage?.total_tokens ?? 0,
     });
   })
 );
