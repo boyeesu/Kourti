@@ -313,30 +313,38 @@ export async function verifyEmailOtpChallenge(
   // On signup, flip activation + email_confirmed_at so the user finally
   // "exists" from the app's perspective.
   if (purpose === 'signup') {
-    await db.query(
+    // RETURNING `email_confirmed_at = updated_at` tells us whether the
+    // coalesce just set the column (first verification) or kept the old
+    // value (re-verification). Gating welcome/Brevo on this prevents
+    // duplicate sends if the user re-runs the verify flow.
+    const updated = await db.query<{ first_confirm: boolean }>(
       `update public.auth_users
          set email_confirmed_at = coalesce(email_confirmed_at, now()),
              is_active = true,
              updated_at = now()
-       where id = $1`,
+       where id = $1
+       returning (email_confirmed_at = updated_at) as first_confirm`,
       [payload.sub]
     );
+    const firstConfirm = updated.rows[0]?.first_confirm === true;
 
-    const profile = await db.query<{ first_name: string | null; last_name: string | null }>(
-      'select first_name, last_name from public.profiles where user_id = $1 limit 1',
-      [payload.sub]
-    );
-    const firstName = profile.rows[0]?.first_name ?? undefined;
-    const lastName = profile.rows[0]?.last_name ?? undefined;
+    if (firstConfirm) {
+      const profile = await db.query<{ first_name: string | null; last_name: string | null }>(
+        'select first_name, last_name from public.profiles where user_id = $1 limit 1',
+        [payload.sub]
+      );
+      const firstName = profile.rows[0]?.first_name ?? undefined;
+      const lastName = profile.rows[0]?.last_name ?? undefined;
 
-    sendWelcomeEmail(payload.email, firstName ?? undefined).catch((err) =>
-      console.error('Welcome email failed:', err instanceof Error ? err.message : err)
-    );
-    brevoSyncSignup(payload.email, {
-      firstName,
-      lastName,
-      userId: payload.sub,
-    }).catch(logBrevoError);
+      sendWelcomeEmail(payload.email, firstName).catch((err) =>
+        console.error('Welcome email failed:', err instanceof Error ? err.message : err)
+      );
+      brevoSyncSignup(payload.email, {
+        firstName,
+        lastName,
+        userId: payload.sub,
+      }).catch(logBrevoError);
+    }
   }
 
   const user = await loadUserForMfa(payload.sub);
