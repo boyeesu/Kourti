@@ -36,3 +36,11 @@ nul
 out/
 .vercel
 test-results/
+
+# Social media content (in case folders land inside the app dir)
+social-media-content/
+iwd-2026-posts/
+**/social-media-content/
+**/iwd-2026-posts/
+*.pptx
+*.key

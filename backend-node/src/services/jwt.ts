@@ -10,6 +10,7 @@ import {
   hashRecoveryCode,
   verifyRecoveryCode,
 } from './totp.js';
+import { issueEmailOtp, verifyEmailOtp, type EmailOtpPurpose } from './emailOtp.js';
 
 const BCRYPT_COST = 12;
 
@@ -93,14 +94,32 @@ function parseExpiresIn(val: string): number {
  * issued a short-lived MFA-pending token that the client redeems via
  * `verifyTotpChallenge`/`verifyRecoveryChallenge` to actually log in.
  */
+export type MfaMethod = 'totp' | 'email_otp';
+
 export type SignInResult =
   | (AuthTokens & { kind: 'tokens' })
-  | { kind: 'mfa_required'; mfaToken: string; mfaTokenExpiresIn: number };
+  | {
+      kind: 'mfa_required';
+      mfaToken: string;
+      mfaTokenExpiresIn: number;
+      method: MfaMethod;
+      // For email OTP we surface a masked hint so the UI can say
+      // "code sent to j***@example.com" without leaking the address.
+      emailHint?: string;
+    };
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return email;
+  const head = local.slice(0, 1);
+  const tail = local.length > 2 ? local.slice(-1) : '';
+  return `${head}***${tail}@${domain}`;
+}
 
 export async function signIn(email: string, password: string): Promise<SignInResult> {
   const result = await db.query(
     `SELECT au.id, au.email, au.encrypted_password, au.is_active,
-            au.totp_enabled, au.totp_secret,
+            au.totp_enabled, au.totp_secret, au.email_otp_enabled,
             p.organization_id, p.first_name, p.last_name
      FROM public.auth_users au
      LEFT JOIN public.profiles p ON p.user_id = au.id
@@ -117,6 +136,7 @@ export async function signIn(email: string, password: string): Promise<SignInRes
         is_active: boolean;
         totp_enabled: boolean | null;
         totp_secret: string | null;
+        email_otp_enabled: boolean | null;
         organization_id: string | null;
         first_name: string | null;
         last_name: string | null;
@@ -139,19 +159,45 @@ export async function signIn(email: string, password: string): Promise<SignInRes
   }
 
   // If 2FA is enabled, return a short-lived MFA-pending token instead of
-  // session tokens. The client must POST it to /auth/2fa/verify-totp
-  // (or .../verify-recovery) along with the 6-digit code to complete
-  // sign-in.
+  // session tokens. TOTP takes precedence over email OTP if the user has
+  // both enabled.
   if (user.totp_enabled && user.totp_secret) {
-    const mfaTokenExpiresIn = 300; // 5 minutes
-    const mfaToken = jwt.sign({ sub: user.id, email: user.email, mfa: true }, env.JWT_SECRET!, {
-      algorithm: 'HS256',
-      expiresIn: mfaTokenExpiresIn,
-    });
-    return { kind: 'mfa_required', mfaToken, mfaTokenExpiresIn };
+    return issueMfaChallenge(user.id, user.email, 'totp');
+  }
+
+  // Email OTP is on-by-default for new accounts; this is the standard
+  // path for most users until they enrol an authenticator app.
+  if (user.email_otp_enabled !== false) {
+    return issueMfaChallenge(user.id, user.email, 'email_otp', 'login');
   }
 
   return issueTokensForUser(user);
+}
+
+async function issueMfaChallenge(
+  userId: string,
+  email: string,
+  method: MfaMethod,
+  emailOtpPurpose: EmailOtpPurpose = 'login'
+): Promise<SignInResult> {
+  const mfaTokenExpiresIn = 600; // 10 minutes — matches OTP TTL
+  const mfaToken = jwt.sign(
+    { sub: userId, email, mfa: true, method, purpose: emailOtpPurpose },
+    env.JWT_SECRET!,
+    { algorithm: 'HS256', expiresIn: mfaTokenExpiresIn }
+  );
+  if (method === 'email_otp') {
+    // Best-effort: failures here surface to the caller so they can
+    // retry rather than getting stuck.
+    await issueEmailOtp(userId, email, emailOtpPurpose);
+  }
+  return {
+    kind: 'mfa_required',
+    mfaToken,
+    mfaTokenExpiresIn,
+    method,
+    emailHint: method === 'email_otp' ? maskEmail(email) : undefined,
+  };
 }
 
 interface UserRow {
@@ -210,6 +256,8 @@ interface MfaTokenPayload {
   sub: string;
   email: string;
   mfa: true;
+  method?: MfaMethod;
+  purpose?: EmailOtpPurpose;
 }
 
 function verifyMfaToken(mfaToken: string): MfaTokenPayload {
@@ -222,6 +270,46 @@ function verifyMfaToken(mfaToken: string): MfaTokenPayload {
   } catch {
     throw new ApiError('Invalid or expired 2FA challenge', 401, 'AUTH_MFA_INVALID');
   }
+}
+
+export async function verifyEmailOtpChallenge(
+  mfaToken: string,
+  code: string
+): Promise<AuthTokens & { kind: 'tokens' }> {
+  const payload = verifyMfaToken(mfaToken);
+  if (payload.method !== 'email_otp') {
+    throw new ApiError('Wrong 2FA method', 400, 'AUTH_MFA_WRONG_METHOD');
+  }
+  const purpose: EmailOtpPurpose = payload.purpose ?? 'login';
+  await verifyEmailOtp(payload.sub, purpose, code);
+
+  // On signup, flip activation + email_confirmed_at so the user finally
+  // "exists" from the app's perspective.
+  if (purpose === 'signup') {
+    await db.query(
+      `update public.auth_users
+         set email_confirmed_at = coalesce(email_confirmed_at, now()),
+             is_active = true,
+             updated_at = now()
+       where id = $1`,
+      [payload.sub]
+    );
+  }
+
+  const user = await loadUserForMfa(payload.sub);
+  return issueTokensForUser(user);
+}
+
+export async function resendEmailOtpChallenge(
+  mfaToken: string
+): Promise<{ mfaTokenExpiresIn: number; emailHint: string }> {
+  const payload = verifyMfaToken(mfaToken);
+  if (payload.method !== 'email_otp') {
+    throw new ApiError('Wrong 2FA method', 400, 'AUTH_MFA_WRONG_METHOD');
+  }
+  const purpose: EmailOtpPurpose = payload.purpose ?? 'login';
+  await issueEmailOtp(payload.sub, payload.email, purpose);
+  return { mfaTokenExpiresIn: 600, emailHint: maskEmail(payload.email) };
 }
 
 async function loadUserForMfa(userId: string): Promise<
@@ -241,7 +329,7 @@ async function loadUserForMfa(userId: string): Promise<
     [userId]
   );
   const user = r.rows[0];
-  if (!user || !user.is_active) {
+  if (!user) {
     throw new ApiError('Invalid 2FA challenge', 401, 'AUTH_MFA_INVALID');
   }
   return user;
@@ -374,6 +462,40 @@ export async function disableTotp(userId: string, currentPassword: string): Prom
   );
 }
 
+/**
+ * Toggle email-OTP 2FA. Requires current password — same posture as the
+ * TOTP enable/disable flows so a stolen access token can't drop the
+ * second factor.
+ */
+export async function setEmailOtpEnabled(
+  userId: string,
+  enabled: boolean,
+  currentPassword: string
+): Promise<void> {
+  const r = await db.query<{ encrypted_password: string }>(
+    'SELECT encrypted_password FROM public.auth_users WHERE id = $1',
+    [userId]
+  );
+  const row = r.rows[0];
+  if (!row) throw new ApiError('User not found', 404, 'NOT_FOUND');
+  const ok = await bcrypt.compare(currentPassword, row.encrypted_password);
+  if (!ok) {
+    throw new ApiError('Current password is incorrect', 401, 'AUTH_INVALID_CREDENTIALS');
+  }
+  await db.query(
+    'UPDATE public.auth_users SET email_otp_enabled = $1, updated_at = now() WHERE id = $2',
+    [enabled, userId]
+  );
+}
+
+export async function getEmailOtpEnabled(userId: string): Promise<boolean> {
+  const r = await db.query<{ email_otp_enabled: boolean }>(
+    'SELECT email_otp_enabled FROM public.auth_users WHERE id = $1',
+    [userId]
+  );
+  return r.rows[0]?.email_otp_enabled ?? true;
+}
+
 export async function signUp(
   email: string,
   password: string,
@@ -391,10 +513,11 @@ export async function signUp(
   // Hash password
   const hashedPassword = await bcrypt.hash(password, BCRYPT_COST);
 
-  // Create auth user
+  // Create auth user. Note: email_confirmed_at stays NULL until the user
+  // verifies the email OTP — that's what proves the address is real.
   const userResult = await db.query(
-    `INSERT INTO public.auth_users (email, encrypted_password, email_confirmed_at, created_at, updated_at)
-     VALUES (lower($1), $2, now(), now(), now())
+    `INSERT INTO public.auth_users (email, encrypted_password, email_confirmed_at, email_otp_enabled, created_at, updated_at)
+     VALUES (lower($1), $2, NULL, true, now(), now())
      RETURNING id, email`,
     [email, hashedPassword]
   );
@@ -409,8 +532,10 @@ export async function signUp(
     [newUser.id, newUser.email, metadata?.firstName || null, metadata?.lastName || null]
   );
 
-  // Sign in immediately
-  return signIn(email, password);
+  // Issue a signup-purpose email OTP. The client must verify before we
+  // hand out session tokens — this is what blocks typo'd addresses from
+  // ever being able to use the account.
+  return issueMfaChallenge(newUser.id, newUser.email, 'email_otp', 'signup');
 }
 
 export function verifyAccessToken(token: string): AuthUser {

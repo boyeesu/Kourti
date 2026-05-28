@@ -328,6 +328,26 @@ const bootstrapStatements = [
   `alter table public.auth_users add column if not exists totp_secret text`,
   `alter table public.auth_users add column if not exists totp_enabled boolean not null default false`,
   `alter table public.auth_users add column if not exists totp_recovery_codes_hash text[]`,
+  // ── Email OTP (default-on 2FA) ────────────────────────────────────
+  // Sent-to-inbox OTP that also doubles as proof of email ownership on
+  // sign-up, so a typo'd email blocks account activation. Enabled by
+  // default for all new users; existing users get the column with the
+  // same default.
+  `alter table public.auth_users add column if not exists email_otp_enabled boolean not null default true`,
+  `
+  create table if not exists public.email_otp_codes (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null,
+    purpose text not null check (purpose in ('login','signup','enable_2fa')),
+    code_hash text not null,
+    expires_at timestamptz not null,
+    attempts int not null default 0,
+    used_at timestamptz,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_email_otp_user_purpose on public.email_otp_codes(user_id, purpose, created_at desc)`,
+  `create index if not exists idx_email_otp_expires on public.email_otp_codes(expires_at)`,
   `
   create table if not exists public.user_onboarding_steps (
     id uuid primary key default gen_random_uuid(),

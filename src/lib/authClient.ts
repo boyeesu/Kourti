@@ -56,6 +56,22 @@ interface ApiAuthResponse {
   };
 }
 
+export type MfaMethod = 'totp' | 'email_otp';
+
+export interface MfaRequiredResponse {
+  mfaRequired: true;
+  mfaToken: string;
+  expiresIn: number;
+  method: MfaMethod;
+  emailHint?: string;
+}
+
+type SignInResponse = ApiAuthResponse | MfaRequiredResponse;
+
+function isMfaRequired(r: SignInResponse): r is MfaRequiredResponse {
+  return (r as MfaRequiredResponse).mfaRequired === true;
+}
+
 async function apiCall<T>(
   path: string,
   body?: Record<string, unknown>,
@@ -165,12 +181,70 @@ export async function initSession(): Promise<AuthSession | null> {
   }
 }
 
-export async function signIn(
+export interface SignInOutcome {
+  session: AuthSession | null;
+  mfa: MfaRequiredResponse | null;
+  error: AuthError | null;
+}
+
+export async function signIn(email: string, password: string): Promise<SignInOutcome> {
+  try {
+    const data = await apiCall<SignInResponse>('/sign-in', { email, password });
+    if (isMfaRequired(data)) {
+      return { session: null, mfa: data, error: null };
+    }
+    currentSession = toSession(data);
+    scheduleRefresh();
+    emit('SIGNED_IN', currentSession);
+    return { session: currentSession, mfa: null, error: null };
+  } catch (err) {
+    const authErr = err as AuthError;
+    return {
+      session: null,
+      mfa: null,
+      error: { message: authErr.message, code: authErr.code },
+    };
+  }
+}
+
+export async function signUp(
   email: string,
-  password: string
+  password: string,
+  metadata?: { firstName?: string; lastName?: string }
+): Promise<SignInOutcome> {
+  try {
+    const data = await apiCall<SignInResponse>('/sign-up', {
+      email,
+      password,
+      firstName: metadata?.firstName,
+      lastName: metadata?.lastName,
+    });
+    if (isMfaRequired(data)) {
+      return { session: null, mfa: data, error: null };
+    }
+    currentSession = toSession(data);
+    scheduleRefresh();
+    emit('SIGNED_IN', currentSession);
+    return { session: currentSession, mfa: null, error: null };
+  } catch (err) {
+    const authErr = err as AuthError;
+    return {
+      session: null,
+      mfa: null,
+      error: { message: authErr.message, code: authErr.code },
+    };
+  }
+}
+
+/**
+ * Redeem an email-OTP MFA challenge for a real session.
+ */
+export async function verifyEmailOtp(
+  mfaToken: string,
+  code: string
 ): Promise<{ session: AuthSession | null; error: AuthError | null }> {
   try {
-    const data = await apiCall<ApiAuthResponse>('/sign-in', { email, password });
+    const data = await apiCall<ApiAuthResponse>('/2fa/verify-email', { mfaToken, code });
     currentSession = toSession(data);
     scheduleRefresh();
     emit('SIGNED_IN', currentSession);
@@ -181,25 +255,47 @@ export async function signIn(
   }
 }
 
-export async function signUp(
-  email: string,
-  password: string,
-  metadata?: { firstName?: string; lastName?: string }
-): Promise<{ session: AuthSession | null; error: AuthError | null }> {
+export async function resendEmailOtp(
+  mfaToken: string
+): Promise<{ error: AuthError | null; emailHint?: string }> {
   try {
-    const data = await apiCall<ApiAuthResponse>('/sign-up', {
-      email,
-      password,
-      firstName: metadata?.firstName,
-      lastName: metadata?.lastName,
-    });
-    currentSession = toSession(data);
-    scheduleRefresh();
-    emit('SIGNED_IN', currentSession);
-    return { session: currentSession, error: null };
+    const res = await apiCall<{ ok: true; expiresIn: number; emailHint: string }>(
+      '/2fa/resend-email',
+      { mfaToken }
+    );
+    return { error: null, emailHint: res.emailHint };
   } catch (err) {
-    const authErr = err as AuthError;
-    return { session: null, error: { message: authErr.message, code: authErr.code } };
+    return { error: err as AuthError };
+  }
+}
+
+export async function getEmailOtpSetting(): Promise<{ enabled: boolean }> {
+  if (!currentSession?.accessToken) throw new Error('Not authenticated');
+  const res = await fetch(apiUrl('/2fa/email-otp'), {
+    headers: { Authorization: `Bearer ${currentSession.accessToken}` },
+    credentials: 'include',
+  });
+  const data = (await res.json()) as { enabled: boolean };
+  if (!res.ok) throw new Error('Failed to load 2FA setting');
+  return data;
+}
+
+export async function setEmailOtpSetting(
+  enabled: boolean,
+  currentPassword: string
+): Promise<{ enabled: boolean; error: AuthError | null }> {
+  if (!currentSession?.accessToken) {
+    return { enabled, error: { message: 'Not authenticated' } };
+  }
+  try {
+    const data = await apiCall<{ enabled: boolean }>(
+      '/2fa/email-otp',
+      { enabled, currentPassword },
+      { accessToken: currentSession.accessToken }
+    );
+    return { enabled: data.enabled, error: null };
+  } catch (err) {
+    return { enabled, error: err as AuthError };
   }
 }
 

@@ -41,6 +41,8 @@ import { trackEvent, AnalyticsEvents, identifyUser } from '@/lib/analytics';
 import { useOnboardingSteps } from '@/hooks/useOnboardingSteps';
 import { AlertCircle, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { EmailOtpChallenge } from '@/components/auth/EmailOtpChallenge';
+import type { MfaRequiredResponse } from '@/lib/authClient';
 
 const steps = [
   {
@@ -145,6 +147,7 @@ export default function Onboarding() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mfa, setMfa] = useState<MfaRequiredResponse | null>(null);
 
   const [formData, setFormData] = useState({
     account: {
@@ -347,6 +350,15 @@ export default function Onboarding() {
             console.log('Signup completed successfully');
 
             if (!result.error) {
+              // Signup may return an MFA challenge instead of an active
+              // session (email-OTP gating, default-on). Pop the OTP
+              // overlay and abort the rest of the finish flow — the
+              // useEffect on `user` will resume onboarding once verified.
+              if (result.mfa) {
+                setMfa(result.mfa);
+                setIsSubmitting(false);
+                return;
+              }
               // Success, break out of retry loop
               console.log('Signup successful, breaking retry loop');
               break;
@@ -1270,6 +1282,22 @@ export default function Onboarding() {
         return null;
     }
   };
+
+  if (mfa && mfa.method === 'email_otp') {
+    return (
+      <EmailOtpChallenge
+        mfaToken={mfa.mfaToken}
+        emailHint={mfa.emailHint}
+        purpose="signup"
+        onSuccess={() => {
+          setMfa(null);
+          // Resume the finish flow now that the user is verified.
+          void handleFinish();
+        }}
+        onCancel={() => setMfa(null)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center px-4 py-10">
