@@ -26,21 +26,58 @@ export async function requireActiveSubscription(req: Request, _res: Response, ne
 
     if (await isPlatformAdminUser(auth.userId)) return next();
 
-    const result = await db.query<{
-      status: string;
-      trial_ends_at: string | null;
-      current_period_end: string | null;
-    }>(
-      `select status, trial_ends_at, current_period_end
-         from public.subscriptions
-        where organization_id = $1
-          and status in ('active','trialing','past_due')
-        order by created_at desc
-        limit 1`,
-      [auth.organizationId]
-    );
+    const fetchLive = () =>
+      db.query<{
+        status: string;
+        trial_ends_at: string | null;
+        current_period_end: string | null;
+      }>(
+        `select status, trial_ends_at, current_period_end
+           from public.subscriptions
+          where organization_id = $1
+            and status in ('active','trialing','past_due')
+          order by created_at desc
+          limit 1`,
+        [auth.organizationId]
+      );
 
-    const sub = result.rows[0];
+    let sub = (await fetchLive()).rows[0];
+    if (!sub) {
+      // Lazy-grant a 7-day Starter trial when the org has never had a sub
+      // (signup/bootstrap race). Any historical row — even expired/cancelled —
+      // means the trial was already consumed; fall through to 402 so the user
+      // is routed through /pricing.
+      const history = await db.query<{ ok: boolean }>(
+        `select true as ok from public.subscriptions where organization_id = $1 limit 1`,
+        [auth.organizationId]
+      );
+      if (history.rows.length === 0) {
+        const plan = await db.query<{ id: string }>(
+          `select id from public.user_plans
+            where name = 'starter' and is_active = true
+            order by created_at asc
+            limit 1`
+        );
+        const planId = plan.rows[0]?.id ?? null;
+        try {
+          await db.query(
+            `insert into public.subscriptions
+               (organization_id, user_id, plan_id, status, billing_interval,
+                current_period_start, current_period_end, trial_ends_at,
+                created_at, updated_at)
+             values ($1, $2, $3, 'trialing', 'monthly',
+                     now(), now() + interval '7 days', now() + interval '7 days',
+                     now(), now())`,
+            [auth.organizationId, auth.userId, planId]
+          );
+        } catch (err) {
+          // Unique partial index race — another request already created the row.
+          if ((err as { code?: string })?.code !== '23505') throw err;
+        }
+        sub = (await fetchLive()).rows[0];
+      }
+    }
+
     if (!sub) {
       throw new ApiError(
         'No active subscription. Start your free trial or choose a plan.',
