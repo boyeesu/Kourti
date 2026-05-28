@@ -390,6 +390,86 @@ const bootstrapStatements = [
   `create index if not exists idx_ai_messages_conversation on public.ai_conversation_messages(conversation_id, created_at)`,
   `create index if not exists idx_admin_actions_created on public.admin_actions(created_at)`,
 
+  // ── Billing / trial ───────────────────────────────────────────────
+  // Plans get the extra metadata the frontend already reads (display_name,
+  // description, features, plan_type, is_active). Subscriptions get the org
+  // / user link, billing window, and trial fields the trial flow depends on.
+  `alter table public.user_plans add column if not exists plan_type text`,
+  `alter table public.user_plans add column if not exists display_name text`,
+  `alter table public.user_plans add column if not exists description text`,
+  `alter table public.user_plans add column if not exists features jsonb default '[]'::jsonb`,
+  `alter table public.user_plans add column if not exists is_active boolean not null default true`,
+
+  `alter table public.subscriptions add column if not exists organization_id uuid`,
+  `alter table public.subscriptions add column if not exists user_id uuid`,
+  `alter table public.subscriptions add column if not exists current_period_start timestamptz`,
+  `alter table public.subscriptions add column if not exists current_period_end timestamptz`,
+  `alter table public.subscriptions add column if not exists trial_ends_at timestamptz`,
+  `alter table public.subscriptions add column if not exists cancel_at_period_end boolean not null default false`,
+  `alter table public.subscriptions add column if not exists cancelled_at timestamptz`,
+  `alter table public.subscriptions add column if not exists flutterwave_subscription_id text`,
+  `alter table public.subscriptions add column if not exists flutterwave_customer_email text`,
+  `create index if not exists idx_subscriptions_org_status on public.subscriptions(organization_id, status)`,
+  // One active/trialing sub per org at a time.
+  `create unique index if not exists uq_subscriptions_org_live
+     on public.subscriptions(organization_id)
+     where status in ('active','trialing','past_due')`,
+
+  // Seed the four canonical plans. Idempotent: re-runs overwrite metadata
+  // but leave any admin-edited prices alone (we only update non-price fields).
+  `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
+   values ('free','free','Free','Explore the basics at no cost.',
+     '["Up to 3 cases","Up to 5 documents","Basic dashboard"]'::jsonb,
+     0, 0, 'USD', true)
+   on conflict do nothing`,
+  `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
+   values ('starter','starter','Starter','Everything a small team needs to run cases end-to-end.',
+     '["Unlimited cases","Unlimited documents","AI document review","Email support"]'::jsonb,
+     29, 290, 'USD', true)
+   on conflict do nothing`,
+  `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
+   values ('professional','professional','Professional','For growing firms that need automation and integrations.',
+     '["Everything in Starter","Playbook automation","Tabular review","Priority support"]'::jsonb,
+     79, 790, 'USD', true)
+   on conflict do nothing`,
+  `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
+   values ('enterprise','enterprise','Enterprise','Custom controls, SSO, and a dedicated success manager.',
+     '["Everything in Professional","SSO / SAML","Custom data retention","Dedicated success manager"]'::jsonb,
+     null, null, 'USD', true)
+   on conflict do nothing`,
+  // Backfill plan_type for rows that pre-date the column.
+  `update public.user_plans set plan_type = name where plan_type is null`,
+  `update public.user_plans set display_name = initcap(name) where display_name is null`,
+
+  // Backfill: every existing organization that has *never* had a subscription
+  // row gets a 7-day Starter trial starting today. The "any historical sub"
+  // check (rather than only the live ones) prevents this idempotent bootstrap
+  // from re-granting a fresh trial to an org whose previous trial expired or
+  // was cancelled. New orgs go through /billing/start-trial at signup time.
+  `
+  insert into public.subscriptions
+    (organization_id, plan_id, status, billing_interval,
+     current_period_start, current_period_end, trial_ends_at,
+     created_at, updated_at)
+  select
+    o.id,
+    (select id from public.user_plans
+       where name = 'starter' and is_active = true
+       order by created_at asc
+       limit 1),
+    'trialing',
+    'monthly',
+    now(),
+    now() + interval '7 days',
+    now() + interval '7 days',
+    now(),
+    now()
+  from public.organizations o
+  where not exists (
+    select 1 from public.subscriptions s where s.organization_id = o.id
+  )
+  `,
+
   // ── Agent Infrastructure ──────────────────────────────────────────
   `
   create table if not exists public.agent_jobs (
@@ -915,10 +995,15 @@ export async function ensureDatabaseSchema() {
     try {
       await db.query(statement);
     } catch (err) {
-      // Log but don't fail -- table may already exist with different constraints
+      // Log but don't fail -- table may already exist with different constraints.
+      // We deliberately include a preview of the failing statement so a
+      // partially-applied schema doesn't fail silently at runtime.
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.includes('already exists')) {
-        console.warn('Bootstrap statement warning:', msg.substring(0, 120));
+        const preview = statement.replace(/\s+/g, ' ').trim().substring(0, 200);
+        console.warn(
+          `Bootstrap statement warning: ${msg.substring(0, 200)}\n  statement: ${preview}`
+        );
       }
     }
   }

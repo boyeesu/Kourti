@@ -11,6 +11,8 @@ import {
   verifyRecoveryCode,
 } from './totp.js';
 import { issueEmailOtp, verifyEmailOtp, type EmailOtpPurpose } from './emailOtp.js';
+import { brevoSyncSignup, logBrevoError } from './brevo.js';
+import { sendWelcomeEmail } from './email.js';
 
 const BCRYPT_COST = 12;
 
@@ -319,6 +321,22 @@ export async function verifyEmailOtpChallenge(
        where id = $1`,
       [payload.sub]
     );
+
+    const profile = await db.query<{ first_name: string | null; last_name: string | null }>(
+      'select first_name, last_name from public.profiles where user_id = $1 limit 1',
+      [payload.sub]
+    );
+    const firstName = profile.rows[0]?.first_name ?? undefined;
+    const lastName = profile.rows[0]?.last_name ?? undefined;
+
+    sendWelcomeEmail(payload.email, firstName ?? undefined).catch((err) =>
+      console.error('Welcome email failed:', err instanceof Error ? err.message : err)
+    );
+    brevoSyncSignup(payload.email, {
+      firstName,
+      lastName,
+      userId: payload.sub,
+    }).catch(logBrevoError);
   }
 
   const user = await loadUserForMfa(payload.sub);

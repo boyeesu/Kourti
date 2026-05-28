@@ -3,6 +3,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
+import { TrialBanner } from '@/components/billing/TrialBanner';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -1153,6 +1154,7 @@ function AppLayoutInner({
           </header>
 
           <main id="main-content" className="flex-1 overflow-auto bg-[hsl(var(--background))]">
+            <TrialBanner />
             <div className="workspace-body__inner h-full">{children}</div>
           </main>
         </div>
