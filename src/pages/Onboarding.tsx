@@ -330,9 +330,10 @@ export default function Onboarding() {
     try {
       const warningMessages: string[] = [];
 
-      // Create account first if not already authenticated
-      if (!user) {
-        // Retry signup up to 3 times for timeout errors
+      // Account creation + OTP verification happened at step 0 → step 1.
+      // By the time we reach the plan step the session must already exist.
+       
+      if (false as boolean) {
         let signUpError: {
           message?: string;
           name?: string;
