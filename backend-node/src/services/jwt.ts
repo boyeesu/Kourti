@@ -208,8 +208,33 @@ interface UserRow {
   last_name: string | null;
 }
 
+async function ensureOrganizationForUser(user: UserRow): Promise<string> {
+  if (user.organization_id) return user.organization_id;
+
+  const displayName =
+    [user.first_name, user.last_name].filter(Boolean).join(' ').trim() ||
+    user.email.split('@')[0] ||
+    'Workspace';
+
+  const orgResult = await db.query<{ id: string }>(
+    `insert into public.organizations (name, email, status, is_active, created_at, updated_at)
+     values ($1, $2, 'active', true, now(), now())
+     returning id`,
+    [`${displayName}'s Workspace`, user.email]
+  );
+  const orgId = orgResult.rows[0].id;
+
+  await db.query(
+    `update public.profiles set organization_id = $1, updated_at = now() where user_id = $2`,
+    [orgId, user.id]
+  );
+
+  user.organization_id = orgId;
+  return orgId;
+}
+
 async function issueTokensForUser(user: UserRow): Promise<AuthTokens & { kind: 'tokens' }> {
-  const organizationId = user.organization_id || '';
+  const organizationId = await ensureOrganizationForUser(user);
 
   const payload: JwtPayload = {
     sub: user.id,
@@ -611,7 +636,13 @@ export async function refreshTokens(refreshToken: string): Promise<AuthTokens> {
   }
 
   // Issue new tokens (rotate refresh token)
-  const organizationId = user.organization_id || '';
+  const organizationId = await ensureOrganizationForUser({
+    id: user.id,
+    email: user.email,
+    organization_id: user.organization_id,
+    first_name: user.first_name,
+    last_name: user.last_name,
+  });
   const payload: JwtPayload = { sub: user.id, email: user.email, org: organizationId };
   const newAccessToken = signAccessToken(payload);
   const newRefreshToken = signRefreshToken(user.id);
