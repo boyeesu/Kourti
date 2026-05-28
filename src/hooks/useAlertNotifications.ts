@@ -97,6 +97,9 @@ export function useAlertNotifications() {
     };
 
     processNewAlerts();
+    // createNotification & sendEmailNotification are stable refs from their hooks;
+    // re-running on every render would spam notifications.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alertsData?.data]);
 }
 
