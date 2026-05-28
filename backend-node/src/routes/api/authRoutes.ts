@@ -392,7 +392,10 @@ authRouter.post(
 authRouter.post(
   '/refresh',
   asyncHandler(async (req, res) => {
-    enforceRateLimit(`auth:refresh:${clientIp(req)}`, 20, 60_000);
+    // 120/min/IP — a single user with several tabs can legitimately
+    // generate >20/min on cold loads; the previous 20 cap caused user-visible
+    // session loss under normal multi-tab usage.
+    enforceRateLimit(`auth:refresh:${clientIp(req)}`, 120, 60_000);
     // Accept refresh token from httpOnly cookie OR body (for backward compat / mobile)
     const refreshToken =
       req.cookies?.[REFRESH_COOKIE] || (req.body as { refreshToken?: string })?.refreshToken;
