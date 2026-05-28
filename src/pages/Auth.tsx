@@ -8,6 +8,8 @@ import { Mail, Lock, Eye, EyeOff, FileCheck, Briefcase, Bot, ShieldCheck } from 
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { AppLogo } from '@/components/ui/AppLogo';
+import { EmailOtpChallenge } from '@/components/auth/EmailOtpChallenge';
+import type { MfaRequiredResponse } from '@/lib/authClient';
 
 const FEATURES = [
   {
@@ -39,6 +41,7 @@ export default function Auth() {
     email: '',
     password: '',
   });
+  const [mfa, setMfa] = useState<MfaRequiredResponse | null>(null);
 
   // Rate limiting state
   const MAX_FAILED_ATTEMPTS = 5;
@@ -114,12 +117,23 @@ export default function Auth() {
       setFormData((prev) => ({ ...prev, password: '' }));
 
       if (!result.error) {
-        // Reset failed attempts on successful login
+        // Reset failed attempts on successful credential check
         setFailedAttempts(0);
         setLockoutRemaining(0);
         if (lockoutTimerRef.current) {
           clearInterval(lockoutTimerRef.current);
           lockoutTimerRef.current = null;
+        }
+
+        // 2FA branch: password is right, but we still need the email
+        // OTP before issuing a session. Pop the challenge UI; don't
+        // navigate yet.
+        if (result.mfa) {
+          setMfa(result.mfa);
+          toast.info('Check your email', {
+            description: 'We sent you a verification code to finish signing in.',
+          });
+          return;
         }
 
         toast.success('Welcome back!', { description: 'You have successfully signed in.' });
@@ -159,6 +173,22 @@ export default function Auth() {
       setLoading(false);
     }
   };
+
+  if (mfa && mfa.method === 'email_otp') {
+    return (
+      <EmailOtpChallenge
+        mfaToken={mfa.mfaToken}
+        emailHint={mfa.emailHint}
+        purpose="login"
+        onSuccess={() => {
+          setMfa(null);
+          toast.success('Welcome back!', { description: 'You have successfully signed in.' });
+          navigate('/dashboard', { replace: true });
+        }}
+        onCancel={() => setMfa(null)}
+      />
+    );
+  }
 
   return (
     <main id="main-content" className="min-h-screen flex flex-col lg:flex-row">
