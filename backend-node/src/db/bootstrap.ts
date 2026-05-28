@@ -409,6 +409,11 @@ const bootstrapStatements = [
   `alter table public.subscriptions add column if not exists cancelled_at timestamptz`,
   `alter table public.subscriptions add column if not exists flutterwave_subscription_id text`,
   `alter table public.subscriptions add column if not exists flutterwave_customer_email text`,
+  // Legacy NOT NULL from an earlier Flutterwave-only schema. Trial inserts
+  // (bootstrap backfill, /billing/start-trial, requireActiveSubscription
+  // lazy-grant) all create rows before a payment provider is involved.
+  `alter table public.subscriptions alter column flutterwave_customer_email drop not null`,
+  `alter table public.subscriptions alter column flutterwave_subscription_id drop not null`,
   `create index if not exists idx_subscriptions_org_status on public.subscriptions(organization_id, status)`,
   // One active/trialing sub per org at a time.
   `create unique index if not exists uq_subscriptions_org_live
