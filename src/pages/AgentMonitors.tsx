@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { FileCheck, Gavel, FileText, Play, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AgentNav } from '@/components/agents/AgentNav';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const monitorMeta: Record<string, { label: string; description: string; icon: React.ReactNode }> = {
   contract_expiration: {
@@ -35,7 +36,7 @@ export default function AgentMonitors() {
   const monitors = data?.data ?? [];
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <AgentNav />
 
       <Tabs defaultValue="alerts">
@@ -126,6 +127,6 @@ export default function AgentMonitors() {
           )}
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

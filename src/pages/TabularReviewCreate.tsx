@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -167,14 +168,12 @@ export default function TabularReviewCreate() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <PageContainer size="wide">
       <Breadcrumbs />
-      <div>
-        <h1 className="text-2xl font-semibold">New tabular review</h1>
-        <p className="text-sm text-muted-foreground">
-          Pick documents and columns. The AI will fill the spreadsheet with one extraction per cell.
-        </p>
-      </div>
+      <PageHeader
+        title="New tabular review"
+        description="Pick documents and columns. The AI will fill the spreadsheet with one extraction per cell."
+      />
 
       <Card>
         <CardHeader>
@@ -363,6 +362,6 @@ export default function TabularReviewCreate() {
           {creating ? 'Creating…' : 'Create review'}
         </Button>
       </div>
-    </div>
+    </PageContainer>
   );
 }

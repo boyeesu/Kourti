@@ -36,6 +36,7 @@ import {
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { useEffect } from 'react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const clientSchema = z.object({
   name: z.string().min(1, 'Client name is required'),
@@ -114,23 +115,27 @@ export default function ClientEdit() {
 
   if (isLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </PageContainer>
     );
   }
 
   if (!client) {
     return (
-      <div className="px-4 py-6 text-center">
-        <h1 className="text-2xl font-bold mb-4">Client not found</h1>
-        <Button onClick={() => navigate('/clients')}>Back to Clients</Button>
-      </div>
+      <PageContainer>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Client not found</h1>
+          <Button onClick={() => navigate('/clients')}>Back to Clients</Button>
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -139,7 +144,9 @@ export default function ClientEdit() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Edit Client</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+              Edit Client
+            </h1>
             <p className="text-muted-foreground">Update {client.name}'s information</p>
           </div>
         </div>
@@ -311,6 +318,6 @@ export default function ClientEdit() {
           </Form>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

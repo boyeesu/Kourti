@@ -4,16 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useVoiceTranscriptions } from '@/hooks/useVoiceTranscriptions';
-import {
-  FileAudio,
-  Plus,
-  Clock,
-  Calendar,
-  FileText,
-  Loader2,
-  Mic
-} from 'lucide-react';
+import { FileAudio, Plus, Clock, Calendar, FileText, Loader2, Mic } from 'lucide-react';
 import { format } from 'date-fns';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 const TranscriptionsList: React.FC = () => {
   const navigate = useNavigate();
@@ -21,28 +14,29 @@ const TranscriptionsList: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading transcriptions...</span>
+      <PageContainer>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center space-x-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span>Loading transcriptions...</span>
+          </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Mic className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Voice Transcriptions</h1>
-        </div>
-        <Button onClick={() => navigate('/voice-recorder')}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Recording
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Voice Transcriptions"
+        leading={<Mic className="h-6 w-6 text-primary" />}
+        actions={
+          <Button onClick={() => navigate('/voice-recorder')}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Recording
+          </Button>
+        }
+      />
 
       {error && (
         <Card>
@@ -60,9 +54,7 @@ const TranscriptionsList: React.FC = () => {
                   : 'There was an error loading your transcriptions. Please try again.'}
               </p>
               {error.message === 'User not authenticated' && (
-                <Button onClick={() => navigate('/auth')}>
-                  Go to Login
-                </Button>
+                <Button onClick={() => navigate('/auth')}>Go to Login</Button>
               )}
             </div>
           </CardContent>
@@ -100,7 +92,9 @@ const TranscriptionsList: React.FC = () => {
                     <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                       <div className="flex items-center space-x-1">
                         <Calendar className="h-4 w-4" />
-                        <span>{format(new Date(transcription.created_at), 'MMM d, yyyy h:mm a')}</span>
+                        <span>
+                          {format(new Date(transcription.created_at), 'MMM d, yyyy h:mm a')}
+                        </span>
                       </div>
                       {transcription.duration_seconds && (
                         <div className="flex items-center space-x-1">
@@ -127,8 +121,7 @@ const TranscriptionsList: React.FC = () => {
                       <p className="text-sm text-muted-foreground line-clamp-3">
                         {transcription.transcript.length > 200
                           ? `${transcription.transcript.substring(0, 200)}...`
-                          : transcription.transcript
-                        }
+                          : transcription.transcript}
                       </p>
                     </div>
                   )}
@@ -143,16 +136,13 @@ const TranscriptionsList: React.FC = () => {
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {transcription.summary.length > 150
                           ? `${transcription.summary.substring(0, 150)}...`
-                          : transcription.summary
-                        }
+                          : transcription.summary}
                       </p>
                     </div>
                   )}
 
                   {!transcription.transcript && !transcription.summary && (
-                    <p className="text-sm text-muted-foreground italic">
-                      No content available
-                    </p>
+                    <p className="text-sm text-muted-foreground italic">No content available</p>
                   )}
                 </div>
               </CardContent>
@@ -160,7 +150,7 @@ const TranscriptionsList: React.FC = () => {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

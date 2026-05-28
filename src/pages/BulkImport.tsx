@@ -1,82 +1,72 @@
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { BulkImportForm } from "@/components/BulkImportForm";
-import { TemplateDownloader } from "@/components/TemplateDownloader";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Upload, Download } from "lucide-react";
-import { toast } from "sonner";
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BulkImportForm } from '@/components/BulkImportForm';
+import { TemplateDownloader } from '@/components/TemplateDownloader';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Upload, Download } from 'lucide-react';
+import { toast } from 'sonner';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 const BulkImport = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const entityType = searchParams.get("type") as "clients" | "cases";
-  
+  const entityType = searchParams.get('type') as 'clients' | 'cases';
+
   // Redirect if no valid entity type
   useEffect(() => {
-    if (!entityType || !["clients", "cases"].includes(entityType)) {
-      toast.error("Invalid import type");
-      navigate("/dashboard");
+    if (!entityType || !['clients', 'cases'].includes(entityType)) {
+      toast.error('Invalid import type');
+      navigate('/dashboard');
     }
   }, [entityType, navigate]);
 
   const handleImportComplete = (data: Record<string, unknown>[]) => {
     toast.success(`Successfully imported ${data.length} ${entityType}`);
     // Navigate back to the respective module
-    navigate(entityType === "clients" ? "/clients" : "/matters");
+    navigate(entityType === 'clients' ? '/clients' : '/matters');
   };
 
-  if (!entityType || !["clients", "cases"].includes(entityType)) {
+  if (!entityType || !['clients', 'cases'].includes(entityType)) {
     return null;
   }
 
   const entityConfig = {
     clients: {
-      title: "Client",
-      fields: ["name", "email", "phone", "address", "company", "notes", "status"],
+      title: 'Client',
+      fields: ['name', 'email', 'phone', 'address', 'company', 'notes', 'status'],
       sampleData: {
-        name: "John Doe",
-        email: "john@example.com",
-        phone: "+1 234 567 8900",
-        address: "123 Main St, City, State 12345",
-        company: "Acme Corp",
-        notes: "Important client notes",
-        status: "active"
-      }
+        name: 'John Doe',
+        email: 'john@example.com',
+        phone: '+1 234 567 8900',
+        address: '123 Main St, City, State 12345',
+        company: 'Acme Corp',
+        notes: 'Important client notes',
+        status: 'active',
+      },
     },
     cases: {
-      title: "Matter",
-      fields: ["title", "description", "status", "priority", "client_name"],
+      title: 'Matter',
+      fields: ['title', 'description', 'status', 'priority', 'client_name'],
       sampleData: {
-        title: "Contract Dispute Matter",
-        description: "Client contract dispute resolution",
-        status: "active",
-        priority: "high",
-        client_name: "John Doe"
-      }
-    }
+        title: 'Contract Dispute Matter',
+        description: 'Client contract dispute resolution',
+        status: 'active',
+        priority: 'high',
+        client_name: 'John Doe',
+      },
+    },
   };
 
   const config = entityConfig[entityType];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(entityType === "clients" ? "/clients" : "/matters")}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to {config.title}s
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Bulk Import {config.title}s</h1>
-          <p className="text-muted-foreground">Import multiple {entityType} from a CSV file</p>
-        </div>
-      </div>
+    <PageContainer size="narrow">
+      <PageHeader
+        title={`Bulk Import ${config.title}s`}
+        description={`Import multiple ${entityType} from a CSV file`}
+        backHref={entityType === 'clients' ? '/clients' : '/matters'}
+      />
 
       <Tabs defaultValue="import" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -95,14 +85,12 @@ const BulkImport = () => {
             <CardHeader>
               <CardTitle>Import {config.title}s from CSV</CardTitle>
               <CardDescription>
-                Upload a CSV file containing your {entityType} data. Make sure your CSV includes the required fields.
+                Upload a CSV file containing your {entityType} data. Make sure your CSV includes the
+                required fields.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <BulkImportForm 
-                entityType={entityType} 
-                onImportComplete={handleImportComplete}
-              />
+              <BulkImportForm entityType={entityType} onImportComplete={handleImportComplete} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -115,7 +103,7 @@ const BulkImport = () => {
           />
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 };
 

@@ -17,7 +17,6 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import {
-  ArrowLeft,
   Calendar,
   Building,
   Gavel,
@@ -30,6 +29,7 @@ import {
   Eye,
 } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useOrganizationMembers } from '@/hooks/useOrganization';
 import { Input } from '@/components/ui/input';
@@ -77,15 +77,17 @@ export default function CaseDetails() {
 
   if (isLoading) {
     return (
-      <div className="px-4 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </PageContainer>
     );
   }
 
   if (error || !caseData) {
     return (
-      <div className="px-4 py-6">
+      <PageContainer>
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold text-foreground mb-2">Matter Not Found</h2>
           <p className="text-muted-foreground mb-4">
@@ -93,7 +95,7 @@ export default function CaseDetails() {
           </p>
           <Button onClick={() => navigate('/matters')}>Back to Matters</Button>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -126,27 +128,24 @@ export default function CaseDetails() {
   };
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/matters')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-foreground">{caseData.title}</h1>
-          <p className="text-muted-foreground">Matter #{caseData.case_number || caseData.id}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <MatterReviewButton caseId={caseData.id} caseTitle={caseData.title} />
-          <Badge className={getStatusColor(caseData.status)}>
-            {caseData.status.replace('_', ' ')}
-          </Badge>
-          <Badge className={getPriorityColor(caseData.priority)} variant="outline">
-            {caseData.priority} Priority
-          </Badge>
-        </div>
-      </div>
+      <PageHeader
+        title={caseData.title}
+        description={`Matter #${caseData.case_number || caseData.id}`}
+        backHref="/matters"
+        actions={
+          <>
+            <MatterReviewButton caseId={caseData.id} caseTitle={caseData.title} />
+            <Badge className={getStatusColor(caseData.status)}>
+              {caseData.status.replace('_', ' ')}
+            </Badge>
+            <Badge className={getPriorityColor(caseData.priority)} variant="outline">
+              {caseData.priority} Priority
+            </Badge>
+          </>
+        }
+      />
 
       {/* Matter Information */}
       <Card className="shadow-card">
@@ -329,7 +328,7 @@ export default function CaseDetails() {
         onOpenChange={setShowActivityDialog}
         caseId={caseData.id}
       />
-    </div>
+    </PageContainer>
   );
 }
 

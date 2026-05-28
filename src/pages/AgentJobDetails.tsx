@@ -7,18 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  CheckCircle2,
-  Clock,
-  Loader2,
-  XCircle,
-  Ban,
-  ArrowLeft,
-  Zap,
-  FileText,
-  Shield,
-} from 'lucide-react';
+import { CheckCircle2, Clock, Loader2, XCircle, Ban, Zap, FileText, Shield } from 'lucide-react';
 import { format } from 'date-fns';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 const agentTypeLabels: Record<string, string> = {
   matter_review: 'Matter Review',
@@ -42,20 +33,24 @@ export default function AgentJobDetails() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PageContainer>
     );
   }
 
   if (!job) {
     return (
-      <div className="text-center py-20">
-        <p className="text-muted-foreground">Job not found</p>
-        <Button variant="link" asChild className="mt-2">
-          <Link to="/agents">Back to agents</Link>
-        </Button>
-      </div>
+      <PageContainer>
+        <div className="text-center py-20">
+          <p className="text-muted-foreground">Job not found</p>
+          <Button variant="link" asChild className="mt-2">
+            <Link to="/agents">Back to agents</Link>
+          </Button>
+        </div>
+      </PageContainer>
     );
   }
 
@@ -66,28 +61,15 @@ export default function AgentJobDetails() {
   const totalDuration = job.steps.reduce((sum, s) => sum + (s.duration_ms ?? 0), 0);
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <Breadcrumbs />
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/agents">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {agentTypeLabels[job.agent_type] ?? job.agent_type}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Created {format(new Date(job.created_at), 'PPp')}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {(job.status === 'pending' || job.status === 'running') && (
+      <PageHeader
+        title={agentTypeLabels[job.agent_type] ?? job.agent_type}
+        description={`Created ${format(new Date(job.created_at), 'PPp')}`}
+        backHref="/agents"
+        actions={
+          (job.status === 'pending' || job.status === 'running') && (
             <Button
               variant="destructive"
               size="sm"
@@ -97,9 +79,9 @@ export default function AgentJobDetails() {
               <Ban className="mr-1 h-3 w-3" />
               Cancel
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -316,6 +298,6 @@ export default function AgentJobDetails() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

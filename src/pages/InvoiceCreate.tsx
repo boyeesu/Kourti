@@ -5,6 +5,7 @@ import { InvoiceForm } from '@/components/invoices/InvoiceForm';
 import { useCreateInvoice } from '@/hooks/useInvoices';
 import { ArrowLeft } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 export default function InvoiceCreate() {
   const navigate = useNavigate();
@@ -43,19 +44,19 @@ export default function InvoiceCreate() {
   };
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Create New Invoice</h1>
-          <p className="text-muted-foreground">Generate a professional invoice for your client</p>
-        </div>
-        <Button variant="outline" onClick={() => navigate('/invoices')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Invoices
-        </Button>
-      </div>
+      <PageHeader
+        title="Create New Invoice"
+        description="Generate a professional invoice for your client"
+        actions={
+          <Button variant="outline" onClick={() => navigate('/invoices')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Invoices
+          </Button>
+        }
+      />
 
       <Card className="shadow-card max-w-4xl mx-auto">
         <CardHeader>
@@ -70,6 +71,6 @@ export default function InvoiceCreate() {
           />
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

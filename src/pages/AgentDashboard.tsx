@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Cpu, AlertTriangle, Shield, Zap, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AgentNav } from '@/components/agents/AgentNav';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 export default function AgentDashboard() {
   const { data: dashData, isLoading } = useAgentDashboard();
@@ -15,22 +16,22 @@ export default function AgentDashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+      <PageContainer>
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <Breadcrumbs />
 
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Agent Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Overview of agent activity across your organization
-        </p>
-      </div>
+      <PageHeader
+        title="Agent Dashboard"
+        description="Overview of agent activity across your organization"
+      />
 
       <AgentNav />
 
@@ -133,6 +134,6 @@ export default function AgentDashboard() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

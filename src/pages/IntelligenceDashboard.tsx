@@ -5,6 +5,7 @@ import {
   useDismissRecommendation,
 } from '@/hooks/useIntelligence';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,25 +56,23 @@ export default function IntelligenceDashboard() {
   const workloadInsights = (intel.workloadInsights ?? {}) as Record<string, unknown>;
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <Breadcrumbs />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Intelligence</h1>
-          <p className="text-sm text-muted-foreground">
-            AI-synthesized overview of your organization's legal operations
-          </p>
-        </div>
-        <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
-          {generate.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          Generate Now
-        </Button>
-      </div>
+      <PageHeader
+        title="Intelligence"
+        description="AI-synthesized overview of your organization's legal operations"
+        actions={
+          <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
+            {generate.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Generate Now
+          </Button>
+        }
+      />
 
       {snapshotLoading ? (
         <div className="flex justify-center py-12">
@@ -240,6 +239,6 @@ export default function IntelligenceDashboard() {
           </Card>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

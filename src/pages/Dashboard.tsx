@@ -1,6 +1,6 @@
-import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -8,7 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
   ResponsiveContainer,
   PieChart,
@@ -20,7 +20,7 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
-} from "recharts";
+} from 'recharts';
 import {
   FileText,
   Users,
@@ -33,17 +33,18 @@ import {
   ArrowRight,
   Scale,
   Calendar,
-} from "lucide-react";
-import { useInsights } from "@/hooks/useInsights";
-import { useDashboard } from "@/hooks/useDashboard";
-import { useAllCases } from "@/hooks/useCases";
-import { useAllActivities } from "@/features/activities/api/useAllActivities";
-import { Case, Contract } from "@/types";
-import type { CalendarEvent } from "@/types";
-import { formatDate } from "@/lib/utils";
-import { ModuleErrorBoundary } from "@/components/ErrorBoundary";
-import { useNavigate } from "react-router-dom";
-import { calculateCaseStatusData } from "@/lib/analyticsUtils";
+} from 'lucide-react';
+import { useInsights } from '@/hooks/useInsights';
+import { useDashboard } from '@/hooks/useDashboard';
+import { useAllCases } from '@/hooks/useCases';
+import { useAllActivities } from '@/features/activities/api/useAllActivities';
+import { Case, Contract } from '@/types';
+import type { CalendarEvent } from '@/types';
+import { formatDate } from '@/lib/utils';
+import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
+import { useNavigate } from 'react-router-dom';
+import { calculateCaseStatusData } from '@/lib/analyticsUtils';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 export default function Dashboard() {
   const windowDays = 7;
@@ -51,7 +52,12 @@ export default function Dashboard() {
 
   // Get data for different dashboard sections
   const { upcomingCases, upcomingContracts } = useInsights(windowDays);
-  const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard } = useDashboard();
+  const {
+    data: dashboardData,
+    isLoading: dashboardLoading,
+    error: dashboardError,
+    refetch: refetchDashboard,
+  } = useDashboard();
   const { data: casesData, isLoading: casesLoading } = useAllCases();
   const { data: activitiesData, isLoading: activitiesLoading } = useAllActivities();
 
@@ -65,10 +71,23 @@ export default function Dashboard() {
     // If we have real activity data, calculate monthly trends by activity type
     if (activitiesData && activitiesData.length > 0) {
       const monthlyData: Record<string, Record<string, number>> = {};
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
 
       // Initialize all months
-      months.forEach(month => {
+      months.forEach((month) => {
         monthlyData[month] = {};
       });
 
@@ -83,8 +102,8 @@ export default function Dashboard() {
 
       // Transform to array format for the chart with top activity types
       const allActivityTypes = new Set<string>();
-      Object.values(monthlyData).forEach(monthData => {
-        Object.keys(monthData).forEach(type => allActivityTypes.add(type));
+      Object.values(monthlyData).forEach((monthData) => {
+        Object.keys(monthData).forEach((type) => allActivityTypes.add(type));
       });
 
       // Get top 3 most common activity types
@@ -99,9 +118,9 @@ export default function Dashboard() {
         .slice(0, 3)
         .map(([type]) => type);
 
-      return months.map(month => {
+      return months.map((month) => {
         const result: Record<string, string | number> = { month };
-        topTypes.forEach(type => {
+        topTypes.forEach((type) => {
           result[type] = monthlyData[month][type] || 0;
         });
         return result;
@@ -133,7 +152,8 @@ export default function Dashboard() {
         </div>
         <h2 className="text-xl font-semibold mb-2">Failed to load dashboard data</h2>
         <p className="text-muted-foreground mb-6 text-center max-w-md">
-          There was an error loading your dashboard. Please try again or contact support if the problem persists.
+          There was an error loading your dashboard. Please try again or contact support if the
+          problem persists.
         </p>
         <Button onClick={() => refetchDashboard()}>
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -144,12 +164,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="px-2 py-4 sm:px-4 sm:py-6 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">Overview of your legal practice</p>
-      </div>
+    <PageContainer>
+      <PageHeader title="Dashboard" description="Overview of your legal practice" />
 
       {/* Stats Cards (Live Data) - No Revenue */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
@@ -165,7 +181,7 @@ export default function Dashboard() {
                   {dashboardLoading ? (
                     <span className="animate-pulse">—</span>
                   ) : (
-                    dashboardData?.activeCases ?? "0"
+                    (dashboardData?.activeCases ?? '0')
                   )}
                 </p>
               </div>
@@ -185,7 +201,7 @@ export default function Dashboard() {
                   {dashboardLoading ? (
                     <span className="animate-pulse">—</span>
                   ) : (
-                    dashboardData?.totalClients ?? "0"
+                    (dashboardData?.totalClients ?? '0')
                   )}
                 </p>
               </div>
@@ -205,7 +221,7 @@ export default function Dashboard() {
                   {dashboardLoading ? (
                     <span className="animate-pulse">—</span>
                   ) : (
-                    dashboardData?.totalDocuments ?? "0"
+                    (dashboardData?.totalDocuments ?? '0')
                   )}
                 </p>
               </div>
@@ -225,7 +241,7 @@ export default function Dashboard() {
                   {dashboardLoading ? (
                     <span className="animate-pulse">—</span>
                   ) : (
-                    dashboardData?.totalCases ?? "0"
+                    (dashboardData?.totalCases ?? '0')
                   )}
                 </p>
               </div>
@@ -248,40 +264,43 @@ export default function Dashboard() {
               {recentActivity.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={recentActivity}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                      opacity={0.5}
+                    />
                     <XAxis
                       dataKey="month"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                     />
                     <YAxis
                       axisLine={false}
                       tickLine={false}
                       width={30}
-                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                     />
-                    <Legend
-                      verticalAlign="top"
-                      height={36}
-                      iconType="circle"
-                    />
+                    <Legend verticalAlign="top" height={36} iconType="circle" />
                     {/* Render lines dynamically based on activity data */}
-                    {recentActivity.length > 0 && Object.keys(recentActivity[0]).filter(key => key !== 'month').map((activityType, index) => {
-                      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-                      return (
-                        <Line
-                          key={activityType}
-                          type="monotone"
-                          dataKey={activityType}
-                          name={activityType}
-                          stroke={colors[index % colors.length]}
-                          strokeWidth={3}
-                          dot={{ fill: colors[index % colors.length], strokeWidth: 2, r: 3 }}
-                          activeDot={{ r: 6 }}
-                        />
-                      );
-                    })}
+                    {recentActivity.length > 0 &&
+                      Object.keys(recentActivity[0])
+                        .filter((key) => key !== 'month')
+                        .map((activityType, index) => {
+                          const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                          return (
+                            <Line
+                              key={activityType}
+                              type="monotone"
+                              dataKey={activityType}
+                              name={activityType}
+                              stroke={colors[index % colors.length]}
+                              strokeWidth={3}
+                              dot={{ fill: colors[index % colors.length], strokeWidth: 2, r: 3 }}
+                              activeDot={{ r: 6 }}
+                            />
+                          );
+                        })}
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -313,7 +332,9 @@ export default function Dashboard() {
                       outerRadius={90}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, value, percent }) => `${name}: ${value} (${((percent || 0) * 100).toFixed(0)}%)`}
+                      label={({ name, value, percent }) =>
+                        `${name}: ${value} (${((percent || 0) * 100).toFixed(0)}%)`
+                      }
                       labelLine={true}
                       strokeWidth={2}
                       stroke="hsl(var(--background))"
@@ -322,11 +343,7 @@ export default function Dashboard() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Legend
-                      verticalAlign="bottom"
-                      height={36}
-                      iconType="circle"
-                    />
+                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -362,7 +379,8 @@ export default function Dashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {dashboardData?.upcomingCalendarEvents && dashboardData.upcomingCalendarEvents.length > 0 ? (
+              {dashboardData?.upcomingCalendarEvents &&
+              dashboardData.upcomingCalendarEvents.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -373,12 +391,17 @@ export default function Dashboard() {
                   </TableHeader>
                   <TableBody>
                     {dashboardData.upcomingCalendarEvents.map((event: Partial<CalendarEvent>) => (
-                      <TableRow 
-                        key={event.id} 
-                        className="cursor-pointer hover:bg-muted/50" 
+                      <TableRow
+                        key={event.id}
+                        className="cursor-pointer hover:bg-muted/50"
                         onClick={() => navigate('/calendar')}
                       >
-                        <TableCell className="font-medium max-w-[200px] truncate" title={event.title}>{event.title}</TableCell>
+                        <TableCell
+                          className="font-medium max-w-[200px] truncate"
+                          title={event.title}
+                        >
+                          {event.title}
+                        </TableCell>
                         <TableCell>{formatDate(event.start_date)}</TableCell>
                         <TableCell>
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
@@ -391,7 +414,9 @@ export default function Dashboard() {
                 </Table>
               ) : (
                 <div className="text-center py-6 bg-muted/10 rounded-md">
-                  <p className="text-muted-foreground text-sm">No upcoming events in the next 7 days.</p>
+                  <p className="text-muted-foreground text-sm">
+                    No upcoming events in the next 7 days.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -430,17 +455,27 @@ export default function Dashboard() {
                   </TableHeader>
                   <TableBody>
                     {upcomingCases.map((c: Case) => (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/matters/${c.id}`)}>
-                        <TableCell className="font-medium max-w-[200px] truncate" title={c.title}>{c.title}</TableCell>
+                      <TableRow
+                        key={c.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => navigate(`/matters/${c.id}`)}
+                      >
+                        <TableCell className="font-medium max-w-[200px] truncate" title={c.title}>
+                          {c.title}
+                        </TableCell>
                         <TableCell>{formatDate(c.next_hearing_date)}</TableCell>
-                        <TableCell className="max-w-[120px] truncate" title={c.court || 'TBD'}>{c.court || 'TBD'}</TableCell>
+                        <TableCell className="max-w-[120px] truncate" title={c.court || 'TBD'}>
+                          {c.court || 'TBD'}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               ) : (
                 <div className="text-center py-6 bg-muted/10 rounded-md">
-                  <p className="text-muted-foreground text-sm">No upcoming hearings in the next {windowDays} days.</p>
+                  <p className="text-muted-foreground text-sm">
+                    No upcoming hearings in the next {windowDays} days.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -484,16 +519,23 @@ export default function Dashboard() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => navigate(`/contracts/${contract.id}`)}
                       >
-                        <TableCell className="font-medium max-w-[200px] truncate" title={contract.title}>{contract.title}</TableCell>
+                        <TableCell
+                          className="font-medium max-w-[200px] truncate"
+                          title={contract.title}
+                        >
+                          {contract.title}
+                        </TableCell>
                         <TableCell>{formatDate(contract.end_date)}</TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            contract.status === 'active' 
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                              : contract.status === 'draft'
-                              ? 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400'
-                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                          }`}>
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              contract.status === 'active'
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : contract.status === 'draft'
+                                  ? 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400'
+                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                            }`}
+                          >
                             {contract.status || 'Unknown'}
                           </span>
                         </TableCell>
@@ -503,13 +545,15 @@ export default function Dashboard() {
                 </Table>
               ) : (
                 <div className="text-center py-6 bg-muted/10 rounded-md">
-                  <p className="text-muted-foreground text-sm">No contracts expiring in the next {windowDays} days.</p>
+                  <p className="text-muted-foreground text-sm">
+                    No contracts expiring in the next {windowDays} days.
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
         </ModuleErrorBoundary>
       </div>
-    </div>
+    </PageContainer>
   );
 }

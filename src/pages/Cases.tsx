@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCases, useDeleteCase } from '@/hooks/useCases'; // Add real data hooks
 import { useSearch } from '@/hooks/use-search';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -141,23 +142,18 @@ export default function App() {
   // Display loading state
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <PageContainer>
         <Breadcrumbs />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Matters</h1>
-            <p className="text-muted-foreground">Manage and track all your legal matters</p>
-          </div>
-        </div>
+        <PageHeader title="Matters" description="Manage and track all your legal matters" />
         <TableSkeleton rows={8} columns={6} />
-      </div>
+      </PageContainer>
     );
   }
 
   // Display error state
   if (error) {
     return (
-      <div className="space-y-4">
+      <PageContainer>
         <Breadcrumbs />
         <ErrorState
           title="Failed to load matters"
@@ -169,7 +165,7 @@ export default function App() {
           error={error}
           onRetry={() => refetch()}
         />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -235,32 +231,31 @@ export default function App() {
   const handleNextPage = () => setPage((prev: number) => Math.min(totalPages, prev + 1));
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Matters</h1>
-          <p className="text-muted-foreground">Manage and track all your legal matters</p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            className="shadow-md flex-1 sm:flex-none"
-            onClick={() => navigate('/bulk-import?type=matters')}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Bulk Import
-          </Button>
-          <Button
-            className="shadow-md flex-1 sm:flex-none"
-            onClick={() => navigate('/matters/create')}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Matter
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Matters"
+        description="Manage and track all your legal matters"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className="shadow-md flex-1 sm:flex-none"
+              onClick={() => navigate('/bulk-import?type=matters')}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Bulk Import
+            </Button>
+            <Button
+              className="shadow-md flex-1 sm:flex-none"
+              onClick={() => navigate('/matters/create')}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Matter
+            </Button>
+          </>
+        }
+      />
 
       {/* Compact Filters Toolbar */}
       <ModuleFilterBar
@@ -547,6 +542,6 @@ export default function App() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Bot, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AgentNav } from '@/components/agents/AgentNav';
+import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 
 const agentTypeLabels: Record<string, string> = {
   matter_review: 'Matter Review',
@@ -36,15 +37,10 @@ export default function AgentJobs() {
   const pagination = data?.pagination;
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <Breadcrumbs />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">AI Agent Jobs</h1>
-          <p className="text-sm text-muted-foreground">Monitor and manage autonomous agent tasks</p>
-        </div>
-      </div>
+      <PageHeader title="AI Agent Jobs" description="Monitor and manage autonomous agent tasks" />
 
       <AgentNav />
 
@@ -148,6 +144,6 @@ export default function AgentJobs() {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

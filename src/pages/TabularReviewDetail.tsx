@@ -13,6 +13,7 @@ import {
   type TabularCell,
 } from '@/lib/featuresApi';
 import { toast } from 'sonner';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const FLAG_BG: Record<string, string> = {
   green: 'bg-green-500',
@@ -147,17 +148,29 @@ export default function TabularReviewDetail() {
     }
   };
 
-  if (loading) return <div className="text-sm text-muted-foreground p-6">Loading review…</div>;
-  if (!detail) return <div className="text-sm text-muted-foreground p-6">Review not found.</div>;
+  if (loading)
+    return (
+      <PageContainer>
+        <div className="text-sm text-muted-foreground">Loading review…</div>
+      </PageContainer>
+    );
+  if (!detail)
+    return (
+      <PageContainer>
+        <div className="text-sm text-muted-foreground">Review not found.</div>
+      </PageContainer>
+    );
 
   const { review, columns, documents } = detail;
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       <Breadcrumbs />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{review.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+            {review.title}
+          </h1>
           <p className="text-xs text-muted-foreground">
             {documents.length} documents · {columns.length} columns
             {review.practice ? ` · ${review.practice}` : ''}
@@ -233,7 +246,7 @@ export default function TabularReviewDetail() {
           </tbody>
         </table>
       </Card>
-    </div>
+    </PageContainer>
   );
 }
 

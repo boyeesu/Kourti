@@ -49,6 +49,7 @@ import { calculateCaseStatusData } from '@/lib/analyticsUtils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, startOfMonth, subMonths } from 'date-fns';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 // Components
 const StatCard = ({
@@ -347,19 +348,19 @@ export default function Dashboard() {
   // Handle error state
   if (dashboardError) {
     return (
-      <div className="px-4 py-12">
+      <PageContainer>
         <ErrorState
           title="Failed to load dashboard data"
           message="There was an error loading your dashboard. Please try again or contact support if the problem persists."
           error={dashboardError}
           onRetry={() => refetchDashboard()}
         />
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       {/* Getting Started Checklist */}
       <GettingStartedChecklist />
 
@@ -795,6 +796,6 @@ export default function Dashboard() {
           </Card>
         </ModuleErrorBoundary>
       </div>
-    </div>
+    </PageContainer>
   );
 }

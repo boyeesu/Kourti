@@ -1,28 +1,41 @@
-import { useParams, Link } from "react-router-dom";
-import { useState } from "react";
-import { contractsData } from "@/pages/contractsData";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useParams, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { contractsData } from '@/pages/contractsData';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   ArrowLeft,
   Clock,
-  User, 
-  FileText, 
-  Download, 
-  Eye, 
+  User,
+  FileText,
+  Download,
+  Eye,
   GitBranch,
   Calendar,
   Filter,
-  Search
-} from "lucide-react";
-import { format } from "date-fns";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
+  Search,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 interface Version {
   version: number;
@@ -37,56 +50,55 @@ interface Version {
 export default function ContractHistory() {
   const { id } = useParams();
   const contract = contractsData.find((c) => c.id === id);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterBy, setFilterBy] = useState("all");
-  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterBy, setFilterBy] = useState('all');
 
   // Enhanced version data with more details
   const enhancedVersions: Version[] = [
     {
       version: 3,
-      date: "2024-02-01",
-      description: "Final signed contract with updated payment terms",
-      editedBy: "Sarah Wilson",
+      date: '2024-02-01',
+      description: 'Final signed contract with updated payment terms',
+      editedBy: 'Sarah Wilson',
       changes: [
-        "Updated payment terms from 30 to 45 days",
-        "Added early termination clause",
-        "Modified intellectual property section"
+        'Updated payment terms from 30 to 45 days',
+        'Added early termination clause',
+        'Modified intellectual property section',
       ],
-      fileSize: "156 KB",
-      status: "Final"
+      fileSize: '156 KB',
+      status: 'Final',
     },
     {
       version: 2,
-      date: "2024-01-15",
-      description: "Second draft with client feedback incorporated",
-      editedBy: "Michael Chen",
+      date: '2024-01-15',
+      description: 'Second draft with client feedback incorporated',
+      editedBy: 'Michael Chen',
       changes: [
-        "Revised liability clauses",
-        "Updated service level agreements",
-        "Added compliance requirements"
+        'Revised liability clauses',
+        'Updated service level agreements',
+        'Added compliance requirements',
       ],
-      fileSize: "142 KB",
-      status: "Draft"
+      fileSize: '142 KB',
+      status: 'Draft',
     },
     {
       version: 1,
-      date: "2023-12-01",
-      description: "Initial contract draft",
-      editedBy: "Sarah Wilson",
+      date: '2023-12-01',
+      description: 'Initial contract draft',
+      editedBy: 'Sarah Wilson',
       changes: [
-        "Created initial contract structure",
-        "Added standard terms and conditions",
-        "Included basic party information"
+        'Created initial contract structure',
+        'Added standard terms and conditions',
+        'Included basic party information',
       ],
-      fileSize: "128 KB",
-      status: "Draft"
-    }
+      fileSize: '128 KB',
+      status: 'Draft',
+    },
   ];
 
   if (!contract) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <Breadcrumbs />
         <Card className="shadow-card">
           <CardContent className="p-12 text-center">
@@ -103,15 +115,16 @@ export default function ContractHistory() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     );
   }
 
-  const filteredVersions = enhancedVersions.filter(version => {
-    const matchesSearch = version.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         version.editedBy?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterBy === "all" || version.status?.toLowerCase() === filterBy;
-    
+  const filteredVersions = enhancedVersions.filter((version) => {
+    const matchesSearch =
+      version.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      version.editedBy?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterBy === 'all' || version.status?.toLowerCase() === filterBy;
+
     return matchesSearch && matchesFilter;
   });
 
@@ -131,9 +144,9 @@ export default function ContractHistory() {
   const handleDownloadVersion = (version: Version) => {
     // Simulate downloading a specific version
     const content = `Contract Version ${version.version}\n\nGenerated on: ${version.date}\nEdited by: ${version.editedBy}\n\n${contract.content}`;
-    const blob = new Blob([content], { type: "text/plain" });
+    const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const link = document.createElement('a');
     link.href = url;
     link.download = `${contract.name}_v${version.version}.txt`;
     link.click();
@@ -146,7 +159,7 @@ export default function ContractHistory() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <PageContainer>
       <Breadcrumbs />
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -160,19 +173,17 @@ export default function ContractHistory() {
             </Button>
           </div>
           <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight flex items-center gap-2">
               <GitBranch className="h-6 w-6 text-muted-foreground" />
               Version History
             </h1>
             <p className="text-muted-foreground">{contract.name}</p>
           </div>
         </div>
-        
+
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link to={`/contracts/${contract.id}/edit`}>
-              Edit Current Version
-            </Link>
+            <Link to={`/contracts/${contract.id}/edit`}>Edit Current Version</Link>
           </Button>
           <Button asChild>
             <Link to={`/contracts/${contract.id}`}>
@@ -222,7 +233,7 @@ export default function ContractHistory() {
           <CardTitle className="flex items-center justify-between">
             Contract Versions ({filteredVersions.length})
             <Badge variant="secondary">
-              Current: v{Math.max(...enhancedVersions.map(v => v.version))}
+              Current: v{Math.max(...enhancedVersions.map((v) => v.version))}
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -237,7 +248,7 @@ export default function ContractHistory() {
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <span className="text-sm font-medium text-primary">v{version.version}</span>
                   </div>
-                  
+
                   <div className="flex-1 space-y-2">
                     <div className="flex items-start justify-between">
                       <div>
@@ -245,7 +256,7 @@ export default function ContractHistory() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {format(new Date(version.date), "MMM dd, yyyy")}
+                            {format(new Date(version.date), 'MMM dd, yyyy')}
                           </div>
                           {version.editedBy && (
                             <div className="flex items-center gap-1">
@@ -261,7 +272,7 @@ export default function ContractHistory() {
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
                         {version.status && (
                           <Badge variant="outline" className={getStatusColor(version.status)}>
@@ -271,11 +282,7 @@ export default function ContractHistory() {
                         <div className="flex gap-1">
                           <Dialog>
                             <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                
-                              >
+                              <Button variant="ghost" size="sm">
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </DialogTrigger>
@@ -286,7 +293,7 @@ export default function ContractHistory() {
                               <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                   <div>
-                                    <strong>Date:</strong> {format(new Date(version.date), "PPP")}
+                                    <strong>Date:</strong> {format(new Date(version.date), 'PPP')}
                                   </div>
                                   <div>
                                     <strong>Edited by:</strong> {version.editedBy}
@@ -298,12 +305,14 @@ export default function ContractHistory() {
                                     <strong>File Size:</strong> {version.fileSize}
                                   </div>
                                 </div>
-                                
+
                                 <div>
                                   <strong className="text-sm">Description:</strong>
-                                  <p className="text-sm text-muted-foreground mt-1">{version.description}</p>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {version.description}
+                                  </p>
                                 </div>
-                                
+
                                 {version.changes && version.changes.length > 0 && (
                                   <div>
                                     <strong className="text-sm">Changes in this version:</strong>
@@ -314,7 +323,7 @@ export default function ContractHistory() {
                                     </ul>
                                   </div>
                                 )}
-                                
+
                                 <div className="flex justify-end gap-2 pt-4">
                                   <Button
                                     variant="outline"
@@ -324,17 +333,14 @@ export default function ContractHistory() {
                                     <Download className="h-4 w-4 mr-2" />
                                     Download
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleRestoreVersion(version)}
-                                  >
+                                  <Button size="sm" onClick={() => handleRestoreVersion(version)}>
                                     Restore Version
                                   </Button>
                                 </div>
                               </div>
                             </DialogContent>
                           </Dialog>
-                          
+
                           <Button
                             variant="ghost"
                             size="sm"
@@ -345,7 +351,7 @@ export default function ContractHistory() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {version.changes && version.changes.length > 0 && (
                       <div className="text-sm">
                         <p className="text-muted-foreground mb-1">Key changes:</p>
@@ -369,16 +375,15 @@ export default function ContractHistory() {
               </div>
             ))}
           </div>
-          
+
           {filteredVersions.length === 0 && (
             <div className="text-center py-12">
               <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Versions Found</h3>
               <p className="text-muted-foreground">
-                {searchTerm || filterBy !== "all" 
-                  ? "No versions match your current filters."
-                  : "This contract doesn't have any version history yet."
-                }
+                {searchTerm || filterBy !== 'all'
+                  ? 'No versions match your current filters.'
+                  : "This contract doesn't have any version history yet."}
               </p>
             </div>
           )}
@@ -407,7 +412,7 @@ export default function ContractHistory() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <Label className="text-sm font-medium">Compare To</Label>
               <Select>
@@ -424,7 +429,7 @@ export default function ContractHistory() {
               </Select>
             </div>
           </div>
-          
+
           <div className="mt-4">
             <Button variant="outline" className="w-full">
               <GitBranch className="h-4 w-4 mr-2" />
@@ -433,6 +438,6 @@ export default function ContractHistory() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }
