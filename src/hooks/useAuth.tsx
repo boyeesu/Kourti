@@ -8,9 +8,11 @@ import {
   signUp as authSignUp,
   signOut as authSignOut,
   resetPassword as authResetPassword,
+  verifyEmailOtp as authVerifyEmailOtp,
   onAuthStateChange,
   type AuthSession,
   type AuthError as AuthClientError,
+  type MfaRequiredResponse,
 } from '@/lib/authClient';
 import { trackEvent, AnalyticsEvents, identifyUser, resetAnalytics } from '@/lib/analytics';
 
@@ -43,25 +45,28 @@ interface UserData {
   [key: string]: unknown;
 }
 
+interface AuthOutcome {
+  error: AuthError | null;
+  success: boolean;
+  mfa?: MfaRequiredResponse | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (
-    email: string,
-    password: string,
-    userData?: UserData
-  ) => Promise<{ error: AuthError | null; success: boolean }>;
-  signIn: (
-    email: string,
-    password: string
-  ) => Promise<{ error: AuthError | null; success: boolean }>;
+  signUp: (email: string, password: string, userData?: UserData) => Promise<AuthOutcome>;
+  signIn: (email: string, password: string) => Promise<AuthOutcome>;
   signInWithProvider: (
     provider: 'google' | 'microsoft',
     email?: string
   ) => Promise<{ error: AuthError | null; success: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null; success: boolean }>;
+  verifyEmailOtp: (
+    mfaToken: string,
+    code: string
+  ) => Promise<{ error: AuthError | null; success: boolean }>;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -151,15 +156,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signUp = async (email: string, password: string, userData?: UserData) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    userData?: UserData
+  ): Promise<AuthOutcome> => {
     try {
-      const { session: authSession, error } = await authSignUp(email, password, {
+      const {
+        session: authSession,
+        mfa,
+        error,
+      } = await authSignUp(email, password, {
         firstName: userData?.first_name,
         lastName: userData?.last_name,
       });
 
       if (error) {
-        return { error: toAuthError(error)!, success: false };
+        return { error: toAuthError(error)!, success: false, mfa: null };
+      }
+
+      if (mfa) {
+        // Account created but pending email OTP verification. Caller is
+        // responsible for showing the OTP step.
+        logInfo('Sign up requires email verification', { email });
+        return { error: null, success: false, mfa };
       }
 
       logInfo('Sign up successful', { email });
@@ -168,32 +188,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(toUser(authSession));
       setSession(toSession(authSession));
 
-      return { error: null, success: true };
+      return { error: null, success: true, mfa: null };
     } catch (error) {
       logError('Sign up error', { error });
       return {
         error: { message: 'An unexpected error occurred during sign up.' },
         success: false,
+        mfa: null,
       };
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<AuthOutcome> => {
     try {
-      const { session: authSession, error } = await authSignIn(email, password);
+      const { session: authSession, mfa, error } = await authSignIn(email, password);
 
       if (error) {
-        return { error: toAuthError(error)!, success: false };
+        return { error: toAuthError(error)!, success: false, mfa: null };
+      }
+
+      if (mfa) {
+        return { error: null, success: false, mfa };
       }
 
       setUser(toUser(authSession));
       setSession(toSession(authSession));
 
-      return { error: null, success: true };
+      return { error: null, success: true, mfa: null };
     } catch (error) {
       logError('Sign in error', { error });
       return {
         error: { message: 'An unexpected error occurred during sign in.' },
+        success: false,
+        mfa: null,
+      };
+    }
+  };
+
+  const verifyEmailOtpHandler = async (mfaToken: string, code: string) => {
+    try {
+      const { session: authSession, error } = await authVerifyEmailOtp(mfaToken, code);
+      if (error) return { error: toAuthError(error)!, success: false };
+      setUser(toUser(authSession));
+      setSession(toSession(authSession));
+      return { error: null, success: true };
+    } catch (error) {
+      logError('Verify email OTP error', { error });
+      return {
+        error: { message: 'An unexpected error occurred verifying your code.' },
         success: false,
       };
     }
@@ -246,6 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut: signOutHandler,
     signInWithProvider,
     resetPassword: resetPasswordHandler,
+    verifyEmailOtp: verifyEmailOtpHandler,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -262,6 +305,7 @@ const HMR_FALLBACK: AuthContextType = {
   signOut: async () => {},
   signInWithProvider: noopAsync,
   resetPassword: noopAsync,
+  verifyEmailOtp: noopAsync,
 };
 
 // eslint-disable-next-line react-refresh/only-export-components

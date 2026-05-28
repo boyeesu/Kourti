@@ -8,6 +8,8 @@ import { Separator } from '@/components/ui/separator';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { useAuth } from '@/hooks/useAuth';
+import { EmailOtpChallenge } from '@/components/auth/EmailOtpChallenge';
+import type { MfaRequiredResponse } from '@/lib/authClient';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -19,20 +21,37 @@ export default function Login() {
     email: '',
     password: '',
   });
+  const [mfa, setMfa] = useState<MfaRequiredResponse | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const { error } = await signIn(formData.email, formData.password);
+    const { error, mfa: mfaChallenge, success } = await signIn(formData.email, formData.password);
+    setLoading(false);
     if (error) {
       setError(error.message);
-      setLoading(false);
       return;
     }
-    navigate('/dashboard');
+    if (mfaChallenge) {
+      setMfa(mfaChallenge);
+      return;
+    }
+    if (success) navigate('/dashboard');
   };
+
+  if (mfa && mfa.method === 'email_otp') {
+    return (
+      <EmailOtpChallenge
+        mfaToken={mfa.mfaToken}
+        emailHint={mfa.emailHint}
+        purpose="login"
+        onSuccess={() => navigate('/dashboard')}
+        onCancel={() => setMfa(null)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">

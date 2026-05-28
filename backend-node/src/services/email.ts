@@ -128,6 +128,46 @@ export async function sendPasswordResetEmail(
   return { messageId: data?.id };
 }
 
+export async function sendEmailOtpEmail(
+  email: string,
+  code: string,
+  purpose: 'login' | 'signup' | 'enable_2fa'
+): Promise<{ messageId?: string }> {
+  const r = getResend();
+  const subjectByPurpose: Record<typeof purpose, string> = {
+    login: `Your ${BRAND_NAME} sign-in code`,
+    signup: `Verify your email for ${BRAND_NAME}`,
+    enable_2fa: `Enable email 2FA for ${BRAND_NAME}`,
+  };
+  const introByPurpose: Record<typeof purpose, string> = {
+    login: 'Use the code below to finish signing in:',
+    signup: 'Use the code below to verify your email address and finish creating your account:',
+    enable_2fa: 'Use the code below to confirm enabling email two-factor authentication:',
+  };
+
+  const html = wrapHtml(
+    subjectByPurpose[purpose],
+    `
+    <p style="color:#374151;font-size:15px;line-height:1.6;">${introByPurpose[purpose]}</p>
+    <div style="margin:24px 0;padding:20px 24px;background:${BRAND.lightBg};border:1px solid ${BRAND.border};border-radius:12px;text-align:center;">
+      <div style="font-family:'SFMono-Regular',Consolas,Menlo,monospace;font-size:32px;letter-spacing:8px;font-weight:700;color:${BRAND.dark};">${code}</div>
+    </div>
+    <p style="color:#6b7280;font-size:13px;">This code expires in 10 minutes and can only be used once.</p>
+    <p style="color:#6b7280;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
+    `
+  );
+
+  const { data, error } = await r.emails.send({
+    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+    to: [email.toLowerCase()],
+    subject: subjectByPurpose[purpose],
+    html,
+  });
+
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
 export async function sendWelcomeEmail(
   email: string,
   firstName?: string

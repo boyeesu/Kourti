@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useProfile, useUpdateProfile, useChangePassword } from '@/hooks/useProfile';
+import { TwoFactorEmailCard } from '@/components/auth/TwoFactorEmailCard';
 
 const profileSchema = z.object({
   first_name: z.string().min(2, 'First name must be at least 2 characters'),
@@ -233,6 +234,8 @@ export default function ProfileTab() {
           </Form>
         </CardContent>
       </Card>
+
+      <TwoFactorEmailCard />
     </div>
   );
 }

@@ -13,9 +13,13 @@ import {
   signUp,
   verifyTotpChallenge,
   verifyRecoveryChallenge,
+  verifyEmailOtpChallenge,
+  resendEmailOtpChallenge,
   startTotpEnrolment,
   confirmTotpEnrolment,
   disableTotp,
+  setEmailOtpEnabled,
+  getEmailOtpEnabled,
   signOut,
   refreshTokens,
   changePassword,
@@ -164,12 +168,15 @@ authRouter.post(
     const result = await signIn(email, password);
 
     if (result.kind === 'mfa_required') {
-      // 2FA enabled — caller must redeem this token at /2fa/verify-totp
-      // (or /2fa/verify-recovery) to receive session tokens.
+      // 2FA enabled — caller must redeem this token at /2fa/verify-totp,
+      // /2fa/verify-email, or /2fa/verify-recovery (depending on method)
+      // to receive session tokens.
       res.status(200).json({
         mfaRequired: true,
         mfaToken: result.mfaToken,
         expiresIn: result.mfaTokenExpiresIn,
+        method: result.method,
+        emailHint: result.emailHint,
       });
       return;
     }
@@ -187,17 +194,29 @@ authRouter.post(
   '/sign-up',
   asyncHandler(async (req, res) => {
     const ip = clientIp(req);
-    enforceRateLimit(`auth:sign-up:${ip}`, 5, 60_000); // 5 sign-ups per minute per IP
+    enforceRateLimit(`auth:sign-up:ip:${ip}`, 5, 60_000); // 5 sign-ups per minute per IP
+
+    // Per-email signup limit prevents email-bombing victims with
+    // unsolicited "verify your email" messages by iterating addresses
+    // from rotating IPs. Lower limit, longer window.
+    const emailFromBody =
+      typeof req.body?.email === 'string' ? req.body.email.toLowerCase().slice(0, 254) : null;
+    if (emailFromBody) {
+      enforceRateLimit(`auth:sign-up:email:${emailFromBody}`, 3, 3_600_000); // 3/hr/email
+    }
 
     const { email, password, firstName, lastName } = signUpSchema.parse(req.body);
     const result = await signUp(email, password, { firstName, lastName });
 
-    // Fresh sign-ups never have 2FA enabled; defensive guard.
+    // Fresh sign-ups always require email OTP verification — that's
+    // what proves the address is real and blocks typo'd entries.
     if (result.kind === 'mfa_required') {
       res.status(200).json({
         mfaRequired: true,
         mfaToken: result.mfaToken,
         expiresIn: result.mfaTokenExpiresIn,
+        method: result.method,
+        emailHint: result.emailHint,
       });
       return;
     }
@@ -231,6 +250,18 @@ const disableTotpSchema = z.object({
   currentPassword: z.string().min(1),
 });
 
+const emailOtpChallengeSchema = z.object({
+  mfaToken: z.string().min(1),
+  code: z.string().min(4).max(8).regex(/^\d+$/),
+});
+
+const resendEmailOtpSchema = z.object({ mfaToken: z.string().min(1) });
+
+const toggleEmailOtpSchema = z.object({
+  enabled: z.boolean(),
+  currentPassword: z.string().min(1),
+});
+
 // Public — redeem the short-lived MFA token from /sign-in for session tokens.
 authRouter.post(
   '/2fa/verify-totp',
@@ -245,6 +276,59 @@ authRouter.post(
       expiresIn: tokens.expiresIn,
       user: tokens.user,
     });
+  })
+);
+
+// Public — redeem the email OTP for session tokens. Used by both the
+// post-signin login flow and the post-signup verification flow; the
+// purpose is carried inside the signed mfaToken so the client can't
+// upgrade a signup challenge into a different flow.
+authRouter.post(
+  '/2fa/verify-email',
+  asyncHandler(async (req, res) => {
+    const ip = clientIp(req);
+    enforceRateLimit(`auth:2fa-email:ip:${ip}`, 10, 60_000);
+    const { mfaToken, code } = emailOtpChallengeSchema.parse(req.body);
+    const tokens = await verifyEmailOtpChallenge(mfaToken, code);
+    setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
+    res.status(200).json({
+      accessToken: tokens.accessToken,
+      expiresIn: tokens.expiresIn,
+      user: tokens.user,
+    });
+  })
+);
+
+authRouter.post(
+  '/2fa/resend-email',
+  asyncHandler(async (req, res) => {
+    const ip = clientIp(req);
+    // Tighter limit than verify; resends drive outbound email volume.
+    enforceRateLimit(`auth:2fa-email-resend:ip:${ip}`, 5, 300_000);
+    const { mfaToken } = resendEmailOtpSchema.parse(req.body);
+    const result = await resendEmailOtpChallenge(mfaToken);
+    res
+      .status(200)
+      .json({ ok: true, expiresIn: result.mfaTokenExpiresIn, emailHint: result.emailHint });
+  })
+);
+
+authRouter.get(
+  '/2fa/email-otp',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const enabled = await getEmailOtpEnabled(req.auth!.userId);
+    res.status(200).json({ enabled });
+  })
+);
+
+authRouter.post(
+  '/2fa/email-otp',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { enabled, currentPassword } = toggleEmailOtpSchema.parse(req.body);
+    await setEmailOtpEnabled(req.auth!.userId, enabled, currentPassword);
+    res.status(200).json({ enabled });
   })
 );
 
@@ -518,12 +602,14 @@ authRouter.post(
 
     const result = await signIn(invitation.email, password);
     if (result.kind === 'mfa_required') {
-      // Brand-new invitation flow: 2FA shouldn't be enabled yet, but if
-      // somehow it is, surface the challenge instead of silently failing.
+      // Brand-new invitation flow: if 2FA fires, surface the challenge
+      // instead of silently failing.
       res.status(200).json({
         mfaRequired: true,
         mfaToken: result.mfaToken,
         expiresIn: result.mfaTokenExpiresIn,
+        method: result.method,
+        emailHint: result.emailHint,
       });
       return;
     }
