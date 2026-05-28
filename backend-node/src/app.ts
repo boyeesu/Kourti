@@ -38,6 +38,20 @@ import { documentVersionsRouter } from './routes/api/documentVersions.js';
 import { redlineRouter } from './routes/api/redline.js';
 import { tabularReviewsRouter } from './routes/api/tabularReviews.js';
 
+function stripNullsInPlace(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) stripNullsInPlace(item);
+    return;
+  }
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    for (const key of Object.keys(obj)) {
+      if (obj[key] === null) delete obj[key];
+      else stripNullsInPlace(obj[key]);
+    }
+  }
+}
+
 export function createApp() {
   const app = express();
 
@@ -52,6 +66,14 @@ export function createApp() {
   );
   app.use(cookieParser());
   app.use(express.json({ limit: '2mb' }));
+  // Strip nulls from request bodies so zod `.optional()` schemas accept
+  // frontends that send `field: null` instead of omitting the key.
+  app.use((req, _res, next) => {
+    if (req.body && typeof req.body === 'object') {
+      stripNullsInPlace(req.body);
+    }
+    next();
+  });
   app.use(morgan('combined'));
   app.use(withRequestContext);
 
