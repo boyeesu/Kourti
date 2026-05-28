@@ -27,6 +27,7 @@ import {
   resetPasswordConfirm,
 } from '../../services/jwt.js';
 import { sendPasswordResetEmail, sendWelcomeEmail } from '../../services/email.js';
+import { brevoSyncSignup, logBrevoError } from '../../services/brevo.js';
 import { db } from '../../db/pool.js';
 import type { Response } from 'express';
 
@@ -226,6 +227,12 @@ authRouter.post(
     sendWelcomeEmail(email, firstName).catch((err) =>
       console.error('Welcome email failed:', err instanceof Error ? err.message : err)
     );
+
+    brevoSyncSignup(email, {
+      firstName,
+      lastName,
+      userId: result.user?.id ?? null,
+    }).catch(logBrevoError);
 
     res.status(201).json({
       accessToken: result.accessToken,

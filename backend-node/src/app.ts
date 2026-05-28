@@ -6,6 +6,7 @@ import morgan from 'morgan';
 
 import { corsOrigins } from './config/env.js';
 import { requireAuth } from './middleware/auth.js';
+import { requireActiveSubscription } from './middleware/requireActiveSubscription.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { withRequestContext } from './middleware/requestContext.js';
 import { aiRouter } from './routes/api/ai.js';
@@ -19,6 +20,7 @@ import { documentsRouter } from './routes/api/documents.js';
 import { filesRouter } from './routes/api/files.js';
 import { invoicesRouter } from './routes/api/invoices.js';
 import { miscRouter } from './routes/api/misc.js';
+import { billingRouter } from './routes/api/billing.js';
 import { calendarRouter } from './routes/api/calendar.js';
 import { organizationsRouter } from './routes/api/organizations.js';
 import { notificationsRouter } from './routes/api/notifications.js';
@@ -88,18 +90,11 @@ export function createApp() {
   // Files router handles its own auth (signed URLs are public, uploads need auth)
   app.use('/api/v1/files', filesRouter);
 
-  app.use('/api/v1/contracts', requireAuth, contractsRouter);
-  app.use('/api/v1/cases', requireAuth, casesRouter);
-  app.use('/api/v1/documents', requireAuth, documentsRouter);
-  app.use('/api/v1/search', requireAuth, searchRouter);
-  app.use('/api/v1/ai', requireAuth, aiRouter);
+  // Ungated (always reachable so users can pay, manage org, see banner).
   app.use('/api/v1/admin', requireAuth, adminRouter);
-  app.use('/api/v1/calendar', requireAuth, calendarRouter);
-  app.use('/api/v1/chat', requireAuth, chatRouter);
-  app.use('/api/v1/clients', requireAuth, clientsRouter);
   app.use('/api/v1/dashboard', requireAuth, dashboardRouter);
-  app.use('/api/v1/invoices', requireAuth, invoicesRouter);
   app.use('/api/v1/misc', requireAuth, miscRouter);
+  app.use('/api/v1/billing', requireAuth, billingRouter);
   app.use('/api/v1/notifications', requireAuth, notificationsRouter);
   app.use('/api/v1/invitations', requireAuth, invitationsRouter);
   app.use('/api/v1/profiles', requireAuth, profilesRouter);
@@ -107,13 +102,29 @@ export function createApp() {
   app.use('/api/v1/organizations', requireAuth, organizationsRouter);
   app.use('/api/v1/roles', requireAuth, rolesRouter);
   app.use('/api/v1/users', requireAuth, usersRouter);
-  app.use('/api/v1/agents', requireAuth, agentsRouter);
-  app.use('/api/v1/negotiations', requireAuth, negotiationsRouter);
-  app.use('/api/v1/playbooks', requireAuth, playbooksRouter);
-  app.use('/api/v1/intelligence', requireAuth, intelligenceRouter);
-  app.use('/api/v1/documents/:id/versions', requireAuth, documentVersionsRouter);
-  app.use('/api/v1/redline', requireAuth, redlineRouter);
-  app.use('/api/v1/tabular-reviews', requireAuth, tabularReviewsRouter);
+
+  // Gated behind active subscription / live trial.
+  app.use('/api/v1/contracts', requireAuth, requireActiveSubscription, contractsRouter);
+  app.use('/api/v1/cases', requireAuth, requireActiveSubscription, casesRouter);
+  app.use('/api/v1/documents', requireAuth, requireActiveSubscription, documentsRouter);
+  app.use('/api/v1/search', requireAuth, requireActiveSubscription, searchRouter);
+  app.use('/api/v1/ai', requireAuth, requireActiveSubscription, aiRouter);
+  app.use('/api/v1/calendar', requireAuth, requireActiveSubscription, calendarRouter);
+  app.use('/api/v1/chat', requireAuth, requireActiveSubscription, chatRouter);
+  app.use('/api/v1/clients', requireAuth, requireActiveSubscription, clientsRouter);
+  app.use('/api/v1/invoices', requireAuth, requireActiveSubscription, invoicesRouter);
+  app.use('/api/v1/agents', requireAuth, requireActiveSubscription, agentsRouter);
+  app.use('/api/v1/negotiations', requireAuth, requireActiveSubscription, negotiationsRouter);
+  app.use('/api/v1/playbooks', requireAuth, requireActiveSubscription, playbooksRouter);
+  app.use('/api/v1/intelligence', requireAuth, requireActiveSubscription, intelligenceRouter);
+  app.use(
+    '/api/v1/documents/:id/versions',
+    requireAuth,
+    requireActiveSubscription,
+    documentVersionsRouter
+  );
+  app.use('/api/v1/redline', requireAuth, requireActiveSubscription, redlineRouter);
+  app.use('/api/v1/tabular-reviews', requireAuth, requireActiveSubscription, tabularReviewsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

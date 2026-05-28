@@ -43,6 +43,7 @@ import { AlertCircle, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { EmailOtpChallenge } from '@/components/auth/EmailOtpChallenge';
 import type { MfaRequiredResponse } from '@/lib/authClient';
+import { useStartTrial } from '@/hooks/useTrialStatus';
 
 const steps = [
   {
@@ -147,6 +148,7 @@ export default function Onboarding() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const startTrial = useStartTrial();
   const [mfa, setMfa] = useState<MfaRequiredResponse | null>(null);
 
   const [formData, setFormData] = useState({
@@ -323,7 +325,7 @@ export default function Onboarding() {
     }
   };
 
-  const handleFinish = async () => {
+  const handleFinish = async (finishMode: 'trial' | 'subscribe' = 'trial') => {
     setIsSubmitting(true);
     try {
       const warningMessages: string[] = [];
@@ -616,7 +618,15 @@ export default function Onboarding() {
         queryClient.invalidateQueries({ queryKey: ['user-organization'] }),
       ]);
 
-      navigate('/dashboard', { replace: true });
+      // Start the 7-day free trial as soon as the org exists. Idempotent
+      // on the backend — calling it twice just returns the existing sub.
+      try {
+        await startTrial.mutateAsync();
+      } catch (trialErr) {
+        logWarn('Failed to start trial after onboarding', { trialErr });
+      }
+
+      navigate(finishMode === 'subscribe' ? '/pricing' : '/dashboard', { replace: true });
     } catch (error: unknown) {
       toast.error('Error', {
         description:
@@ -1262,18 +1272,22 @@ export default function Onboarding() {
             <div>
               <h3 className="text-2xl font-semibold">Welcome to Kourti AI!</h3>
               <p className="text-muted-foreground mt-2">
-                Your organization has been set up successfully. You can now start managing your
-                cases, documents, and team.
+                One last step — choose how you want to get going.
               </p>
             </div>
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <h4 className="font-medium">Quick Start Tips:</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Create your first case in the Cases section</li>
-                <li>• Upload important documents to get organized</li>
-                <li>• Set up your calendar for important deadlines</li>
-                <li>• Invite team members to collaborate</li>
-              </ul>
+            <div className="grid gap-3 sm:grid-cols-2 text-left">
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+                <h4 className="font-semibold">Start 7-day free trial</h4>
+                <p className="text-sm text-muted-foreground">
+                  Full access to every feature for 7 days. No card required.
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/60 p-4 space-y-2">
+                <h4 className="font-semibold">Subscribe now</h4>
+                <p className="text-sm text-muted-foreground">
+                  Skip the trial and pick a plan straight away.
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -1388,14 +1402,27 @@ export default function Onboarding() {
                 </div>
 
                 {currentStep === steps.length - 1 ? (
-                  <Button onClick={handleFinish} disabled={isSubmitting} className="min-w-[120px]">
-                    {isSubmitting ? 'Creating Account...' : 'Get Started'}
-                    {isSubmitting ? (
-                      <div className="w-4 h-4 ml-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 ml-2" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleFinish('subscribe')}
+                      disabled={isSubmitting}
+                    >
+                      Subscribe now
+                    </Button>
+                    <Button
+                      onClick={() => handleFinish('trial')}
+                      disabled={isSubmitting}
+                      className="min-w-[160px]"
+                    >
+                      {isSubmitting ? 'Setting up...' : 'Start free trial'}
+                      {isSubmitting ? (
+                        <div className="w-4 h-4 ml-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      )}
+                    </Button>
+                  </div>
                 ) : (
                   <Button onClick={handleNext} className="min-w-[120px]">
                     Continue
