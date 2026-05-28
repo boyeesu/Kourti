@@ -20,6 +20,7 @@ import { documentsRouter } from './routes/api/documents.js';
 import { filesRouter } from './routes/api/files.js';
 import { invoicesRouter } from './routes/api/invoices.js';
 import { miscRouter } from './routes/api/misc.js';
+import { onboardingRouter } from './routes/api/onboarding.js';
 import { billingRouter } from './routes/api/billing.js';
 import { calendarRouter } from './routes/api/calendar.js';
 import { organizationsRouter } from './routes/api/organizations.js';
@@ -94,6 +95,7 @@ export function createApp() {
   app.use('/api/v1/admin', requireAuth, adminRouter);
   app.use('/api/v1/dashboard', requireAuth, dashboardRouter);
   app.use('/api/v1/misc', requireAuth, miscRouter);
+  app.use('/api/v1/onboarding', requireAuth, onboardingRouter);
   app.use('/api/v1/billing', requireAuth, billingRouter);
   app.use('/api/v1/notifications', requireAuth, notificationsRouter);
   app.use('/api/v1/invitations', requireAuth, invitationsRouter);
