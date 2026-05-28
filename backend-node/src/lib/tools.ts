@@ -126,19 +126,29 @@ async function runWithToolsAnthropic(
   return { kind: 'text', text, modelUsed, tokensUsed };
 }
 
-async function runWithToolsOpenAI(
+interface OpenAICompatibleToolConfig {
+  label: 'OpenAI' | 'OpenRouter';
+  baseUrl: string;
+  apiKey: string | undefined;
+  candidates: string[];
+  extraHeaders?: Record<string, string>;
+  configMissingCode: string;
+  upstreamErrorCode: string;
+}
+
+async function runWithToolsOpenAICompatible(
+  cfg: OpenAICompatibleToolConfig,
   messages: Message[],
   tools: ToolDef[],
   opts: RunOptions
 ): Promise<ToolRunResult> {
-  if (!env.OPENAI_API_KEY) {
-    throw new ApiError('OpenAI API key not configured', 503, 'OPENAI_CONFIG_MISSING');
+  if (!cfg.apiKey) {
+    throw new ApiError(`${cfg.label} API key not configured`, 503, cfg.configMissingCode);
   }
 
-  const candidates = Array.from(new Set([env.OPENAI_CHAT_MODEL, env.OPENAI_FALLBACK_CHAT_MODEL]));
   let lastError: string | null = null;
 
-  for (const model of candidates) {
+  for (const model of cfg.candidates) {
     const body: Record<string, unknown> = {
       model,
       messages,
@@ -152,11 +162,12 @@ async function runWithToolsOpenAI(
       body.tool_choice = { type: 'function', function: { name: opts.forceTool } };
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${cfg.apiKey}`,
         'Content-Type': 'application/json',
+        ...(cfg.extraHeaders ?? {}),
       },
       body: JSON.stringify(body),
     });
@@ -191,7 +202,7 @@ async function runWithToolsOpenAI(
       try {
         args = JSON.parse(toolCall.function.arguments ?? '{}');
       } catch {
-        // OpenAI sometimes returns malformed JSON for very long args; fall
+        // Provider sometimes returns malformed JSON for very long args; fall
         // through with empty args rather than 500ing.
       }
       return {
@@ -211,9 +222,52 @@ async function runWithToolsOpenAI(
   }
 
   throw new ApiError(
-    `OpenAI tool-call request failed (${lastError ?? 'unknown'})`,
+    `${cfg.label} tool-call request failed (${lastError ?? 'unknown'})`,
     502,
-    'OPENAI_UPSTREAM_ERROR'
+    cfg.upstreamErrorCode
+  );
+}
+
+function runWithToolsOpenAI(messages: Message[], tools: ToolDef[], opts: RunOptions) {
+  return runWithToolsOpenAICompatible(
+    {
+      label: 'OpenAI',
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: env.OPENAI_API_KEY,
+      candidates: Array.from(new Set([env.OPENAI_CHAT_MODEL, env.OPENAI_FALLBACK_CHAT_MODEL])),
+      configMissingCode: 'OPENAI_CONFIG_MISSING',
+      upstreamErrorCode: 'OPENAI_UPSTREAM_ERROR',
+    },
+    messages,
+    tools,
+    opts
+  );
+}
+
+async function runWithToolsOpenRouter(
+  messages: Message[],
+  tools: ToolDef[],
+  opts: RunOptions
+): Promise<ToolRunResult | null> {
+  if (!env.OPENROUTER_API_KEY) return null;
+  return runWithToolsOpenAICompatible(
+    {
+      label: 'OpenRouter',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      apiKey: env.OPENROUTER_API_KEY,
+      candidates: Array.from(
+        new Set([env.OPENROUTER_CHAT_MODEL, env.OPENROUTER_FALLBACK_CHAT_MODEL])
+      ),
+      extraHeaders: {
+        ...(env.APP_URL ? { 'HTTP-Referer': env.APP_URL } : {}),
+        'X-Title': env.OPENROUTER_APP_NAME,
+      },
+      configMissingCode: 'OPENROUTER_CONFIG_MISSING',
+      upstreamErrorCode: 'OPENROUTER_UPSTREAM_ERROR',
+    },
+    messages,
+    tools,
+    opts
   );
 }
 
@@ -233,10 +287,18 @@ export async function runWithTools(
   tools: ToolDef[],
   opts: RunOptions = {}
 ): Promise<ToolRunResult> {
-  const order =
-    env.LLM_PRIMARY_PROVIDER === 'anthropic'
-      ? ([runWithToolsAnthropic, runWithToolsOpenAI] as const)
-      : ([runWithToolsOpenAI, runWithToolsAnthropic] as const);
+  const allProviders = {
+    anthropic: runWithToolsAnthropic,
+    openai: runWithToolsOpenAI,
+    openrouter: runWithToolsOpenRouter,
+  } as const;
+  const primary = env.LLM_PRIMARY_PROVIDER;
+  const order = [
+    allProviders[primary],
+    ...(['anthropic', 'openai', 'openrouter'] as const)
+      .filter((p) => p !== primary)
+      .map((p) => allProviders[p]),
+  ] as const;
 
   for (const provider of order) {
     try {

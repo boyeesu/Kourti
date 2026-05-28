@@ -39,13 +39,14 @@ const envSchema = z.object({
   // OpenRouter: OpenAI-compatible gateway giving access to any model
   // (Claude, GPT, Llama, Gemini, etc.) behind a single key.
   OPENROUTER_API_KEY: z.string().optional(),
-  OPENROUTER_CHAT_MODEL: z.string().default('anthropic/claude-opus-4'),
+  OPENROUTER_CHAT_MODEL: z.string().default('moonshotai/kimi-k2.6'),
   OPENROUTER_FALLBACK_CHAT_MODEL: z.string().default('openai/gpt-5-mini'),
   OPENROUTER_EMBEDDING_MODEL: z.string().default('openai/text-embedding-3-small'),
+  OPENROUTER_STT_MODEL: z.string().default('openai/gpt-audio-mini'),
   // Sent as HTTP-Referer / X-Title to OpenRouter for usage analytics.
   OPENROUTER_APP_NAME: z.string().default('Kourti Legal'),
 
-  LLM_PRIMARY_PROVIDER: z.enum(['anthropic', 'openai', 'openrouter']).default('anthropic'),
+  LLM_PRIMARY_PROVIDER: z.enum(['anthropic', 'openai', 'openrouter']).default('openrouter'),
 
   API_TIMEOUT_MS: z.coerce.number().int().positive().default(90000),
   DEV_DEFAULT_USER_ID: z.string().default('00000000-0000-0000-0000-000000000001'),
