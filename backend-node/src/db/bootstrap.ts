@@ -501,6 +501,16 @@ const bootstrapStatements = [
   `alter table public.payment_transactions add column if not exists raw_response jsonb`,
   `alter table public.payment_transactions add column if not exists verified_at timestamptz`,
   `alter table public.payment_transactions add column if not exists webhook_received_at timestamptz`,
+  // Drop NOT NULL on legacy flutterwave_* columns that may exist on the
+  // pre-Paystack incarnation of this table. New code never writes to them;
+  // without the drop, INSERTs from initiate-payment fail at the constraint.
+  // DO blocks swallow `undefined_column` so fresh DBs (no legacy table) are
+  // a no-op rather than an error.
+  `do $$ begin alter table public.payment_transactions alter column flutterwave_tx_ref drop not null; exception when undefined_column then null; end $$`,
+  `do $$ begin alter table public.payment_transactions alter column flutterwave_tx_id drop not null; exception when undefined_column then null; end $$`,
+  `do $$ begin alter table public.payment_transactions alter column flutterwave_status drop not null; exception when undefined_column then null; end $$`,
+  `do $$ begin alter table public.payment_transactions alter column flutterwave_charged_amount drop not null; exception when undefined_column then null; end $$`,
+  `do $$ begin alter table public.payment_transactions alter column flutterwave_amount drop not null; exception when undefined_column then null; end $$`,
   `create unique index if not exists uq_payment_transactions_tx_ref on public.payment_transactions(tx_ref)`,
   `create index if not exists idx_payment_transactions_org_created on public.payment_transactions(organization_id, created_at desc)`,
   `create index if not exists idx_payment_transactions_status on public.payment_transactions(status)`,
