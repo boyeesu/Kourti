@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Check } from 'lucide-react';
+import { Check, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -184,14 +184,13 @@ export function TrialExpiredModal() {
                           : 'border-border bg-card hover:border-primary/40'
                       }`}
                     >
-                      {isRecommended && (
-                        <Badge className="absolute -top-2.5 left-4 h-5 px-2 text-[10px]">
-                          Recommended
-                        </Badge>
-                      )}
-
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold">{plan.display_name}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold">{plan.display_name}</h3>
+                          {isRecommended && (
+                            <Badge className="h-5 px-2 text-[10px]">Recommended</Badge>
+                          )}
+                        </div>
                         <div
                           className={`mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
                             isSelected ? 'border-primary' : 'border-muted-foreground/40'
@@ -234,8 +233,25 @@ export function TrialExpiredModal() {
                 })}
           </div>
 
+          {/* Enterprise upsell */}
+          <a
+            href="mailto:sales@kourti.com?subject=Enterprise%20plan%20enquiry&body=Hi%20Kourti%20team%2C%0A%0AI%27d%20like%20to%20learn%20more%20about%20the%20Enterprise%20plan.%0A%0AOrganization%3A%0ATeam%20size%3A%0ANeeds%3A%0A%0AThanks."
+            className="mt-4 flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3 text-sm hover:bg-muted/50 transition"
+          >
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              <div>
+                <div className="font-medium">Need more? Talk to sales</div>
+                <div className="text-xs text-muted-foreground">
+                  Custom pricing, SSO, dedicated success manager
+                </div>
+              </div>
+            </div>
+            <span className="text-xs font-medium text-primary">Email sales →</span>
+          </a>
+
           {/* Footer */}
-          <div className="mt-6 flex items-center justify-end gap-3">
+          <div className="mt-4 flex items-center justify-end gap-3">
             <Button variant="outline" onClick={() => navigate('/pricing')}>
               View all plans
             </Button>
