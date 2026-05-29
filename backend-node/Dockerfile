@@ -21,6 +21,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/scripts ./scripts
 COPY package*.json ./
 
 # Change ownership and switch to non-root
