@@ -1,0 +1,35 @@
+server {
+    listen ${PORT};
+
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    # Security headers. connect-src allows the Kourti backend (public API) plus
+    # the analytics endpoints used by the marketing site.
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms https://cdn.mxpnl.com; connect-src 'self' https://*.railway.app https://*.kourti.com https://www.clarity.ms https://*.clarity.ms https://api-js.mixpanel.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://www.clarity.ms https://*.clarity.ms https://*.bing.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml;
+    gzip_min_length 256;
+    gzip_vary on;
+
+    # Cache static assets
+    location ~* \.(js|mjs|wasm|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|pdf)$ {
+        root /usr/share/nginx/html;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        try_files $uri =404;
+    }
+
+    # SPA routing
+    location / {
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+        try_files $uri $uri/ /index.html;
+    }
+}
