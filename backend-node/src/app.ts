@@ -20,6 +20,7 @@ import { documentsRouter } from './routes/api/documents.js';
 import { filesRouter } from './routes/api/files.js';
 import { invoicesRouter } from './routes/api/invoices.js';
 import { miscRouter } from './routes/api/misc.js';
+import { paystackWebhookRouter } from './routes/api/paystackWebhook.js';
 import { onboardingRouter } from './routes/api/onboarding.js';
 import { billingRouter } from './routes/api/billing.js';
 import { plansRouter } from './routes/api/plans.js';
@@ -69,6 +70,11 @@ export function createApp() {
     })
   );
   app.use(cookieParser());
+
+  // Webhooks must run BEFORE the JSON parser so the raw body is available
+  // for HMAC verification. Each webhook router applies its own parser.
+  app.use('/api/v1/webhooks', paystackWebhookRouter);
+
   app.use(express.json({ limit: '2mb' }));
   // Strip nulls from request bodies so zod `.optional()` schemas accept
   // frontends that send `field: null` instead of omitting the key.

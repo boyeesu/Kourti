@@ -430,6 +430,45 @@ const bootstrapStatements = [
      on public.subscriptions(organization_id)
      where status in ('active','trialing','past_due')`,
 
+  // Provider-neutral columns (we now use Paystack; the flutterwave_* columns
+  // above remain for read-back but are no longer written). `provider` lets
+  // future PSP swaps reuse the same row.
+  `alter table public.subscriptions add column if not exists provider text`,
+  `alter table public.subscriptions add column if not exists provider_customer_email text`,
+  `alter table public.subscriptions add column if not exists provider_reference text`,
+
+  // ── Payment transactions ──────────────────────────────────────────
+  // One row per checkout attempt, keyed by our own tx_ref (which we also
+  // pass to Paystack as `reference`). Activation logic in the webhook /
+  // verify-payment routes is idempotent off `status`.
+  `
+  create table if not exists public.payment_transactions (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null,
+    user_id uuid,
+    subscription_id uuid,
+    plan_id uuid,
+    provider text not null default 'paystack',
+    tx_ref text not null,
+    provider_tx_id text,
+    amount numeric not null,
+    currency text not null default 'NGN',
+    status text not null default 'pending',
+    payment_type text not null default 'subscription',
+    billing_interval text,
+    customer_email text,
+    metadata jsonb not null default '{}'::jsonb,
+    raw_response jsonb,
+    verified_at timestamptz,
+    webhook_received_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  `create unique index if not exists uq_payment_transactions_tx_ref on public.payment_transactions(tx_ref)`,
+  `create index if not exists idx_payment_transactions_org_created on public.payment_transactions(organization_id, created_at desc)`,
+  `create index if not exists idx_payment_transactions_status on public.payment_transactions(status)`,
+
   // Backfill plan_type before we dedupe / index on it. Rows that pre-date the
   // plan_type column inherit it from `name`.
   `update public.user_plans set plan_type = name where plan_type is null`,

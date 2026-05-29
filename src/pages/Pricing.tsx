@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { invokeNodeApi } from '@/lib/backendApi';
 import { useAuth } from '@/hooks/useAuth';
+import { useInitiatePayment } from '@/hooks/useSubscription';
 import { logError } from '@/lib/logger';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +44,7 @@ const FAQ_ITEMS = [
   {
     question: 'What payment methods are accepted?',
     answer:
-      'We accept payments via Flutterwave, which supports debit/credit cards (Visa, Mastercard, Verve), bank transfers, USSD, and mobile money across Africa. All payments are processed securely.',
+      'We accept payments via Paystack, which supports debit/credit cards (Visa, Mastercard, Verve), bank transfers, USSD, and mobile money across Africa. All payments are processed securely.',
   },
   {
     question: 'How do I cancel my subscription?',
@@ -113,6 +115,8 @@ export default function Pricing() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: plans = [], isLoading } = usePricingPlans();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const initiatePayment = useInitiatePayment();
 
   const sortedPlans = useMemo(
     () =>
@@ -392,7 +396,7 @@ export default function Pricing() {
             </div>
 
             <p className="mt-4 text-xs text-muted-foreground text-center px-4">
-              Payments processed securely via Flutterwave. By continuing you agree to our{' '}
+              Payments processed securely via Paystack. By continuing you agree to our{' '}
               <Link to="/terms" className="underline hover:text-foreground">
                 Terms
               </Link>{' '}

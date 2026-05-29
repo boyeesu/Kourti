@@ -76,6 +76,12 @@ const envSchema = z.object({
   S3_FORCE_PATH_STYLE: z
     .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
     .default(true),
+
+  // Paystack. Public key is FE-only and not needed here. Secret key signs
+  // server calls AND HMAC-validates webhook payloads (Paystack signs the
+  // webhook body with the same secret key, HMAC-SHA512).
+  PAYSTACK_SECRET_KEY: optionalNonEmptyString,
+  PAYSTACK_CURRENCY: z.string().default('NGN'),
 });
 
 export const env = envSchema.parse(process.env);

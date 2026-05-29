@@ -146,10 +146,10 @@ export function PaymentHistory() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 px-2 text-xs"
-                                disabled={verifyingTxRef === tx.flutterwave_tx_ref}
-                                onClick={() => handleVerify(tx.flutterwave_tx_ref)}
+                                disabled={verifyingTxRef === tx.tx_ref}
+                                onClick={() => handleVerify(tx.tx_ref)}
                               >
-                                {verifyingTxRef === tx.flutterwave_tx_ref ? (
+                                {verifyingTxRef === tx.tx_ref ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : (
                                   <>
@@ -163,7 +163,7 @@ export function PaymentHistory() {
                         </TableCell>
                         <TableCell>{TYPE_LABELS[tx.payment_type] ?? tx.payment_type}</TableCell>
                         <TableCell className="hidden max-w-[180px] truncate font-mono text-xs sm:table-cell">
-                          {tx.flutterwave_tx_ref}
+                          {tx.tx_ref}
                         </TableCell>
                       </TableRow>
                     );
