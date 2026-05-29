@@ -46,6 +46,17 @@ export function PlanSelector({ open, onOpenChange }: PlanSelectorProps) {
   const handleSubscribe = async (plan: UserPlan) => {
     if (plan.plan_type === 'free') return;
 
+    // Enterprise is sold via direct contract — the backend rejects
+    // Paystack initialize for it. Route the user straight to sales.
+    if (plan.plan_type === 'enterprise') {
+      const subject = encodeURIComponent('Enterprise plan enquiry');
+      const body = encodeURIComponent(
+        "Hi Kourti team,\n\nI'd like to learn more about the Enterprise plan.\n\nOrganization:\nTeam size:\nNeeds:\n\nThanks."
+      );
+      window.location.href = `mailto:sales@kourti.com?subject=${subject}&body=${body}`;
+      return;
+    }
+
     setSelectedPlanId(plan.id);
 
     try {
@@ -73,6 +84,7 @@ export function PlanSelector({ open, onOpenChange }: PlanSelectorProps) {
   const getButtonLabel = (plan: UserPlan) => {
     if (isCurrentPlan(plan)) return 'Current Plan';
     if (plan.plan_type === 'free') return 'Downgrade';
+    if (plan.plan_type === 'enterprise') return 'Talk to sales';
 
     // Determine upgrade vs subscribe
     if (subscription) return 'Upgrade';
