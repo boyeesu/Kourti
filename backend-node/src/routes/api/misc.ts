@@ -21,6 +21,7 @@ import {
 } from '../../services/paystack.js';
 import { activateSubscriptionFromTx } from '../../services/subscriptionActivation.js';
 import { getSeatUsage } from '../../services/seats.js';
+import { getEntitlements } from '../../services/entitlements.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -912,6 +913,17 @@ miscRouter.get(
     const auth = req.auth!;
     const usage = await getSeatUsage(auth.organizationId);
     res.status(200).json(usage);
+  })
+);
+
+// ── Entitlements: which plan features this org can use (for FE gating) ──────
+
+miscRouter.get(
+  '/entitlements',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const ent = await getEntitlements(auth.organizationId, auth.userId);
+    res.status(200).json(ent);
   })
 );
 

@@ -1,4 +1,12 @@
 import { db } from './pool.js';
+import { DEFAULT_PLAN_FEATURES } from '../services/entitlements.js';
+
+// Seed rows for plan_features, generated from the code default matrix. Values
+// are code constants (no user input), safe to inline. ON CONFLICT DO NOTHING
+// preserves any admin edits across redeploys.
+const planFeatureSeedValues = Object.entries(DEFAULT_PLAN_FEATURES)
+  .flatMap(([plan, keys]) => keys.map((k) => `('${plan}','${k}',true)`))
+  .join(',');
 
 const bootstrapStatements = [
   `create extension if not exists pgcrypto`,
@@ -1236,6 +1244,23 @@ const bootstrapStatements = [
     );
     exception when unique_violation then null;
    end $$`,
+
+  // ── Plan feature entitlements ─────────────────────────────────────
+  // Source of truth for feature-gating (plan_type → feature_key). Seeded from
+  // the code default matrix; admin-editable thereafter. Absence of a row (or
+  // enabled=false) means the plan does NOT include that feature.
+  `
+  create table if not exists public.plan_features (
+    plan_type text not null,
+    feature_key text not null,
+    enabled boolean not null default true,
+    updated_at timestamptz not null default now(),
+    primary key (plan_type, feature_key)
+  )
+  `,
+  `insert into public.plan_features (plan_type, feature_key, enabled)
+   values ${planFeatureSeedValues}
+   on conflict (plan_type, feature_key) do nothing`,
 ];
 
 export async function ensureDatabaseSchema() {
