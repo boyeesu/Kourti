@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Sparkles } from 'lucide-react';
+import { Check, Loader2, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import {
 import { invokeNodeApi } from '@/lib/backendApi';
 import { logError } from '@/lib/logger';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { useInitiatePayment } from '@/hooks/useSubscription';
 
 interface PricingPlan {
   id: string;
@@ -108,6 +109,7 @@ export function TrialExpiredModal() {
 
   const [billing, setBilling] = useState<BillingCycle>('yearly');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const initiatePayment = useInitiatePayment();
 
   const defaultId = tiers.find((t) => t.plan_type === 'professional')?.id ?? tiers[0]?.id ?? null;
   const selected = tiers.find((t) => t.id === selectedId) ?? tiers.find((t) => t.id === defaultId);
@@ -115,9 +117,35 @@ export function TrialExpiredModal() {
 
   if (!shouldShow) return null;
 
-  function handleNext() {
+  async function handleNext() {
     if (!selected) return;
-    navigate(`/settings?tab=billing&plan=${selected.id}&cycle=${billing}`);
+
+    // Enterprise is sold via direct contract — route to sales instead of Paystack.
+    if (selected.plan_type === 'enterprise') {
+      const subject = encodeURIComponent('Enterprise plan enquiry');
+      const body = encodeURIComponent(
+        "Hi Kourti team,\n\nI'd like to learn more about the Enterprise plan.\n\nOrganization:\nTeam size:\nNeeds:\n\nThanks."
+      );
+      window.location.href = `mailto:sales@kourti.com?subject=${subject}&body=${body}`;
+      return;
+    }
+
+    try {
+      const result = await initiatePayment.mutateAsync({
+        plan_id: selected.id,
+        billing_interval: billing,
+        redirect_url: `${window.location.origin}/billing/callback`,
+      });
+      const checkoutUrl =
+        (result as { authorization_url?: string; payment_link?: string }).authorization_url ??
+        (result as { authorization_url?: string; payment_link?: string }).payment_link;
+      if (!checkoutUrl) throw new Error('No checkout URL returned');
+      window.location.href = checkoutUrl;
+    } catch (error) {
+      logError('Error initiating payment from trial-expired modal', error);
+      // Fall back to the settings page so the user can retry there.
+      navigate(`/settings?tab=billing&plan=${selected.id}&cycle=${billing}`);
+    }
   }
 
   return (
@@ -255,8 +283,17 @@ export function TrialExpiredModal() {
             <Button variant="outline" onClick={() => navigate('/pricing')}>
               View all plans
             </Button>
-            <Button onClick={handleNext} disabled={!selected}>
-              Continue
+            <Button onClick={handleNext} disabled={!selected || initiatePayment.isPending}>
+              {initiatePayment.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Redirecting...
+                </>
+              ) : selected?.plan_type === 'enterprise' ? (
+                'Talk to sales'
+              ) : (
+                'Continue to payment'
+              )}
             </Button>
           </div>
         </div>
