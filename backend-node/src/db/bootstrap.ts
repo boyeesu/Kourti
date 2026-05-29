@@ -489,6 +489,21 @@ const bootstrapStatements = [
   `alter table public.user_plans add column if not exists description text`,
   `alter table public.user_plans add column if not exists features jsonb default '[]'::jsonb`,
   `alter table public.user_plans add column if not exists is_active boolean not null default true`,
+  // Marketing presentation, admin-controlled. `highlight` drives the
+  // "Most Popular" badge on the public pricing page; `sort_order` fixes the
+  // display order. Nullable so the once-only backfill below never clobbers an
+  // admin edit (e.g. turning the badge off stays off across redeploys).
+  `alter table public.user_plans add column if not exists highlight boolean`,
+  `alter table public.user_plans add column if not exists sort_order integer`,
+  `update public.user_plans set highlight = (plan_type = 'professional') where highlight is null`,
+  `update public.user_plans
+      set sort_order = case plan_type
+                         when 'starter' then 1
+                         when 'professional' then 2
+                         when 'enterprise' then 3
+                         else 99
+                       end
+    where sort_order is null`,
 
   `alter table public.subscriptions add column if not exists organization_id uuid`,
   `alter table public.subscriptions add column if not exists user_id uuid`,
@@ -1236,6 +1251,32 @@ const bootstrapStatements = [
     );
     exception when unique_violation then null;
    end $$`,
+
+  // ── Marketing lead capture ────────────────────────────────────────
+  // Public contact-form and assessment submissions from the marketing site
+  // (kourti.com). Written by the unauthenticated /api/v1/public/* endpoints.
+  // `metadata` holds structured extras (e.g. assessment scores); `source`
+  // distinguishes the entry point ('contact' | 'assessment' | 'report').
+  `
+  create table if not exists public.contact_submissions (
+    id          uuid primary key default gen_random_uuid(),
+    first_name  text not null,
+    last_name   text not null,
+    email       text not null,
+    company     text,
+    phone       text,
+    firm_size   text,
+    interest    text not null,
+    message     text not null,
+    source      text not null default 'contact',
+    metadata    jsonb not null default '{}'::jsonb,
+    status      text not null default 'new'
+                check (status in ('new','in_progress','resolved')),
+    created_at  timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_contact_submissions_email on public.contact_submissions(email)`,
+  `create index if not exists idx_contact_submissions_created_at on public.contact_submissions(created_at desc)`,
 ];
 
 export async function ensureDatabaseSchema() {

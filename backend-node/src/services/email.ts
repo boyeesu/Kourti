@@ -415,3 +415,163 @@ export async function sendWeeklyDigestEmail(
   if (error) throw new Error(error.message);
   return { messageId: data?.id };
 }
+
+// ── Marketing-site lead emails ───────────────────────────────────────────────
+
+/** Internal sales recipients for marketing lead notifications. */
+const LEADS_NOTIFY_EMAILS = (process.env.LEADS_NOTIFY_EMAILS || 'sales@kourti.com')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+/** Escape user-supplied text before interpolating into email HTML. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export interface ContactLead {
+  firstName: string;
+  lastName: string;
+  email: string;
+  company?: string | null;
+  phone?: string | null;
+  firmSize?: string | null;
+  interest: string;
+  message: string;
+}
+
+function leadRow(label: string, value: string | null | undefined): string {
+  return `<p style="color:${BRAND.lightText};font-size:14px;line-height:1.6;margin:0 0 6px;">
+    <strong>${label}:</strong> ${value ? escapeHtml(value) : 'N/A'}</p>`;
+}
+
+/** Notify the sales team of a new contact-form submission. */
+export async function sendContactLeadNotification(
+  lead: ContactLead
+): Promise<{ messageId?: string }> {
+  if (LEADS_NOTIFY_EMAILS.length === 0) return {};
+  const r = getResend();
+
+  const body = `
+    <h2 style="color:${BRAND.lightText};font-size:18px;margin:0 0 16px;">New contact form submission</h2>
+    ${leadRow('Name', `${lead.firstName} ${lead.lastName}`)}
+    ${leadRow('Email', lead.email)}
+    ${leadRow('Company', lead.company)}
+    ${leadRow('Phone', lead.phone)}
+    ${leadRow('Firm size', lead.firmSize)}
+    ${leadRow('Interest', lead.interest)}
+    <p style="color:${BRAND.lightText};font-size:14px;line-height:1.6;margin:16px 0 6px;"><strong>Message:</strong></p>
+    <p style="color:${BRAND.mutedText};font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap;">${escapeHtml(lead.message)}</p>
+  `;
+
+  const { data, error } = await r.emails.send({
+    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+    to: LEADS_NOTIFY_EMAILS,
+    replyTo: lead.email.toLowerCase(),
+    subject: `New contact: ${lead.firstName} ${lead.lastName} — ${lead.interest}`,
+    html: wrapHtml('New contact form submission', body),
+  });
+
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
+export interface AssessmentLead {
+  firstName: string;
+  lastName: string;
+  email: string;
+  company?: string | null;
+  tier: string;
+  totalScore: number;
+  maxScore: number;
+  dimensionScores: Record<string, number>;
+}
+
+const DIMENSION_LABELS: Record<string, string> = {
+  legal_research: 'Legal Research Tools',
+  document_mgmt: 'Document Management',
+  court_filing: 'Court Filing & Compliance',
+  ai_adoption: 'AI Adoption',
+  cybersecurity: 'Cybersecurity & Data Protection',
+  practice_mgmt: 'Practice & Client Management',
+};
+
+function dimensionRows(scores: Record<string, number>, perDimensionMax = 4): string {
+  return Object.entries(scores)
+    .map(([key, score]) => {
+      const pct = Math.round((score / perDimensionMax) * 100);
+      const label = DIMENSION_LABELS[key] || escapeHtml(key);
+      return `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid ${BRAND.border};font-size:14px;color:${BRAND.lightText};">${label}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid ${BRAND.border};font-size:14px;color:${BRAND.lightText};text-align:right;">${pct}%</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+/** Send the maturity-assessment results to the person who completed it. */
+export async function sendAssessmentResultEmail(
+  lead: AssessmentLead
+): Promise<{ messageId?: string }> {
+  const r = getResend();
+  const percent = Math.round((lead.totalScore / lead.maxScore) * 100);
+
+  const body = `
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">Hi ${escapeHtml(lead.firstName)},</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">Here are your Legal Practice Maturity results.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;background:${BRAND.lightBg};border-radius:12px;">
+      <tr><td style="padding:20px;text-align:center;">
+        <p style="margin:0;color:${BRAND.mutedText};font-size:13px;">Your tier</p>
+        <p style="margin:4px 0 0;color:${BRAND.primary};font-size:24px;font-weight:700;">${escapeHtml(lead.tier)}</p>
+        <p style="margin:8px 0 0;color:${BRAND.lightText};font-size:15px;">${lead.totalScore}/${lead.maxScore} (${percent}%)</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0;">${dimensionRows(lead.dimensionScores)}</table>
+    ${ctaButton('Start your free trial', APP_URL)}
+  `;
+
+  const { data, error } = await r.emails.send({
+    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+    to: [lead.email.toLowerCase()],
+    subject: `Your Practice Maturity Results: ${lead.tier} (${lead.totalScore}/${lead.maxScore})`,
+    html: wrapHtml('Your Legal Practice Maturity Results', body),
+  });
+
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
+/** Notify the sales team of a new assessment lead. */
+export async function sendAssessmentLeadNotification(
+  lead: AssessmentLead
+): Promise<{ messageId?: string }> {
+  if (LEADS_NOTIFY_EMAILS.length === 0) return {};
+  const r = getResend();
+  const percent = Math.round((lead.totalScore / lead.maxScore) * 100);
+
+  const body = `
+    <h2 style="color:${BRAND.lightText};font-size:18px;margin:0 0 16px;">New assessment lead</h2>
+    ${leadRow('Name', `${lead.firstName} ${lead.lastName}`)}
+    ${leadRow('Email', lead.email)}
+    ${leadRow('Company', lead.company)}
+    ${leadRow('Tier', lead.tier)}
+    ${leadRow('Score', `${lead.totalScore}/${lead.maxScore} (${percent}%)`)}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:12px 0;">${dimensionRows(lead.dimensionScores)}</table>
+  `;
+
+  const { data, error } = await r.emails.send({
+    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+    to: LEADS_NOTIFY_EMAILS,
+    replyTo: lead.email.toLowerCase(),
+    subject: `New assessment lead: ${lead.tier} (${lead.totalScore}/${lead.maxScore})`,
+    html: wrapHtml('New assessment lead', body),
+  });
+
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
