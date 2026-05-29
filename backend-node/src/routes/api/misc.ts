@@ -68,6 +68,33 @@ async function convertForPaystack(planAmount: number, planCurrency: string) {
 
 export const miscRouter = Router();
 
+// ── FX: current USD → settle-currency rate (for FE price preview) ───────────
+miscRouter.get(
+  '/fx/usd-ngn',
+  asyncHandler(async (_req, res) => {
+    const settle = env.PAYSTACK_CURRENCY.toUpperCase();
+    // Same-currency (e.g. PAYSTACK_CURRENCY=USD) — nothing to convert.
+    if (settle !== 'NGN') {
+      res.status(200).json({
+        settle_currency: settle,
+        rate: 1,
+        markup_bps: 0,
+        source: 'identity',
+      });
+      return;
+    }
+    const fx = await getUsdNgnRate();
+    res.status(200).json({
+      settle_currency: 'NGN',
+      // Surface the SAME rate the checkout path will apply, i.e. spot * markup.
+      rate: fx.rate * (1 + env.USD_NGN_MARKUP_BPS / 10_000),
+      markup_bps: env.USD_NGN_MARKUP_BPS,
+      source: fx.source,
+      fetched_at: fx.fetchedAt,
+    });
+  })
+);
+
 // ── Activity types ──────────────────────────────────────────────────────────
 
 miscRouter.get(

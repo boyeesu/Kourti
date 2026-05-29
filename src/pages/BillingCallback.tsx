@@ -57,6 +57,9 @@ export default function BillingCallback() {
             queryClient.invalidateQueries({ queryKey: ['payment-history'] });
             queryClient.invalidateQueries({ queryKey: ['organization-billing'] });
             queryClient.invalidateQueries({ queryKey: ['current-user-plan'] });
+            // Refresh trial-status so the TrialExpiredModal closes immediately
+            // instead of waiting on React Query's staleTime to expire.
+            queryClient.invalidateQueries({ queryKey: ['trial-status'] });
             return;
           }
 
@@ -75,6 +78,9 @@ export default function BillingCallback() {
             queryClient.invalidateQueries({ queryKey: ['payment-history'] });
             queryClient.invalidateQueries({ queryKey: ['organization-billing'] });
             queryClient.invalidateQueries({ queryKey: ['current-user-plan'] });
+            // Refresh trial-status so the TrialExpiredModal closes immediately
+            // instead of waiting on React Query's staleTime to expire.
+            queryClient.invalidateQueries({ queryKey: ['trial-status'] });
           }
         } catch {
           if (attempts < maxAttempts) {

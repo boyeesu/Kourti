@@ -65,11 +65,15 @@ export default function BillingTab() {
 
   const [planSelectorOpen, setPlanSelectorOpen] = useState(false);
 
-  // auto-open PlanSelector when redirected with ?plan=… (e.g. from
-  // the TrialExpiredModal). One-shot per navigation so we don't fight
-  // the user closing it.
+  // auto-open PlanSelector when redirected with ?plan=…&cycle=… (e.g.
+  // from the TrialExpiredModal). One-shot per navigation so we don't
+  // fight the user closing it. We also forward the picked plan + cycle
+  // into PlanSelector so the dialog opens already aligned with what the
+  // user chose upstream.
   const [searchParams] = useSearchParams();
   const autoOpenPlan = searchParams.get('plan');
+  const autoOpenCycle = searchParams.get('cycle');
+  const initialCycle: 'monthly' | 'yearly' = autoOpenCycle === 'yearly' ? 'yearly' : 'monthly';
   const [autoOpenedFor, setAutoOpenedFor] = useState<string | null>(null);
   if (autoOpenPlan && autoOpenedFor !== autoOpenPlan && !planSelectorOpen) {
     setAutoOpenedFor(autoOpenPlan);
@@ -231,7 +235,12 @@ export default function BillingTab() {
       <PaymentHistory />
 
       {/* ---- Plan Selector Dialog ---- */}
-      <PlanSelector open={planSelectorOpen} onOpenChange={setPlanSelectorOpen} />
+      <PlanSelector
+        open={planSelectorOpen}
+        onOpenChange={setPlanSelectorOpen}
+        initialPlanId={autoOpenPlan ?? undefined}
+        initialCycle={initialCycle}
+      />
 
       {/* ---- Cancel Confirmation Dialog ---- */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
