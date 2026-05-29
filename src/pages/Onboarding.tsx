@@ -20,7 +20,8 @@ import {
   Building,
   Users,
   FileText,
-  CheckCircle,
+  CreditCard,
+  ShieldCheck,
   ArrowRight,
   ArrowLeft,
   User,
@@ -48,35 +49,48 @@ import { useStartTrial } from '@/hooks/useTrialStatus';
 const steps = [
   {
     id: 0,
-    title: 'Create Your Account',
-    description: 'Set up your account to get started',
+    title: 'Account Basics',
+    description: 'Just the essentials to get you started',
     icon: User,
   },
   {
     id: 1,
+    title: 'Verify Email',
+    description: 'Confirm your email to continue',
+    icon: ShieldCheck,
+  },
+  {
+    id: 2,
     title: 'Organization Setup',
     description: 'Tell us about your organization',
     icon: Building,
   },
   {
-    id: 2,
+    id: 3,
     title: 'Team Configuration',
-    description: 'Set up your team structure',
+    description: 'Invite teammates (optional)',
     icon: Users,
   },
   {
-    id: 3,
+    id: 4,
     title: 'Practice Areas',
-    description: 'Configure your practice areas',
+    description: 'Configure your practice areas (optional)',
     icon: FileText,
   },
   {
-    id: 4,
-    title: 'Welcome!',
-    description: "You're all set to get started",
-    icon: CheckCircle,
+    id: 5,
+    title: 'Choose Your Plan',
+    description: 'Start your trial or subscribe',
+    icon: CreditCard,
   },
 ];
+
+const ACCOUNT_STEP = 0;
+const VERIFY_STEP = 1;
+const ORG_STEP = 2;
+const TEAM_STEP = 3;
+const PRACTICE_STEP = 4;
+const PLAN_STEP = 5;
 
 const countries = [
   // African Countries
@@ -182,32 +196,28 @@ export default function Onboarding() {
   const { createOnboardingNotification } = useNotificationTriggers();
   const { markStepComplete } = useOnboardingSteps();
 
-  // Handle authentication state changes during onboarding
+  // If user is already authenticated (e.g., refreshed mid-flow after verifying email),
+  // skip past account-creation + verify and resume at organization setup.
   useEffect(() => {
-    // If user becomes authenticated during onboarding (e.g., after email verification),
-    // populate form data from user metadata and advance to organization setup
-    if (user && currentStep === 0 && !formData.account.firstName && !formData.account.lastName) {
+    if (user && currentStep <= VERIFY_STEP) {
       const firstName = (user.user_metadata?.first_name || user.user_metadata?.firstName) as
         | string
         | undefined;
       const lastName = (user.user_metadata?.last_name || user.user_metadata?.lastName) as
         | string
         | undefined;
-      if (firstName || lastName) {
-        setFormData((prev) => ({
-          ...prev,
-          account: {
-            ...prev.account,
-            firstName: firstName || '',
-            lastName: lastName || '',
-            email: user.email || prev.account.email,
-          },
-        }));
-        // Auto-advance to step 1 since account is already created
-        setCurrentStep(1);
-      }
+      setFormData((prev) => ({
+        ...prev,
+        account: {
+          ...prev.account,
+          firstName: firstName || prev.account.firstName,
+          lastName: lastName || prev.account.lastName,
+          email: user.email || prev.account.email,
+        },
+      }));
+      setCurrentStep(ORG_STEP);
     }
-  }, [user, currentStep, formData.account.firstName, formData.account.lastName]);
+  }, [user, currentStep]);
 
   const practiceAreaOptions = [
     'Corporate Law',
@@ -254,7 +264,7 @@ export default function Onboarding() {
       }
     }
 
-    if (step === 1) {
+    if (step === ORG_STEP) {
       if (!formData.organization.name.trim()) {
         errors.orgName = 'Organization name is required';
       }
@@ -283,7 +293,7 @@ export default function Onboarding() {
       }
     }
 
-    if (step === 2) {
+    if (step === TEAM_STEP) {
       // Team step is optional, but validate emails if provided
       const validEmails = formData.team.inviteEmails.filter((email) => email.trim());
       for (let i = 0; i < validEmails.length; i++) {
@@ -297,6 +307,114 @@ export default function Onboarding() {
     return Object.keys(errors).length === 0;
   };
 
+  const runSignUpWithRetry = async () => {
+    let signUpError: {
+      message?: string;
+      name?: string;
+      constructor?: { name?: string };
+    } | null = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount < maxRetries) {
+      try {
+        const result = await signUp(formData.account.email, formData.account.password, {
+          email: formData.account.email,
+          first_name: formData.account.firstName,
+          last_name: formData.account.lastName,
+        });
+
+        if (!result.error) {
+          return { ok: true as const, mfa: result.mfa ?? null };
+        }
+
+        signUpError = result.error;
+        logError(`Signup error on attempt ${retryCount + 1}`, signUpError);
+
+        const errorMessage = signUpError.message || '';
+        const errorName = signUpError.name || signUpError.constructor?.name || '';
+        const isRetryable =
+          errorMessage.includes('timeout') ||
+          errorMessage.includes('504') ||
+          errorMessage.includes('Gateway') ||
+          errorMessage.includes('fetch') ||
+          errorName.includes('Retryable') ||
+          errorName.includes('FetchError') ||
+          errorName === 'AuthRetryableFetchError';
+
+        if (isRetryable && retryCount + 1 < maxRetries) {
+          retryCount++;
+          toast.success(`Retrying signup... (${retryCount}/${maxRetries})`, {
+            description: 'The signup service is busy. Trying again...',
+          });
+          await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          continue;
+        }
+        break;
+      } catch (error: unknown) {
+        signUpError = error instanceof Error ? error : { message: String(error) };
+        const msg = error instanceof Error ? error.message : '';
+        const nm = error instanceof Error ? error.name || error.constructor?.name || '' : '';
+        const isRetryable =
+          msg.includes('fetch') ||
+          msg.includes('timeout') ||
+          msg.includes('504') ||
+          nm.includes('Retryable') ||
+          nm.includes('FetchError') ||
+          nm === 'AuthRetryableFetchError';
+
+        if (isRetryable && retryCount + 1 < maxRetries) {
+          retryCount++;
+          toast.success(`Retrying signup... (${retryCount}/${maxRetries})`, {
+            description: 'Network issue detected. Trying again...',
+          });
+          await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          continue;
+        }
+        break;
+      }
+    }
+
+    return { ok: false as const, error: signUpError };
+  };
+
+  const reportSignUpError = (
+    signUpError: { message?: string; name?: string; constructor?: { name?: string } } | null
+  ) => {
+    const finalErrorMessage = signUpError?.message || '';
+    const finalErrorName = signUpError?.name || signUpError?.constructor?.name || '';
+    const isTimeoutError =
+      finalErrorMessage.includes('timeout') ||
+      finalErrorMessage.includes('504') ||
+      finalErrorMessage.includes('Gateway') ||
+      finalErrorMessage.includes('network') ||
+      finalErrorName.includes('Retryable') ||
+      finalErrorName.includes('FetchError') ||
+      finalErrorName === 'AuthRetryableFetchError';
+
+    if (isTimeoutError) {
+      toast.error('Connection timeout', {
+        description: 'The signup is taking longer than usual. Please try again in a moment.',
+      });
+    } else if (finalErrorMessage.includes('rate limit') || finalErrorMessage.includes('too many')) {
+      toast.error('Too many attempts', {
+        description: 'Please wait a few minutes before trying again.',
+      });
+    } else if (finalErrorMessage.includes('email') && finalErrorMessage.includes('already')) {
+      toast.error('Email already registered', {
+        description:
+          'This email address is already associated with an account. Please try signing in instead.',
+      });
+    } else {
+      logError('Signup error details', signUpError);
+      toast.error('Account creation failed', {
+        description:
+          finalErrorMessage ||
+          'Unable to create your account. Please check your information and try again.',
+      });
+    }
+  };
+
   const handleNext = async () => {
     if (!validateStep(currentStep)) {
       toast.error('Please complete all required fields', {
@@ -305,11 +423,34 @@ export default function Onboarding() {
       return;
     }
 
-    // Step 0: Just validate and move to next step (don't create account yet)
-    if (currentStep === 0) {
-      // Just move to next step - account creation happens at the end
-      setCurrentStep(1);
-      setValidationErrors({});
+    // Step 0 → Verify: create the account so OTP can fire immediately.
+    if (currentStep === ACCOUNT_STEP) {
+      if (user) {
+        // Already authenticated (e.g., returning mid-flow). Skip straight to org.
+        setCurrentStep(ORG_STEP);
+        setValidationErrors({});
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        const result = await runSignUpWithRetry();
+        if (!result.ok) {
+          reportSignUpError(result.error);
+          return;
+        }
+        if (result.mfa) {
+          setMfa(result.mfa);
+          setCurrentStep(VERIFY_STEP);
+          setValidationErrors({});
+          return;
+        }
+        // No MFA required — verification already complete server-side.
+        setCurrentStep(ORG_STEP);
+        setValidationErrors({});
+      } finally {
+        setIsSubmitting(false);
+      }
       return;
     }
 
@@ -330,170 +471,16 @@ export default function Onboarding() {
     try {
       const warningMessages: string[] = [];
 
-      // Account creation + OTP verification happened at step 0 → step 1.
-      // By the time we reach the plan step the session must already exist.
-       
-      if (false as boolean) {
-        let signUpError: {
-          message?: string;
-          name?: string;
-          constructor?: { name?: string };
-        } | null = null;
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        while (retryCount < maxRetries) {
-          try {
-            const result = await signUp(formData.account.email, formData.account.password, {
-              email: formData.account.email,
-              first_name: formData.account.firstName,
-              last_name: formData.account.lastName,
-            });
-
-            console.log('Signup completed successfully');
-
-            if (!result.error) {
-              // Signup may return an MFA challenge instead of an active
-              // session (email-OTP gating, default-on). Pop the OTP
-              // overlay and abort the rest of the finish flow — the
-              // useEffect on `user` will resume onboarding once verified.
-              if (result.mfa) {
-                setMfa(result.mfa);
-                setIsSubmitting(false);
-                return;
-              }
-              // Success, break out of retry loop
-              console.log('Signup successful, breaking retry loop');
-              break;
-            }
-
-            signUpError = result.error;
-            logError(`Signup error on attempt ${retryCount + 1}`, signUpError);
-
-            // Check if it's a retryable error (timeout, 504, network issues, or AuthRetryableFetchError)
-            const errorMessage = signUpError.message || '';
-            const errorName = signUpError.name || signUpError.constructor?.name || '';
-            const isRetryableError =
-              errorMessage.includes('timeout') ||
-              errorMessage.includes('504') ||
-              errorMessage.includes('Gateway') ||
-              errorMessage.includes('fetch') ||
-              errorName.includes('Retryable') ||
-              errorName.includes('FetchError') ||
-              errorName === 'AuthRetryableFetchError';
-
-            if (isRetryableError) {
-              retryCount++;
-              if (retryCount < maxRetries) {
-                toast.success(`Retrying signup... (${retryCount}/${maxRetries})`, {
-                  description: 'The signup service is busy. Trying again...',
-                });
-                // Wait before retrying (exponential backoff)
-                await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
-                continue;
-              }
-            }
-
-            // Not a retryable error, or we've exhausted retries
-            break;
-          } catch (error: unknown) {
-            signUpError = error instanceof Error ? error : { message: String(error) };
-            // Handle network errors and timeouts
-            const catchErrorMessage = error instanceof Error ? error.message : '';
-            const catchErrorName =
-              error instanceof Error ? error.name || error.constructor?.name || '' : '';
-            const isCatchRetryable =
-              catchErrorMessage.includes('fetch') ||
-              catchErrorMessage.includes('timeout') ||
-              catchErrorMessage.includes('504') ||
-              catchErrorName.includes('Retryable') ||
-              catchErrorName.includes('FetchError') ||
-              catchErrorName === 'AuthRetryableFetchError';
-
-            if (isCatchRetryable) {
-              retryCount++;
-              if (retryCount < maxRetries) {
-                toast.success(`Retrying signup... (${retryCount}/${maxRetries})`, {
-                  description: 'Network issue detected. Trying again...',
-                });
-                // Wait before retrying
-                await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
-                continue;
-              }
-            }
-            break;
-          }
-        }
-
-        if (signUpError) {
-          // Handle specific error types with better messaging
-          const finalErrorMessage = signUpError.message || '';
-          const finalErrorName = signUpError.name || signUpError.constructor?.name || '';
-          const isTimeoutError =
-            finalErrorMessage.includes('timeout') ||
-            finalErrorMessage.includes('504') ||
-            finalErrorMessage.includes('Gateway') ||
-            finalErrorMessage.includes('network') ||
-            finalErrorName.includes('Retryable') ||
-            finalErrorName.includes('FetchError') ||
-            finalErrorName === 'AuthRetryableFetchError';
-
-          if (isTimeoutError) {
-            toast.error('Connection timeout', {
-              description: 'The signup is taking longer than usual. Please try again in a moment.',
-            });
-          } else if (
-            finalErrorMessage.includes('rate limit') ||
-            finalErrorMessage.includes('too many')
-          ) {
-            toast.error('Too many attempts', {
-              description: 'Please wait a few minutes before trying again.',
-            });
-          } else if (finalErrorMessage.includes('email') && finalErrorMessage.includes('already')) {
-            toast.error('Email already registered', {
-              description:
-                'This email address is already associated with an account. Please try signing in instead.',
-            });
-          } else {
-            // Log the actual error for debugging
-            logError('Signup error details', signUpError);
-            toast.error('Account creation failed', {
-              description:
-                finalErrorMessage ||
-                'Unable to create your account. Please check your information and try again.',
-            });
-          }
-          return;
-        }
-
-        // Wait for auth state to update with retry logic
-        let sessionRetries = 0;
-        const maxSessionRetries = 5;
-
-        while (sessionRetries < maxSessionRetries) {
-          const session = getSession();
-          if (session?.user) {
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          sessionRetries++;
-        }
-
-        const session = getSession();
-        if (!session?.user) {
-          toast.success('Email verification required', {
-            description:
-              'Please check your email to verify your account, then refresh this page to continue.',
-          });
-          return;
-        }
-      }
-
-      // Get current user (should be authenticated now)
+      // Account creation + OTP verification already happened at step 0 → step 1,
+      // so by the time we reach the plan step a session must already exist.
       const session = getSession();
       const currentUser = session?.user;
       if (!currentUser) {
-        throw new Error('User not authenticated. Please try again.');
+        toast.error('Session expired', {
+          description: 'Please sign in again to finish setting up your workspace.',
+        });
+        navigate('/auth', { replace: true });
+        return;
       }
 
       // Complete onboarding via Node backend (handles org creation, profile update, role assignment, permissions)
@@ -671,7 +658,7 @@ export default function Onboarding() {
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0:
+      case ACCOUNT_STEP:
         return (
           <div className="space-y-6">
             <Alert>
@@ -901,7 +888,26 @@ export default function Onboarding() {
           </div>
         );
 
-      case 1:
+      case VERIFY_STEP:
+        return (
+          <div className="space-y-6">
+            <Alert>
+              <ShieldCheck className="h-4 w-4" />
+              <AlertDescription>
+                We sent a 6-digit code to{' '}
+                <span className="font-medium">{formData.account.email}</span>. Enter it to confirm
+                your email and continue setting up your workspace.
+              </AlertDescription>
+            </Alert>
+            <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+              {mfa
+                ? 'Verification panel open — enter your code above.'
+                : "Didn't get a code? Go back and re-submit your details."}
+            </div>
+          </div>
+        );
+
+      case ORG_STEP:
         return (
           <div className="space-y-6">
             <Alert>
@@ -1171,7 +1177,7 @@ export default function Onboarding() {
           </div>
         );
 
-      case 2:
+      case TEAM_STEP:
         return (
           <div className="space-y-6">
             <Alert>
@@ -1220,7 +1226,7 @@ export default function Onboarding() {
           </div>
         );
 
-      case 3:
+      case PRACTICE_STEP:
         return (
           <div className="space-y-6">
             <Alert>
@@ -1264,29 +1270,36 @@ export default function Onboarding() {
           </div>
         );
 
-      case 4:
+      case PLAN_STEP:
         return (
-          <div className="text-center space-y-6">
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle className="w-10 h-10 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-semibold">Welcome to Kourti AI!</h3>
-              <p className="text-muted-foreground mt-2">
-                One last step — choose how you want to get going.
+          <div className="space-y-6">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                <CreditCard className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-semibold">Choose how to get going</h3>
+              <p className="text-muted-foreground">
+                Start with a free trial, or jump straight to a paid plan.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 text-left">
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
-                <h4 className="font-semibold">Start 7-day free trial</h4>
+              <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-5 space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-primary">
+                  Recommended
+                </p>
+                <h4 className="text-lg font-semibold">7-day free trial</h4>
                 <p className="text-sm text-muted-foreground">
-                  Full access to every feature for 7 days. No card required.
+                  Full access to every feature for 7 days. No card required — you can subscribe
+                  anytime from billing.
                 </p>
               </div>
-              <div className="rounded-lg border border-border/60 p-4 space-y-2">
-                <h4 className="font-semibold">Subscribe now</h4>
+              <div className="rounded-lg border border-border/60 p-5 space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Paid plan
+                </p>
+                <h4 className="text-lg font-semibold">Subscribe now</h4>
                 <p className="text-sm text-muted-foreground">
-                  Skip the trial and pick a plan straight away.
+                  Skip the trial and pick a plan — we&apos;ll take you to checkout next.
                 </p>
               </div>
             </div>
@@ -1302,14 +1315,17 @@ export default function Onboarding() {
     return (
       <EmailOtpChallenge
         mfaToken={mfa.mfaToken}
-        emailHint={mfa.emailHint}
+        emailHint={mfa.emailHint ?? formData.account.email}
         purpose="signup"
         onSuccess={() => {
           setMfa(null);
-          // Resume the finish flow now that the user is verified.
-          void handleFinish();
+          // Email confirmed — move on to the profile-completion steps.
+          setCurrentStep(ORG_STEP);
         }}
-        onCancel={() => setMfa(null)}
+        onCancel={() => {
+          setMfa(null);
+          setCurrentStep(ACCOUNT_STEP);
+        }}
       />
     );
   }
@@ -1389,20 +1405,31 @@ export default function Onboarding() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-x-2">
-                  {currentStep === 0 ? (
+                  {currentStep === ACCOUNT_STEP ? (
                     <Button variant="outline" onClick={() => navigate('/auth')}>
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back to Login
                     </Button>
-                  ) : (
+                  ) : currentStep === VERIFY_STEP ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setMfa(null);
+                        setCurrentStep(ACCOUNT_STEP);
+                      }}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Edit details
+                    </Button>
+                  ) : currentStep > ORG_STEP ? (
                     <Button variant="outline" onClick={handlePrevious}>
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Previous
                     </Button>
-                  )}
+                  ) : null}
                 </div>
 
-                {currentStep === steps.length - 1 ? (
+                {currentStep === VERIFY_STEP ? null : currentStep === PLAN_STEP ? (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -1425,9 +1452,9 @@ export default function Onboarding() {
                     </Button>
                   </div>
                 ) : (
-                  <Button onClick={handleNext} className="min-w-[120px]">
-                    Continue
-                    <ArrowRight className="w-4 h-4 ml-2" />
+                  <Button onClick={handleNext} className="min-w-[120px]" disabled={isSubmitting}>
+                    {isSubmitting && currentStep === ACCOUNT_STEP ? 'Sending code...' : 'Continue'}
+                    {!isSubmitting && <ArrowRight className="w-4 h-4 ml-2" />}
                   </Button>
                 )}
               </div>
