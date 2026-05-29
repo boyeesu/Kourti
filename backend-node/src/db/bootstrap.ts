@@ -469,6 +469,15 @@ const bootstrapStatements = [
   `create index if not exists idx_payment_transactions_org_created on public.payment_transactions(organization_id, created_at desc)`,
   `create index if not exists idx_payment_transactions_status on public.payment_transactions(status)`,
 
+  // Display vs charge split. When plans are priced in USD but Paystack
+  // settles in NGN, `amount` / `currency` reflect what we actually
+  // charged (NGN), and these columns preserve the original USD price +
+  // the FX rate used so receipts / accounting can reconcile.
+  `alter table public.payment_transactions add column if not exists display_currency text`,
+  `alter table public.payment_transactions add column if not exists display_amount numeric`,
+  `alter table public.payment_transactions add column if not exists fx_rate numeric`,
+  `alter table public.payment_transactions add column if not exists fx_source text`,
+
   // Backfill plan_type before we dedupe / index on it. Rows that pre-date the
   // plan_type column inherit it from `name`.
   `update public.user_plans set plan_type = name where plan_type is null`,
