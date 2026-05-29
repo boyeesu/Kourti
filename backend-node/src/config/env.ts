@@ -60,6 +60,22 @@ const envSchema = z.object({
     .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
     .default(true),
   AGENT_MAX_CONCURRENT_JOBS: z.coerce.number().int().positive().default(3),
+
+  // File storage driver. 'fs' = local Railway volume at STORAGE_PATH (default,
+  // unchanged behavior). 's3' = S3-compatible object store (Garage on Railway).
+  STORAGE_DRIVER: z.enum(['fs', 's3']).default('fs'),
+  STORAGE_PATH: z.string().default('/app/storage'),
+
+  // S3 driver settings (only required when STORAGE_DRIVER=s3).
+  S3_ENDPOINT: optionalUrl,
+  S3_REGION: z.string().default('garage'),
+  S3_BUCKET: optionalNonEmptyString,
+  S3_ACCESS_KEY: optionalNonEmptyString,
+  S3_SECRET_KEY: optionalNonEmptyString,
+  // Garage requires path-style addressing (no virtual-hosted subdomain).
+  S3_FORCE_PATH_STYLE: z
+    .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
+    .default(true),
 });
 
 export const env = envSchema.parse(process.env);
@@ -92,6 +108,18 @@ if (env.NODE_ENV === 'production') {
 
   if (env.SSO_SECRET_KEY === 'kourti-dev-sso-key-change-in-production') {
     throw new Error('SSO_SECRET_KEY must be changed from the default value in production');
+  }
+}
+
+// S3 driver requires its full credential set — refuse to boot half-configured.
+if (env.STORAGE_DRIVER === 's3') {
+  const missing: string[] = [];
+  if (!env.S3_ENDPOINT) missing.push('S3_ENDPOINT');
+  if (!env.S3_BUCKET) missing.push('S3_BUCKET');
+  if (!env.S3_ACCESS_KEY) missing.push('S3_ACCESS_KEY');
+  if (!env.S3_SECRET_KEY) missing.push('S3_SECRET_KEY');
+  if (missing.length) {
+    throw new Error(`STORAGE_DRIVER=s3 requires: ${missing.join(', ')}`);
   }
 }
 

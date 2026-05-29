@@ -1,15 +1,90 @@
 /**
  * File storage service.
- * Uses local filesystem (Railway volume) by default.
- * Can be swapped to S3 by setting S3_BUCKET env var.
+ *
+ * Two drivers, selected by STORAGE_DRIVER:
+ *   - 'fs' (default): local filesystem at STORAGE_PATH, used on the
+ *     backend's Railway volume. Same behavior the codebase has shipped
+ *     with since day one.
+ *   - 's3' : any S3-compatible store (Garage on Railway, R2, AWS, etc.)
+ *     selected via S3_ENDPOINT / S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY.
+ *
+ * The public API (uploadFile / downloadFile / deleteFile / fileExists /
+ * createSignedUrl / verifySignedUrl) is identical across drivers, so
+ * callers (routes/api/*) don't change.
+ *
+ * Signed URLs continue to be backend-issued HMAC URLs that route through
+ * /api/v1/files/* — the backend reads the object from whichever driver
+ * is active and streams it back. This keeps the frontend untouched
+ * during the cutover. Switching to native S3 presigned URLs is a later,
+ * separate change.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3';
+
 import { env } from '../config/env.js';
 
-const STORAGE_ROOT = process.env.STORAGE_PATH || '/app/storage';
+const STORAGE_ROOT = env.STORAGE_PATH;
+const USE_S3 = env.STORAGE_DRIVER === 's3';
+
+// Single shared S3 client; only constructed when the driver is 's3' so
+// the fs driver has zero S3 SDK overhead at import time.
+const s3 = USE_S3
+  ? new S3Client({
+      endpoint: env.S3_ENDPOINT!,
+      region: env.S3_REGION,
+      forcePathStyle: env.S3_FORCE_PATH_STYLE,
+      credentials: {
+        accessKeyId: env.S3_ACCESS_KEY!,
+        secretAccessKey: env.S3_SECRET_KEY!,
+      },
+    })
+  : null;
+
+const S3_BUCKET = env.S3_BUCKET ?? '';
+
+/**
+ * S3 object key. We keep the existing `<bucket>/<filePath>` namespacing
+ * convention by encoding the logical bucket as the first key segment
+ * inside the single physical S3 bucket. That way one Garage bucket can
+ * back every logical bucket (documents/, chat/, etc.) without
+ * provisioning a new bucket per use case.
+ */
+function s3Key(bucket: string, filePath: string): string {
+  return `${bucket}/${filePath}`;
+}
+
+async function streamToBuffer(body: unknown): Promise<Buffer> {
+  if (body == null) return Buffer.alloc(0);
+  // Node stream
+  if (typeof (body as { on?: unknown }).on === 'function') {
+    return await new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      (body as NodeJS.ReadableStream)
+        .on('data', (chunk: Buffer | string) =>
+          chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
+        )
+        .on('end', () => resolve(Buffer.concat(chunks)))
+        .on('error', reject);
+    });
+  }
+  // Web stream (Node 18+ SDK)
+  if (typeof (body as { transformToByteArray?: unknown }).transformToByteArray === 'function') {
+    const arr = await (
+      body as { transformToByteArray: () => Promise<Uint8Array> }
+    ).transformToByteArray();
+    return Buffer.from(arr);
+  }
+  throw new Error('Unsupported S3 response body type');
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -74,8 +149,24 @@ export async function uploadFile(
   bucket: string,
   filePath: string,
   data: Buffer,
-  _contentType?: string
+  contentType?: string
 ): Promise<UploadResult> {
+  // Validate path even on S3 — same traversal rules apply because the
+  // logical bucket is just a key prefix in the physical S3 bucket.
+  bucketPath(bucket, filePath);
+
+  if (USE_S3) {
+    await s3!.send(
+      new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: s3Key(bucket, filePath),
+        Body: data,
+        ContentType: contentType ?? mimeFromExt(path.extname(filePath).toLowerCase()),
+      })
+    );
+    return { filePath, size: data.length };
+  }
+
   const fullPath = bucketPath(bucket, filePath);
   await ensureDir(path.dirname(fullPath));
   await fs.writeFile(fullPath, data);
@@ -86,6 +177,26 @@ export async function downloadFile(
   bucket: string,
   filePath: string
 ): Promise<{ data: Buffer; contentType: string }> {
+  bucketPath(bucket, filePath);
+
+  if (USE_S3) {
+    try {
+      const out = await s3!.send(
+        new GetObjectCommand({ Bucket: S3_BUCKET, Key: s3Key(bucket, filePath) })
+      );
+      const data = await streamToBuffer(out.Body);
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = out.ContentType ?? mimeFromExt(ext);
+      return { data, contentType };
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name === 'NoSuchKey' || name === 'NotFound') {
+        throw new Error(`File not found: ${filePath}`);
+      }
+      throw err;
+    }
+  }
+
   const fullPath = bucketPath(bucket, filePath);
   try {
     const data = await fs.readFile(fullPath);
@@ -101,6 +212,14 @@ export async function downloadFile(
 }
 
 export async function deleteFile(bucket: string, filePath: string): Promise<void> {
+  bucketPath(bucket, filePath);
+
+  if (USE_S3) {
+    // S3 DeleteObject is idempotent — no NoSuchKey to swallow.
+    await s3!.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: s3Key(bucket, filePath) }));
+    return;
+  }
+
   const fullPath = bucketPath(bucket, filePath);
   try {
     await fs.unlink(fullPath);
@@ -112,6 +231,19 @@ export async function deleteFile(bucket: string, filePath: string): Promise<void
 }
 
 export async function fileExists(bucket: string, filePath: string): Promise<boolean> {
+  bucketPath(bucket, filePath);
+
+  if (USE_S3) {
+    try {
+      await s3!.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: s3Key(bucket, filePath) }));
+      return true;
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name === 'NotFound' || name === 'NoSuchKey') return false;
+      throw err;
+    }
+  }
+
   try {
     await fs.access(bucketPath(bucket, filePath));
     return true;
