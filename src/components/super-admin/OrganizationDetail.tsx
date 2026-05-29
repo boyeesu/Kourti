@@ -25,6 +25,8 @@ import {
 import { format } from 'date-fns';
 import { useToggleOrganizationStatus } from '@/hooks/useToggleOrganizationStatus';
 import { useDeleteOrganization } from '@/hooks/useDeleteOrganization';
+import { useOrgPlan, useRevokeOrgPlan } from '@/hooks/useOrgPlan';
+import { AssignOrgPlanDialog } from './AssignOrgPlanDialog';
 import { useState } from 'react';
 import { logError } from '@/lib/logger';
 import {
@@ -91,9 +93,12 @@ export function OrganizationDetail() {
   const navigate = useNavigate();
   const { data: organization, isLoading } = useOrganization(id || null);
   const { data: orgSubscriptions = [], isLoading: subsLoading } = useOrgSubscriptions(id || null);
+  const { data: orgPlan, isLoading: orgPlanLoading } = useOrgPlan(id || null);
+  const revokeOrgPlan = useRevokeOrgPlan();
   const toggleStatus = useToggleOrganizationStatus();
   const deleteOrg = useDeleteOrganization();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assignPlanOpen, setAssignPlanOpen] = useState(false);
 
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
@@ -332,6 +337,71 @@ export function OrganizationDetail() {
           </Card>
         </div>
 
+        {/* Admin Plan Assignment */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Crown className="h-5 w-5" />
+                  Plan Assignment
+                </CardTitle>
+                <CardDescription>
+                  Manually grant a plan to every member of this organization (comp / contract — no
+                  Paystack charge)
+                </CardDescription>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                {orgPlan && (
+                  <Button
+                    variant="outline"
+                    onClick={() => id && revokeOrgPlan.mutate({ orgId: id })}
+                    disabled={revokeOrgPlan.isPending}
+                  >
+                    Revoke
+                  </Button>
+                )}
+                <Button onClick={() => setAssignPlanOpen(true)}>
+                  {orgPlan ? 'Change Plan' : 'Assign Plan'}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {orgPlanLoading ? (
+              <Skeleton className="h-12 w-full" />
+            ) : !orgPlan ? (
+              <p className="text-sm text-muted-foreground">
+                No plan has been assigned by an admin. Use “Assign Plan” to grant one.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{orgPlan.plan_display_name}</span>
+                    <Badge variant="outline" className="capitalize">
+                      {orgPlan.plan_type}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Applied to {orgPlan.assigned_users} of {orgPlan.total_users} member(s)
+                    {orgPlan.assigned_users < orgPlan.total_users && (
+                      <span className="text-amber-600"> — re-assign to cover everyone</span>
+                    )}
+                  </p>
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  {orgPlan.expires_at ? (
+                    <>Expires {format(new Date(orgPlan.expires_at), 'MMM dd, yyyy')}</>
+                  ) : (
+                    <>No expiry</>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Billing & Subscription */}
         <Card>
           <CardHeader>
@@ -407,6 +477,16 @@ export function OrganizationDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {id && (
+        <AssignOrgPlanDialog
+          open={assignPlanOpen}
+          onOpenChange={setAssignPlanOpen}
+          orgId={id}
+          orgName={org.name}
+          currentPlanId={orgPlan?.plan_id ?? null}
+        />
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

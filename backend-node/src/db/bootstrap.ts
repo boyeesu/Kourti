@@ -213,6 +213,42 @@ const bootstrapStatements = [
     updated_at timestamptz not null default now()
   )
   `,
+  // Per-user plan grants made by a platform admin. Distinct from
+  // `subscriptions` (the paid/Paystack entitlement): this is the manual /
+  // comp grant path. `organization_id` lets admins assign a plan to a whole
+  // org in one action (one row per current member, all tagged with the org).
+  // Previously referenced by routes but never created (Supabase-era leftover),
+  // so every read defensively swallowed the missing-table error.
+  `
+  create table if not exists public.user_plan_assignments (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid,
+    user_id uuid not null,
+    plan_id uuid not null,
+    assigned_by uuid,
+    status text not null default 'active',
+    starts_at timestamptz not null default now(),
+    expires_at timestamptz,
+    notes text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  // Defensive: if an environment already has this table from an earlier
+  // shape, make sure the org column / audit fields exist before we index them.
+  `alter table public.user_plan_assignments add column if not exists organization_id uuid`,
+  `alter table public.user_plan_assignments add column if not exists expires_at timestamptz`,
+  `alter table public.user_plan_assignments add column if not exists notes text`,
+  `create index if not exists idx_upa_user_status
+     on public.user_plan_assignments(user_id, status)`,
+  `create index if not exists idx_upa_org_status
+     on public.user_plan_assignments(organization_id, status)`,
+  // Backfill organization_id for any assignment rows that pre-date the column.
+  `update public.user_plan_assignments upa
+      set organization_id = p.organization_id
+     from public.profiles p
+    where p.user_id = upa.user_id
+      and upa.organization_id is null`,
   `
   create table if not exists public.invitations (
     id uuid primary key default gen_random_uuid(),
@@ -485,6 +521,12 @@ const bootstrapStatements = [
   `alter table public.subscriptions add column if not exists provider_customer_email text`,
   `alter table public.subscriptions add column if not exists provider_reference text`,
 
+  // Seat-based billing: how many paid user seats this subscription covers.
+  // amount charged = per-seat plan price × seats. Existing rows predate seats
+  // and are treated as a single seat.
+  `alter table public.subscriptions add column if not exists seats integer not null default 1`,
+  `update public.subscriptions set seats = 1 where seats is null`,
+
   // ── Payment transactions ──────────────────────────────────────────
   // One row per checkout attempt, keyed by our own tx_ref (which we also
   // pass to Paystack as `reference`). Activation logic in the webhook /
@@ -529,6 +571,9 @@ const bootstrapStatements = [
   `alter table public.payment_transactions add column if not exists raw_response jsonb`,
   `alter table public.payment_transactions add column if not exists verified_at timestamptz`,
   `alter table public.payment_transactions add column if not exists webhook_received_at timestamptz`,
+  // Seats this checkout pays for. For payment_type='subscription' it's the
+  // total seat count; for 'seat_addon' it's the number of seats being added.
+  `alter table public.payment_transactions add column if not exists seats integer`,
   // Drop NOT NULL on legacy flutterwave_* columns that may exist on the
   // pre-Paystack incarnation of this table. New code never writes to them;
   // without the drop, INSERTs from initiate-payment fail at the constraint.

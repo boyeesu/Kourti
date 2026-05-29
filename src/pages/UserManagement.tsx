@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useInviteUser, useUserRole } from '@/hooks/useUserManagement';
+import { useSeatUsage } from '@/hooks/useSubscription';
 import { useAllRoles } from '@/hooks/useAllRoles';
 import {
   useOrganizationUsers,
@@ -42,6 +43,7 @@ export default function UserManagement() {
   const { data: userRole } = useUserRole();
   const { data: roles = [] } = useAllRoles();
   const { data: users = [], isLoading } = useOrganizationUsers();
+  const { data: seatUsage } = useSeatUsage();
   const inviteUser = useInviteUser();
   const toggleUserStatus = useToggleUserStatus();
   const deleteInvitation = useDeleteInvitation();
@@ -62,6 +64,9 @@ export default function UserManagement() {
 
   const canInviteUsers = userRole?.role === 'superadmin' || userRole?.role === 'admin';
   const isSuperAdmin = userRole?.role === 'superadmin';
+  // Seats are full when the org has a plan and no seats remain. Backend is the
+  // hard gate (409); this just disables the form and explains why.
+  const seatsFull = !!seatUsage && seatUsage.seats > 0 && seatUsage.available <= 0;
   const canManageRoles = userRole?.role === 'superadmin' || userRole?.role === 'admin';
 
   const handleInviteUser = (e: React.FormEvent) => {
@@ -210,7 +215,14 @@ export default function UserManagement() {
                 <UserPlus className="h-5 w-5 text-primary" />
                 Invite New User
               </CardTitle>
-              <CardDescription>Add a new member to your organization</CardDescription>
+              <CardDescription>
+                Add a new member to your organization
+                {seatUsage && seatUsage.seats > 0 && (
+                  <span className="mt-1 block font-medium text-foreground">
+                    {seatUsage.used} of {seatUsage.seats} seats used
+                  </span>
+                )}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleInviteUser} className="space-y-4">
@@ -282,9 +294,19 @@ export default function UserManagement() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={inviteUser.isPending}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={inviteUser.isPending || seatsFull}
+                >
                   {inviteUser.isPending ? 'Inviting...' : 'Invite User'}
                 </Button>
+                {seatsFull && (
+                  <p className="text-center text-xs text-muted-foreground">
+                    All {seatUsage?.seats} seats are in use. Add seats from Settings → Billing to
+                    invite more.
+                  </p>
+                )}
               </form>
             </CardContent>
           </Card>

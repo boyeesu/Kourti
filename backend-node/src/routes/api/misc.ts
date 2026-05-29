@@ -7,7 +7,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { env } from '../../config/env.js';
+import { env, corsOrigins } from '../../config/env.js';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { checkRateLimit } from '../../lib/rateLimit.js';
@@ -20,6 +20,7 @@ import {
   verifyTransaction,
 } from '../../services/paystack.js';
 import { activateSubscriptionFromTx } from '../../services/subscriptionActivation.js';
+import { getSeatUsage } from '../../services/seats.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -64,6 +65,46 @@ async function convertForPaystack(planAmount: number, planCurrency: string) {
     501,
     'FX_NOT_CONFIGURED'
   );
+}
+
+/**
+ * Resolve the Paystack post-payment callback URL.
+ *
+ * `redirect_url` is user-supplied, so we only honour it when its origin is in
+ * our allowlist (APP_URL + configured CORS origins) — otherwise an attacker
+ * could craft a checkout link that redirects the payer to a phishing page
+ * after a real-looking payment (open redirect). Anything else falls back to
+ * the server-built `/billing/callback`.
+ */
+function resolveCallbackUrl(redirectUrl: string | undefined): string {
+  const fallback = env.APP_URL
+    ? new URL('/billing/callback', env.APP_URL).toString()
+    : 'https://app.kourti.com/billing/callback';
+  if (!redirectUrl) return fallback;
+
+  const allowed = new Set<string>();
+  if (env.APP_URL) {
+    try {
+      allowed.add(new URL(env.APP_URL).origin);
+    } catch {
+      /* ignore malformed APP_URL */
+    }
+  }
+  for (const o of corsOrigins) {
+    try {
+      allowed.add(new URL(o).origin);
+    } catch {
+      /* corsOrigins may contain non-URL entries */
+    }
+  }
+
+  try {
+    const target = new URL(redirectUrl);
+    if (allowed.has(target.origin)) return target.toString();
+  } catch {
+    /* malformed redirect_url → fallback */
+  }
+  return fallback;
 }
 
 export const miscRouter = Router();
@@ -691,6 +732,11 @@ const initiatePaymentSchema = z.object({
   plan_id: uuidLike,
   billing_interval: z.enum(['monthly', 'yearly']),
   redirect_url: z.string().url().optional(),
+  // Seat-based billing: total seats this checkout pays for. Plan price is
+  // per-seat, so amount = per-seat price × seats. Defaults to 1.
+  seats: z.number().int().min(1).max(500).optional().default(1),
+  // Teammate emails to auto-invite once the charge is confirmed.
+  invite_emails: z.array(z.string().email()).max(500).optional(),
 });
 
 miscRouter.post(
@@ -745,14 +791,17 @@ miscRouter.post(
     }
 
     const priceRaw = body.billing_interval === 'yearly' ? plan.price_yearly : plan.price_monthly;
-    const planAmount = priceRaw == null ? null : Number(priceRaw);
-    if (!planAmount || planAmount <= 0 || !Number.isFinite(planAmount)) {
+    const perSeat = priceRaw == null ? null : Number(priceRaw);
+    if (!perSeat || perSeat <= 0 || !Number.isFinite(perSeat)) {
       throw new ApiError(
         `Plan has no ${body.billing_interval} price configured.`,
         400,
         'PLAN_PRICE_MISSING'
       );
     }
+    // Per-seat price × seats = what we charge.
+    const seats = body.seats;
+    const planAmount = perSeat * seats;
     const planCurrency = plan.currency ?? 'USD';
 
     // FX conversion: plans are priced in USD for display, but Paystack
@@ -776,22 +825,22 @@ miscRouter.post(
     }
 
     const txRef = generateTxRef();
-    const callbackUrl =
-      body.redirect_url ||
-      (env.APP_URL
-        ? new URL('/billing/callback', env.APP_URL).toString()
-        : 'https://app.kourti.com/billing/callback');
+    const callbackUrl = resolveCallbackUrl(body.redirect_url);
+
+    const inviteEmails = (body.invite_emails ?? [])
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.length > 0);
 
     await db.query(
       `insert into public.payment_transactions
          (organization_id, user_id, plan_id, provider, tx_ref,
           amount, currency, status, payment_type, billing_interval,
-          customer_email, metadata,
+          customer_email, metadata, seats,
           display_amount, display_currency, fx_rate, fx_source)
        values ($1, $2, $3, 'paystack', $4,
                $5, $6, 'pending', 'subscription', $7,
-               $8, $9::jsonb,
-               $10, $11, $12, $13)`,
+               $8, $9::jsonb, $10,
+               $11, $12, $13, $14)`,
       [
         auth.organizationId,
         auth.userId,
@@ -805,7 +854,10 @@ miscRouter.post(
           plan_display_name: plan.display_name,
           billing_interval: body.billing_interval,
           initiated_via: 'pricing_page',
+          seats,
+          invite_emails: inviteEmails,
         }),
+        seats,
         conv.displayAmount,
         conv.displayCurrency,
         conv.fxRate,
@@ -848,6 +900,204 @@ miscRouter.post(
       payment_link: initRes.authorization_url,
       tx_ref: txRef,
       reference: initRes.reference,
+    });
+  })
+);
+
+// ── Subscriptions: seat usage (for the FE) ─────────────────────────────────
+
+miscRouter.get(
+  '/subscriptions/seat-usage',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const usage = await getSeatUsage(auth.organizationId);
+    res.status(200).json(usage);
+  })
+);
+
+// ── Subscriptions: add seats to a live subscription (prorated) ─────────────
+
+const addSeatsSchema = z.object({
+  seats: z.number().int().min(1).max(500),
+  redirect_url: z.string().url().optional(),
+  invite_emails: z.array(z.string().email()).max(500).optional(),
+});
+
+miscRouter.post(
+  '/subscriptions/add-seats',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = addSeatsSchema.parse(req.body);
+
+    const rate = checkRateLimit(`billing:add-seats:${auth.userId}`, 10, 60_000);
+    res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', String(rate.retryAfter));
+      throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
+    }
+
+    if (!isPaystackConfigured()) {
+      throw new ApiError(
+        'Payments are not configured on this environment.',
+        503,
+        'PAYSTACK_NOT_CONFIGURED'
+      );
+    }
+
+    // Must have a live, paid (active) subscription to extend. Trials buy a full
+    // subscription rather than adding seats.
+    const subRes = await db.query<{
+      id: string;
+      plan_id: string | null;
+      billing_interval: string | null;
+      current_period_end: string | null;
+      seats: number;
+    }>(
+      `select id, plan_id, billing_interval, current_period_end, seats
+         from public.subscriptions
+        where organization_id = $1 and status = 'active'
+        order by created_at desc
+        limit 1`,
+      [auth.organizationId]
+    );
+    const sub = subRes.rows[0];
+    if (!sub) {
+      throw new ApiError(
+        'No active subscription to add seats to. Subscribe to a plan first.',
+        409,
+        'NO_ACTIVE_SUBSCRIPTION'
+      );
+    }
+    if (!sub.plan_id) throw new ApiError('Subscription has no plan.', 409, 'NO_PLAN');
+
+    const planRes = await db.query<{
+      price_monthly: string | null;
+      price_yearly: string | null;
+      currency: string | null;
+      display_name: string | null;
+    }>(
+      `select price_monthly, price_yearly, currency, display_name
+         from public.user_plans where id = $1 and is_active = true limit 1`,
+      [sub.plan_id]
+    );
+    const plan = planRes.rows[0];
+    if (!plan) throw new ApiError('Plan not found.', 404, 'PLAN_NOT_FOUND');
+
+    const interval = sub.billing_interval === 'yearly' ? 'yearly' : 'monthly';
+    const priceRaw = interval === 'yearly' ? plan.price_yearly : plan.price_monthly;
+    const perSeat = priceRaw == null ? null : Number(priceRaw);
+    if (!perSeat || perSeat <= 0 || !Number.isFinite(perSeat)) {
+      throw new ApiError(`Plan has no ${interval} price configured.`, 400, 'PLAN_PRICE_MISSING');
+    }
+
+    // Prorate for the time remaining in the current period so the new seats
+    // align with the existing renewal date. Charge at least 1 day's worth.
+    const periodDays = interval === 'yearly' ? 365 : 30;
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const end = sub.current_period_end ? new Date(sub.current_period_end).getTime() : Date.now();
+    const daysRemaining = Math.max(1, Math.ceil((end - Date.now()) / msPerDay));
+    const fraction = Math.min(1, daysRemaining / periodDays);
+    const proratedPerSeat = perSeat * fraction;
+    const addedSeats = body.seats;
+    const planAmount = proratedPerSeat * addedSeats;
+
+    const planCurrency = plan.currency ?? 'USD';
+    const conv = await convertForPaystack(planAmount, planCurrency);
+    const amount = conv.chargedAmount;
+    const currency = conv.chargedCurrency;
+
+    const profRes = await db.query<{ email: string | null }>(
+      `select email from public.profiles where user_id = $1 limit 1`,
+      [auth.userId]
+    );
+    const email = profRes.rows[0]?.email;
+    if (!email) {
+      throw new ApiError(
+        'Your account is missing an email address. Update your profile and try again.',
+        400,
+        'EMAIL_REQUIRED'
+      );
+    }
+
+    const inviteEmails = (body.invite_emails ?? [])
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.length > 0);
+
+    const txRef = generateTxRef();
+    const callbackUrl = resolveCallbackUrl(body.redirect_url);
+
+    await db.query(
+      `insert into public.payment_transactions
+         (organization_id, user_id, plan_id, provider, tx_ref,
+          amount, currency, status, payment_type, billing_interval,
+          customer_email, metadata, seats,
+          display_amount, display_currency, fx_rate, fx_source)
+       values ($1, $2, $3, 'paystack', $4,
+               $5, $6, 'pending', 'seat_addon', $7,
+               $8, $9::jsonb, $10,
+               $11, $12, $13, $14)`,
+      [
+        auth.organizationId,
+        auth.userId,
+        sub.plan_id,
+        txRef,
+        amount,
+        currency,
+        interval,
+        email,
+        JSON.stringify({
+          plan_display_name: plan.display_name,
+          billing_interval: interval,
+          initiated_via: 'add_seats',
+          added_seats: addedSeats,
+          prorated_days_remaining: daysRemaining,
+          invite_emails: inviteEmails,
+        }),
+        addedSeats,
+        conv.displayAmount,
+        conv.displayCurrency,
+        conv.fxRate,
+        conv.fxSource,
+      ]
+    );
+
+    let initRes;
+    try {
+      initRes = await initializeTransaction({
+        email,
+        amount,
+        currency,
+        reference: txRef,
+        callbackUrl,
+        metadata: {
+          organization_id: auth.organizationId,
+          user_id: auth.userId,
+          plan_id: sub.plan_id,
+          billing_interval: interval,
+          payment_type: 'seat_addon',
+          added_seats: addedSeats,
+        },
+      });
+    } catch (err) {
+      await db
+        .query(
+          `update public.payment_transactions
+              set status = 'failed', updated_at = now()
+            where tx_ref = $1`,
+          [txRef]
+        )
+        .catch(() => undefined);
+      throw err;
+    }
+
+    res.status(200).json({
+      authorization_url: initRes.authorization_url,
+      payment_link: initRes.authorization_url,
+      tx_ref: txRef,
+      reference: initRes.reference,
+      added_seats: addedSeats,
+      prorated_amount: conv.displayAmount,
+      prorated_currency: conv.displayCurrency,
     });
   })
 );

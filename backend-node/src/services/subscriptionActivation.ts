@@ -10,6 +10,7 @@
  */
 import { db } from '../db/pool.js';
 import type { PaystackVerifyResult } from './paystack.js';
+import { inviteEmailsForOrg } from './teamInvites.js';
 
 /**
  * Drop Paystack's full raw payload before persisting. Verify can return
@@ -43,6 +44,8 @@ interface PaymentTxRow {
   amount: number | string;
   currency: string;
   status: string;
+  payment_type: string | null;
+  seats: number | null;
   customer_email: string | null;
   metadata: Record<string, unknown> | null;
 }
@@ -67,7 +70,7 @@ export async function activateSubscriptionFromTx(
 ): Promise<ActivationResult> {
   const txRes = await db.query<PaymentTxRow>(
     `select id, organization_id, user_id, plan_id, billing_interval,
-            amount, currency, status, customer_email, metadata
+            amount, currency, status, payment_type, seats, customer_email, metadata
        from public.payment_transactions
       where tx_ref = $1
       limit 1`,
@@ -195,41 +198,61 @@ export async function activateSubscriptionFromTx(
       [tx.organization_id]
     );
 
+    const isSeatAddon = tx.payment_type === 'seat_addon';
+    const txSeats = tx.seats ?? 1;
+
     let subscriptionId: string;
     if (existing.rows[0]) {
       subscriptionId = existing.rows[0].id;
-      await client.query(
-        `update public.subscriptions
-            set plan_id = coalesce($2, plan_id),
-                status = 'active',
-                billing_interval = coalesce($3, billing_interval),
-                current_period_start = now(),
-                current_period_end = now() + make_interval(days => $4::int),
-                cancel_at_period_end = false,
-                cancelled_at = null,
-                provider = 'paystack',
-                provider_customer_email = coalesce($5, provider_customer_email),
-                provider_reference = $6,
-                updated_at = now()
-          where id = $1`,
-        [
-          subscriptionId,
-          tx.plan_id,
-          tx.billing_interval,
-          periodDays,
-          paystack.customer_email ?? tx.customer_email,
-          txRef,
-        ]
-      );
+      if (isSeatAddon) {
+        // Adding seats mid-cycle: bump the seat count only and preserve the
+        // existing renewal window, plan, and status.
+        await client.query(
+          `update public.subscriptions
+              set seats = seats + $2,
+                  provider_reference = $3,
+                  updated_at = now()
+            where id = $1`,
+          [subscriptionId, txSeats, txRef]
+        );
+      } else {
+        await client.query(
+          `update public.subscriptions
+              set plan_id = coalesce($2, plan_id),
+                  status = 'active',
+                  billing_interval = coalesce($3, billing_interval),
+                  current_period_start = now(),
+                  current_period_end = now() + make_interval(days => $4::int),
+                  seats = $7,
+                  cancel_at_period_end = false,
+                  cancelled_at = null,
+                  provider = 'paystack',
+                  provider_customer_email = coalesce($5, provider_customer_email),
+                  provider_reference = $6,
+                  updated_at = now()
+            where id = $1`,
+          [
+            subscriptionId,
+            tx.plan_id,
+            tx.billing_interval,
+            periodDays,
+            paystack.customer_email ?? tx.customer_email,
+            txRef,
+            txSeats,
+          ]
+        );
+      }
     } else {
+      // No live sub. (A seat-addon shouldn't reach here — the endpoint
+      // requires an active sub — but if it does, create one with the seats.)
       const ins = await client.query<{ id: string }>(
         `insert into public.subscriptions
            (organization_id, user_id, plan_id, status, billing_interval,
-            current_period_start, current_period_end,
+            current_period_start, current_period_end, seats,
             provider, provider_customer_email, provider_reference,
             created_at, updated_at)
          values ($1, $2, $3, 'active', $4,
-                 now(), now() + make_interval(days => $5::int),
+                 now(), now() + make_interval(days => $5::int), $8,
                  'paystack', $6, $7,
                  now(), now())
          returning id`,
@@ -241,6 +264,7 @@ export async function activateSubscriptionFromTx(
           periodDays,
           paystack.customer_email ?? tx.customer_email,
           txRef,
+          txSeats,
         ]
       );
       subscriptionId = ins.rows[0].id;
@@ -266,6 +290,20 @@ export async function activateSubscriptionFromTx(
     );
 
     await client.query('commit');
+
+    // Auto-invite the teammates captured at checkout. Runs post-commit (paid
+    // seats already persisted) and only on first activation (this branch is
+    // gated by tx.status !== 'successful'), so webhook + verify don't double
+    // send. Best-effort: never throws.
+    const inviteEmails = Array.isArray(tx.metadata?.invite_emails)
+      ? (tx.metadata.invite_emails as unknown[]).filter((e): e is string => typeof e === 'string')
+      : [];
+    if (inviteEmails.length > 0) {
+      await inviteEmailsForOrg(tx.organization_id, inviteEmails, tx.user_id).catch((err) =>
+        console.error('[activation] auto-invite failed', err instanceof Error ? err.message : err)
+      );
+    }
+
     return {
       status: 'activated',
       subscription_id: subscriptionId,

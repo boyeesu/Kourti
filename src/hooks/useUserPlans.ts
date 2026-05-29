@@ -13,8 +13,9 @@ export interface UserPlan {
   plan_type: 'free' | 'starter' | 'professional' | 'enterprise';
   features: string[];
   is_active: boolean;
-  price_monthly: number;
-  price_yearly: number;
+  // Null for plans with no fixed price (e.g. Enterprise — sold via contract).
+  price_monthly: number | null;
+  price_yearly: number | null;
   currency: string;
   created_at: string;
   updated_at: string;
