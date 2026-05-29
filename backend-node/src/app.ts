@@ -25,6 +25,7 @@ import { paystackWebhookRouter } from './routes/api/paystackWebhook.js';
 import { onboardingRouter } from './routes/api/onboarding.js';
 import { billingRouter } from './routes/api/billing.js';
 import { plansRouter } from './routes/api/plans.js';
+import { publicRouter } from './routes/api/public.js';
 import { calendarRouter } from './routes/api/calendar.js';
 import { organizationsRouter } from './routes/api/organizations.js';
 import { notificationsRouter } from './routes/api/notifications.js';
@@ -98,6 +99,9 @@ export function createApp() {
   app.use('/api/v1/auth', authRouter);
   // Files router handles its own auth (signed URLs are public, uploads need auth)
   app.use('/api/v1/files', filesRouter);
+  // Public marketing-site endpoints (live pricing + lead capture). No auth;
+  // rate-limited per IP. Marketing origin must be in CORS_ORIGINS.
+  app.use('/api/v1/public', publicRouter);
 
   // Ungated (always reachable so users can pay, manage org, see banner).
   app.use('/api/v1/admin', requireAuth, adminRouter);
