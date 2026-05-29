@@ -39,7 +39,7 @@ const PLAN_ORDER: Record<string, number> = {
 
 // Routes where the modal must NOT block — the user is already trying to fix
 // the billing problem (or hasn't finished onboarding yet).
-const ALLOWED_PATHS = ['/pricing', '/settings/billing', '/onboarding', '/login', '/logout'];
+const ALLOWED_PATHS = ['/pricing', '/settings', '/onboarding', '/login', '/logout'];
 
 function currencySymbol(currency: string) {
   if (currency === 'NGN') return '₦';
@@ -117,7 +117,7 @@ export function TrialExpiredModal() {
 
   function handleNext() {
     if (!selected) return;
-    navigate(`/settings/billing?plan=${selected.id}&cycle=${billing}`);
+    navigate(`/settings?tab=billing&plan=${selected.id}&cycle=${billing}`);
   }
 
   return (

@@ -50,7 +50,7 @@ export const ROUTES = {
   SETTINGS_PROFILE: '/settings/profile',
   SETTINGS_ORGANIZATION: '/settings/organization',
   SETTINGS_SECURITY: '/settings/security',
-  SETTINGS_BILLING: '/settings/billing',
+  SETTINGS_BILLING: '/settings?tab=billing',
 
   // Pricing (public)
   PRICING: '/pricing',

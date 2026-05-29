@@ -187,7 +187,7 @@ export default function Pricing() {
               const ctaHref = isEnterprise
                 ? 'mailto:sales@kourti.com?subject=Enterprise%20plan%20enquiry'
                 : user
-                  ? '/settings/billing'
+                  ? '/settings?tab=billing'
                   : '/login';
 
               const isExternal = ctaHref.startsWith('mailto:') || ctaHref.startsWith('http');
