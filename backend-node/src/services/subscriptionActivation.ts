@@ -11,6 +11,29 @@
 import { db } from '../db/pool.js';
 import type { PaystackVerifyResult } from './paystack.js';
 
+/**
+ * Drop Paystack's full raw payload before persisting. Verify can return
+ * log arrays, fee breakdowns, and customer history that grow the DB
+ * unbounded without buying us anything. Keep audit-relevant fields only.
+ */
+function slimRaw(p: PaystackVerifyResult): Record<string, unknown> {
+  return {
+    id: p.id,
+    reference: p.reference,
+    status: p.status,
+    amount: p.amount,
+    currency: p.currency,
+    customer_email: p.customer_email,
+    paid_at: p.paid_at,
+  };
+}
+
+/**
+ * 1 kobo / 1 cent of float-comparison slack when reconciling what we
+ * charged against what Paystack reports was paid.
+ */
+const AMOUNT_TOLERANCE_MAJOR = 0.01;
+
 interface PaymentTxRow {
   id: string;
   organization_id: string;
@@ -80,7 +103,7 @@ export async function activateSubscriptionFromTx(
               raw_response = coalesce(raw_response, $3::jsonb),
               updated_at = now()
         where id = $1`,
-      [tx.id, paystack.id ? String(paystack.id) : null, JSON.stringify(paystack.raw)]
+      [tx.id, paystack.id ? String(paystack.id) : null, JSON.stringify(slimRaw(paystack))]
     );
     return {
       status: 'already_processed',
@@ -99,13 +122,57 @@ export async function activateSubscriptionFromTx(
               raw_response = $4::jsonb,
               updated_at = now()
         where id = $1`,
-      [tx.id, newStatus, paystack.id ? String(paystack.id) : null, JSON.stringify(paystack.raw)]
+      [
+        tx.id,
+        newStatus,
+        paystack.id ? String(paystack.id) : null,
+        JSON.stringify(slimRaw(paystack)),
+      ]
     );
     return {
       status: isFailure ? 'failed' : 'pending',
       subscription_id: null,
       subscription_status: null,
       message: `Paystack status: ${paystack.status}`,
+    };
+  }
+
+  // Reconcile what Paystack says was paid against what we charged.
+  // Even with hosted checkout this guards against PSP-side discounts,
+  // partial captures, currency mis-config, and (worst case) a spoofed
+  // webhook that survived the HMAC check via a leaked secret. We charge
+  // in PAYSTACK_CURRENCY (NGN), so `tx.amount` / `tx.currency` are the
+  // ground truth — `display_*` columns are just for receipts.
+  const expectedAmount = Number(tx.amount);
+  const paidAmount = paystack.amount;
+  const amountOk =
+    Number.isFinite(paidAmount) &&
+    Number.isFinite(expectedAmount) &&
+    Math.abs(paidAmount - expectedAmount) <= AMOUNT_TOLERANCE_MAJOR;
+  const currencyOk = paystack.currency.toUpperCase() === tx.currency.toUpperCase();
+
+  if (!amountOk || !currencyOk) {
+     
+    console.warn('[paystack] activation refused — amount/currency mismatch', {
+      tx_ref: txRef,
+      expected: `${expectedAmount} ${tx.currency}`,
+      paid: `${paidAmount} ${paystack.currency}`,
+    });
+    await db.query(
+      `update public.payment_transactions
+          set status = 'failed',
+              ${stampField} = now(),
+              provider_tx_id = coalesce($2, provider_tx_id),
+              raw_response = $3::jsonb,
+              updated_at = now()
+        where id = $1`,
+      [tx.id, paystack.id ? String(paystack.id) : null, JSON.stringify(slimRaw(paystack))]
+    );
+    return {
+      status: 'failed',
+      subscription_id: null,
+      subscription_status: null,
+      message: 'Paid amount or currency did not match the expected charge.',
     };
   }
 
@@ -195,7 +262,7 @@ export async function activateSubscriptionFromTx(
         subscriptionId,
         paystack.id ? String(paystack.id) : null,
         paystack.customer_email,
-        JSON.stringify(paystack.raw),
+        JSON.stringify(slimRaw(paystack)),
       ]
     );
 

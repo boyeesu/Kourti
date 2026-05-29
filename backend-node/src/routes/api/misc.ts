@@ -10,7 +10,9 @@ import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
 import { isPlatformAdminUser, isOrgAdminOrSoleMember } from '../../services/authorization.js';
+import { getUsdNgnRate } from '../../services/fx.js';
 import {
   generateTxRef,
   initializeTransaction,
@@ -20,6 +22,49 @@ import {
 import { activateSubscriptionFromTx } from '../../services/subscriptionActivation.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
+
+/**
+ * Convert the plan's display price into what we'll actually charge
+ * through Paystack. Same-currency → no-op. USD → NGN: applies the live
+ * FX rate (cached, with env fallback) plus `USD_NGN_MARKUP_BPS` of
+ * buffer. Anything else throws — add an explicit conversion or change
+ * `PAYSTACK_CURRENCY` rather than silently mis-charging.
+ */
+async function convertForPaystack(planAmount: number, planCurrency: string) {
+  const display = planCurrency.toUpperCase();
+  const settle = env.PAYSTACK_CURRENCY.toUpperCase();
+
+  if (display === settle) {
+    return {
+      displayAmount: planAmount,
+      displayCurrency: display,
+      chargedAmount: Math.round(planAmount * 100) / 100,
+      chargedCurrency: settle,
+      fxRate: 1,
+      fxSource: 'identity' as const,
+    };
+  }
+
+  if (display === 'USD' && settle === 'NGN') {
+    const fx = await getUsdNgnRate();
+    const rateWithMarkup = fx.rate * (1 + env.USD_NGN_MARKUP_BPS / 10_000);
+    const charged = Math.round(planAmount * rateWithMarkup * 100) / 100;
+    return {
+      displayAmount: planAmount,
+      displayCurrency: 'USD',
+      chargedAmount: charged,
+      chargedCurrency: 'NGN',
+      fxRate: rateWithMarkup,
+      fxSource: fx.source as string,
+    };
+  }
+
+  throw new ApiError(
+    `No FX configured to convert ${display} → ${settle}.`,
+    501,
+    'FX_NOT_CONFIGURED'
+  );
+}
 
 export const miscRouter = Router();
 
@@ -627,6 +672,16 @@ miscRouter.post(
     const auth = req.auth!;
     const body = initiatePaymentSchema.parse(req.body);
 
+    // Bound abuse: a malicious authed user can otherwise spam this and
+    // both inflate payment_transactions rows and burn our Paystack
+    // per-key rate budget, blocking real checkouts.
+    const rate = checkRateLimit(`billing:initiate-payment:${auth.userId}`, 10, 60_000);
+    res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', String(rate.retryAfter));
+      throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
+    }
+
     if (!isPaystackConfigured()) {
       throw new ApiError(
         'Payments are not configured on this environment.',
@@ -663,15 +718,22 @@ miscRouter.post(
     }
 
     const priceRaw = body.billing_interval === 'yearly' ? plan.price_yearly : plan.price_monthly;
-    const amount = priceRaw == null ? null : Number(priceRaw);
-    if (!amount || amount <= 0 || !Number.isFinite(amount)) {
+    const planAmount = priceRaw == null ? null : Number(priceRaw);
+    if (!planAmount || planAmount <= 0 || !Number.isFinite(planAmount)) {
       throw new ApiError(
         `Plan has no ${body.billing_interval} price configured.`,
         400,
         'PLAN_PRICE_MISSING'
       );
     }
-    const currency = plan.currency ?? env.PAYSTACK_CURRENCY;
+    const planCurrency = plan.currency ?? 'USD';
+
+    // FX conversion: plans are priced in USD for display, but Paystack
+    // settles in NGN. `convertForPaystack` returns both legs so we can
+    // store the display USD price next to the charged NGN amount.
+    const conv = await convertForPaystack(planAmount, planCurrency);
+    const amount = conv.chargedAmount;
+    const currency = conv.chargedCurrency;
 
     const profRes = await db.query<{ email: string | null }>(
       `select email from public.profiles where user_id = $1 limit 1`,
@@ -697,10 +759,12 @@ miscRouter.post(
       `insert into public.payment_transactions
          (organization_id, user_id, plan_id, provider, tx_ref,
           amount, currency, status, payment_type, billing_interval,
-          customer_email, metadata)
+          customer_email, metadata,
+          display_amount, display_currency, fx_rate, fx_source)
        values ($1, $2, $3, 'paystack', $4,
                $5, $6, 'pending', 'subscription', $7,
-               $8, $9::jsonb)`,
+               $8, $9::jsonb,
+               $10, $11, $12, $13)`,
       [
         auth.organizationId,
         auth.userId,
@@ -715,6 +779,10 @@ miscRouter.post(
           billing_interval: body.billing_interval,
           initiated_via: 'pricing_page',
         }),
+        conv.displayAmount,
+        conv.displayCurrency,
+        conv.fxRate,
+        conv.fxSource,
       ]
     );
 
@@ -765,13 +833,24 @@ miscRouter.post(
     const auth = req.auth!;
     const body = verifyPaymentSchema.parse(req.body);
 
+    // Rate-limit the verify path too — it hits Paystack's API per call.
+    const rate = checkRateLimit(`billing:verify-payment:${auth.userId}`, 20, 60_000);
+    res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', String(rate.retryAfter));
+      throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
+    }
+
     // Only members of the org that started the tx may verify it.
+    // Important: do NOT distinguish "not found" from "belongs to another
+    // org" in the response — that distinction is a cross-tenant existence
+    // oracle that lets authed users enumerate other orgs' tx_refs.
     const ownRes = await db.query<{ organization_id: string; status: string }>(
       `select organization_id, status from public.payment_transactions where tx_ref = $1 limit 1`,
       [body.tx_ref]
     );
     const own = ownRes.rows[0];
-    if (!own) {
+    if (!own || own.organization_id !== auth.organizationId) {
       res.status(200).json({
         success: false,
         payment_status: 'unknown',
@@ -779,9 +858,6 @@ miscRouter.post(
         message: 'Transaction not found',
       });
       return;
-    }
-    if (own.organization_id !== auth.organizationId) {
-      throw new ApiError('Forbidden', 403, 'FORBIDDEN');
     }
 
     if (!isPaystackConfigured()) {
