@@ -9,9 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Check, Loader2, Sparkles } from 'lucide-react';
+import { Check, Loader2, Sparkles, Zap, Rocket, Building2, Leaf } from 'lucide-react';
 import { useUserPlans, useCurrentUserPlan, type UserPlan } from '@/hooks/useUserPlans';
 import { useCurrentSubscription, useInitiatePayment } from '@/hooks/useSubscription';
 import { useFxRate } from '@/hooks/useFxRate';
@@ -119,142 +117,233 @@ export function PlanSelector({
     return order.indexOf(a.plan_type) - order.indexOf(b.plan_type);
   });
 
+  const planIcon = (type: string) => {
+    switch (type) {
+      case 'free':
+        return Leaf;
+      case 'starter':
+        return Zap;
+      case 'professional':
+        return Rocket;
+      case 'enterprise':
+        return Building2;
+      default:
+        return Sparkles;
+    }
+  };
+
+  const isPopular = (type: string) => type === 'professional';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Choose a Plan</DialogTitle>
-          <DialogDescription>
-            Select the plan that best fits your team. You can upgrade or downgrade at any time.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-5xl gap-0 overflow-hidden p-0">
+        {/* Header */}
+        <div className="border-b bg-gradient-to-b from-muted/40 to-background px-6 pb-5 pt-6 sm:px-8">
+          <DialogHeader className="space-y-1.5 text-center sm:text-left">
+            <DialogTitle className="text-2xl font-semibold tracking-tight">
+              Choose a Plan
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Select the plan that best fits your team. Upgrade or downgrade at any time.
+            </DialogDescription>
+          </DialogHeader>
 
-        {/* Billing interval toggle */}
-        <div className="flex items-center justify-center gap-3 py-2">
-          <Label
-            htmlFor="billing-toggle"
-            className={!isYearly ? 'font-semibold' : 'text-muted-foreground'}
-          >
-            Monthly
-          </Label>
-          <Switch
-            id="billing-toggle"
-            checked={isYearly}
-            onCheckedChange={(checked) => setBillingInterval(checked ? 'yearly' : 'monthly')}
-          />
-          <Label
-            htmlFor="billing-toggle"
-            className={isYearly ? 'font-semibold' : 'text-muted-foreground'}
-          >
-            Yearly
-          </Label>
-          {isYearly && (
-            <Badge variant="secondary" className="ml-1">
-              <Sparkles className="mr-1 h-3 w-3" />
+          {/* Billing interval toggle — segmented control */}
+          <div className="mt-5 flex items-center justify-center gap-3">
+            <div
+              role="tablist"
+              aria-label="Billing interval"
+              className="inline-flex items-center rounded-full border bg-background p-1 shadow-sm"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!isYearly}
+                onClick={() => setBillingInterval('monthly')}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  !isYearly
+                    ? 'bg-primary text-primary-foreground shadow'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isYearly}
+                onClick={() => setBillingInterval('yearly')}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  isYearly
+                    ? 'bg-primary text-primary-foreground shadow'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Yearly
+              </button>
+            </div>
+            <Badge
+              variant="secondary"
+              className={`gap-1 transition-opacity ${isYearly ? 'opacity-100' : 'opacity-0'}`}
+            >
+              <Sparkles className="h-3 w-3" />
               Save ~17%
             </Badge>
-          )}
+          </div>
         </div>
 
         {/* Plans grid */}
-        {plansLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {sortedPlans.map((plan) => {
-              const price = isYearly ? plan.price_yearly : plan.price_monthly;
-              const currency = plan.currency || 'USD';
-              const isCurrent = isCurrentPlan(plan);
-              const isSubmitting = initiatePayment.isPending && selectedPlanId === plan.id;
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-6 sm:px-8">
+          {plansLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div
+              className={`grid gap-5 sm:grid-cols-2 ${
+                sortedPlans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
+              }`}
+            >
+              {sortedPlans.map((plan) => {
+                const price = isYearly ? plan.price_yearly : plan.price_monthly;
+                const currency = plan.currency || 'USD';
+                const isCurrent = isCurrentPlan(plan);
+                const isSubmitting = initiatePayment.isPending && selectedPlanId === plan.id;
+                const Icon = planIcon(plan.plan_type);
+                const popular = isPopular(plan.plan_type);
 
-              return (
-                <Card
-                  key={plan.id}
-                  className={`relative flex flex-col ${
-                    isCurrent
-                      ? 'border-primary ring-2 ring-primary/20'
-                      : selectedPlanId === plan.id
-                        ? 'border-primary ring-2 ring-primary/40'
-                        : 'hover:border-primary/50'
-                  }`}
-                >
-                  {isCurrent && (
-                    <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
-                      Current
-                    </Badge>
-                  )}
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">{plan.display_name || plan.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {plan.description || `The ${plan.plan_type} plan`}
-                    </p>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col justify-between gap-4">
-                    {/* Price */}
-                    <div>
-                      <p className="text-3xl font-bold">
-                        {price === 0 ? 'Free' : formatCurrency(price, currency)}
-                      </p>
-                      {price > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          per {isYearly ? 'year' : 'month'}
-                        </p>
-                      )}
-                      {/* FX preview: when settle currency is NGN and the plan
-                          is priced in USD, show the NGN figure Paystack will
-                          actually charge so users don't get surprised. */}
-                      {price > 0 &&
-                        currency.toUpperCase() === 'USD' &&
-                        fx &&
-                        fx.settle_currency === 'NGN' && (
-                          <p className="mt-1 text-xs font-medium text-primary">
-                            ≈ ₦{Math.round(price * fx.rate).toLocaleString()}{' '}
-                            {isYearly ? '/year' : '/month'}
-                          </p>
-                        )}
-                      {isYearly && plan.price_monthly > 0 && (
-                        <p className="mt-1 text-xs text-muted-foreground line-through">
-                          {formatCurrency(plan.price_monthly * 12, currency)}/year
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Features */}
-                    {plan.features.length > 0 && (
-                      <ul className="space-y-1.5">
-                        {plan.features.map((feature, idx) => (
-                          <li key={idx} className="flex items-start gap-2 text-sm text-foreground">
-                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
+                return (
+                  <Card
+                    key={plan.id}
+                    className={`relative flex flex-col overflow-hidden transition-all duration-200 ${
+                      isCurrent
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : popular
+                          ? 'border-primary/60 shadow-lg shadow-primary/10 lg:-translate-y-1'
+                          : 'hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md'
+                    }`}
+                  >
+                    {popular && !isCurrent && (
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/70 to-primary" />
+                    )}
+                    {isCurrent ? (
+                      <Badge className="absolute right-3 top-3 bg-primary/10 text-primary hover:bg-primary/10">
+                        Current
+                      </Badge>
+                    ) : (
+                      popular && (
+                        <Badge className="absolute right-3 top-3 gap-1 bg-primary text-primary-foreground">
+                          <Sparkles className="h-3 w-3" />
+                          Popular
+                        </Badge>
+                      )
                     )}
 
-                    {/* Action */}
-                    <Button
-                      className="mt-auto w-full"
-                      variant={isCurrent ? 'outline' : 'default'}
-                      disabled={isCurrent || isSubmitting || plan.plan_type === 'free'}
-                      onClick={() => handleSubscribe(plan)}
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Redirecting...
-                        </>
-                      ) : (
-                        getButtonLabel(plan)
+                    <CardHeader className="space-y-3 pb-3">
+                      <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                          popular
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-foreground'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <CardTitle className="text-base font-semibold">
+                          {plan.display_name || plan.name}
+                        </CardTitle>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {plan.description || `The ${plan.plan_type} plan`}
+                        </p>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="flex flex-1 flex-col justify-between gap-5">
+                      {/* Price */}
+                      <div className="space-y-1">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-bold tracking-tight">
+                            {price === 0 ? 'Free' : formatCurrency(price, currency)}
+                          </span>
+                          {price > 0 && (
+                            <span className="text-sm text-muted-foreground">
+                              /{isYearly ? 'yr' : 'mo'}
+                            </span>
+                          )}
+                        </div>
+                        {price > 0 &&
+                          currency.toUpperCase() === 'USD' &&
+                          fx &&
+                          fx.settle_currency === 'NGN' && (
+                            <p className="text-xs font-medium text-primary">
+                              ≈ ₦{Math.round(price * fx.rate).toLocaleString()}{' '}
+                              {isYearly ? '/year' : '/month'}
+                            </p>
+                          )}
+                        {isYearly && plan.price_monthly > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            <span className="line-through">
+                              {formatCurrency(plan.price_monthly * 12, currency)}
+                            </span>{' '}
+                            billed yearly
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action — placed above features so CTA is in primary scan path */}
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        variant={isCurrent ? 'outline' : popular ? 'default' : 'secondary'}
+                        disabled={isCurrent || isSubmitting || plan.plan_type === 'free'}
+                        onClick={() => handleSubscribe(plan)}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Redirecting…
+                          </>
+                        ) : (
+                          getButtonLabel(plan)
+                        )}
+                      </Button>
+
+                      {/* Features */}
+                      {plan.features.length > 0 && (
+                        <ul className="space-y-2 border-t pt-4">
+                          {plan.features.map((feature, idx) => (
+                            <li
+                              key={idx}
+                              className="flex items-start gap-2 text-sm text-foreground"
+                            >
+                              <span
+                                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
+                                  popular ? 'bg-primary/15' : 'bg-muted'
+                                }`}
+                              >
+                                <Check
+                                  className={`h-3 w-3 ${
+                                    popular ? 'text-primary' : 'text-foreground'
+                                  }`}
+                                />
+                              </span>
+                              <span className="leading-snug">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            All plans include secure data storage and product updates. Taxes may apply.
+          </p>
+        </div>
       </DialogContent>
     </Dialog>
   );
