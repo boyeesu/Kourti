@@ -107,6 +107,7 @@ type DocumentRow = {
   file_path: string | null;
   file_size: number | null;
   mime_type: string | null;
+  storage_status: 'present' | 'missing';
   client_id: string | null;
   organization_id: string;
   created_by: string;
@@ -138,6 +139,7 @@ function mapDocumentRow(row: DocumentRow) {
     file_size: row.file_size,
     file_type: row.file_path?.split('.').pop() || null,
     mime_type: row.mime_type,
+    storage_status: row.storage_status,
     client_id: row.client_id,
     organization_id: row.organization_id,
     created_by: row.created_by,
@@ -184,6 +186,7 @@ function getDocumentsSelectSql() {
       d.file_path,
       d.file_size,
       d.mime_type,
+      d.storage_status,
       d.client_id,
       d.organization_id,
       d.created_by,

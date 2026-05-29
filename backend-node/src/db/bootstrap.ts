@@ -393,6 +393,15 @@ const bootstrapStatements = [
   `alter table public.documents add column if not exists terms text`,
   `alter table public.documents add column if not exists metadata jsonb`,
   `alter table public.documents add column if not exists file_size bigint`,
+
+  // Storage status. 'present' (default) means file_path is expected to
+  // resolve in the active storage driver. 'missing' is for legacy rows
+  // whose bytes were never persisted (pre-Garage, ephemeral container
+  // filesystem). UI reads this to render "file unavailable — please
+  // re-upload" instead of a generic 404 on download.
+  `alter table public.documents add column if not exists storage_status text not null default 'present'`,
+  `alter table public.document_versions add column if not exists storage_status text not null default 'present'`,
+  `create index if not exists idx_documents_storage_status on public.documents(storage_status) where storage_status <> 'present'`,
   `create index if not exists idx_conversations_org on public.conversations(organization_id)`,
   `create index if not exists idx_participants_user on public.conversation_participants(user_id)`,
   `create index if not exists idx_messages_conversation_created on public.messages(conversation_id, created_at)`,

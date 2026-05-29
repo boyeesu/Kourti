@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '../../db/pool.js';
 import { asyncHandler } from '../../lib/http.js';
 import { requirePlatformAdminUser } from '../../services/authorization.js';
+import { fileExists } from '../../services/storage.js';
 
 const adminActionQuerySchema = z.object({
   admin_user_id: z.string().uuid().optional(),
@@ -359,5 +360,126 @@ adminRouter.get(
     );
 
     res.status(200).json(result.rows);
+  })
+);
+
+// ── Storage health: detect and mark missing files ───────────────────────────
+
+const storageScanBody = z.object({
+  apply: z.boolean().optional().default(false),
+  limit: z.coerce.number().int().positive().max(5000).optional().default(2000),
+});
+
+/**
+ * Scan documents and document_versions for rows whose bytes are no longer
+ * resolvable in the active storage driver, and mark them as 'missing' so
+ * the UI can render a "file unavailable — please re-upload" state instead
+ * of a generic 404.
+ *
+ * Default is dry-run; pass `apply: true` to flip rows. Only checks rows
+ * currently marked 'present' so reruns are cheap.
+ *
+ * Background: before STORAGE_DRIVER=s3 landed, the backend wrote files to
+ * /app/storage on a container with no volume mounted. Bytes vanished on
+ * every redeploy while the DB rows survived. After the Garage cutover,
+ * those rows still 404; this endpoint surfaces which ones.
+ */
+adminRouter.post(
+  '/storage/scan',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    await requirePlatformAdminUser(auth.userId);
+
+    const { apply, limit } = storageScanBody.parse(req.body ?? {});
+
+    const docs = await db.query<{ id: string; file_path: string }>(
+      `select id, file_path
+         from public.documents
+        where storage_status = 'present'
+          and file_path is not null
+          and file_path <> ''
+        order by created_at asc
+        limit $1`,
+      [limit]
+    );
+
+    const versions = await db.query<{ id: string; storage_path: string }>(
+      `select id, storage_path
+         from public.document_versions
+        where storage_status = 'present'
+          and storage_path is not null
+          and storage_path <> ''
+        order by created_at asc
+        limit $1`,
+      [limit]
+    );
+
+    const missingDocIds: string[] = [];
+    const missingVersionIds: string[] = [];
+
+    // Limited concurrency: HEAD is cheap but Garage isn't infinitely
+    // fast and we don't want to thrash on a runaway dataset.
+    const CONCURRENCY = 12;
+    async function checkBatch<T extends { id: string; path: string }>(
+      items: T[],
+      onMissing: (id: string) => void
+    ) {
+      let i = 0;
+      const workers = Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+        while (i < items.length) {
+          const it = items[i++];
+          try {
+            const ok = await fileExists('documents', it.path);
+            if (!ok) onMissing(it.id);
+          } catch (err) {
+            // Treat path-validation failures (traversal etc.) as missing
+            // for purposes of the audit — they aren't downloadable anyway.
+            if (err instanceof Error && /Invalid file path/.test(err.message)) {
+              onMissing(it.id);
+            } else {
+              throw err;
+            }
+          }
+        }
+      });
+      await Promise.all(workers);
+    }
+
+    await checkBatch(
+      docs.rows.map((r) => ({ id: r.id, path: r.file_path })),
+      (id) => missingDocIds.push(id)
+    );
+    await checkBatch(
+      versions.rows.map((r) => ({ id: r.id, path: r.storage_path })),
+      (id) => missingVersionIds.push(id)
+    );
+
+    if (apply && (missingDocIds.length || missingVersionIds.length)) {
+      if (missingDocIds.length) {
+        await db.query(
+          `update public.documents set storage_status = 'missing', updated_at = now()
+            where id = any($1::uuid[])`,
+          [missingDocIds]
+        );
+      }
+      if (missingVersionIds.length) {
+        await db.query(
+          `update public.document_versions set storage_status = 'missing'
+            where id = any($1::uuid[])`,
+          [missingVersionIds]
+        );
+      }
+    }
+
+    res.status(200).json({
+      mode: apply ? 'applied' : 'dry_run',
+      scanned: { documents: docs.rows.length, versions: versions.rows.length },
+      missing: {
+        documents: missingDocIds.length,
+        versions: missingVersionIds.length,
+        document_ids: missingDocIds.slice(0, 50),
+        version_ids: missingVersionIds.slice(0, 50),
+      },
+    });
   })
 );
