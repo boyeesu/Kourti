@@ -102,7 +102,7 @@ function formatAmount(amount: number, currency: string) {
 function cleanPlans(plans: PricingPlan[]): PricingPlan[] {
   const byType = new Map<string, PricingPlan>();
   for (const p of plans) {
-    if (!p?.plan_type) continue;
+    if (!p?.plan_type || p.plan_type === 'free') continue;
     const current = byType.get(p.plan_type);
     if (!current || (p.features?.length ?? 0) > (current.features?.length ?? 0)) {
       byType.set(p.plan_type, p);
