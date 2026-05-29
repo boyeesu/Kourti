@@ -92,7 +92,7 @@ export async function initializeTransaction(args: InitializeArgs): Promise<Initi
   if (!res.ok || !json?.status || !json.data?.authorization_url) {
     // Keep Paystack's message in logs (it can include account hints we
     // don't want exposed); surface a generic one to callers.
-     
+
     console.warn('[paystack] initialize failed', {
       status: res.status,
       message: json?.message,
@@ -138,7 +138,6 @@ export async function verifyTransaction(reference: string): Promise<PaystackVeri
   } | null;
 
   if (!res.ok || !json?.status || !json.data) {
-     
     console.warn('[paystack] verify failed', {
       status: res.status,
       message: json?.message,

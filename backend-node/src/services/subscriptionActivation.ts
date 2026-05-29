@@ -152,7 +152,6 @@ export async function activateSubscriptionFromTx(
   const currencyOk = paystack.currency.toUpperCase() === tx.currency.toUpperCase();
 
   if (!amountOk || !currencyOk) {
-     
     console.warn('[paystack] activation refused — amount/currency mismatch', {
       tx_ref: txRef,
       expected: `${expectedAmount} ${tx.currency}`,
