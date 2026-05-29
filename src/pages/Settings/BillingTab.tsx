@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,17 @@ export default function BillingTab() {
   const manageSubscription = useManageSubscription();
 
   const [planSelectorOpen, setPlanSelectorOpen] = useState(false);
+
+  // auto-open PlanSelector when redirected with ?plan=… (e.g. from
+  // the TrialExpiredModal). One-shot per navigation so we don't fight
+  // the user closing it.
+  const [searchParams] = useSearchParams();
+  const autoOpenPlan = searchParams.get('plan');
+  const [autoOpenedFor, setAutoOpenedFor] = useState<string | null>(null);
+  if (autoOpenPlan && autoOpenedFor !== autoOpenPlan && !planSelectorOpen) {
+    setAutoOpenedFor(autoOpenPlan);
+    setPlanSelectorOpen(true);
+  }
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   const isLoading = subLoading || planLoading;

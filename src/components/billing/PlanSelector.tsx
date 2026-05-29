@@ -55,8 +55,13 @@ export function PlanSelector({ open, onOpenChange }: PlanSelectorProps) {
         redirect_url: `${window.location.origin}/billing/callback`,
       });
 
-      // Redirect the user to the Flutterwave payment page
-      window.location.href = result.payment_link;
+      // Redirect the user to the Paystack hosted checkout page.
+      // Accept either key — backend returns both for compat.
+      const checkoutUrl =
+        (result as { authorization_url?: string; payment_link?: string }).authorization_url ??
+        (result as { authorization_url?: string; payment_link?: string }).payment_link;
+      if (!checkoutUrl) throw new Error('No checkout URL returned');
+      window.location.href = checkoutUrl;
     } catch {
       // Error toast is shown by the mutation's onError callback
       setSelectedPlanId(null);
