@@ -90,6 +90,13 @@ export default function Documents() {
 
   const handleDownload = async (doc: Document) => {
     if (!doc.file_path) return;
+    if (doc.storage_status === 'missing') {
+      toast.error('File unavailable', {
+        description:
+          'This document was uploaded before persistent storage was enabled. Please re-upload the original file.',
+      });
+      return;
+    }
 
     try {
       try {
@@ -282,6 +289,15 @@ export default function Documents() {
                       <div className="font-medium truncate" title={doc.title || doc.name}>
                         {doc.title || doc.name}
                       </div>
+                      {doc.storage_status === 'missing' && (
+                        <Badge
+                          variant="destructive"
+                          className="shrink-0 text-[10px]"
+                          title="The file bytes for this document were lost in a prior storage migration. Please re-upload."
+                        >
+                          Unavailable
+                        </Badge>
+                      )}
                     </div>
                   ),
                 },

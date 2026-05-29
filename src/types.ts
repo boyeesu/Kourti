@@ -168,6 +168,13 @@ export interface Document {
   terms?: string;
   file_type?: string;
   file_size?: number;
+  /**
+   * 'present' means the file is downloadable. 'missing' means the row's
+   * bytes were lost before the Garage S3 cutover (legacy filesystem
+   * driver had no persistent volume). UI surfaces this as
+   * "unavailable — please re-upload" instead of letting the download 404.
+   */
+  storage_status?: 'present' | 'missing';
   created_at: string;
   updated_at: string;
   created_by: string;
