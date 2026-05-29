@@ -22,6 +22,7 @@ import { invoicesRouter } from './routes/api/invoices.js';
 import { miscRouter } from './routes/api/misc.js';
 import { onboardingRouter } from './routes/api/onboarding.js';
 import { billingRouter } from './routes/api/billing.js';
+import { plansRouter } from './routes/api/plans.js';
 import { calendarRouter } from './routes/api/calendar.js';
 import { organizationsRouter } from './routes/api/organizations.js';
 import { notificationsRouter } from './routes/api/notifications.js';
@@ -97,6 +98,7 @@ export function createApp() {
   app.use('/api/v1/misc', requireAuth, miscRouter);
   app.use('/api/v1/onboarding', requireAuth, onboardingRouter);
   app.use('/api/v1/billing', requireAuth, billingRouter);
+  app.use('/api/v1/plans', requireAuth, plansRouter);
   app.use('/api/v1/notifications', requireAuth, notificationsRouter);
   app.use('/api/v1/invitations', requireAuth, invitationsRouter);
   app.use('/api/v1/profiles', requireAuth, profilesRouter);
