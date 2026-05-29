@@ -192,24 +192,40 @@ adminRouter.put(
   '/plans/prices',
   asyncHandler(async (req, res) => {
     await requirePlatformAdminUser(req.auth!.userId);
+
+    // The admin dashboard saves all rows at once: { updates: [{ planId, ... }] }.
     const body = z
       .object({
-        planId: z.string().regex(/^[0-9a-fA-F-]{36}$/),
-        price_monthly: z.number().optional(),
-        price_yearly: z.number().optional(),
+        updates: z
+          .array(
+            z.object({
+              planId: z.string().regex(/^[0-9a-fA-F-]{36}$/),
+              price_monthly: z.number().min(0).max(99_999_999).nullish(),
+              price_yearly: z.number().min(0).max(99_999_999).nullish(),
+              currency: z
+                .string()
+                .regex(/^[A-Z]{3}$/, 'Currency must be a 3-letter ISO code')
+                .optional(),
+            })
+          )
+          .min(1)
+          .max(50),
       })
       .parse(req.body);
 
-    await db.query(
-      `UPDATE public.user_plans SET
-         price_monthly = COALESCE($1, price_monthly),
-         price_yearly = COALESCE($2, price_yearly),
-         updated_at = now()
-       WHERE id = $3`,
-      [body.price_monthly, body.price_yearly, body.planId]
-    );
+    for (const u of body.updates) {
+      await db.query(
+        `UPDATE public.user_plans SET
+           price_monthly = COALESCE($1, price_monthly),
+           price_yearly  = COALESCE($2, price_yearly),
+           currency      = COALESCE($3, currency),
+           updated_at    = now()
+         WHERE id = $4`,
+        [u.price_monthly ?? null, u.price_yearly ?? null, u.currency ?? null, u.planId]
+      );
+    }
 
-    res.status(200).json({ ok: true });
+    res.status(200).json({ ok: true, updated: body.updates.length });
   })
 );
 
