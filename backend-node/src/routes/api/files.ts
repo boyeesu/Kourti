@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 
+import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { requireAuth } from '../../middleware/auth.js';
 import {
@@ -10,7 +11,32 @@ import {
   deleteFile,
   createSignedUrl,
   verifySignedUrl,
+  StorageIntegrityError,
 } from '../../services/storage.js';
+
+/**
+ * Look up the expected SHA-256 for a stored file_path in the documents
+ * table. Returns undefined when:
+ *   - the row predates the sha256 column (legacy upload, no expectation
+ *     to enforce)
+ *   - the path lives in a non-documents bucket (chat, etc.) — those
+ *     don't currently persist their hash and are read unverified
+ *
+ * Errors are swallowed: integrity verification is best-effort, never a
+ * reason to block an otherwise-valid download.
+ */
+async function lookupExpectedSha256(bucket: string, filePath: string): Promise<string | undefined> {
+  if (bucket !== 'documents') return undefined;
+  try {
+    const res = await db.query<{ sha256: string | null }>(
+      `select sha256 from public.documents where file_path = $1 limit 1`,
+      [filePath]
+    );
+    return res.rows[0]?.sha256 ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // MIME allowlist. Anything not on this list is rejected at upload time
 // rather than risk it being served back via a signed URL where the
@@ -84,6 +110,7 @@ filesRouter.post(
       fileName: file.originalname,
       size: result.size,
       mimeType: file.mimetype,
+      sha256: result.sha256,
     });
   })
 );
@@ -111,6 +138,7 @@ filesRouter.post(
       fileName: file.originalname,
       size: result.size,
       mimeType: file.mimetype,
+      sha256: result.sha256,
     });
   })
 );
@@ -133,13 +161,27 @@ filesRouter.get(
     }
 
     try {
-      const { data, contentType } = await downloadFile('documents', filePath);
+      const expectedSha256 = await lookupExpectedSha256('documents', filePath);
+      const { data, contentType } = await downloadFile('documents', filePath, {
+        expectedSha256,
+      });
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Length', data.length);
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Content-Disposition', safeDisposition(contentType));
       res.send(data);
     } catch (err) {
+      if (err instanceof StorageIntegrityError) {
+        // Hard signal — bytes on disk don't match what we recorded at
+        // upload. Refuse to serve, page someone.
+         
+        console.error('[storage-integrity]', err.message);
+        throw new ApiError(
+          'File failed integrity check and is unavailable.',
+          500,
+          'STORAGE_INTEGRITY_FAILED'
+        );
+      }
       const msg = err instanceof Error ? err.message : '';
       if (msg.startsWith('File not found')) {
         throw new ApiError('Document not found', 404, 'NOT_FOUND');
@@ -212,13 +254,29 @@ filesRouter.get(
       throw new ApiError('Expired or invalid signed URL', 403, 'FORBIDDEN');
     }
 
-    const { data, contentType } = await downloadFile(bucket, filePath);
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Length', data.length);
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Disposition', safeDisposition(contentType));
-    res.setHeader('Cache-Control', 'private, max-age=3600');
-    res.send(data);
+    try {
+      const expectedSha256 = await lookupExpectedSha256(bucket, filePath);
+      const { data, contentType } = await downloadFile(bucket, filePath, {
+        expectedSha256,
+      });
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', data.length);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Disposition', safeDisposition(contentType));
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      res.send(data);
+    } catch (err) {
+      if (err instanceof StorageIntegrityError) {
+         
+        console.error('[storage-integrity]', err.message);
+        throw new ApiError(
+          'File failed integrity check and is unavailable.',
+          500,
+          'STORAGE_INTEGRITY_FAILED'
+        );
+      }
+      throw err;
+    }
   })
 );
 

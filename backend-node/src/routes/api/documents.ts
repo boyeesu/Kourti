@@ -40,6 +40,12 @@ const createDocumentBodySchema = z.object({
   file_path: z.string().optional(),
   file_size: z.number().int().nonnegative().optional(),
   mime_type: z.string().optional(),
+  // SHA-256 of the uploaded bytes, captured by POST /files/documents/upload
+  // and forwarded so we can verify integrity on every later read.
+  sha256: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i)
+    .optional(),
   client_id: z.string().uuid().optional(),
 });
 
@@ -335,12 +341,13 @@ documentsRouter.post(
         file_path,
         file_size,
         mime_type,
+        sha256,
         client_id,
         organization_id,
         created_by
       )
       values (
-        $1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+        $1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
       )
       returning
         id,
@@ -384,6 +391,7 @@ documentsRouter.post(
         body.file_path || null,
         body.file_size || null,
         body.mime_type || null,
+        body.sha256 || null,
         body.client_id || null,
         auth.organizationId,
         auth.userId,

@@ -410,6 +410,14 @@ const bootstrapStatements = [
   `alter table public.documents add column if not exists metadata jsonb`,
   `alter table public.documents add column if not exists file_size bigint`,
 
+  // SHA-256 of the stored bytes, captured at upload time. Used as a
+  // tripwire on download — if the object we read back hashes to something
+  // else, the bytes have been corrupted in storage or tampered with
+  // out-of-band, and the read is refused. Hex string, 64 chars, NULL on
+  // legacy rows that pre-date this column.
+  `alter table public.documents add column if not exists sha256 text`,
+  `alter table public.document_versions add column if not exists sha256 text`,
+
   // Storage status. 'present' (default) means file_path is expected to
   // resolve in the active storage driver. 'missing' is for legacy rows
   // whose bytes were never persisted (pre-Garage S3 cutover the backend

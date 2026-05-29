@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Document } from '@/types';
 import { logError } from '@/lib/logger';
 import { invokeNodeApi } from '@/lib/backendApi';
+import { uploadDocument as uploadDocumentBytes } from '@/lib/fileApi';
 
 /** JSON-compatible value */
 type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -22,6 +23,7 @@ export interface CreateDocumentData {
   file_path?: string;
   file_size?: number;
   mime_type?: string;
+  sha256?: string;
 }
 
 export interface UploadDocumentData {
@@ -146,10 +148,19 @@ export function useUploadDocument() {
         throw new Error(validation.error || 'File validation failed');
       }
 
+      // Push the bytes to storage first so the documents row carries an
+      // actual file_path (and the sha256 we'll verify on every read).
+      // Prior versions of this hook skipped the upload entirely, which
+      // is why every legacy document row in production references a
+      // path that never had bytes behind it.
+      const uploaded = await uploadDocumentBytes(file);
+
       // Build document data for the Node backend
       const documentData = {
         name,
         content: '',
+        file_path: uploaded.filePath,
+        sha256: uploaded.sha256,
         file_size: file.size,
         mime_type: file.type,
         ...(summary ? { summary } : {}),
