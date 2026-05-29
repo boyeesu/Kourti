@@ -152,7 +152,8 @@ const assessmentSchema = z.object({
   tier: z.string().trim().min(1).max(100),
   totalScore: z.number().int().min(0).max(10_000),
   maxScore: z.number().int().min(1).max(10_000),
-  answers: z.record(z.string(), z.string()).optional(),
+  // Answers are score values (numbers) but accept strings too for resilience.
+  answers: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
   dimensionScores: z.record(z.string(), z.number()),
 });
 
