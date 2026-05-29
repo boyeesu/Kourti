@@ -27,6 +27,8 @@ const LIST_ID_TRIAL_ACTIVE = parseListId(process.env.BREVO_LIST_ID_TRIAL_ACTIVE)
 const LIST_ID_TRIAL_EXPIRED = parseListId(process.env.BREVO_LIST_ID_TRIAL_EXPIRED);
 const LIST_ID_PAID = parseListId(process.env.BREVO_LIST_ID_PAID);
 const LIST_ID_PAST_DUE = parseListId(process.env.BREVO_LIST_ID_PAST_DUE);
+// Marketing-site leads (contact form / maturity assessment) — pre-signup.
+const LIST_ID_LEADS = parseListId(process.env.BREVO_LIST_ID_LEADS);
 
 function parseListId(raw: string | undefined): number | null {
   if (!raw) return null;
@@ -226,6 +228,31 @@ export function brevoSyncCancelled(email: string): Promise<void> {
     email,
     { SUB_STATUS: 'cancelled' },
     { unlinkListIds: allLifecycleLists() }
+  );
+}
+
+/**
+ * Marketing-site lead (contact form / maturity assessment) — captured before
+ * any signup. No PLAN/SUB_STATUS (they aren't a customer yet); just identity +
+ * firm so sales can follow up and marketing can segment. Added to the leads
+ * list when configured. Fire-and-forget like the rest — never block the form.
+ */
+export function brevoSyncMarketingLead(
+  email: string,
+  metadata: {
+    firstName?: string | null;
+    lastName?: string | null;
+    firmName?: string | null;
+  } = {}
+): Promise<void> {
+  return brevoUpsertContact(
+    email,
+    {
+      FIRSTNAME: metadata.firstName ?? null,
+      LASTNAME: metadata.lastName ?? null,
+      FIRM_NAME: metadata.firmName ?? null,
+    },
+    { listIds: LIST_ID_LEADS ? [LIST_ID_LEADS] : [] }
   );
 }
 
