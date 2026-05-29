@@ -368,6 +368,16 @@ const bootstrapStatements = [
   `alter table public.profiles add column if not exists department text`,
   `alter table public.profiles add column if not exists must_change_password boolean default false`,
   `alter table public.profiles add column if not exists password_reset_required boolean default false`,
+
+  // Lifecycle columns the platform-admin approve/disable/delete endpoints
+  // write to (see backend-node/src/routes/api/admin.ts). Without these the
+  // updates fail with "column does not exist" and the endpoints 500.
+  `alter table public.profiles add column if not exists status text not null default 'active'`,
+  `alter table public.profiles add column if not exists approved_at timestamptz`,
+  `alter table public.profiles add column if not exists approved_by uuid`,
+  `alter table public.profiles add column if not exists disabled_at timestamptz`,
+  `alter table public.profiles add column if not exists disabled_by uuid`,
+  `alter table public.profiles add column if not exists disabled_reason text`,
   `alter table public.contracts add column if not exists content text`,
   `alter table public.contracts add column if not exists metadata jsonb`,
   `alter table public.cases add column if not exists custom_fields jsonb`,
