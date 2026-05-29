@@ -16,17 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  CreditCard,
-  DollarSign,
-  Search,
-  RefreshCw,
-  Save,
-  CheckCircle2,
-  AlertCircle,
-  TrendingUp,
-  Users,
-} from 'lucide-react';
+import { CreditCard, DollarSign, Search, Save, TrendingUp, Users } from 'lucide-react';
 import { format } from 'date-fns';
 
 // ---------- Types ----------
@@ -38,7 +28,7 @@ interface Subscription {
   plan_id: string;
   status: 'active' | 'cancelled' | 'paused' | 'past_due' | 'trialing';
   billing_interval: 'monthly' | 'yearly';
-  flutterwave_customer_email: string;
+  provider_customer_email: string;
   current_period_start: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
@@ -60,8 +50,6 @@ interface PlanPricing {
   price_monthly: number | null;
   price_yearly: number | null;
   currency: string;
-  flutterwave_plan_id_monthly: string | null;
-  flutterwave_plan_id_yearly: string | null;
   is_active: boolean;
 }
 
@@ -157,27 +145,6 @@ function useSavePrices() {
   });
 }
 
-function useSyncFlutterwave() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async () => {
-      return await invokeNodeApi('/api/v1/admin/plans/sync-flutterwave', {
-        method: 'POST',
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-plan-pricing'] });
-      toast.success('Success', { description: 'Plans synced with Flutterwave successfully' });
-    },
-    onError: (error) => {
-      toast.error('Sync Failed', {
-        description: error instanceof Error ? error.message : 'Failed to sync with Flutterwave',
-      });
-    },
-  });
-}
-
 // ---------- Helpers ----------
 
 function getSubscriptionStatusBadge(status: string) {
@@ -208,7 +175,6 @@ export function SubscriptionManagement() {
   const { data: subscriptions = [], isLoading: subsLoading } = useSubscriptions();
   const { data: plans = [], isLoading: plansLoading } = usePlanPricing();
   const savePrices = useSavePrices();
-  const syncFlutterwave = useSyncFlutterwave();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -236,7 +202,7 @@ export function SubscriptionManagement() {
   const filteredSubscriptions = subscriptions.filter((sub) => {
     const matchesSearch =
       !searchQuery ||
-      sub.flutterwave_customer_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sub.provider_customer_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       sub.organization_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       sub.plan_display_name?.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -446,7 +412,7 @@ export function SubscriptionManagement() {
                     return (
                       <TableRow key={sub.id}>
                         <TableCell className="font-medium">{sub.organization_name}</TableCell>
-                        <TableCell>{sub.flutterwave_customer_email}</TableCell>
+                        <TableCell>{sub.provider_customer_email}</TableCell>
                         <TableCell>{sub.plan_display_name}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
@@ -486,20 +452,9 @@ export function SubscriptionManagement() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Plan Pricing Management</CardTitle>
-              <CardDescription>Update plan prices and sync with Flutterwave</CardDescription>
+              <CardDescription>Update plan prices charged at checkout</CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => syncFlutterwave.mutate()}
-                disabled={syncFlutterwave.isPending}
-              >
-                <RefreshCw
-                  className={`h-4 w-4 mr-2 ${syncFlutterwave.isPending ? 'animate-spin' : ''}`}
-                />
-                Sync to Flutterwave
-              </Button>
               <Button
                 size="sm"
                 onClick={handleSavePrices}
@@ -531,15 +486,10 @@ export function SubscriptionManagement() {
                     <TableHead>Monthly Price</TableHead>
                     <TableHead>Yearly Price</TableHead>
                     <TableHead>Currency</TableHead>
-                    <TableHead>Flutterwave IDs</TableHead>
-                    <TableHead>Sync Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {plans.map((plan) => {
-                    const hasFwMonthly = !!plan.flutterwave_plan_id_monthly;
-                    const hasFwYearly = !!plan.flutterwave_plan_id_yearly;
-                    const isSynced = hasFwMonthly || hasFwYearly;
                     const monthlyVal = getEditedValue(plan, 'price_monthly');
                     const yearlyVal = getEditedValue(plan, 'price_yearly');
                     const currencyVal = getEditedValue(plan, 'currency');
@@ -584,32 +534,6 @@ export function SubscriptionManagement() {
                             value={currencyVal ?? ''}
                             onChange={(e) => handlePriceChange(plan.id, 'currency', e.target.value)}
                           />
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[200px]">
-                          <div className="space-y-1">
-                            <div
-                              className="truncate"
-                              title={plan.flutterwave_plan_id_monthly || ''}
-                            >
-                              M: {plan.flutterwave_plan_id_monthly || '--'}
-                            </div>
-                            <div className="truncate" title={plan.flutterwave_plan_id_yearly || ''}>
-                              Y: {plan.flutterwave_plan_id_yearly || '--'}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {isSynced ? (
-                            <Badge variant="default" className="gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Synced
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="gap-1">
-                              <AlertCircle className="h-3 w-3" />
-                              Not Synced
-                            </Badge>
-                          )}
                         </TableCell>
                       </TableRow>
                     );

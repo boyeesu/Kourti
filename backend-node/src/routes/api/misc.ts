@@ -7,11 +7,64 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
+import { env } from '../../config/env.js';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
-import { isPlatformAdminUser } from '../../services/authorization.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
+import { isPlatformAdminUser, isOrgAdminOrSoleMember } from '../../services/authorization.js';
+import { getUsdNgnRate } from '../../services/fx.js';
+import {
+  generateTxRef,
+  initializeTransaction,
+  isPaystackConfigured,
+  verifyTransaction,
+} from '../../services/paystack.js';
+import { activateSubscriptionFromTx } from '../../services/subscriptionActivation.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
+
+/**
+ * Convert the plan's display price into what we'll actually charge
+ * through Paystack. Same-currency → no-op. USD → NGN: applies the live
+ * FX rate (cached, with env fallback) plus `USD_NGN_MARKUP_BPS` of
+ * buffer. Anything else throws — add an explicit conversion or change
+ * `PAYSTACK_CURRENCY` rather than silently mis-charging.
+ */
+async function convertForPaystack(planAmount: number, planCurrency: string) {
+  const display = planCurrency.toUpperCase();
+  const settle = env.PAYSTACK_CURRENCY.toUpperCase();
+
+  if (display === settle) {
+    return {
+      displayAmount: planAmount,
+      displayCurrency: display,
+      chargedAmount: Math.round(planAmount * 100) / 100,
+      chargedCurrency: settle,
+      fxRate: 1,
+      fxSource: 'identity' as const,
+    };
+  }
+
+  if (display === 'USD' && settle === 'NGN') {
+    const fx = await getUsdNgnRate();
+    const rateWithMarkup = fx.rate * (1 + env.USD_NGN_MARKUP_BPS / 10_000);
+    const charged = Math.round(planAmount * rateWithMarkup * 100) / 100;
+    return {
+      displayAmount: planAmount,
+      displayCurrency: 'USD',
+      chargedAmount: charged,
+      chargedCurrency: 'NGN',
+      fxRate: rateWithMarkup,
+      fxSource: fx.source as string,
+    };
+  }
+
+  throw new ApiError(
+    `No FX configured to convert ${display} → ${settle}.`,
+    501,
+    'FX_NOT_CONFIGURED'
+  );
+}
 
 export const miscRouter = Router();
 
@@ -517,12 +570,386 @@ miscRouter.get(
 
     const result = await db
       .query(
-        `select * from public.payment_transactions where organization_id = $1 order by created_at desc limit $2`,
+        `select id, organization_id, user_id, subscription_id, plan_id,
+                provider, tx_ref, provider_tx_id, amount, currency,
+                status, payment_type, billing_interval, customer_email,
+                metadata, verified_at, created_at, updated_at
+           from public.payment_transactions
+          where organization_id = $1
+          order by created_at desc
+          limit $2`,
         [auth.organizationId, limit]
       )
       .catch(() => ({ rows: [] }));
 
     res.status(200).json(result.rows);
+  })
+);
+
+// ── Subscriptions: combined billing view ───────────────────────────────────
+
+miscRouter.get(
+  '/subscriptions/billing',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+
+    const subRes = await db
+      .query(
+        `select s.*, p.id as plan_pk, p.name as plan_name,
+                p.display_name as plan_display_name, p.plan_type, p.features
+           from public.subscriptions s
+           left join public.user_plans p on p.id = s.plan_id
+          where s.organization_id = $1
+            and s.status in ('active','trialing','past_due')
+          order by s.created_at desc
+          limit 1`,
+        [auth.organizationId]
+      )
+      .catch(() => ({ rows: [] as Record<string, unknown>[] }));
+
+    const sub = subRes.rows[0] ?? null;
+
+    const payRes = await db
+      .query(
+        `select id, organization_id, user_id, subscription_id, plan_id,
+                provider, tx_ref, provider_tx_id, amount, currency,
+                status, payment_type, billing_interval, customer_email,
+                metadata, verified_at, created_at, updated_at
+           from public.payment_transactions
+          where organization_id = $1
+          order by created_at desc
+          limit 10`,
+        [auth.organizationId]
+      )
+      .catch(() => ({ rows: [] as Record<string, unknown>[] }));
+
+    res.status(200).json({
+      subscription: sub
+        ? {
+            id: sub.id,
+            organization_id: sub.organization_id,
+            user_id: sub.user_id,
+            plan_id: sub.plan_id,
+            status: sub.status,
+            billing_interval: sub.billing_interval,
+            current_period_start: sub.current_period_start,
+            current_period_end: sub.current_period_end,
+            trial_ends_at: sub.trial_ends_at,
+            cancel_at_period_end: sub.cancel_at_period_end,
+            cancelled_at: sub.cancelled_at,
+            provider: sub.provider,
+            provider_customer_email: sub.provider_customer_email,
+            provider_reference: sub.provider_reference,
+            created_at: sub.created_at,
+            updated_at: sub.updated_at,
+          }
+        : null,
+      plan: sub?.plan_pk
+        ? {
+            id: sub.plan_pk,
+            name: sub.plan_name,
+            display_name: sub.plan_display_name,
+            plan_type: sub.plan_type,
+            features: sub.features ?? [],
+          }
+        : null,
+      recent_payments: payRes.rows,
+    });
+  })
+);
+
+// ── Subscriptions: initiate Paystack payment ───────────────────────────────
+
+const initiatePaymentSchema = z.object({
+  plan_id: uuidLike,
+  billing_interval: z.enum(['monthly', 'yearly']),
+  redirect_url: z.string().url().optional(),
+});
+
+miscRouter.post(
+  '/subscriptions/initiate-payment',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = initiatePaymentSchema.parse(req.body);
+
+    // Bound abuse: a malicious authed user can otherwise spam this and
+    // both inflate payment_transactions rows and burn our Paystack
+    // per-key rate budget, blocking real checkouts.
+    const rate = checkRateLimit(`billing:initiate-payment:${auth.userId}`, 10, 60_000);
+    res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', String(rate.retryAfter));
+      throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
+    }
+
+    if (!isPaystackConfigured()) {
+      throw new ApiError(
+        'Payments are not configured on this environment.',
+        503,
+        'PAYSTACK_NOT_CONFIGURED'
+      );
+    }
+
+    const planRes = await db.query<{
+      id: string;
+      price_monthly: string | null;
+      price_yearly: string | null;
+      currency: string | null;
+      plan_type: string | null;
+      display_name: string | null;
+    }>(
+      `select id, price_monthly, price_yearly, currency, plan_type, display_name
+         from public.user_plans
+        where id = $1 and is_active = true
+        limit 1`,
+      [body.plan_id]
+    );
+    const plan = planRes.rows[0];
+    if (!plan) throw new ApiError('Plan not found.', 404, 'PLAN_NOT_FOUND');
+    if (plan.plan_type === 'free') {
+      throw new ApiError('The free plan does not require payment.', 400, 'FREE_PLAN');
+    }
+    if (plan.plan_type === 'enterprise') {
+      throw new ApiError(
+        'Enterprise plans are sold via direct contract — contact sales.',
+        400,
+        'ENTERPRISE_PLAN'
+      );
+    }
+
+    const priceRaw = body.billing_interval === 'yearly' ? plan.price_yearly : plan.price_monthly;
+    const planAmount = priceRaw == null ? null : Number(priceRaw);
+    if (!planAmount || planAmount <= 0 || !Number.isFinite(planAmount)) {
+      throw new ApiError(
+        `Plan has no ${body.billing_interval} price configured.`,
+        400,
+        'PLAN_PRICE_MISSING'
+      );
+    }
+    const planCurrency = plan.currency ?? 'USD';
+
+    // FX conversion: plans are priced in USD for display, but Paystack
+    // settles in NGN. `convertForPaystack` returns both legs so we can
+    // store the display USD price next to the charged NGN amount.
+    const conv = await convertForPaystack(planAmount, planCurrency);
+    const amount = conv.chargedAmount;
+    const currency = conv.chargedCurrency;
+
+    const profRes = await db.query<{ email: string | null }>(
+      `select email from public.profiles where user_id = $1 limit 1`,
+      [auth.userId]
+    );
+    const email = profRes.rows[0]?.email;
+    if (!email) {
+      throw new ApiError(
+        'Your account is missing an email address. Update your profile and try again.',
+        400,
+        'EMAIL_REQUIRED'
+      );
+    }
+
+    const txRef = generateTxRef();
+    const callbackUrl =
+      body.redirect_url ||
+      (env.APP_URL
+        ? new URL('/billing/callback', env.APP_URL).toString()
+        : 'https://app.kourti.com/billing/callback');
+
+    await db.query(
+      `insert into public.payment_transactions
+         (organization_id, user_id, plan_id, provider, tx_ref,
+          amount, currency, status, payment_type, billing_interval,
+          customer_email, metadata,
+          display_amount, display_currency, fx_rate, fx_source)
+       values ($1, $2, $3, 'paystack', $4,
+               $5, $6, 'pending', 'subscription', $7,
+               $8, $9::jsonb,
+               $10, $11, $12, $13)`,
+      [
+        auth.organizationId,
+        auth.userId,
+        plan.id,
+        txRef,
+        amount,
+        currency,
+        body.billing_interval,
+        email,
+        JSON.stringify({
+          plan_display_name: plan.display_name,
+          billing_interval: body.billing_interval,
+          initiated_via: 'pricing_page',
+        }),
+        conv.displayAmount,
+        conv.displayCurrency,
+        conv.fxRate,
+        conv.fxSource,
+      ]
+    );
+
+    let initRes;
+    try {
+      initRes = await initializeTransaction({
+        email,
+        amount,
+        currency,
+        reference: txRef,
+        callbackUrl,
+        metadata: {
+          organization_id: auth.organizationId,
+          user_id: auth.userId,
+          plan_id: plan.id,
+          billing_interval: body.billing_interval,
+        },
+      });
+    } catch (err) {
+      await db
+        .query(
+          `update public.payment_transactions
+              set status = 'failed', updated_at = now()
+            where tx_ref = $1`,
+          [txRef]
+        )
+        .catch(() => undefined);
+      throw err;
+    }
+
+    res.status(200).json({
+      payment_link: initRes.authorization_url,
+      tx_ref: txRef,
+      reference: initRes.reference,
+    });
+  })
+);
+
+// ── Subscriptions: verify a transaction (user-driven path) ─────────────────
+
+const verifyPaymentSchema = z.object({
+  tx_ref: z.string().min(1).max(120),
+});
+
+miscRouter.post(
+  '/subscriptions/verify-payment',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = verifyPaymentSchema.parse(req.body);
+
+    // Rate-limit the verify path too — it hits Paystack's API per call.
+    const rate = checkRateLimit(`billing:verify-payment:${auth.userId}`, 20, 60_000);
+    res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', String(rate.retryAfter));
+      throw new ApiError('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
+    }
+
+    // Only members of the org that started the tx may verify it.
+    // Important: do NOT distinguish "not found" from "belongs to another
+    // org" in the response — that distinction is a cross-tenant existence
+    // oracle that lets authed users enumerate other orgs' tx_refs.
+    const ownRes = await db.query<{ organization_id: string; status: string }>(
+      `select organization_id, status from public.payment_transactions where tx_ref = $1 limit 1`,
+      [body.tx_ref]
+    );
+    const own = ownRes.rows[0];
+    if (!own || own.organization_id !== auth.organizationId) {
+      res.status(200).json({
+        success: false,
+        payment_status: 'unknown',
+        subscription_status: null,
+        message: 'Transaction not found',
+      });
+      return;
+    }
+
+    if (!isPaystackConfigured()) {
+      throw new ApiError(
+        'Payments are not configured on this environment.',
+        503,
+        'PAYSTACK_NOT_CONFIGURED'
+      );
+    }
+
+    const paystack = await verifyTransaction(body.tx_ref);
+    const activation = await activateSubscriptionFromTx(body.tx_ref, paystack, 'verify');
+
+    const paymentStatusMap: Record<string, 'pending' | 'successful' | 'failed' | 'unknown'> = {
+      activated: 'successful',
+      already_processed: 'successful',
+      pending: 'pending',
+      failed: 'failed',
+      not_found: 'unknown',
+    };
+
+    res.status(200).json({
+      success: activation.status === 'activated' || activation.status === 'already_processed',
+      payment_status: paymentStatusMap[activation.status] ?? 'unknown',
+      subscription_status: activation.subscription_status,
+      subscription_id: activation.subscription_id ?? undefined,
+      already_processed: activation.status === 'already_processed',
+      message: activation.message,
+    });
+  })
+);
+
+// ── Subscriptions: manage (cancel / activate / deactivate) ─────────────────
+
+const manageSchema = z.object({
+  action: z.enum(['activate', 'deactivate', 'cancel']),
+  subscription_id: uuidLike,
+});
+
+miscRouter.post(
+  '/subscriptions/manage',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const body = manageSchema.parse(req.body);
+
+    const allowed = await isOrgAdminOrSoleMember(auth.userId, auth.organizationId);
+    if (!allowed) {
+      throw new ApiError(
+        'Only an organization admin can manage the subscription.',
+        403,
+        'FORBIDDEN'
+      );
+    }
+
+    const subRes = await db.query<{ id: string; status: string }>(
+      `select id, status from public.subscriptions
+        where id = $1 and organization_id = $2
+        limit 1`,
+      [body.subscription_id, auth.organizationId]
+    );
+    const sub = subRes.rows[0];
+    if (!sub) throw new ApiError('Subscription not found.', 404, 'NOT_FOUND');
+
+    if (body.action === 'cancel') {
+      await db.query(
+        `update public.subscriptions
+            set cancel_at_period_end = true,
+                cancelled_at = now(),
+                updated_at = now()
+          where id = $1`,
+        [sub.id]
+      );
+    } else if (body.action === 'deactivate') {
+      await db.query(
+        `update public.subscriptions
+            set status = 'paused', updated_at = now()
+          where id = $1`,
+        [sub.id]
+      );
+    } else if (body.action === 'activate') {
+      await db.query(
+        `update public.subscriptions
+            set status = 'active',
+                cancel_at_period_end = false,
+                cancelled_at = null,
+                updated_at = now()
+          where id = $1`,
+        [sub.id]
+      );
+    }
+
+    res.status(200).json({ ok: true, action: body.action });
   })
 );
 

@@ -76,6 +76,29 @@ const envSchema = z.object({
   S3_FORCE_PATH_STYLE: z
     .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
     .default(true),
+
+  // Paystack. Public key is FE-only and not needed here. Secret key signs
+  // server calls AND HMAC-validates webhook payloads (Paystack signs the
+  // webhook body with the same secret key, HMAC-SHA512).
+  PAYSTACK_SECRET_KEY: optionalNonEmptyString,
+  // The currency we actually settle in via Paystack. Most NG merchant
+  // accounts only have NGN enabled; flip this if your account also has
+  // USD enabled and skip the FX conversion in initiate-payment.
+  PAYSTACK_CURRENCY: z.string().default('NGN'),
+
+  // USD → NGN conversion. Plans can be priced in USD for display, but
+  // when PAYSTACK_CURRENCY=NGN we convert at checkout via a live FX
+  // lookup (`services/fx.ts`) plus a small markup buffer.
+  //
+  // USD_NGN_FALLBACK_RATE: stale rate used ONLY when the live FX API
+  //   is unreachable. Set conservatively (slightly higher than the real
+  //   rate) — under-charging during an FX outage is the failure mode
+  //   you don't want.
+  // USD_NGN_MARKUP_BPS: basis points of buffer added on top of the
+  //   live rate to cover FX volatility between charge and settlement.
+  //   300 = 3%, typical hedge for the NGN parallel market.
+  USD_NGN_FALLBACK_RATE: z.coerce.number().positive().default(1600),
+  USD_NGN_MARKUP_BPS: z.coerce.number().int().min(0).max(2000).default(300),
 });
 
 export const env = envSchema.parse(process.env);

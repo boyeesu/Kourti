@@ -14,8 +14,9 @@ export interface Subscription {
   organization_id: string;
   user_id: string;
   plan_id: string;
-  flutterwave_subscription_id: string | null;
-  flutterwave_customer_email: string;
+  provider: string | null;
+  provider_customer_email: string | null;
+  provider_reference: string | null;
   billing_interval: 'monthly' | 'yearly';
   status: 'active' | 'cancelled' | 'paused' | 'past_due' | 'trialing';
   current_period_start: string | null;
@@ -30,12 +31,15 @@ export interface PaymentTransaction {
   id: string;
   organization_id: string;
   subscription_id: string | null;
-  flutterwave_tx_ref: string;
-  flutterwave_tx_id: string | null;
+  provider: string | null;
+  tx_ref: string;
+  provider_tx_id: string | null;
   amount: number;
   currency: string;
   status: 'pending' | 'successful' | 'failed' | 'refunded';
   payment_type: 'subscription' | 'one_time' | 'upgrade';
+  billing_interval: 'monthly' | 'yearly' | null;
+  customer_email: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
 }
@@ -131,20 +135,20 @@ export function usePaymentHistory(limit = 20) {
 }
 
 /**
- * Mutation that calls the Node backend to initiate a Flutterwave payment
- * and returns a payment link the caller can redirect to.
+ * Mutation that calls the Node backend to initiate a Paystack payment
+ * and returns a hosted checkout URL the caller can redirect to.
  */
 export function useInitiatePayment() {
   return useMutation({
     mutationFn: async (params: InitiatePaymentParams) => {
       try {
-        const data = await invokeNodeApi<{ payment_link: string; tx_ref: string }>(
+        const data = await invokeNodeApi<{ authorization_url: string; tx_ref: string }>(
           '/api/v1/misc/subscriptions/initiate-payment',
           { method: 'POST', body: params }
         );
 
-        if (!data?.payment_link) {
-          throw new Error('No payment link returned from server');
+        if (!data?.authorization_url) {
+          throw new Error('No payment URL returned from server');
         }
 
         return data;
@@ -208,7 +212,7 @@ export function useManageSubscription() {
 
 /**
  * Mutation that calls the Node backend to verify a pending transaction
- * with Flutterwave and activate the subscription if payment was successful.
+ * with Paystack and activate the subscription if payment was successful.
  */
 export function useVerifyPayment() {
   const queryClient = useQueryClient();

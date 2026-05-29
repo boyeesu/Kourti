@@ -49,7 +49,7 @@ interface OrgSubscription {
   price_monthly: number | null;
   price_yearly: number | null;
   currency: string;
-  flutterwave_customer_email: string;
+  provider_customer_email: string;
 }
 
 function useOrgSubscriptions(orgId: string | null) {
@@ -382,7 +382,7 @@ export function OrganizationDetail() {
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {sub.flutterwave_customer_email} &middot; {sub.billing_interval}
+                          {sub.provider_customer_email} &middot; {sub.billing_interval}
                         </p>
                       </div>
                       <div className="text-right space-y-1">
