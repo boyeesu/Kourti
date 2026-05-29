@@ -814,6 +814,10 @@ miscRouter.post(
     }
 
     res.status(200).json({
+      // Return both names so FE consumers using either key still work.
+      // `authorization_url` is Paystack's native name; `payment_link` is
+      // the legacy alias from the pre-Paystack code path.
+      authorization_url: initRes.authorization_url,
       payment_link: initRes.authorization_url,
       tx_ref: txRef,
       reference: initRes.reference,
