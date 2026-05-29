@@ -102,7 +102,7 @@ function useSavePrices() {
   return useMutation({
     mutationFn: async (
       updates: {
-        id: string;
+        planId: string;
         price_monthly?: number | null;
         price_yearly?: number | null;
         currency?: string;
@@ -186,11 +186,11 @@ export function SubscriptionManagement() {
 
   const monthlyRevenue = activeSubscriptions
     .filter((s) => s.billing_interval === 'monthly')
-    .reduce((sum, s) => sum + (s.price_monthly || 0), 0);
+    .reduce((sum, s) => sum + (Number(s.price_monthly) || 0), 0);
 
   const yearlyRevenue = activeSubscriptions
     .filter((s) => s.billing_interval === 'yearly')
-    .reduce((sum, s) => sum + (s.price_yearly || 0), 0);
+    .reduce((sum, s) => sum + (Number(s.price_yearly) || 0), 0);
 
   // Estimated MRR: monthly revenue + (yearly revenue / 12)
   const estimatedMRR = monthlyRevenue + yearlyRevenue / 12;
@@ -240,8 +240,8 @@ export function SubscriptionManagement() {
   const hasEdits = Object.keys(editedPrices).length > 0;
 
   const handleSavePrices = () => {
-    const updates = Object.entries(editedPrices).map(([id, changes]) => ({
-      id,
+    const updates = Object.entries(editedPrices).map(([planId, changes]) => ({
+      planId,
       ...changes,
     }));
     savePrices.mutate(updates, {
@@ -406,8 +406,9 @@ export function SubscriptionManagement() {
                 </TableHeader>
                 <TableBody>
                   {filteredSubscriptions.map((sub) => {
-                    const amount =
+                    const rawAmount =
                       sub.billing_interval === 'yearly' ? sub.price_yearly : sub.price_monthly;
+                    const amount = rawAmount == null ? null : Number(rawAmount);
 
                     return (
                       <TableRow key={sub.id}>
