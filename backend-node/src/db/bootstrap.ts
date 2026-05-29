@@ -409,6 +409,17 @@ const bootstrapStatements = [
   `alter table public.documents add column if not exists terms text`,
   `alter table public.documents add column if not exists metadata jsonb`,
   `alter table public.documents add column if not exists file_size bigint`,
+
+  // Storage status. 'present' (default) means file_path is expected to
+  // resolve in the active storage driver. 'missing' is for legacy rows
+  // whose bytes were never persisted (pre-Garage S3 cutover the backend
+  // ran with no Railway volume mounted). Surfaced to the UI as
+  // "Unavailable — please re-upload" instead of a generic 404. The
+  // admin endpoint POST /api/v1/admin/storage/scan flips this column.
+  `alter table public.documents add column if not exists storage_status text not null default 'present'`,
+  `alter table public.document_versions add column if not exists storage_status text not null default 'present'`,
+  `create index if not exists idx_documents_storage_status on public.documents(storage_status) where storage_status <> 'present'`,
+
   `create index if not exists idx_conversations_org on public.conversations(organization_id)`,
   `create index if not exists idx_participants_user on public.conversation_participants(user_id)`,
   `create index if not exists idx_messages_conversation_created on public.messages(conversation_id, created_at)`,
