@@ -23,6 +23,7 @@ export async function uploadDocument(file: File): Promise<{
   fileName: string;
   size: number;
   mimeType: string;
+  sha256: string;
 }> {
   const token = await getToken();
   const formData = new FormData();
@@ -48,6 +49,7 @@ export async function uploadChatFile(file: File): Promise<{
   fileName: string;
   size: number;
   mimeType: string;
+  sha256: string;
 }> {
   const token = await getToken();
   const formData = new FormData();

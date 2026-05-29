@@ -91,6 +91,34 @@ async function streamToBuffer(body: unknown): Promise<Buffer> {
 export interface UploadResult {
   filePath: string; // relative path within bucket
   size: number;
+  // Hex SHA-256 of the bytes as written. Persisted by callers in the
+  // documents table so a later read can detect silent corruption or
+  // out-of-band tampering of the stored object.
+  sha256: string;
+}
+
+/**
+ * Mismatch between an object's stored bytes and the SHA-256 the caller
+ * expected. Surface as a 500 to the user (this is a server-side
+ * integrity failure, not a client error) and a hard signal in logs that
+ * something is wrong with the storage backend.
+ */
+export class StorageIntegrityError extends Error {
+  constructor(
+    public readonly bucket: string,
+    public readonly filePath: string,
+    public readonly expected: string,
+    public readonly actual: string
+  ) {
+    super(
+      `Storage integrity check failed for ${bucket}/${filePath}: expected sha256=${expected}, got ${actual}`
+    );
+    this.name = 'StorageIntegrityError';
+  }
+}
+
+function sha256Hex(data: Buffer): string {
+  return crypto.createHash('sha256').update(data).digest('hex');
 }
 
 export interface FileMetadata {
@@ -155,6 +183,8 @@ export async function uploadFile(
   // logical bucket is just a key prefix in the physical S3 bucket.
   bucketPath(bucket, filePath);
 
+  const sha256 = sha256Hex(data);
+
   if (USE_S3) {
     await s3!.send(
       new PutObjectCommand({
@@ -162,21 +192,40 @@ export async function uploadFile(
         Key: s3Key(bucket, filePath),
         Body: data,
         ContentType: contentType ?? mimeFromExt(path.extname(filePath).toLowerCase()),
+        // Stored as x-amz-meta-sha256 so any external auditor (mc, aws
+        // cli, browser of the bucket) can verify integrity without
+        // touching our DB.
+        Metadata: { sha256 },
       })
     );
-    return { filePath, size: data.length };
+    return { filePath, size: data.length, sha256 };
   }
 
   const fullPath = bucketPath(bucket, filePath);
   await ensureDir(path.dirname(fullPath));
   await fs.writeFile(fullPath, data);
-  return { filePath, size: data.length };
+  return { filePath, size: data.length, sha256 };
+}
+
+export interface DownloadOptions {
+  /**
+   * Hex SHA-256 the caller expects this object to have (as captured at
+   * upload time and persisted in the documents table). If supplied, the
+   * downloaded bytes are hashed and compared; on mismatch we throw
+   * StorageIntegrityError rather than serving silently-corrupted or
+   * out-of-band-edited content.
+   *
+   * Callers without the expected hash (e.g. legacy rows pre-dating the
+   * sha256 column) can omit this and accept the bytes as-is.
+   */
+  expectedSha256?: string;
 }
 
 export async function downloadFile(
   bucket: string,
-  filePath: string
-): Promise<{ data: Buffer; contentType: string }> {
+  filePath: string,
+  options?: DownloadOptions
+): Promise<{ data: Buffer; contentType: string; sha256: string }> {
   bucketPath(bucket, filePath);
 
   if (USE_S3) {
@@ -187,8 +236,13 @@ export async function downloadFile(
       const data = await streamToBuffer(out.Body);
       const ext = path.extname(filePath).toLowerCase();
       const contentType = out.ContentType ?? mimeFromExt(ext);
-      return { data, contentType };
+      const sha256 = sha256Hex(data);
+      if (options?.expectedSha256 && options.expectedSha256 !== sha256) {
+        throw new StorageIntegrityError(bucket, filePath, options.expectedSha256, sha256);
+      }
+      return { data, contentType, sha256 };
     } catch (err) {
+      if (err instanceof StorageIntegrityError) throw err;
       const name = (err as { name?: string }).name;
       if (name === 'NoSuchKey' || name === 'NotFound') {
         throw new Error(`File not found: ${filePath}`);
@@ -202,8 +256,13 @@ export async function downloadFile(
     const data = await fs.readFile(fullPath);
     const ext = path.extname(filePath).toLowerCase();
     const contentType = mimeFromExt(ext);
-    return { data, contentType };
+    const sha256 = sha256Hex(data);
+    if (options?.expectedSha256 && options.expectedSha256 !== sha256) {
+      throw new StorageIntegrityError(bucket, filePath, options.expectedSha256, sha256);
+    }
+    return { data, contentType, sha256 };
   } catch (err) {
+    if (err instanceof StorageIntegrityError) throw err;
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       throw new Error(`File not found: ${filePath}`);
     }
