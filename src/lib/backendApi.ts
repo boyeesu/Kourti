@@ -87,12 +87,9 @@ export async function invokeNodeApi<T>(
   } | null;
 
   if (!response.ok) {
-    if (response.status === 402 && typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path !== '/pricing' && path !== '/onboarding' && !path.startsWith('/settings/billing')) {
-        window.location.assign('/pricing');
-      }
-    }
+    // 402 (subscription required) is handled by <TrialExpiredModal/> which
+    // mounts in AppLayout. Avoid an extra hard redirect that would race with
+    // the modal and yank in-app users away while they're picking a plan.
     const message = data?.error || data?.message || `Node API request failed (${response.status})`;
     throw new Error(message);
   }
