@@ -300,6 +300,22 @@ const bootstrapStatements = [
   )
   `,
   `alter table public.auth_users add column if not exists login_count integer default 0`,
+  // Legacy user_role_assignments rows were inserted before the assigned_by
+  // column was added; bootstrap's superadmin seed doesn't supply one either.
+  // Make sure it isn't enforced NOT NULL.
+  `alter table public.user_role_assignments alter column assigned_by drop not null`,
+  // Older deployments created public.cases without a primary-key constraint
+  // on id, so foreign keys that reference cases(id) (tabular_reviews, etc)
+  // fail to be created with "no unique constraint matching". Idempotent
+  // guard: only add the PK if it isn't already there.
+  `do $$ begin
+     if not exists (
+       select 1 from pg_constraint
+        where conrelid = 'public.cases'::regclass and contype = 'p'
+     ) then
+       alter table public.cases add constraint cases_pkey primary key (id);
+     end if;
+   end $$`,
   // L1 fix — drop the all-zeros placeholder org UUID. profiles.organization_id
   // was previously non-null with a zero-UUID sentinel for "no org yet";
   // a stray `WHERE organization_id IS NOT NULL` could have leaked data
@@ -424,6 +440,10 @@ const bootstrapStatements = [
   // lazy-grant) all create rows before a payment provider is involved.
   `alter table public.subscriptions alter column flutterwave_customer_email drop not null`,
   `alter table public.subscriptions alter column flutterwave_subscription_id drop not null`,
+  // Bootstrap's trial backfill and the /billing/start-trial flow create
+  // org-level subscriptions without a user_id. Legacy NOT NULL from when
+  // subs were per-user only.
+  `alter table public.subscriptions alter column user_id drop not null`,
   `create index if not exists idx_subscriptions_org_status on public.subscriptions(organization_id, status)`,
   // One active/trialing sub per org at a time.
   `create unique index if not exists uq_subscriptions_org_live
@@ -465,6 +485,22 @@ const bootstrapStatements = [
     updated_at timestamptz not null default now()
   )
   `,
+  // If the table already existed from a pre-Paystack schema (#172), the
+  // CREATE TABLE IF NOT EXISTS above is a no-op and the new columns are
+  // missing — backfill them all idempotently before the index/unique runs.
+  `alter table public.payment_transactions add column if not exists user_id uuid`,
+  `alter table public.payment_transactions add column if not exists subscription_id uuid`,
+  `alter table public.payment_transactions add column if not exists plan_id uuid`,
+  `alter table public.payment_transactions add column if not exists provider text not null default 'paystack'`,
+  `alter table public.payment_transactions add column if not exists tx_ref text`,
+  `alter table public.payment_transactions add column if not exists provider_tx_id text`,
+  `alter table public.payment_transactions add column if not exists payment_type text not null default 'subscription'`,
+  `alter table public.payment_transactions add column if not exists billing_interval text`,
+  `alter table public.payment_transactions add column if not exists customer_email text`,
+  `alter table public.payment_transactions add column if not exists metadata jsonb not null default '{}'::jsonb`,
+  `alter table public.payment_transactions add column if not exists raw_response jsonb`,
+  `alter table public.payment_transactions add column if not exists verified_at timestamptz`,
+  `alter table public.payment_transactions add column if not exists webhook_received_at timestamptz`,
   `create unique index if not exists uq_payment_transactions_tx_ref on public.payment_transactions(tx_ref)`,
   `create index if not exists idx_payment_transactions_org_created on public.payment_transactions(organization_id, created_at desc)`,
   `create index if not exists idx_payment_transactions_status on public.payment_transactions(status)`,
