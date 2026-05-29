@@ -18,6 +18,9 @@ import { brevoSyncTrialStart, logBrevoError } from '../../services/brevo.js';
 export const billingRouter = Router();
 
 const TRIAL_DAYS = 7;
+// Seats granted during the free trial so teams can evaluate with a few people
+// before they buy. Paid seats are chosen at checkout.
+const TRIAL_SEATS = 5;
 const PG_UNIQUE_VIOLATION = '23505';
 
 interface SubscriptionRow {
@@ -198,15 +201,16 @@ billingRouter.post(
       const r = await db.query<SubscriptionRow>(
         `insert into public.subscriptions
            (organization_id, user_id, plan_id, status, billing_interval,
-            current_period_start, current_period_end, trial_ends_at,
+            current_period_start, current_period_end, trial_ends_at, seats,
             created_at, updated_at)
          values ($1, $2, $3, 'trialing', 'monthly',
                  now(),
                  now() + make_interval(days => $4::int),
                  now() + make_interval(days => $4::int),
+                 $5,
                  now(), now())
          returning *`,
-        [auth.organizationId, auth.userId, planId, TRIAL_DAYS]
+        [auth.organizationId, auth.userId, planId, TRIAL_DAYS, TRIAL_SEATS]
       );
       inserted = r.rows[0];
     } catch (err) {

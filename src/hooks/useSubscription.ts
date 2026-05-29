@@ -60,6 +60,22 @@ export interface InitiatePaymentParams {
   plan_id: string;
   billing_interval: 'monthly' | 'yearly';
   redirect_url?: string;
+  /** Total seats to purchase. Plan price is per-seat. Defaults to 1. */
+  seats?: number;
+  /** Teammate emails to auto-invite once payment succeeds. */
+  invite_emails?: string[];
+}
+
+export interface AddSeatsParams {
+  seats: number;
+  redirect_url?: string;
+  invite_emails?: string[];
+}
+
+export interface SeatUsage {
+  used: number;
+  seats: number;
+  available: number;
 }
 
 export interface ManageSubscriptionParams {
@@ -247,6 +263,50 @@ export function useVerifyPayment() {
       toast.error('Verification Error', {
         description:
           error instanceof Error ? error.message : 'Failed to verify payment. Please try again.',
+      });
+    },
+  });
+}
+
+/**
+ * Current seat usage for the org: how many seats are used (members + pending
+ * invites) vs purchased, and how many are available.
+ */
+export function useSeatUsage() {
+  const { data: organization } = useCurrentUserOrganization();
+  const orgId = organization?.id;
+
+  return useQuery({
+    queryKey: ['seat-usage', orgId],
+    queryFn: async () => {
+      if (!orgId) return null;
+      return invokeNodeApi<SeatUsage>('/api/v1/misc/subscriptions/seat-usage');
+    },
+    enabled: !!orgId,
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Buy additional seats for the live subscription (prorated for the remaining
+ * period). Returns a Paystack checkout URL to redirect to.
+ */
+export function useAddSeats() {
+  return useMutation({
+    mutationFn: async (params: AddSeatsParams) => {
+      const data = await invokeNodeApi<{ authorization_url: string; tx_ref: string }>(
+        '/api/v1/misc/subscriptions/add-seats',
+        { method: 'POST', body: params }
+      );
+      if (!data?.authorization_url) {
+        throw new Error('No payment URL returned from server');
+      }
+      return data;
+    },
+    onError: (error) => {
+      toast.error('Could not add seats', {
+        description:
+          error instanceof Error ? error.message : 'Failed to start checkout. Please try again.',
       });
     },
   });

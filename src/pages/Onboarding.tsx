@@ -513,6 +513,16 @@ export default function Onboarding() {
         }
       );
 
+      // Start the 7-day trial BEFORE sending invites: the trial subscription
+      // grants the seat allowance that invite enforcement checks against, so
+      // inviting before it exists would be rejected (no seats). Idempotent on
+      // the backend — a second call just returns the existing sub.
+      try {
+        await startTrial.mutateAsync();
+      } catch (trialErr) {
+        logWarn('Failed to start trial after onboarding', { trialErr });
+      }
+
       const inviteEmails = formData.team.inviteEmails
         .map((email) => email.trim())
         .filter((email) => email.length > 0);
@@ -611,14 +621,6 @@ export default function Onboarding() {
         queryClient.invalidateQueries({ queryKey: ['role-permissions'] }),
         queryClient.invalidateQueries({ queryKey: ['user-organization'] }),
       ]);
-
-      // Start the 7-day free trial as soon as the org exists. Idempotent
-      // on the backend — calling it twice just returns the existing sub.
-      try {
-        await startTrial.mutateAsync();
-      } catch (trialErr) {
-        logWarn('Failed to start trial after onboarding', { trialErr });
-      }
 
       navigate(finishMode === 'subscribe' ? '/pricing' : '/dashboard', { replace: true });
     } catch (error: unknown) {

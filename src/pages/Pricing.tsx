@@ -211,7 +211,10 @@ export default function Pricing() {
                     <div className="mt-4 flex items-baseline justify-center gap-1">
                       {isFree ? (
                         <span className="text-5xl font-bold">Free</span>
-                      ) : isEnterprise && (price == null || price === 0) ? (
+                      ) : isEnterprise ? (
+                        // Enterprise is contract-sold ("Talk to sales") and never
+                        // checks out via Paystack — always show Custom, even if a
+                        // price happens to be stored on the plan row.
                         <>
                           <span className="text-5xl font-bold">Custom</span>
                           <span className="text-muted-foreground text-sm ml-1">pricing</span>

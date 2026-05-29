@@ -7,6 +7,7 @@ import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { isPlatformAdminUser } from '../../services/authorization.js';
 import { sendInvitationEmail } from '../../services/email.js';
+import { assertSeatAvailableTx } from '../../services/seats.js';
 
 const ROLE_LEVELS: Record<string, number> = {
   user: 1,
@@ -98,6 +99,8 @@ invitationsRouter.post(
     let invitationId: string;
 
     if (existing.rows[0]?.id) {
+      // Re-inviting an already-pending email reuses its existing seat, so no
+      // seat check is needed here.
       const updated = await db.query(
         `
         update public.invitations
@@ -126,38 +129,51 @@ invitationsRouter.post(
       );
       invitationId = updated.rows[0].id as string;
     } else {
-      const inserted = await db.query(
-        `
-        insert into public.invitations (
-          email,
-          first_name,
-          last_name,
-          role,
-          department,
-          organization_id,
-          invited_by,
-          token,
-          expires_at,
-          status,
-          created_at,
-          updated_at
-        )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', now(), now())
-        returning id
-        `,
-        [
-          body.email.toLowerCase(),
-          body.firstName || null,
-          body.lastName || null,
-          body.role || 'user',
-          body.department || null,
-          auth.organizationId,
-          auth.userId,
-          tokenHash,
-          expiresAt,
-        ]
-      );
-      invitationId = inserted.rows[0].id as string;
+      // Net-new invite consumes a seat. Seat check + insert in one transaction
+      // with the subscription row locked, closing the check-then-insert race.
+      const client = await db.connect();
+      try {
+        await client.query('begin');
+        await assertSeatAvailableTx(client, auth.organizationId, 1);
+        const inserted = await client.query(
+          `
+          insert into public.invitations (
+            email,
+            first_name,
+            last_name,
+            role,
+            department,
+            organization_id,
+            invited_by,
+            token,
+            expires_at,
+            status,
+            created_at,
+            updated_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', now(), now())
+          returning id
+          `,
+          [
+            body.email.toLowerCase(),
+            body.firstName || null,
+            body.lastName || null,
+            body.role || 'user',
+            body.department || null,
+            auth.organizationId,
+            auth.userId,
+            tokenHash,
+            expiresAt,
+          ]
+        );
+        await client.query('commit');
+        invitationId = inserted.rows[0].id as string;
+      } catch (err) {
+        await client.query('rollback').catch(() => undefined);
+        throw err;
+      } finally {
+        client.release();
+      }
     }
 
     const inviterProfile = await db.query(

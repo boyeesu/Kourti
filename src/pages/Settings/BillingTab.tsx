@@ -12,10 +12,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Calendar, AlertTriangle, ArrowUpRight, Loader2 } from 'lucide-react';
-import { useCurrentSubscription, useManageSubscription } from '@/hooks/useSubscription';
+import { CreditCard, Calendar, AlertTriangle, ArrowUpRight, Loader2, Users } from 'lucide-react';
+import {
+  useCurrentSubscription,
+  useManageSubscription,
+  useSeatUsage,
+} from '@/hooks/useSubscription';
 import { useCurrentUserPlan } from '@/hooks/useUserPlans';
 import { PlanSelector } from '@/components/billing/PlanSelector';
+import { AddSeatsDialog } from '@/components/billing/AddSeatsDialog';
 import { PaymentHistory } from '@/components/billing/PaymentHistory';
 
 // ---------------------------------------------------------------------------
@@ -61,9 +66,11 @@ function formatDate(dateString: string | null | undefined): string {
 export default function BillingTab() {
   const { data: subscription, isLoading: subLoading } = useCurrentSubscription();
   const { data: currentPlan, isLoading: planLoading } = useCurrentUserPlan();
+  const { data: seatUsage } = useSeatUsage();
   const manageSubscription = useManageSubscription();
 
   const [planSelectorOpen, setPlanSelectorOpen] = useState(false);
+  const [addSeatsOpen, setAddSeatsOpen] = useState(false);
 
   // auto-open PlanSelector when redirected with ?plan=…&cycle=… (e.g.
   // from the TrialExpiredModal). One-shot per navigation so we don't
@@ -158,6 +165,13 @@ export default function BillingTab() {
                     {formatDate(subscription.current_period_end)}
                   </p>
                 </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Seats</p>
+                  <p className="text-lg font-semibold flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    {seatUsage ? `${seatUsage.used} of ${seatUsage.seats} used` : '—'}
+                  </p>
+                </div>
               </div>
 
               {/* Cancel at period end notice */}
@@ -198,6 +212,10 @@ export default function BillingTab() {
                 <Button onClick={() => setPlanSelectorOpen(true)}>
                   <ArrowUpRight className="mr-2 h-4 w-4" />
                   Change Plan
+                </Button>
+                <Button variant="outline" onClick={() => setAddSeatsOpen(true)}>
+                  <Users className="mr-2 h-4 w-4" />
+                  Add team members
                 </Button>
                 {!subscription.cancel_at_period_end && (
                   <Button
@@ -241,6 +259,9 @@ export default function BillingTab() {
         initialPlanId={autoOpenPlan ?? undefined}
         initialCycle={initialCycle}
       />
+
+      {/* ---- Add Seats Dialog ---- */}
+      <AddSeatsDialog open={addSeatsOpen} onOpenChange={setAddSeatsOpen} />
 
       {/* ---- Cancel Confirmation Dialog ---- */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>

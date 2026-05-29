@@ -11,8 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Loader2, Sparkles, Zap, Rocket, Building2, Leaf } from 'lucide-react';
 import { useUserPlans, useCurrentUserPlan, type UserPlan } from '@/hooks/useUserPlans';
-import { useCurrentSubscription, useInitiatePayment } from '@/hooks/useSubscription';
+import { useCurrentSubscription, useSeatUsage } from '@/hooks/useSubscription';
 import { useFxRate } from '@/hooks/useFxRate';
+import { SeatCheckoutDialog } from './SeatCheckoutDialog';
 
 function formatCurrency(amount: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
@@ -44,22 +45,26 @@ export function PlanSelector({
   const { data: plans = [], isLoading: plansLoading } = useUserPlans();
   const { data: currentPlan } = useCurrentUserPlan();
   const { data: subscription } = useCurrentSubscription();
+  const { data: seatUsage } = useSeatUsage();
   const { data: fx } = useFxRate();
-
-  // Re-seed selection whenever initialPlanId changes (each deep-link click).
-  useEffect(() => {
-    if (initialPlanId) setSelectedPlanId(initialPlanId);
-  }, [initialPlanId]);
-  const initiatePayment = useInitiatePayment();
 
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>(
     initialCycle ?? 'monthly'
   );
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(initialPlanId ?? null);
+  const [seatPlan, setSeatPlan] = useState<UserPlan | null>(null);
+  const [seatDialogOpen, setSeatDialogOpen] = useState(false);
+
+  // Re-seed the seat dialog's plan whenever a deep-link plan is provided.
+  useEffect(() => {
+    if (initialPlanId) {
+      const match = plans.find((p) => p.id === initialPlanId);
+      if (match) setSeatPlan(match);
+    }
+  }, [initialPlanId, plans]);
 
   const isYearly = billingInterval === 'yearly';
 
-  const handleSubscribe = async (plan: UserPlan) => {
+  const handleSubscribe = (plan: UserPlan) => {
     if (plan.plan_type === 'free') return;
 
     // Enterprise is sold via direct contract — the backend rejects
@@ -73,26 +78,10 @@ export function PlanSelector({
       return;
     }
 
-    setSelectedPlanId(plan.id);
-
-    try {
-      const result = await initiatePayment.mutateAsync({
-        plan_id: plan.id,
-        billing_interval: billingInterval,
-        redirect_url: `${window.location.origin}/billing/callback`,
-      });
-
-      // Redirect the user to the Paystack hosted checkout page.
-      // Accept either key — backend returns both for compat.
-      const checkoutUrl =
-        (result as { authorization_url?: string; payment_link?: string }).authorization_url ??
-        (result as { authorization_url?: string; payment_link?: string }).payment_link;
-      if (!checkoutUrl) throw new Error('No checkout URL returned');
-      window.location.href = checkoutUrl;
-    } catch {
-      // Error toast is shown by the mutation's onError callback
-      setSelectedPlanId(null);
-    }
+    // Paid plan → open the seat-selection + invite step, which collects
+    // quantity and teammate emails before sending the user to Paystack.
+    setSeatPlan(plan);
+    setSeatDialogOpen(true);
   };
 
   // Prefer the live subscription's plan_id over the user_plan_assignments
@@ -208,7 +197,6 @@ export function PlanSelector({
                 const price = isYearly ? plan.price_yearly : plan.price_monthly;
                 const currency = plan.currency || 'USD';
                 const isCurrent = isCurrentPlan(plan);
-                const isSubmitting = initiatePayment.isPending && selectedPlanId === plan.id;
                 const Icon = planIcon(plan.plan_type);
                 const popular = isPopular(plan.plan_type);
 
@@ -260,19 +248,26 @@ export function PlanSelector({
                     </CardHeader>
 
                     <CardContent className="flex flex-1 flex-col justify-between gap-5">
-                      {/* Price */}
+                      {/* Price. Enterprise (and any plan with no configured
+                          price) is sold via contract — show "Custom", never a
+                          bogus $0.00. */}
                       <div className="space-y-1">
                         <div className="flex items-baseline gap-1">
                           <span className="text-3xl font-bold tracking-tight">
-                            {price === 0 ? 'Free' : formatCurrency(price, currency)}
+                            {plan.plan_type === 'enterprise' || price == null
+                              ? 'Custom'
+                              : price === 0
+                                ? 'Free'
+                                : formatCurrency(price, currency)}
                           </span>
-                          {price > 0 && (
+                          {price != null && price > 0 && (
                             <span className="text-sm text-muted-foreground">
                               /{isYearly ? 'yr' : 'mo'}
                             </span>
                           )}
                         </div>
-                        {price > 0 &&
+                        {price != null &&
+                          price > 0 &&
                           currency.toUpperCase() === 'USD' &&
                           fx &&
                           fx.settle_currency === 'NGN' && (
@@ -281,10 +276,10 @@ export function PlanSelector({
                               {isYearly ? '/year' : '/month'}
                             </p>
                           )}
-                        {isYearly && plan.price_monthly > 0 && (
+                        {isYearly && (plan.price_monthly ?? 0) > 0 && (
                           <p className="text-xs text-muted-foreground">
                             <span className="line-through">
-                              {formatCurrency(plan.price_monthly * 12, currency)}
+                              {formatCurrency((plan.price_monthly ?? 0) * 12, currency)}
                             </span>{' '}
                             billed yearly
                           </p>
@@ -296,17 +291,10 @@ export function PlanSelector({
                         className="w-full"
                         size="sm"
                         variant={isCurrent ? 'outline' : popular ? 'default' : 'secondary'}
-                        disabled={isCurrent || isSubmitting || plan.plan_type === 'free'}
+                        disabled={isCurrent || plan.plan_type === 'free'}
                         onClick={() => handleSubscribe(plan)}
                       >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Redirecting…
-                          </>
-                        ) : (
-                          getButtonLabel(plan)
-                        )}
+                        {getButtonLabel(plan)}
                       </Button>
 
                       {/* Features */}
@@ -345,6 +333,14 @@ export function PlanSelector({
           </p>
         </div>
       </DialogContent>
+
+      <SeatCheckoutDialog
+        open={seatDialogOpen}
+        onOpenChange={setSeatDialogOpen}
+        plan={seatPlan}
+        billingInterval={billingInterval}
+        currentUsed={seatUsage?.used ?? 1}
+      />
     </Dialog>
   );
 }

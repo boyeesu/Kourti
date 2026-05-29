@@ -174,6 +174,146 @@ adminRouter.post(
   })
 );
 
+// ── Org-wide plan assignment ────────────────────────────────────────────────
+// Assign a plan to an ENTIRE organization in one action. Implemented as a
+// per-user grant (one user_plan_assignments row per current member, all tagged
+// with the org) rather than touching the paid `subscriptions` row — this is the
+// manual / comp grant path, separate from Paystack billing.
+
+const orgIdParam = z.object({ orgId: z.string().regex(/^[0-9a-fA-F-]{36}$/) });
+
+// Current org-wide assignment summary: the plan most recently granted to the
+// org's members, plus how many of them currently hold it.
+adminRouter.get(
+  '/organizations/:orgId/plan',
+  asyncHandler(async (req, res) => {
+    await requirePlatformAdminUser(req.auth!.userId);
+    const { orgId } = orgIdParam.parse(req.params);
+
+    const result = await db
+      .query(
+        `with members as (
+           select user_id from public.profiles where organization_id = $1
+         ),
+         active as (
+           select upa.plan_id, upa.expires_at, upa.starts_at, upa.notes, upa.user_id
+             from public.user_plan_assignments upa
+             join members m on m.user_id = upa.user_id
+            where upa.status = 'active'
+         )
+         select
+           up.id as plan_id,
+           up.display_name as plan_display_name,
+           up.plan_type,
+           count(distinct a.user_id)::int as assigned_users,
+           (select count(*)::int from members) as total_users,
+           max(a.expires_at) as expires_at,
+           max(a.starts_at) as assigned_at
+         from active a
+         join public.user_plans up on up.id = a.plan_id
+         group by up.id, up.display_name, up.plan_type
+         order by assigned_users desc, assigned_at desc
+         limit 1`,
+        [orgId]
+      )
+      .catch(() => ({ rows: [] }));
+
+    res.status(200).json(result.rows[0] ?? null);
+  })
+);
+
+adminRouter.post(
+  '/organizations/:orgId/assign-plan',
+  asyncHandler(async (req, res) => {
+    const adminId = req.auth!.userId;
+    await requirePlatformAdminUser(adminId);
+    const { orgId } = orgIdParam.parse(req.params);
+    const body = z
+      .object({
+        planId: z.string().regex(/^[0-9a-fA-F-]{36}$/),
+        // null/omitted → no expiry (open-ended comp grant).
+        expiresAt: z.string().datetime().nullish(),
+        notes: z.string().max(1000).optional(),
+      })
+      .parse(req.body);
+
+    // Plan must exist and be active.
+    const planRes = await db.query<{ id: string }>(
+      `select id from public.user_plans where id = $1 and is_active = true limit 1`,
+      [body.planId]
+    );
+    if (!planRes.rows[0]) throw new ApiError('Plan not found.', 404, 'PLAN_NOT_FOUND');
+
+    // Org must exist.
+    const orgRes = await db.query<{ id: string }>(
+      `select id from public.organizations where id = $1 limit 1`,
+      [orgId]
+    );
+    if (!orgRes.rows[0]) throw new ApiError('Organization not found.', 404, 'ORG_NOT_FOUND');
+
+    const expiresAt = body.expiresAt ?? null;
+
+    // Single transaction: revoke every current active assignment for the org's
+    // members, then grant the new plan to each member. Keeps the org on exactly
+    // one plan and is safe to re-run (idempotent end state).
+    const client = await db.connect();
+    let assigned = 0;
+    try {
+      await client.query('begin');
+
+      await client.query(
+        `update public.user_plan_assignments upa
+            set status = 'revoked', updated_at = now()
+          from public.profiles p
+         where p.user_id = upa.user_id
+           and p.organization_id = $1
+           and upa.status = 'active'`,
+        [orgId]
+      );
+
+      const ins = await client.query(
+        `insert into public.user_plan_assignments
+           (organization_id, user_id, plan_id, assigned_by, status, starts_at, expires_at, notes, created_at, updated_at)
+         select $1, p.user_id, $2, $3, 'active', now(), $4, $5, now(), now()
+           from public.profiles p
+          where p.organization_id = $1
+            and p.user_id is not null`,
+        [orgId, body.planId, adminId, expiresAt, body.notes ?? null]
+      );
+      assigned = ins.rowCount ?? 0;
+
+      await client.query('commit');
+    } catch (err) {
+      await client.query('rollback').catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    res.status(200).json({ ok: true, assigned, plan_id: body.planId, expires_at: expiresAt });
+  })
+);
+
+adminRouter.post(
+  '/organizations/:orgId/revoke-plan',
+  asyncHandler(async (req, res) => {
+    await requirePlatformAdminUser(req.auth!.userId);
+    const { orgId } = orgIdParam.parse(req.params);
+
+    const result = await db.query(
+      `update public.user_plan_assignments upa
+          set status = 'revoked', updated_at = now()
+        from public.profiles p
+       where p.user_id = upa.user_id
+         and p.organization_id = $1
+         and upa.status = 'active'`,
+      [orgId]
+    );
+
+    res.status(200).json({ ok: true, revoked: result.rowCount ?? 0 });
+  })
+);
+
 // ── Plans management ────────────────────────────────────────────────────────
 
 adminRouter.get(
