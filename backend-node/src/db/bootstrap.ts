@@ -473,12 +473,17 @@ const bootstrapStatements = [
    delete from public.user_plans
     where id in (select id from ranked where rn > 1)`,
 
-  // One row per plan_type. NULL plan_types are tolerated (legacy rows) — the
-  // backfill above should have eliminated them, but the partial index keeps
-  // the constraint scoped to real tier values.
+  // One row per plan_type. The backfill above already populated plan_type
+  // for legacy rows, so we can enforce NOT NULL + a regular (non-partial)
+  // unique index. ON CONFLICT (plan_type) below requires a *non-partial*
+  // unique constraint — Postgres won't match it against an index with a
+  // WHERE predicate, which is why an earlier partial-index attempt left
+  // the seed inserts failing with "no unique or exclusion constraint".
+  `update public.user_plans set plan_type = coalesce(name, 'free') where plan_type is null`,
+  `drop index if exists uq_user_plans_plan_type`,
+  `alter table public.user_plans alter column plan_type set not null`,
   `create unique index if not exists uq_user_plans_plan_type
-     on public.user_plans(plan_type)
-     where plan_type is not null`,
+     on public.user_plans(plan_type)`,
 
   // Seed the four canonical plans. Idempotent: re-runs overwrite metadata
   // but leave any admin-edited prices alone (we only update non-price fields).
