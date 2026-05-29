@@ -420,31 +420,102 @@ const bootstrapStatements = [
      on public.subscriptions(organization_id)
      where status in ('active','trialing','past_due')`,
 
+  // Backfill plan_type before we dedupe / index on it. Rows that pre-date the
+  // plan_type column inherit it from `name`.
+  `update public.user_plans set plan_type = name where plan_type is null`,
+  `update public.user_plans set display_name = initcap(name) where display_name is null`,
+
+  // ── Dedupe user_plans by plan_type ────────────────────────────────
+  // The previous seed used `on conflict do nothing` with no conflict target.
+  // Without a unique constraint that's a no-op match, so every bootstrap run
+  // inserted a fresh row per plan_type. Pick one keeper per plan_type (most
+  // features, oldest as tiebreaker for determinism), re-point any subscriptions
+  // pointing at doomed rows, then delete the duplicates.
+  `with ranked as (
+     select id, plan_type,
+            row_number() over (
+              partition by plan_type
+              order by jsonb_array_length(coalesce(features, '[]'::jsonb)) desc,
+                       created_at asc,
+                       id asc
+            ) as rn
+     from public.user_plans
+     where plan_type is not null
+   ),
+   keepers as (select id, plan_type from ranked where rn = 1),
+   doomed as (select id, plan_type from ranked where rn > 1)
+   update public.subscriptions s
+      set plan_id = k.id
+     from doomed d
+     join keepers k on k.plan_type = d.plan_type
+    where s.plan_id = d.id`,
+  `with ranked as (
+     select id, plan_type,
+            row_number() over (
+              partition by plan_type
+              order by jsonb_array_length(coalesce(features, '[]'::jsonb)) desc,
+                       created_at asc,
+                       id asc
+            ) as rn
+     from public.user_plans
+     where plan_type is not null
+   )
+   delete from public.user_plans
+    where id in (select id from ranked where rn > 1)`,
+
+  // One row per plan_type. NULL plan_types are tolerated (legacy rows) — the
+  // backfill above should have eliminated them, but the partial index keeps
+  // the constraint scoped to real tier values.
+  `create unique index if not exists uq_user_plans_plan_type
+     on public.user_plans(plan_type)
+     where plan_type is not null`,
+
   // Seed the four canonical plans. Idempotent: re-runs overwrite metadata
   // but leave any admin-edited prices alone (we only update non-price fields).
   `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
    values ('free','free','Free','Explore the basics at no cost.',
      '["Up to 3 cases","Up to 5 documents","Basic dashboard"]'::jsonb,
      0, 0, 'USD', true)
-   on conflict do nothing`,
+   on conflict (plan_type) do update
+     set name = excluded.name,
+         display_name = excluded.display_name,
+         description = excluded.description,
+         features = excluded.features,
+         is_active = true,
+         updated_at = now()`,
   `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
    values ('starter','starter','Starter','Everything a small team needs to run cases end-to-end.',
      '["Unlimited cases","Unlimited documents","AI document review","Email support"]'::jsonb,
      29, 290, 'USD', true)
-   on conflict do nothing`,
+   on conflict (plan_type) do update
+     set name = excluded.name,
+         display_name = excluded.display_name,
+         description = excluded.description,
+         features = excluded.features,
+         is_active = true,
+         updated_at = now()`,
   `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
    values ('professional','professional','Professional','For growing firms that need automation and integrations.',
      '["Everything in Starter","Playbook automation","Tabular review","Priority support"]'::jsonb,
      79, 790, 'USD', true)
-   on conflict do nothing`,
+   on conflict (plan_type) do update
+     set name = excluded.name,
+         display_name = excluded.display_name,
+         description = excluded.description,
+         features = excluded.features,
+         is_active = true,
+         updated_at = now()`,
   `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
    values ('enterprise','enterprise','Enterprise','Custom controls, SSO, and a dedicated success manager.',
      '["Everything in Professional","SSO / SAML","Custom data retention","Dedicated success manager"]'::jsonb,
      null, null, 'USD', true)
-   on conflict do nothing`,
-  // Backfill plan_type for rows that pre-date the column.
-  `update public.user_plans set plan_type = name where plan_type is null`,
-  `update public.user_plans set display_name = initcap(name) where display_name is null`,
+   on conflict (plan_type) do update
+     set name = excluded.name,
+         display_name = excluded.display_name,
+         description = excluded.description,
+         features = excluded.features,
+         is_active = true,
+         updated_at = now()`,
 
   // Backfill: every existing organization that has *never* had a subscription
   // row gets a 7-day Starter trial starting today. The "any historical sub"
