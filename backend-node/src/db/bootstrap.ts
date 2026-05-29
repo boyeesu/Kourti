@@ -533,19 +533,15 @@ const bootstrapStatements = [
   `create unique index if not exists uq_user_plans_plan_type
      on public.user_plans(plan_type)`,
 
-  // Seed the four canonical plans. Idempotent: re-runs overwrite metadata
-  // but leave any admin-edited prices alone (we only update non-price fields).
-  `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
-   values ('free','free','Free','Explore the basics at no cost.',
-     '["Up to 3 cases","Up to 5 documents","Basic dashboard"]'::jsonb,
-     0, 0, 'USD', true)
-   on conflict (plan_type) do update
-     set name = excluded.name,
-         display_name = excluded.display_name,
-         description = excluded.description,
-         features = excluded.features,
-         is_active = true,
-         updated_at = now()`,
+  // The free tier no longer exists — users get a trial then choose a paid plan.
+  // Deactivate any historical free row instead of deleting it so foreign-key
+  // references from old subscriptions stay intact.
+  `update public.user_plans set is_active = false, updated_at = now()
+    where plan_type = 'free'`,
+
+  // Seed the three canonical paid plans. Idempotent: re-runs overwrite
+  // metadata but leave admin-edited prices alone (we only update non-price
+  // fields).
   `insert into public.user_plans (name, plan_type, display_name, description, features, price_monthly, price_yearly, currency, is_active)
    values ('starter','starter','Starter','Everything a small team needs to run cases end-to-end.',
      '["Unlimited cases","Unlimited documents","AI document review","Email support"]'::jsonb,
