@@ -7,6 +7,7 @@ import morgan from 'morgan';
 import { corsOrigins } from './config/env.js';
 import { requireAuth } from './middleware/auth.js';
 import { requireActiveSubscription } from './middleware/requireActiveSubscription.js';
+import { requireFeature } from './middleware/requireFeature.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { withRequestContext } from './middleware/requestContext.js';
 import { aiRouter } from './routes/api/ai.js';
@@ -127,18 +128,55 @@ export function createApp() {
   app.use('/api/v1/chat', requireAuth, requireActiveSubscription, chatRouter);
   app.use('/api/v1/clients', requireAuth, requireActiveSubscription, clientsRouter);
   app.use('/api/v1/invoices', requireAuth, requireActiveSubscription, invoicesRouter);
-  app.use('/api/v1/agents', requireAuth, requireActiveSubscription, agentsRouter);
-  app.use('/api/v1/negotiations', requireAuth, requireActiveSubscription, negotiationsRouter);
-  app.use('/api/v1/playbooks', requireAuth, requireActiveSubscription, playbooksRouter);
-  app.use('/api/v1/intelligence', requireAuth, requireActiveSubscription, intelligenceRouter);
+  // Automation suite — also gated on the plan feature (Professional+).
+  app.use(
+    '/api/v1/agents',
+    requireAuth,
+    requireActiveSubscription,
+    requireFeature('agents'),
+    agentsRouter
+  );
+  app.use(
+    '/api/v1/negotiations',
+    requireAuth,
+    requireActiveSubscription,
+    requireFeature('negotiations'),
+    negotiationsRouter
+  );
+  app.use(
+    '/api/v1/playbooks',
+    requireAuth,
+    requireActiveSubscription,
+    requireFeature('playbooks'),
+    playbooksRouter
+  );
+  app.use(
+    '/api/v1/intelligence',
+    requireAuth,
+    requireActiveSubscription,
+    requireFeature('intelligence'),
+    intelligenceRouter
+  );
   app.use(
     '/api/v1/documents/:id/versions',
     requireAuth,
     requireActiveSubscription,
     documentVersionsRouter
   );
-  app.use('/api/v1/redline', requireAuth, requireActiveSubscription, redlineRouter);
-  app.use('/api/v1/tabular-reviews', requireAuth, requireActiveSubscription, tabularReviewsRouter);
+  app.use(
+    '/api/v1/redline',
+    requireAuth,
+    requireActiveSubscription,
+    requireFeature('redline'),
+    redlineRouter
+  );
+  app.use(
+    '/api/v1/tabular-reviews',
+    requireAuth,
+    requireActiveSubscription,
+    requireFeature('tabular_review'),
+    tabularReviewsRouter
+  );
 
   app.use(notFoundHandler);
   app.use(errorHandler);

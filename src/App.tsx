@@ -7,6 +7,8 @@ import { ModuleErrorBoundary } from '@/components/ErrorBoundary';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { PermissionGate } from '@/components/PermissionGate';
+import { FeatureGate } from '@/components/billing/FeatureGate';
+import type { FeatureKey } from '@/hooks/useEntitlements';
 import { Action, Resource } from '@/hooks/usePermissions';
 import OrganizationSetup from '@/components/OrganizationSetup';
 import ForcePasswordChange from '@/components/ForcePasswordChange';
@@ -92,6 +94,8 @@ type ProtectedRouteConfig = {
     resource: Resource;
     action: Action;
   };
+  /** Plan feature required to access this route (shows upgrade screen if not). */
+  feature?: FeatureKey;
 };
 
 const protectedRoutes: ProtectedRouteConfig[] = [
@@ -343,72 +347,84 @@ const protectedRoutes: ProtectedRouteConfig[] = [
     component: AgentJobs,
     boundaryName: 'Agent Jobs',
     permission: { resource: 'agents', action: 'read' },
+    feature: 'agents',
   },
   {
     path: '/agents/monitors',
     component: AgentMonitors,
     boundaryName: 'Agent Monitors',
     permission: { resource: 'agents', action: 'read' },
+    feature: 'agents',
   },
   {
     path: '/agents/approvals',
     component: AgentApprovals,
     boundaryName: 'Agent Approvals',
     permission: { resource: 'agents', action: 'read' },
+    feature: 'agents',
   },
   {
     path: '/agents/dashboard',
     component: AgentDashboard,
     boundaryName: 'Agent Dashboard',
     permission: { resource: 'agents', action: 'read' },
+    feature: 'agents',
   },
   {
     path: '/negotiations',
     component: NegotiationsPage,
     boundaryName: 'Negotiations',
     permission: { resource: 'negotiations', action: 'read' },
+    feature: 'negotiations',
   },
   {
     path: '/negotiations/:id',
     component: NegotiationDetails,
     boundaryName: 'Negotiation Details',
     permission: { resource: 'negotiations', action: 'read' },
+    feature: 'negotiations',
   },
   {
     path: '/intelligence',
     component: IntelligenceDashboard,
     boundaryName: 'Intelligence Dashboard',
     permission: { resource: 'cases', action: 'read' },
+    feature: 'intelligence',
   },
   {
     path: '/agents/:jobId',
     component: AgentJobDetails,
     boundaryName: 'Agent Job Details',
     permission: { resource: 'agents', action: 'read' },
+    feature: 'agents',
   },
   {
     path: '/tabular-reviews',
     component: TabularReviews,
     boundaryName: 'Tabular Reviews',
     permission: { resource: 'cases', action: 'read' },
+    feature: 'tabular_review',
   },
   {
     path: '/tabular-reviews/new',
     component: TabularReviewCreate,
     boundaryName: 'New Tabular Review',
     permission: { resource: 'cases', action: 'create' },
+    feature: 'tabular_review',
   },
   {
     path: '/tabular-reviews/:reviewId',
     component: TabularReviewDetail,
     boundaryName: 'Tabular Review',
     permission: { resource: 'cases', action: 'read' },
+    feature: 'tabular_review',
   },
   {
     path: '/documents/:id/redline',
     component: DocumentRedline,
     boundaryName: 'Document Redline',
     permission: { resource: 'documents', action: 'update' },
+    feature: 'redline',
   },
   { path: '*', component: NotFound },
 ];
@@ -417,6 +433,7 @@ function createRouteElement({
   component: Component,
   boundaryName,
   permission,
+  feature,
 }: ProtectedRouteConfig) {
   const content = (
     <Suspense fallback={<LoadingFallback />}>
@@ -424,10 +441,17 @@ function createRouteElement({
     </Suspense>
   );
 
-  const wrappedContent = boundaryName ? (
+  const boundaried = boundaryName ? (
     <ModuleErrorBoundary name={boundaryName}>{content}</ModuleErrorBoundary>
   ) : (
     content
+  );
+
+  // Plan-feature gate (shows an upgrade screen if the plan lacks the feature).
+  const wrappedContent = feature ? (
+    <FeatureGate feature={feature}>{boundaried}</FeatureGate>
+  ) : (
+    boundaried
   );
 
   if (!permission) {

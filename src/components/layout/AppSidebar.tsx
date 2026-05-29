@@ -17,6 +17,7 @@ import {
   Cpu,
   Handshake,
   Brain,
+  Lock,
 } from 'lucide-react';
 import {
   Dialog,
@@ -38,6 +39,7 @@ import {
 } from '@/components/ui/sidebar';
 import { PermissionGate } from '@/components/PermissionGate';
 import { Resource, Action, useCanPerformAction } from '@/hooks/usePermissions';
+import { useEntitlements, type FeatureKey } from '@/hooks/useEntitlements';
 import { useUserRole } from '@/hooks/useUserManagement';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { Button } from '@/components/ui/button';
@@ -57,6 +59,8 @@ interface NavigationItem {
   badge?: string;
   badgeVariant?: 'default' | 'secondary' | 'destructive' | 'outline';
   permission?: { resource: Resource; action: Action };
+  /** Plan feature required; if the org lacks it, the item shows a lock. */
+  feature?: FeatureKey;
 }
 
 // Main navigation — flat list, no group labels (Startbutton style)
@@ -99,18 +103,21 @@ const mainNavItems: NavigationItem[] = [
     badge: 'New',
     badgeVariant: 'default',
     permission: { resource: 'agents', action: 'read' },
+    feature: 'agents',
   },
   {
     title: 'Negotiations',
     url: '/negotiations',
     icon: Handshake,
     permission: { resource: 'negotiations', action: 'read' },
+    feature: 'negotiations',
   },
   {
     title: 'Intelligence',
     url: '/intelligence',
     icon: Brain,
     permission: { resource: 'cases', action: 'read' },
+    feature: 'intelligence',
   },
   {
     title: 'Voice & Transcriptions',
@@ -150,6 +157,7 @@ const AppSidebar: React.FC = () => {
   const { signOut } = useAuth();
   const [showInvoiceSoon, setShowInvoiceSoon] = React.useState(false);
   const totalUnreadCount = useTotalUnreadCount();
+  const { data: entitlements } = useEntitlements();
 
   const { data: userRoleData } = useUserRole();
   const role = userRoleData && 'role' in userRoleData ? userRoleData.role : null;
@@ -197,6 +205,11 @@ const AppSidebar: React.FC = () => {
     ({ item }, ref) => {
       const active = isActive(item.url, item.end);
       const isLiveChat = item.url === '/live-chat';
+      // Lock gated items the org's plan doesn't include (only once entitlements
+      // have loaded, to avoid a flash of lock on first paint). The page itself
+      // shows the upgrade screen; the lock is just the signal in the nav.
+      const locked =
+        !!item.feature && !!entitlements && !entitlements.features.includes(item.feature);
 
       const linkClass = cn(
         'flex h-10 w-full items-center gap-3 rounded-xl px-3 text-[15px] transition-all duration-150',
@@ -238,7 +251,9 @@ const AppSidebar: React.FC = () => {
                 )}
               </div>
               {!collapsed && <span className="truncate">{item.title}</span>}
-              {!collapsed && isLiveChat && totalUnreadCount > 0 ? (
+              {!collapsed && locked ? (
+                <Lock className="ml-auto h-3.5 w-3.5 text-muted-foreground/70" />
+              ) : !collapsed && isLiveChat && totalUnreadCount > 0 ? (
                 <Badge variant="destructive" className="ml-auto text-[10px] min-w-5 justify-center">
                   {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                 </Badge>
