@@ -3,8 +3,10 @@ import multer from 'multer';
 import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
+import { env } from '../../config/env.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { requireAuth } from '../../middleware/auth.js';
+import { scanBuffer } from '../../services/clamav.js';
 import {
   uploadFile,
   downloadFile,
@@ -13,6 +15,56 @@ import {
   verifySignedUrl,
   StorageIntegrityError,
 } from '../../services/storage.js';
+
+/**
+ * Scan the incoming buffer with ClamAV (when configured). Behavior:
+ *   - clean → returns silently
+ *   - infected, CLAMAV_MODE=enforce → throws 422 MALWARE_DETECTED
+ *   - infected, CLAMAV_MODE=warn → logs at error level and lets it through
+ *   - scanner unreachable / protocol error → logs at error level, fails
+ *     OPEN (we'd rather let one upload through during an AV outage than
+ *     wedge the product)
+ *
+ * Hook into both upload routes so chat and document attachments get the
+ * same coverage.
+ */
+async function scanOrThrow(
+  buffer: Buffer,
+  filename: string,
+  ctx: { userId: string; organizationId: string; bucket: string }
+): Promise<void> {
+  try {
+    const result = await scanBuffer(buffer);
+    if (!result.scanned) return;
+    if (result.ok) return;
+     
+    console.error('[clamav] infected upload blocked', {
+      virus: result.virus,
+      filename,
+      bucket: ctx.bucket,
+      userId: ctx.userId,
+      organizationId: ctx.organizationId,
+      mode: env.CLAMAV_MODE,
+    });
+    if (env.CLAMAV_MODE === 'enforce') {
+      throw new ApiError(
+        `File rejected: malware signature "${result.virus}" detected.`,
+        422,
+        'MALWARE_DETECTED'
+      );
+    }
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+     
+    console.error('[clamav] scanner unreachable, failing open', {
+      error: err instanceof Error ? err.message : String(err),
+      filename,
+      bucket: ctx.bucket,
+      userId: ctx.userId,
+      organizationId: ctx.organizationId,
+    });
+  }
+}
 
 /**
  * Look up the expected SHA-256 for a stored file_path in the documents
@@ -103,6 +155,12 @@ filesRouter.post(
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '');
     const fileName = `${auth.organizationId}/${Date.now()}-${safeName || 'file'}`;
 
+    await scanOrThrow(file.buffer, file.originalname, {
+      userId: auth.userId,
+      organizationId: auth.organizationId,
+      bucket: 'documents',
+    });
+
     const result = await uploadFile('documents', fileName, file.buffer, file.mimetype);
 
     res.status(201).json({
@@ -130,6 +188,12 @@ filesRouter.post(
 
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '');
     const fileName = `${auth.organizationId}/${auth.userId}/${Date.now()}-${safeName || 'file'}`;
+
+    await scanOrThrow(file.buffer, file.originalname, {
+      userId: auth.userId,
+      organizationId: auth.organizationId,
+      bucket: 'Chat_Storage',
+    });
 
     const result = await uploadFile('Chat_Storage', fileName, file.buffer, file.mimetype);
 
@@ -174,7 +238,7 @@ filesRouter.get(
       if (err instanceof StorageIntegrityError) {
         // Hard signal — bytes on disk don't match what we recorded at
         // upload. Refuse to serve, page someone.
-         
+
         console.error('[storage-integrity]', err.message);
         throw new ApiError(
           'File failed integrity check and is unavailable.',
@@ -267,7 +331,6 @@ filesRouter.get(
       res.send(data);
     } catch (err) {
       if (err instanceof StorageIntegrityError) {
-         
         console.error('[storage-integrity]', err.message);
         throw new ApiError(
           'File failed integrity check and is unavailable.',

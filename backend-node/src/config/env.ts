@@ -77,6 +77,19 @@ const envSchema = z.object({
     .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
     .default(true),
 
+  // ClamAV antivirus. When both host + port are set, every file uploaded
+  // through /api/v1/files/*/upload is scanned with clamd's INSTREAM
+  // protocol before being written to storage. Leave unset in dev — the
+  // scanner becomes a no-op and uploads continue unchecked (logged).
+  CLAMAV_HOST: optionalNonEmptyString,
+  CLAMAV_PORT: z.coerce.number().int().positive().optional(),
+  CLAMAV_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  // 'enforce' (default) rejects the upload with 422 MALWARE_DETECTED on
+  // detection. 'warn' lets the file through but logs at error level —
+  // useful during the rollout window when you want telemetry without
+  // blocking real users.
+  CLAMAV_MODE: z.enum(['enforce', 'warn']).default('enforce'),
+
   // Paystack. Public key is FE-only and not needed here. Secret key signs
   // server calls AND HMAC-validates webhook payloads (Paystack signs the
   // webhook body with the same secret key, HMAC-SHA512).
