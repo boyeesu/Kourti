@@ -213,6 +213,8 @@ export default function Onboarding() {
           firstName: firstName || prev.account.firstName,
           lastName: lastName || prev.account.lastName,
           email: user.email || prev.account.email,
+          password: '',
+          confirmPassword: '',
         },
       }));
       setCurrentStep(ORG_STEP);
@@ -446,6 +448,10 @@ export default function Onboarding() {
           return;
         }
         // No MFA required — verification already complete server-side.
+        setFormData((prev) => ({
+          ...prev,
+          account: { ...prev.account, password: '', confirmPassword: '' },
+        }));
         setCurrentStep(ORG_STEP);
         setValidationErrors({});
       } finally {
@@ -1319,7 +1325,13 @@ export default function Onboarding() {
         purpose="signup"
         onSuccess={() => {
           setMfa(null);
-          // Email confirmed — move on to the profile-completion steps.
+          // Drop the plaintext password from React state now that the
+          // account exists and is verified — there's no reason to keep
+          // it readable for the rest of the flow.
+          setFormData((prev) => ({
+            ...prev,
+            account: { ...prev.account, password: '', confirmPassword: '' },
+          }));
           setCurrentStep(ORG_STEP);
         }}
         onCancel={() => {
