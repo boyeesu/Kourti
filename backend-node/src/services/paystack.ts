@@ -90,8 +90,18 @@ export async function initializeTransaction(args: InitializeArgs): Promise<Initi
   } | null;
 
   if (!res.ok || !json?.status || !json.data?.authorization_url) {
-    const msg = json?.message || `Paystack initialize failed (${res.status})`;
-    throw new ApiError(msg, 502, 'PAYSTACK_INITIALIZE_FAILED');
+    // Keep Paystack's message in logs (it can include account hints we
+    // don't want exposed); surface a generic one to callers.
+
+    console.warn('[paystack] initialize failed', {
+      status: res.status,
+      message: json?.message,
+    });
+    throw new ApiError(
+      'Could not start checkout. Please try again.',
+      502,
+      'PAYSTACK_INITIALIZE_FAILED'
+    );
   }
 
   return json.data;
@@ -128,8 +138,12 @@ export async function verifyTransaction(reference: string): Promise<PaystackVeri
   } | null;
 
   if (!res.ok || !json?.status || !json.data) {
-    const msg = json?.message || `Paystack verify failed (${res.status})`;
-    throw new ApiError(msg, 502, 'PAYSTACK_VERIFY_FAILED');
+    console.warn('[paystack] verify failed', {
+      status: res.status,
+      message: json?.message,
+      reference,
+    });
+    throw new ApiError('Payment verification failed.', 502, 'PAYSTACK_VERIFY_FAILED');
   }
 
   const d = json.data;
@@ -171,8 +185,10 @@ export function verifyWebhookSignature(
 
 /**
  * Build a tx_ref that is unique, URL-safe, and easy to recognise in logs.
- * Format: `kourti_<unix-ms>_<8 hex>`. Paystack accepts up to 100 chars.
+ * Format: `kourti_<unix-ms>_<32 hex>` — 128 bits of entropy in the random
+ * suffix so the verify route can't be probed by enumeration. Paystack
+ * accepts up to 100 chars; we use 56.
  */
 export function generateTxRef(): string {
-  return `kourti_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  return `kourti_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
 }

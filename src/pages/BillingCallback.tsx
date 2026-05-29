@@ -14,8 +14,12 @@ export default function BillingCallback() {
   const queryClient = useQueryClient();
   const verifyPayment = useVerifyPayment();
 
+  // Paystack callback ships `?reference=<ref>&trxref=<ref>` on return.
+  // We also accept the legacy `?status=…&tx_ref=…` shape (Flutterwave-era)
+  // so old links in flight don't dead-end here.
   const status = searchParams.get('status');
-  const txRef = searchParams.get('tx_ref');
+  const txRef =
+    searchParams.get('reference') ?? searchParams.get('trxref') ?? searchParams.get('tx_ref');
   const [callbackStatus, setCallbackStatus] = useState<CallbackStatus>('verifying');
   const verifyStarted = useRef(false);
 
@@ -30,8 +34,12 @@ export default function BillingCallback() {
       return;
     }
 
-    // For successful payments, verify with Flutterwave via our edge function
-    if ((status === 'successful' || status === 'completed') && txRef && !verifyStarted.current) {
+    // Paystack's callback has NO status param — landing here at all means
+    // the user returned from the hosted checkout. The verify endpoint is the
+    // authoritative answer; we kick it off whenever we have a reference and
+    // the legacy `status` param is either absent or affirmative.
+    const looksSuccessful = !status || status === 'successful' || status === 'completed';
+    if (looksSuccessful && txRef && !verifyStarted.current) {
       verifyStarted.current = true;
       setCallbackStatus('verifying');
 
