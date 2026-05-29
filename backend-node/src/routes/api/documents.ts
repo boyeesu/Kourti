@@ -72,7 +72,7 @@ async function getAuthorizedDocumentFile(
     `
     select id, name, file_path, mime_type, file_size, metadata
     from public.documents
-    where id = $1 and organization_id = $2
+    where id = $1 and organization_id = $2 and deleted_at is null
     limit 1
     `,
     [id, organizationId]
@@ -224,6 +224,7 @@ documentsRouter.get(
 
     const whereClause = `
       where d.organization_id = $1
+        and d.deleted_at is null
         and (
           $2::text is null
           or d.name ilike $2
@@ -272,7 +273,7 @@ documentsRouter.get(
     const result = await db.query<DocumentRow>(
       `
       ${getDocumentsSelectSql()}
-      where d.id = $1 and d.organization_id = $2
+      where d.id = $1 and d.organization_id = $2 and d.deleted_at is null
       limit 1
       `,
       [id, organizationId]
@@ -450,6 +451,7 @@ documentsRouter.patch(
       set ${setClause}, updated_at = now()
       where id = $${updates.length + 1}
         and organization_id = $${updates.length + 2}
+        and deleted_at is null
       returning
         id,
         name,
@@ -494,8 +496,15 @@ documentsRouter.delete(
     const { id } = documentIdParamsSchema.parse(req.params);
     const organizationId = req.auth!.organizationId;
 
+    // Soft-delete: stamp deleted_at so list/get queries hide the row
+    // immediately, but the underlying bytes and metadata stay around
+    // for the admin sweeper to hard-delete in N days. Recoverable
+    // until the sweeper runs against this row's tombstone.
     const result = await db.query(
-      'delete from public.documents where id = $1 and organization_id = $2',
+      `update public.documents
+          set deleted_at = now(),
+              updated_at = now()
+        where id = $1 and organization_id = $2 and deleted_at is null`,
       [id, organizationId]
     );
 

@@ -410,6 +410,15 @@ const bootstrapStatements = [
   `alter table public.documents add column if not exists metadata jsonb`,
   `alter table public.documents add column if not exists file_size bigint`,
 
+  // Soft-delete tombstone. The DELETE /api/v1/documents/:id route sets
+  // this instead of hard-deleting the row, so an accidental delete is
+  // recoverable for up to 30 days. The admin sweeper hard-deletes (and
+  // unlinks the underlying Garage objects) anything past that window.
+  // Indexed because every list query filters by `deleted_at is null`.
+  `alter table public.documents add column if not exists deleted_at timestamptz`,
+  `alter table public.document_versions add column if not exists deleted_at timestamptz`,
+  `create index if not exists idx_documents_deleted_at on public.documents(deleted_at) where deleted_at is not null`,
+
   // SHA-256 of the stored bytes, captured at upload time. Used as a
   // tripwire on download — if the object we read back hashes to something
   // else, the bytes have been corrupted in storage or tampered with

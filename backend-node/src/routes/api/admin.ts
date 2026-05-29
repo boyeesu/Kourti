@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
-import { asyncHandler } from '../../lib/http.js';
+import { ApiError, asyncHandler } from '../../lib/http.js';
 import { requirePlatformAdminUser } from '../../services/authorization.js';
-import { fileExists } from '../../services/storage.js';
+import { deleteFile, fileExists } from '../../services/storage.js';
 
 const adminActionQuerySchema = z.object({
   admin_user_id: z.string().uuid().optional(),
@@ -481,5 +481,114 @@ adminRouter.post(
         version_ids: missingVersionIds.slice(0, 50),
       },
     });
+  })
+);
+
+// ── Storage sweep: hard-delete tombstoned rows past their grace window ──────
+
+const storageSweepBody = z.object({
+  apply: z.boolean().optional().default(false),
+  // Rows whose deleted_at is older than now() - graceDays are eligible.
+  // Default 30 days. Min 1 day so we don't accidentally wipe a tombstone
+  // the same hour a user created it.
+  graceDays: z.coerce.number().int().min(1).max(3650).optional().default(30),
+  limit: z.coerce.number().int().positive().max(5000).optional().default(2000),
+});
+
+/**
+ * Hard-delete documents (and their cascaded versions, edits, tabular
+ * cells) whose tombstone is older than the grace window, and unlink the
+ * underlying Garage objects so they stop counting toward the bucket
+ * quota.
+ *
+ * Default is dry-run; pass `{apply: true}` to actually delete. Run on a
+ * cron from outside (Railway scheduled job, GitHub Actions, or hand-fire
+ * from a Slack /command) — the endpoint is intentionally idempotent.
+ *
+ * Storage object delete failures do NOT block the DB delete: the row
+ * still goes away, and the orphaned object will be picked up by a
+ * future `garage bucket cleanup-incomplete-uploads` or audit.
+ */
+adminRouter.post(
+  '/storage/sweep',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    await requirePlatformAdminUser(auth.userId);
+
+    const { apply, graceDays, limit } = storageSweepBody.parse(req.body ?? {});
+
+    const eligible = await db.query<{ id: string; file_path: string | null }>(
+      `select id, file_path
+         from public.documents
+        where deleted_at is not null
+          and deleted_at < now() - make_interval(days => $1::int)
+        order by deleted_at asc
+        limit $2`,
+      [graceDays, limit]
+    );
+
+    let storageDeleted = 0;
+    const storageErrors: Array<{ id: string; error: string }> = [];
+
+    if (apply) {
+      // 1) Remove the Garage objects first so we never leak bytes for
+      //    a row we're about to drop. Errors are logged but not fatal.
+      for (const row of eligible.rows) {
+        if (!row.file_path) continue;
+        try {
+          await deleteFile('documents', row.file_path);
+          storageDeleted++;
+        } catch (err) {
+          storageErrors.push({
+            id: row.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      // 2) Hard-delete the rows. document_versions / document_edits /
+      //    tabular_cells fall away via CASCADE FKs.
+      if (eligible.rows.length) {
+        await db.query(`delete from public.documents where id = any($1::uuid[])`, [
+          eligible.rows.map((r) => r.id),
+        ]);
+      }
+    }
+
+    res.status(200).json({
+      mode: apply ? 'applied' : 'dry_run',
+      graceDays,
+      eligible: eligible.rows.length,
+      storage_deleted: storageDeleted,
+      storage_errors: storageErrors.slice(0, 20),
+      sample_ids: eligible.rows.slice(0, 20).map((r) => r.id),
+    });
+  })
+);
+
+// ── Restore (undo a soft-delete inside the grace window) ────────────────────
+
+adminRouter.post(
+  '/storage/restore/:id',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    await requirePlatformAdminUser(auth.userId);
+
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+
+    const result = await db.query<{ id: string }>(
+      `update public.documents
+          set deleted_at = null,
+              updated_at = now()
+        where id = $1 and deleted_at is not null
+        returning id`,
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      throw new ApiError('No tombstoned document with that id', 404, 'NOT_FOUND');
+    }
+
+    res.status(200).json({ restored: result.rows[0].id });
   })
 );
