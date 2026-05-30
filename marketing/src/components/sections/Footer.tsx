@@ -102,9 +102,6 @@ const Footer = () => {
 
         {/* Copyright */}
         <div className="mt-12 pt-8 border-t border-border flex flex-col items-center gap-3">
-          <p className="text-xs text-muted-foreground text-center">
-            Pay by card (Visa, Mastercard, Verve), bank transfer, USSD, or mobile money.
-          </p>
           <p className="text-sm text-muted-foreground text-center">
             © {new Date().getFullYear()} Kourti Legal. All rights reserved.
           </p>
