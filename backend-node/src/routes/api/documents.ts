@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { enforceStorageLimit } from '../../services/limits.js';
 import { escapeIlike } from '../../lib/escapeIlike.js';
 import { sanitizeHtml } from '../../lib/sanitizeHtml.js';
 import { createSignedUrl } from '../../services/storage.js';
@@ -324,6 +325,19 @@ documentsRouter.post(
   asyncHandler(async (req, res) => {
     const body = createDocumentBodySchema.parse(req.body);
     const auth = req.auth!;
+
+    // Tiered plan cap on total document storage.
+    const usageRes = await db.query<{ bytes: string | null }>(
+      `select coalesce(sum(file_size), 0)::bigint as bytes
+         from public.documents where organization_id = $1`,
+      [auth.organizationId]
+    );
+    await enforceStorageLimit(
+      auth.organizationId,
+      Number(usageRes.rows[0]?.bytes ?? 0),
+      body.file_size ?? 0,
+      auth.userId
+    );
 
     const result = await db.query<DocumentRow>(
       `

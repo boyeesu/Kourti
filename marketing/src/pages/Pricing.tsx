@@ -15,6 +15,7 @@ import {
   PLAN_CTA,
   PLAN_CARD_EXTRAS,
   featureLabel,
+  formatLimit,
   type CellValue,
 } from '@/lib/planFeatures';
 
@@ -156,6 +157,10 @@ const PlanCard = ({ plans, idx }: { plans: PublicPlan[]; idx: number }) => {
           <span className="text-4xl font-bold text-foreground">{price}</span>
           <span className="ml-2 text-muted-foreground">{period}</span>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {formatLimit(plan.limits.cases)} matters · {formatLimit(plan.limits.storage_mb, "storage")}{" "}
+          storage
+        </p>
       </div>
 
       <div className="mb-8 flex-1 space-y-3">
@@ -206,17 +211,17 @@ const CategoryRows = ({
         >
           {row.label}
         </td>
-        {plans.map((plan) => (
-          <td key={plan.id} className="p-4 text-center">
-            <Cell
-              value={
-                row.kind === 'feature'
-                  ? plan.included_features.includes(row.key)
-                  : row.values[plan.plan_type]
-              }
-            />
-          </td>
-        ))}
+        {plans.map((plan) => {
+          let value: CellValue | undefined;
+          if (row.kind === 'feature') value = plan.included_features.includes(row.key);
+          else if (row.kind === 'limit') value = formatLimit(plan.limits[row.limitKey], row.format);
+          else value = row.values[plan.plan_type];
+          return (
+            <td key={plan.id} className="p-4 text-center">
+              <Cell value={value} />
+            </td>
+          );
+        })}
       </tr>
     ))}
   </>

@@ -1,11 +1,20 @@
 import { db } from './pool.js';
 import { DEFAULT_PLAN_FEATURES } from '../services/entitlements.js';
+import { DEFAULT_PLAN_LIMITS } from '../services/limits.js';
 
 // Seed rows for plan_features, generated from the code default matrix. Values
 // are code constants (no user input), safe to inline. ON CONFLICT DO NOTHING
 // preserves any admin edits across redeploys.
 const planFeatureSeedValues = Object.entries(DEFAULT_PLAN_FEATURES)
   .flatMap(([plan, keys]) => keys.map((k) => `('${plan}','${k}',true)`))
+  .join(',');
+
+// Seed rows for plan_limits (only finite caps; omitted keys = unlimited).
+// Code constants, ON CONFLICT DO NOTHING preserves admin edits.
+const planLimitSeedValues = Object.entries(DEFAULT_PLAN_LIMITS)
+  .flatMap(([plan, limits]) =>
+    Object.entries(limits).map(([k, v]) => `('${plan}','${k}',${Number(v)})`)
+  )
   .join(',');
 
 const bootstrapStatements = [
@@ -1276,6 +1285,23 @@ const bootstrapStatements = [
   `insert into public.plan_features (plan_type, feature_key, enabled)
    values ${planFeatureSeedValues}
    on conflict (plan_type, feature_key) do nothing`,
+
+  // ── Plan usage limits (tiered caps) ───────────────────────────────
+  // Source of truth for numeric caps (plan_type → limit_key → value). Seeded
+  // from DEFAULT_PLAN_LIMITS; admin-editable thereafter. A missing row (or null
+  // value) means UNLIMITED for that key. See services/limits.ts.
+  `
+  create table if not exists public.plan_limits (
+    plan_type text not null,
+    limit_key text not null,
+    limit_value bigint,
+    updated_at timestamptz not null default now(),
+    primary key (plan_type, limit_key)
+  )
+  `,
+  `insert into public.plan_limits (plan_type, limit_key, limit_value)
+   values ${planLimitSeedValues}
+   on conflict (plan_type, limit_key) do nothing`,
 
   // ── Marketing lead capture ────────────────────────────────────────
   // Public contact-form and assessment submissions from the marketing site
