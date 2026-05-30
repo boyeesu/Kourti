@@ -113,13 +113,28 @@ const contactSchema = z.object({
   firmSize: z.string().trim().max(50).optional(),
   interest: z.string().trim().min(1).max(100),
   message: z.string().trim().min(1).max(5000),
+  // Honeypot: a hidden field real users never fill. Bots that auto-fill every
+  // input trip it. Accepted then silently dropped (we don't 4xx, to avoid
+  // signalling the trap).
+  website: z.string().max(200).optional(),
 });
+
+/** True when a honeypot field was filled — treat as a bot, drop silently. */
+function isHoneypotTripped(value: string | undefined): boolean {
+  return !!value && value.trim().length > 0;
+}
+
+const HONEYPOT_OK = { success: true, message: "Thanks for reaching out! We'll get back to you within 24 hours." };
 
 publicRouter.post(
   '/contact',
   asyncHandler(async (req, res) => {
     enforceRateLimit(`public-contact:${clientIp(req)}`, 5, 60_000);
     const lead = contactSchema.parse(req.body);
+    if (isHoneypotTripped(lead.website)) {
+      res.status(200).json(HONEYPOT_OK);
+      return;
+    }
     const email = lead.email.toLowerCase();
 
     await db.query(
@@ -168,6 +183,7 @@ const assessmentSchema = z.object({
   // Answers are score values (numbers) but accept strings too for resilience.
   answers: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
   dimensionScores: z.record(z.string(), z.number()),
+  website: z.string().max(200).optional(), // honeypot
 });
 
 publicRouter.post(
@@ -175,6 +191,10 @@ publicRouter.post(
   asyncHandler(async (req, res) => {
     enforceRateLimit(`public-assessment:${clientIp(req)}`, 5, 60_000);
     const lead = assessmentSchema.parse(req.body);
+    if (isHoneypotTripped(lead.website)) {
+      res.status(200).json({ success: true });
+      return;
+    }
     const email = lead.email.toLowerCase();
 
     await db.query(

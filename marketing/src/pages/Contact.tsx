@@ -30,6 +30,7 @@ const Contact = () => {
     firmSize: '',
     interest: '',
     message: '',
+    website: '', // honeypot
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -66,6 +67,7 @@ const Contact = () => {
         firmSize: '',
         interest: '',
         message: '',
+        website: '',
       });
     } catch (error: any) {
       console.error('Error submitting form:', error);
@@ -122,6 +124,18 @@ const Contact = () => {
                 </p>
 
                 <form className="space-y-6" onSubmit={handleSubmit}>
+                  {/* Honeypot: hidden from users, catches form-filling bots. */}
+                  <input
+                    type="text"
+                    id="website"
+                    name="website"
+                    value={formData.website || ''}
+                    onChange={handleInputChange}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+                  />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label
