@@ -14,11 +14,32 @@ export type CellValue = boolean | string;
 
 export type ComparisonRow =
   | { kind: 'feature'; key: string; label: string; description?: string }
-  | { kind: 'value'; label: string; description?: string; values: Record<string, CellValue> };
+  | { kind: 'value'; label: string; description?: string; values: Record<string, CellValue> }
+  | {
+      kind: 'limit';
+      limitKey: string;
+      label: string;
+      description?: string;
+      format?: 'count' | 'storage';
+    };
 
 export interface ComparisonCategory {
   name: string;
   rows: ComparisonRow[];
+}
+
+/** Render a limit cap for display. undefined/null = unlimited. */
+export function formatLimit(
+  value: number | null | undefined,
+  format: 'count' | 'storage' = 'count'
+): string {
+  if (value == null) return 'Unlimited';
+  if (format === 'storage') {
+    return value >= 1024
+      ? `${value % 1024 === 0 ? value / 1024 : (value / 1024).toFixed(1)} GB`
+      : `${value} MB`;
+  }
+  return value.toLocaleString();
 }
 
 /** Tagline shown under each plan's name. Keyed by plan_type. */
@@ -46,6 +67,36 @@ export const PLAN_CARD_EXTRAS: Record<string, string[]> = {
 };
 
 export const COMPARISON: ComparisonCategory[] = [
+  {
+    name: 'Usage & limits',
+    rows: [
+      {
+        kind: 'limit',
+        limitKey: 'cases',
+        label: 'Active matters / cases',
+        format: 'count',
+      },
+      { kind: 'limit', limitKey: 'clients', label: 'Active clients', format: 'count' },
+      {
+        kind: 'limit',
+        limitKey: 'storage_mb',
+        label: 'Document storage',
+        format: 'storage',
+      },
+      {
+        kind: 'limit',
+        limitKey: 'ai_reviews_month',
+        label: 'AI document reviews / month',
+        format: 'count',
+      },
+      {
+        kind: 'limit',
+        limitKey: 'ai_messages_month',
+        label: 'AI assistant messages / month',
+        format: 'count',
+      },
+    ],
+  },
   {
     name: 'Practice management',
     rows: [

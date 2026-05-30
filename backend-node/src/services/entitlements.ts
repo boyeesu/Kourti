@@ -90,8 +90,9 @@ export function invalidateEntitlementsCache(): void {
 /**
  * The plan tier whose entitlements apply to this org. Trials map to
  * `professional`. Returns null when the org has no live subscription.
+ * Exported for the limits service (services/limits.ts).
  */
-async function effectivePlanType(orgId: string): Promise<string | null> {
+export async function effectivePlanType(orgId: string): Promise<string | null> {
   const res = await db.query<{ status: string; plan_type: string | null }>(
     `select s.status, up.plan_type
        from public.subscriptions s

@@ -56,6 +56,8 @@ export interface PublicPlan {
   features: string[];
   /** feature_key list this plan unlocks (from the admin entitlement matrix). */
   included_features: string[];
+  /** limit_key -> cap; a missing key (or null) means unlimited. */
+  limits: Record<string, number | null>;
   price_monthly: number | null;
   price_yearly: number | null;
   currency: string;

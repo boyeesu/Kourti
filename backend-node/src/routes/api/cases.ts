@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { enforceCountLimit } from '../../services/limits.js';
 
 const listCasesQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -223,6 +224,22 @@ casesRouter.post(
   asyncHandler(async (req, res) => {
     const body = createCaseBodySchema.parse(req.body);
     const auth = req.auth!;
+
+    // Tiered plan cap on ACTIVE matters only — closed/archived matters are just
+    // historical records and must not consume the cap.
+    const countRes = await db.query<{ c: number }>(
+      `select count(*)::int as c from public.cases
+        where organization_id = $1
+          and coalesce(lower(status), '') not in ('closed', 'archived')`,
+      [auth.organizationId]
+    );
+    await enforceCountLimit(
+      auth.organizationId,
+      'cases',
+      countRes.rows[0]?.c ?? 0,
+      'active matters',
+      auth.userId
+    );
 
     const result = await db.query<CaseRow>(
       `
