@@ -58,19 +58,33 @@ interface PlanRow {
   sort_order: number | null;
   // feature_key list enabled for this plan_type (from public.plan_features).
   included_features: string[] | null;
+  // limit_key -> cap (null = unlimited), from public.plan_limits.
+  limits: Record<string, number | string | null> | null;
+}
+
+function normaliseLimits(
+  raw: Record<string, number | string | null> | null
+): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  if (raw && typeof raw === 'object') {
+    for (const [k, v] of Object.entries(raw)) out[k] = v == null ? null : Number(v);
+  }
+  return out;
 }
 
 publicRouter.get(
   '/plans',
   asyncHandler(async (_req, res) => {
-    // included_features comes from the plan_features entitlement matrix
-    // (admin-editable) so the marketing comparison table reflects exactly what
-    // each tier unlocks. LEFT JOIN keeps plans even if the matrix is empty.
+    // included_features comes from the plan_features entitlement matrix and
+    // limits from plan_limits (both admin-editable) so the marketing comparison
+    // reflects exactly what each tier unlocks. LEFT JOINs keep plans even when a
+    // matrix is empty; a missing limit key (or null) means unlimited.
     const result = await db
       .query<PlanRow>(
         `select up.id, up.name, up.display_name, up.description, up.plan_type, up.features,
                 up.price_monthly, up.price_yearly, up.currency, up.highlight, up.sort_order,
-                coalesce(pf.keys, array[]::text[]) as included_features
+                coalesce(pf.keys, array[]::text[]) as included_features,
+                pl.limits as limits
            from public.user_plans up
            left join (
              select plan_type, array_agg(feature_key) as keys
@@ -78,6 +92,12 @@ publicRouter.get(
               where enabled = true
               group by plan_type
            ) pf on pf.plan_type = up.plan_type
+           left join (
+             select plan_type, json_object_agg(limit_key, limit_value) as limits
+               from public.plan_limits
+              where limit_value is not null
+              group by plan_type
+           ) pl on pl.plan_type = up.plan_type
           where up.is_active = true
           order by coalesce(up.sort_order, 99) asc, up.price_monthly asc nulls last`
       )
@@ -92,6 +112,7 @@ publicRouter.get(
         plan_type: p.plan_type,
         features: Array.isArray(p.features) ? p.features : [],
         included_features: Array.isArray(p.included_features) ? p.included_features : [],
+        limits: normaliseLimits(p.limits),
         // numeric columns come back as strings from pg; normalise to number|null.
         price_monthly: p.price_monthly == null ? null : Number(p.price_monthly),
         price_yearly: p.price_yearly == null ? null : Number(p.price_yearly),

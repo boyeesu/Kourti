@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { enforceCountLimit } from '../../services/limits.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -75,6 +76,13 @@ clientsRouter.post(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
     const body = createClientBodySchema.parse(req.body);
+
+    // Tiered plan cap on clients.
+    const countRes = await db.query<{ c: number }>(
+      `select count(*)::int as c from public.clients where organization_id = $1`,
+      [auth.organizationId]
+    );
+    await enforceCountLimit(auth.organizationId, 'clients', countRes.rows[0]?.c ?? 0, 'clients', auth.userId);
 
     const result = await db.query(
       `
