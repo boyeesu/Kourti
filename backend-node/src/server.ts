@@ -18,6 +18,7 @@ import { startMonitorScheduler } from './agents/monitorScheduler.js';
 import { startWeeklyDigestScheduler } from './agents/weeklyDigest.js';
 import { startTrialExpirySweep } from './agents/trialExpirySweep.js';
 import { startUnverifiedUserSweep } from './agents/unverifiedUserSweep.js';
+import { startMarketingKbScheduler } from './agents/marketingKbSync.js';
 
 const app = createApp();
 const server = createServer(app);
@@ -44,6 +45,7 @@ async function start() {
     await startWeeklyDigestScheduler();
     await startTrialExpirySweep();
     await startUnverifiedUserSweep();
+    await startMarketingKbScheduler();
   } catch (error) {
     console.error(
       'Agent worker startup failed (server will still start):',

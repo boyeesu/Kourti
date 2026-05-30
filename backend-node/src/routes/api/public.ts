@@ -24,6 +24,10 @@ import {
   sendContactLeadNotification,
 } from '../../services/email.js';
 import { brevoSyncMarketingLead, logBrevoError } from '../../services/brevo.js';
+import { streamChatCompletion } from '../../lib/openai.js';
+import { searchMarketingKb, ingestKnowledge } from '../../services/marketingKb.js';
+import { KOURTI_KNOWLEDGE, type KnowledgeEntry } from '../../data/kourtiKnowledge.js';
+import { env } from '../../config/env.js';
 
 export const publicRouter = Router();
 
@@ -242,5 +246,175 @@ publicRouter.post(
     }).catch(logBrevoError);
 
     res.status(200).json({ success: true });
+  })
+);
+
+// ── MARTHA chatbot (public RAG) ──────────────────────────────────────────────
+
+const chatSchema = z.object({
+  message: z.string().trim().min(1).max(2000),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string().trim().min(1).max(4000),
+      })
+    )
+    .max(12)
+    .optional(),
+});
+
+/** Build a short, always-current pricing summary from the live plans table. */
+async function buildPlanSummary(): Promise<string> {
+  const result = await db
+    .query<PlanRow>(
+      `select name, display_name, description, plan_type, price_monthly,
+              price_yearly, currency, sort_order
+         from public.user_plans
+        where is_active = true
+        order by coalesce(sort_order, 99) asc, price_monthly asc nulls last`
+    )
+    .catch(() => ({ rows: [] as PlanRow[] }));
+
+  if (!result.rows.length) return '';
+
+  return result.rows
+    .map((p) => {
+      const name = p.display_name ?? p.name;
+      const currency = p.currency ?? 'USD';
+      const monthly =
+        p.price_monthly == null
+          ? 'custom pricing — contact sales'
+          : `${currency} ${Number(p.price_monthly)} per seat / month`;
+      const yearly =
+        p.price_yearly == null ? '' : `, or ${currency} ${Number(p.price_yearly)} per seat / year`;
+      const desc = p.description ? ` — ${p.description}` : '';
+      return `- ${name}: ${monthly}${yearly}${desc}`;
+    })
+    .join('\n');
+}
+
+publicRouter.post(
+  '/chat',
+  asyncHandler(async (req, res) => {
+    enforceRateLimit(`public-chat:${clientIp(req)}`, 20, 60_000);
+    const { message, history = [] } = chatSchema.parse(req.body);
+
+    // Retrieve grounding context and live pricing in parallel; both degrade to
+    // empty so a failure in either never blocks the answer.
+    const [matches, planSummary] = await Promise.all([
+      searchMarketingKb(message, 5).catch(() => []),
+      buildPlanSummary().catch(() => ''),
+    ]);
+
+    const context = matches
+      .map((m, i) => `[Source ${i + 1}: ${m.title}]\n${m.content}`)
+      .join('\n\n');
+    const sources = Array.from(new Set(matches.map((m) => m.title)));
+
+    const system = [
+      'You are MARTHA, the friendly and knowledgeable AI assistant on the Kourti website (kourti.com).',
+      'Kourti is an AI-powered legal operations platform for law firms and in-house legal teams.',
+      'You help prospective and current customers understand Kourti — its product, features, pricing, and how to get started.',
+      '',
+      'Rules:',
+      '- Answer using ONLY the CONTEXT and CURRENT PRICING below. Do not invent features, prices, integrations, or claims.',
+      "- If the answer isn't in the context, say so briefly and point them to the contact page (kourti.com/contact) or suggest starting a free trial.",
+      '- Be concise, warm, and helpful. Use short paragraphs or bullet points. Avoid legal jargon.',
+      '- You are a product assistant, not a lawyer — never give legal advice; for legal questions, suggest they consult a qualified lawyer or use Kourti once signed in.',
+      '- When relevant, gently encourage next steps: starting a free trial, viewing pricing, or contacting the team.',
+      '- For exact prices, always use the CURRENT PRICING section (it is live and authoritative).',
+      '',
+      'CURRENT PRICING:',
+      planSummary ||
+        'Pricing details are on kourti.com/pricing — invite the user to view them or contact the team.',
+      '',
+      'CONTEXT:',
+      context ||
+        '(no specific context retrieved — answer from general Kourti knowledge in these instructions, and recommend the contact page for specifics)',
+    ].join('\n');
+
+    const messages = [
+      { role: 'system', content: system },
+      ...history.map((h) => ({ role: h.role, content: h.content })),
+      { role: 'user', content: message },
+    ] as Parameters<typeof streamChatCompletion>[0];
+
+    // Stream the answer as Server-Sent Events (same frame shape as the in-app
+    // AI assistant: {type:'delta'|'done'|'error'}).
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    try {
+      await streamChatCompletion(
+        messages,
+        (delta) => {
+          res.write(`data: ${JSON.stringify({ type: 'delta', content: delta })}\n\n`);
+        },
+        700
+      );
+      res.write(`data: ${JSON.stringify({ type: 'done', sources })}\n\n`);
+    } catch (err) {
+      // Log the real error server-side; send a generic message to the public
+      // client so internal/provider error details never leak.
+      console.error('[public/chat] stream failed:', err instanceof Error ? err.message : err);
+      res.write(
+        `data: ${JSON.stringify({ type: 'error', error: 'The assistant is briefly unavailable. Please try again.' })}\n\n`
+      );
+    } finally {
+      res.end();
+    }
+  })
+);
+
+// ── KB sync (CI → backend) ───────────────────────────────────────────────────
+// Nightly GitHub Action extracts copy from the marketing source and POSTs it
+// here; we merge in curated supplements and re-embed using the already-configured
+// embedding model. Guarded by a shared secret so the DB never leaves the backend.
+
+const kbSyncSchema = z.object({
+  entries: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(200),
+        title: z.string().trim().min(1).max(500),
+        category: z.enum(['product', 'pricing', 'faq', 'company']),
+        content: z.string().trim().min(1).max(20_000),
+      })
+    )
+    .max(200),
+});
+
+publicRouter.post(
+  '/kb/sync',
+  asyncHandler(async (req, res) => {
+    if (!env.KB_SYNC_SECRET) {
+      throw new ApiError('KB sync is not configured', 503, 'KB_SYNC_DISABLED');
+    }
+    const auth = req.header('authorization') || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (token !== env.KB_SYNC_SECRET) {
+      throw new ApiError('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+
+    const { entries } = kbSyncSchema.parse(req.body);
+
+    // Site copy is primary; curated supplements fill gaps. Curated wins on id
+    // collisions. Prune anything no longer present so removed pages drop out.
+    const byId = new Map<string, KnowledgeEntry>();
+    for (const e of entries) byId.set(e.id, e);
+    for (const e of KOURTI_KNOWLEDGE) byId.set(e.id, e);
+    const merged = [...byId.values()];
+
+    // Embedding can take tens of seconds; run it in the background and ack now.
+    void ingestKnowledge(merged, { prune: true })
+      .then((written) =>
+        console.log(`[kb/sync] Re-embedded ${written} chunk(s) from ${merged.length} entries.`)
+      )
+      .catch((err) => console.error('[kb/sync] Ingest failed:', err));
+
+    res.status(202).json({ accepted: true, entries: merged.length });
   })
 );
