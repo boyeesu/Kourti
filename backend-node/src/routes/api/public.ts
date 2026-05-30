@@ -56,18 +56,30 @@ interface PlanRow {
   currency: string | null;
   highlight: boolean | null;
   sort_order: number | null;
+  // feature_key list enabled for this plan_type (from public.plan_features).
+  included_features: string[] | null;
 }
 
 publicRouter.get(
   '/plans',
   asyncHandler(async (_req, res) => {
+    // included_features comes from the plan_features entitlement matrix
+    // (admin-editable) so the marketing comparison table reflects exactly what
+    // each tier unlocks. LEFT JOIN keeps plans even if the matrix is empty.
     const result = await db
       .query<PlanRow>(
-        `select id, name, display_name, description, plan_type, features,
-                price_monthly, price_yearly, currency, highlight, sort_order
-           from public.user_plans
-          where is_active = true
-          order by coalesce(sort_order, 99) asc, price_monthly asc nulls last`
+        `select up.id, up.name, up.display_name, up.description, up.plan_type, up.features,
+                up.price_monthly, up.price_yearly, up.currency, up.highlight, up.sort_order,
+                coalesce(pf.keys, array[]::text[]) as included_features
+           from public.user_plans up
+           left join (
+             select plan_type, array_agg(feature_key) as keys
+               from public.plan_features
+              where enabled = true
+              group by plan_type
+           ) pf on pf.plan_type = up.plan_type
+          where up.is_active = true
+          order by coalesce(up.sort_order, 99) asc, up.price_monthly asc nulls last`
       )
       .catch(() => ({ rows: [] as PlanRow[] }));
 
@@ -79,6 +91,7 @@ publicRouter.get(
         description: p.description,
         plan_type: p.plan_type,
         features: Array.isArray(p.features) ? p.features : [],
+        included_features: Array.isArray(p.included_features) ? p.included_features : [],
         // numeric columns come back as strings from pg; normalise to number|null.
         price_monthly: p.price_monthly == null ? null : Number(p.price_monthly),
         price_yearly: p.price_yearly == null ? null : Number(p.price_yearly),

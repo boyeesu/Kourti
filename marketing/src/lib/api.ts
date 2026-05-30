@@ -54,6 +54,8 @@ export interface PublicPlan {
   description: string | null;
   plan_type: 'free' | 'starter' | 'professional' | 'enterprise' | string;
   features: string[];
+  /** feature_key list this plan unlocks (from the admin entitlement matrix). */
+  included_features: string[];
   price_monthly: number | null;
   price_yearly: number | null;
   currency: string;
