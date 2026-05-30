@@ -325,6 +325,10 @@ documentsRouter.post(
     const body = createDocumentBodySchema.parse(req.body);
     const auth = req.auth!;
 
+    // Storage cap is enforced at upload time (POST /files/documents/upload)
+    // using the real uploaded byte count — not the client-reported file_size
+    // here, which could be under-reported to bypass the cap.
+
     const result = await db.query<DocumentRow>(
       `
       insert into public.documents (
