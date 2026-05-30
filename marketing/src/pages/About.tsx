@@ -32,7 +32,7 @@ const About = () => {
       icon: Shield,
       title: 'Uncompromising Security',
       description:
-        'Your client data is sacred. SOC 2 compliant infrastructure with end-to-end encryption ensures confidentiality at every level.',
+        "Your client data is sacred. Built on SOC 2-aligned infrastructure with encryption in transit and at rest — and we're working toward formal SOC 2 Type II certification.",
       color: 'pastel-green',
     },
     {

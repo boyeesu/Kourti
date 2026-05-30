@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/extract-kb.mjs && vite build",
-    "build:dev": "node scripts/extract-kb.mjs && vite build --mode development",
+    "build": "node scripts/extract-kb.mjs && vite build && node scripts/prerender.mjs",
+    "build:dev": "node scripts/extract-kb.mjs && vite build --mode development && node scripts/prerender.mjs",
+    "prerender": "node scripts/prerender.mjs",
+    "og-image": "python3 scripts/generate-og-image.py",
     "lint": "eslint .",
     "preview": "vite preview"
   },

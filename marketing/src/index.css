@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* ===== ASK MARTHA DARK THEME ===== */
+    /* ===== KOURTI LEGAL DARK THEME ===== */
 
     /* Base colors - Deep charcoal/black #09090B */
     --background: 240 10% 4%;
@@ -164,6 +164,10 @@
     background: linear-gradient(135deg, hsl(215 50% 15%) 0%, hsl(240 10% 6%) 100%);
   }
 
+  .bg-gradient-subtle {
+    background: linear-gradient(180deg, hsl(240 10% 6%) 0%, hsl(240 10% 4%) 100%);
+  }
+
   /* ===== CARD STYLES ===== */
   .card-dark {
     @apply bg-card border border-border rounded-xl;
@@ -192,6 +196,15 @@
   .btn-primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px -8px hsl(0 0% 0% / 0.5);
+  }
+
+  .btn-primary:focus-visible,
+  .btn-secondary:focus-visible,
+  .btn-gradient-border:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--primary));
   }
 
   .btn-secondary {
@@ -485,6 +498,23 @@
 
 .animate-glow-pulse {
   animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-float,
+  .animate-glow-pulse {
+    animation: none !important;
+  }
 }
 
 /* ===== SCROLLBAR STYLING ===== */

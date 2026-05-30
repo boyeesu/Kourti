@@ -1,23 +1,23 @@
 const Stats = () => {
   const stats = [
     {
-      value: '80%',
-      label: 'Time Saved',
-      description: 'On first-pass contract review',
+      value: 'Minutes',
+      label: 'First-pass review',
+      description: 'Contract review that took a day, in minutes',
     },
     {
-      value: '99.9%',
-      label: 'Analysis Precision',
-      description: 'On supported document types',
+      value: 'Cited',
+      label: 'Every answer',
+      description: 'Each AI answer links to its source page and verbatim quote',
     },
     {
       value: '3x',
-      label: 'Faster Turnaround',
-      description: 'On matter completion times',
+      label: 'Faster turnaround',
+      description: 'Customer-reported on matter completion times',
     },
     {
       value: 'Zero',
-      label: 'Missed Deadlines',
+      label: 'Missed deadlines',
       description: 'With smart reminder automation',
     },
   ];

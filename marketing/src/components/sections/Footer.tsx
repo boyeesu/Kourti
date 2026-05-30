@@ -5,8 +5,10 @@ import { Mascot } from '@/components/ui/Mascot';
 
 const Footer = () => {
   const quickLinks = [
-    { name: 'Features', href: '/#features' },
+    { name: 'Features', href: '/features' },
     { name: 'Pricing', href: '/pricing' },
+    { name: 'Security', href: '/security' },
+    { name: 'Assessment', href: '/assessment' },
     { name: 'Contact', href: '/contact' },
   ];
 
@@ -30,11 +32,11 @@ const Footer = () => {
                 href="mailto:support@kourti.com"
                 className="flex items-center gap-2 hover:text-foreground transition-colors"
               >
-                <Mail className="h-4 w-4" />
+                <Mail className="h-4 w-4" aria-hidden="true" />
                 support@kourti.com
               </a>
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
+                <MapPin className="h-4 w-4" aria-hidden="true" />
                 Lagos, NG
               </div>
             </div>
@@ -99,9 +101,12 @@ const Footer = () => {
         </div>
 
         {/* Copyright */}
-        <div className="mt-12 pt-8 border-t border-border">
+        <div className="mt-12 pt-8 border-t border-border flex flex-col items-center gap-3">
+          <p className="text-xs text-muted-foreground text-center">
+            Pay by card (Visa, Mastercard, Verve), bank transfer, USSD, or mobile money.
+          </p>
           <p className="text-sm text-muted-foreground text-center">
-            © {new Date().getFullYear()} Kourti Legal Hub. All rights reserved.
+            © {new Date().getFullYear()} Kourti Legal. All rights reserved.
           </p>
         </div>
       </div>

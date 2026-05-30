@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import Navigation from '@/components/ui/navigation';
 import Footer from '@/components/sections/Footer';
 import MouseFollowGlow from '@/components/ui/MouseFollowGlow';
@@ -1157,7 +1158,13 @@ const ReportDownloadCTA = () => {
                     tabIndex={-1}
                     autoComplete="off"
                     aria-hidden="true"
-                    style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+                    style={{
+                      position: 'absolute',
+                      left: '-9999px',
+                      width: 1,
+                      height: 1,
+                      opacity: 0,
+                    }}
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -1259,9 +1266,9 @@ const ReportDownloadCTA = () => {
                   </Button>
                   <p className="text-[10px] text-muted-foreground text-center">
                     No spam. We respect your privacy. By downloading, you agree to our{' '}
-                    <a href="/privacy-policy" className="underline hover:text-foreground">
+                    <Link to="/privacy-policy" className="underline hover:text-foreground">
                       Privacy Policy
-                    </a>
+                    </Link>
                     .
                   </p>
                 </form>

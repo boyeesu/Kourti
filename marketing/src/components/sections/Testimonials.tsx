@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Quote } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Quote, Pause, Play } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const Testimonials = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  // Respect reduced-motion: start paused so the JS timer never auto-advances.
+  const [isAutoPlaying, setIsAutoPlaying] = useState(() => !prefersReducedMotion());
 
   const testimonials = [
     {
@@ -80,15 +84,28 @@ const Testimonials = () => {
         </div>
 
         {/* Testimonial Carousel */}
-        <div className="relative">
+        <div
+          className="relative"
+          role="group"
+          aria-roledescription="carousel"
+          aria-label="Customer testimonials"
+          onMouseEnter={() => setIsAutoPlaying(false)}
+        >
           {/* Cards Container */}
-          <div className="overflow-hidden">
+          <div className="overflow-hidden" aria-live="polite">
             <div
               className="flex transition-transform duration-500 ease-out"
               style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
               {testimonials.map((testimonial, index) => (
-                <div key={testimonial.name} className="w-full flex-shrink-0 px-4">
+                <div
+                  key={testimonial.name}
+                  className="w-full flex-shrink-0 px-4"
+                  role="group"
+                  aria-roledescription="slide"
+                  aria-label={`${index + 1} of ${testimonials.length}`}
+                  aria-hidden={index !== currentIndex}
+                >
                   <div className="card-dark p-8 md:p-10 max-w-2xl mx-auto border border-border/50 relative">
                     {/* Quote Icon */}
                     <div className="absolute top-6 right-6 opacity-10">
@@ -132,32 +149,46 @@ const Testimonials = () => {
 
           {/* Navigation Arrows */}
           <button
-            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-card border border-border hover:bg-muted hover:border-primary/30 h-10 w-10 rounded-lg inline-flex items-center justify-center transition-all duration-200"
+            aria-label="Previous testimonial"
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-card border border-border hover:bg-muted hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-10 w-10 rounded-lg inline-flex items-center justify-center transition-all duration-200"
             onClick={goToPrevious}
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
-            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-4 bg-card border border-border hover:bg-muted hover:border-primary/30 h-10 w-10 rounded-lg inline-flex items-center justify-center transition-all duration-200"
+            aria-label="Next testimonial"
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-4 bg-card border border-border hover:bg-muted hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-10 w-10 rounded-lg inline-flex items-center justify-center transition-all duration-200"
             onClick={goToNext}
           >
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Dot Indicators */}
-        <div className="flex justify-center gap-2 mt-8">
-          {testimonials.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                index === currentIndex
-                  ? 'bg-primary w-6'
-                  : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
-              }`}
-            />
-          ))}
+        {/* Controls: dots + pause/play */}
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <div className="flex gap-2">
+            {testimonials.map((_, index) => (
+              <button
+                key={index}
+                aria-label={`Go to testimonial ${index + 1}`}
+                aria-current={index === currentIndex ? 'true' : undefined}
+                onClick={() => goToSlide(index)}
+                className={`h-2 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  index === currentIndex
+                    ? 'bg-primary w-6'
+                    : 'w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                }`}
+              />
+            ))}
+          </div>
+          <button
+            aria-label={isAutoPlaying ? 'Pause testimonials' : 'Play testimonials'}
+            aria-pressed={isAutoPlaying}
+            onClick={() => setIsAutoPlaying((p) => !p)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            {isAutoPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+          </button>
         </div>
       </div>
     </section>
