@@ -48,6 +48,17 @@ const envSchema = z.object({
 
   LLM_PRIMARY_PROVIDER: z.enum(['anthropic', 'openai', 'openrouter']).default('openrouter'),
 
+  // Optional shared secret for a manual KB push endpoint (POST /api/v1/public/kb/sync).
+  // Not required for normal operation — the nightly job below pulls copy itself.
+  // If unset, that endpoint is disabled (returns 503).
+  KB_SYNC_SECRET: z.string().optional(),
+
+  // Marketing chatbot KB auto-sync. The marketing build publishes a public JSON
+  // of site copy at MARKETING_KB_URL (e.g. https://kourti.com/kb-content.json);
+  // the backend fetches it on MARKETING_KB_SYNC_CRON and re-embeds it. No secret.
+  MARKETING_KB_URL: optionalUrl,
+  MARKETING_KB_SYNC_CRON: z.string().default('0 3 * * *'),
+
   API_TIMEOUT_MS: z.coerce.number().int().positive().default(90000),
   DEV_DEFAULT_USER_ID: z.string().default('00000000-0000-0000-0000-000000000001'),
   DEV_DEFAULT_ORG_ID: z.string().default('00000000-0000-0000-0000-000000000001'),

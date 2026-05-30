@@ -13,6 +13,7 @@ import NotFound from './pages/NotFound';
 import Report from './pages/Report';
 import Assessment from './pages/Assessment';
 import CookieConsent from './components/ui/CookieConsent';
+import ChatBubble from './components/sections/ChatBubble';
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
         <CookieConsent />
+        <ChatBubble />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
