@@ -20,10 +20,10 @@ const Navigation = () => {
   };
 
   const navItems = [
-    { name: 'Features', href: '/#features', isExternal: true },
+    { name: 'Features', href: '/features', isExternal: false },
     { name: 'Pricing', href: '/pricing', isExternal: false },
+    { name: 'Security', href: '/security', isExternal: false },
     { name: 'About', href: '/about', isExternal: false },
-    { name: 'Assessment', href: '/assessment', isExternal: false },
     { name: 'Contact', href: '/contact', isExternal: false },
   ];
 
@@ -86,6 +86,8 @@ const Navigation = () => {
               variant="ghost"
               size="sm"
               onClick={() => setIsOpen(!isOpen)}
+              aria-label={isOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={isOpen}
               className="text-foreground"
             >
               {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

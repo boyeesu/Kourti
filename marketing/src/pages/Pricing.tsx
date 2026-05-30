@@ -21,60 +21,8 @@ import {
 
 const APP_URL = 'https://app.kourti.com';
 
-const faqSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: [
-    {
-      '@type': 'Question',
-      name: 'Can I switch plans anytime?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Yes, you can upgrade or downgrade your plan at any time. Changes take effect on your next billing cycle.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'How does per-seat pricing work?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Plans are priced per user, per month. You add or remove seats as your team changes and only pay for the seats you use.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'What payment methods do you accept?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'We accept all major credit cards and bank transfers. Enterprise plans can be invoiced.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Is my data secure?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: "Yes, we're SOC 2 Type II compliant with enterprise-grade security, including end-to-end encryption.",
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Do you offer discounts for annual plans?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Yes, save when you pay annually. Contact our sales team for volume discounts on Enterprise plans.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Can I cancel anytime?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Yes, you can cancel your subscription at any time with no cancellation fees or penalties.',
-      },
-    },
-  ],
-};
+// JSON-LD FAQ structured data for this route lives in scripts/seo-routes.mjs
+// and is baked into the static HTML at build time (see Index.tsx note).
 
 const CURRENCY_SYMBOLS: Record<string, string> = { USD: '$', NGN: '₦', GBP: '£', EUR: '€' };
 
@@ -158,8 +106,8 @@ const PlanCard = ({ plans, idx }: { plans: PublicPlan[]; idx: number }) => {
           <span className="ml-2 text-muted-foreground">{period}</span>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          {formatLimit(plan.limits.cases)} matters · {formatLimit(plan.limits.storage_mb, "storage")}{" "}
-          storage
+          {formatLimit(plan.limits.cases)} matters ·{' '}
+          {formatLimit(plan.limits.storage_mb, 'storage')} storage
         </p>
       </div>
 
@@ -314,7 +262,6 @@ const Pricing = () => {
         title="Pricing"
         description="Simple, transparent per-seat pricing for solo practitioners, growing firms, and enterprise legal teams. Compare every feature. 7-day free trial, no credit card required."
         path="/pricing"
-        jsonLd={faqSchema}
       />
       <SpecialOfferModal triggerDelay={15} maxWeeklyShows={2} />
       <MouseFollowGlow />
@@ -409,7 +356,8 @@ const Pricing = () => {
                     What payment methods do you accept?
                   </h3>
                   <p className="text-muted-foreground">
-                    All major credit cards and bank transfers. Enterprise plans can be invoiced.
+                    Cards (Visa, Mastercard, Verve), bank transfer, USSD, and mobile money.
+                    Enterprise plans can be invoiced.
                   </p>
                 </div>
               </div>
@@ -417,8 +365,9 @@ const Pricing = () => {
                 <div>
                   <h3 className="mb-2 font-semibold text-foreground">Is my data secure?</h3>
                   <p className="text-muted-foreground">
-                    Yes — SOC 2 Type II compliant with enterprise-grade security and end-to-end
-                    encryption.
+                    Yes — encrypted in transit and at rest, with role-based access and tenant
+                    isolation. We follow SOC 2-aligned controls and are pursuing formal SOC 2 Type
+                    II certification.
                   </p>
                 </div>
                 <div>

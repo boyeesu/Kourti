@@ -1,7 +1,9 @@
 import Navigation from '@/components/ui/navigation';
 import Hero from '@/components/sections/Hero';
+import TrustedBy from '@/components/sections/TrustedBy';
 import HowItWorks from '@/components/sections/HowItWorks';
 import Features from '@/components/sections/Features';
+import Personas from '@/components/sections/Personas';
 import Stats from '@/components/sections/Stats';
 import Testimonials from '@/components/sections/Testimonials';
 import CTA from '@/components/sections/CTA';
@@ -10,38 +12,10 @@ import MouseFollowGlow from '@/components/ui/MouseFollowGlow';
 import PromoPopup from '@/components/ui/PromoPopup';
 import SEO from '@/components/SEO';
 
-const organizationSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'Kourti Legal',
-  url: 'https://kourti.com',
-  logo: 'https://kourti.com/favicon.png',
-  description:
-    'AI-powered legal practice management software for matters, contracts, deadlines and document analysis.',
-  contactPoint: {
-    '@type': 'ContactPoint',
-    email: 'info@kourti.com',
-    contactType: 'customer support',
-  },
-  sameAs: [],
-};
-
-const softwareSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'Kourti Legal',
-  applicationCategory: 'BusinessApplication',
-  operatingSystem: 'Web',
-  description:
-    'AI-powered legal practice management app for matters, contracts, deadlines, document analysis and client management.',
-  offers: {
-    '@type': 'AggregateOffer',
-    priceCurrency: 'USD',
-    lowPrice: '20',
-    highPrice: '50',
-    offerCount: '3',
-  },
-};
+// JSON-LD structured data for this route lives in scripts/seo-routes.mjs and is
+// baked into the static HTML at build time, so non-JS crawlers and social
+// scrapers see it. Keeping it out of the runtime head avoids duplicate
+// <script type="application/ld+json"> blocks after hydration.
 
 const Index = () => {
   return (
@@ -50,14 +24,15 @@ const Index = () => {
         title="Kourti Legal | AI-Powered Legal Practice Management Software"
         description="Run your law practice on AI. Manage matters, clients, contracts, and deadlines in one place — while AI summarizes documents, flags risk, and keeps your team on track. Start your 7-day free trial."
         path="/"
-        jsonLd={[organizationSchema, softwareSchema]}
       />
       <MouseFollowGlow />
       <Navigation />
       <main className="relative z-10">
         <Hero />
+        <TrustedBy />
         <HowItWorks />
         <Features />
+        <Personas />
         <Stats />
         <Testimonials />
         <CTA />

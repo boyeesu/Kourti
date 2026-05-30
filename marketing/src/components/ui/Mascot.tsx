@@ -52,10 +52,11 @@ export const Mascot = ({ className, variant = 'float', size = 'md', glow = true 
     <div
       className={cn('relative select-none pointer-events-none', className)}
       style={getVariantStyles()}
+      aria-hidden="true"
     >
       <img
         src="/mascot.png"
-        alt="Kourti Mascot"
+        alt=""
         className={cn('object-contain', getSizeClasses())}
         style={glowStyle}
       />

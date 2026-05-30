@@ -7,13 +7,14 @@ import Index from './pages/Index';
 import Pricing from './pages/Pricing';
 import Contact from './pages/Contact';
 import About from './pages/About';
+import FeaturesPage from './pages/Features';
+import Security from './pages/Security';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import NotFound from './pages/NotFound';
 import Report from './pages/Report';
 import Assessment from './pages/Assessment';
 import CookieConsent from './components/ui/CookieConsent';
-import ChatBubble from './components/sections/ChatBubble';
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/security" element={<Security />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/about" element={<About />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -36,7 +39,6 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
         <CookieConsent />
-        <ChatBubble />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

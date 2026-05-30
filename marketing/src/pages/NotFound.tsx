@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
@@ -21,12 +21,12 @@ const NotFound = () => {
       <div className="text-center">
         <h1 className="text-8xl font-bold text-gradient-accent mb-4">404</h1>
         <p className="text-xl text-muted-foreground mb-8">Oops! Page not found</p>
-        <a href="/">
+        <Link to="/">
           <Button className="group">
             <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
             Return to Home
           </Button>
-        </a>
+        </Link>
       </div>
     </div>
   );
