@@ -7,6 +7,7 @@ import { env } from '../../config/env.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { scanBuffer } from '../../services/clamav.js';
+import { enforceStorageLimit } from '../../services/limits.js';
 import {
   uploadFile,
   downloadFile,
@@ -149,6 +150,21 @@ filesRouter.post(
     if (!file) {
       throw new ApiError('No file provided', 400, 'VALIDATION_ERROR');
     }
+
+    // Enforce the plan's document-storage cap using the REAL uploaded size
+    // (file.size), not a client-reported value — checked before we store the
+    // bytes so an over-cap upload is rejected, not persisted.
+    const usageRes = await db.query<{ bytes: string | null }>(
+      `select coalesce(sum(file_size), 0)::bigint as bytes
+         from public.documents where organization_id = $1`,
+      [auth.organizationId]
+    );
+    await enforceStorageLimit(
+      auth.organizationId,
+      Number(usageRes.rows[0]?.bytes ?? 0),
+      file.size,
+      auth.userId
+    );
 
     // Scope file path to organization. Strip every char that isn't safe so
     // ".." and similar can't survive inside the original filename.
