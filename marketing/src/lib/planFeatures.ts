@@ -76,7 +76,7 @@ export const COMPARISON: ComparisonCategory[] = [
         label: 'Active matters / cases',
         format: 'count',
       },
-      { kind: 'limit', limitKey: 'clients', label: 'Clients', format: 'count' },
+      { kind: 'limit', limitKey: 'clients', label: 'Active clients', format: 'count' },
       {
         kind: 'limit',
         limitKey: 'storage_mb',

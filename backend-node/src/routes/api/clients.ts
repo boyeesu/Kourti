@@ -77,12 +77,21 @@ clientsRouter.post(
     const auth = req.auth!;
     const body = createClientBodySchema.parse(req.body);
 
-    // Tiered plan cap on clients.
+    // Tiered plan cap on ACTIVE clients only — inactive/archived clients are
+    // just historical records and must not consume the cap.
     const countRes = await db.query<{ c: number }>(
-      `select count(*)::int as c from public.clients where organization_id = $1`,
+      `select count(*)::int as c from public.clients
+        where organization_id = $1
+          and coalesce(lower(status), '') not in ('inactive', 'archived')`,
       [auth.organizationId]
     );
-    await enforceCountLimit(auth.organizationId, 'clients', countRes.rows[0]?.c ?? 0, 'clients', auth.userId);
+    await enforceCountLimit(
+      auth.organizationId,
+      'clients',
+      countRes.rows[0]?.c ?? 0,
+      'active clients',
+      auth.userId
+    );
 
     const result = await db.query(
       `
