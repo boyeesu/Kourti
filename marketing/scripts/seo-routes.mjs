@@ -120,7 +120,7 @@ export const routes = [
     path: '/features',
     title: 'Features | Kourti Legal',
     description:
-      'See how Kourti works: AI redline, tabular review across many documents, a negotiation copilot, autonomous agents, intelligence, and a document-aware assistant — plus full practice management.',
+      "Explore everything Kourti's AI legal associate can do — AI redline, tabular review, negotiation copilot, autonomous agents, intelligence, and a document-aware assistant, on top of full practice management.",
     changefreq: 'monthly',
     priority: '0.9',
   },
