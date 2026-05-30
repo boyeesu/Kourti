@@ -1030,6 +1030,7 @@ const ReportDownloadCTA = () => {
     email: '',
     company: '',
     role: '',
+    website: '', // honeypot
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1146,6 +1147,18 @@ const ReportDownloadCTA = () => {
                   Fill in your details to get instant access.
                 </p>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Honeypot: hidden from users, catches form-filling bots. */}
+                  <input
+                    type="text"
+                    id="website"
+                    name="website"
+                    value={formData.website || ''}
+                    onChange={handleInputChange}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+                  />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label
