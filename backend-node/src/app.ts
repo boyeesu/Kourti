@@ -67,6 +67,8 @@ import { tabularReviewsRouter } from './routes/api/tabularReviews.js';
 import { portalRouter, portalAuthRouter } from './routes/api/portal.js';
 import { portalTeamRouter } from './routes/api/portalTeam.js';
 import { portalCalendarRouter } from './routes/api/portalCalendar.js';
+import { portalNotificationsRouter } from './routes/api/portalNotifications.js';
+import { portalPeopleRouter } from './routes/api/portalPeople.js';
 import { clientPortalRouter } from './routes/api/clientPortal.js';
 
 function stripNullsInPlace(value: unknown): void {
@@ -306,6 +308,8 @@ export function createApp() {
   app.use('/api/v1/portal', portalRouter);
   app.use('/api/v1/portal', portalTeamRouter);
   app.use('/api/v1/portal', portalCalendarRouter);
+  app.use('/api/v1/portal', portalNotificationsRouter);
+  app.use('/api/v1/portal', portalPeopleRouter);
   // Staff-side management of the portal. Gated to Professional+ via the
   // 'client_portal' feature, like the rest of the automation suite.
   app.use(

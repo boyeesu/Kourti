@@ -1593,6 +1593,37 @@ const bootstrapStatements = [
   `create index if not exists idx_calendar_rsvps_event on public.calendar_event_rsvps(calendar_event_id)`,
   `create index if not exists idx_calendar_rsvps_client on public.calendar_event_rsvps(client_user_id)`,
 
+  // ── Client portal: per-client_user notification feed ──────────────────
+  // A client_visible case_event is fanned out into one row PER client_user
+  // who can see the case (active client_case_access OR client-level
+  // client_portal_access on the case's client_id, respecting portal_private).
+  // Drives the in-app bell/top-bar and the deduped notification emails.
+  // read_at      — null until the client opens/marks it.
+  // email_sent_at — null until included in a (coalesced) notification email;
+  //                 lets the debounced sender pick up only un-emailed rows and
+  //                 prevents double-sends across a burst.
+  // Whether the client wants emails at all is gated by
+  // client_users.email_notifications_enabled (added below).
+  `alter table public.client_users add column if not exists email_notifications_enabled boolean not null default true`,
+  `
+  create table if not exists public.portal_notifications (
+    id uuid primary key default gen_random_uuid(),
+    client_user_id uuid not null references public.client_users(id) on delete cascade,
+    organization_id uuid not null,
+    case_id uuid references public.cases(id) on delete cascade,
+    event_id uuid references public.case_events(id) on delete set null,
+    type text not null,
+    title text not null,
+    body text,
+    read_at timestamptz,
+    email_sent_at timestamptz,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_portal_notifs_user on public.portal_notifications(client_user_id, created_at desc)`,
+  `create index if not exists idx_portal_notifs_unread on public.portal_notifications(client_user_id) where read_at is null`,
+  `create index if not exists idx_portal_notifs_unsent on public.portal_notifications(client_user_id) where email_sent_at is null`,
+
   // NOTE: the hardcoded local-dev superadmin seed (org/profile/auth_user/role
   // for 00000000-...-000000000001, dev@kourti.local) lives in `devSeedStatements`
   // below and is ONLY appended to the run list when NODE_ENV !== 'production'.

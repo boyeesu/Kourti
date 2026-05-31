@@ -54,6 +54,8 @@ export interface PortalAuthUser {
   id: string;
   email: string;
   fullName: string | null;
+  /** Present only from GET /me (not from the login response). */
+  emailNotificationsEnabled?: boolean;
 }
 
 export interface PortalAuthResponse {
@@ -149,6 +151,35 @@ export interface PortalTeamMember {
   fullName: string | null;
   pending: boolean;
   invitedByMe: boolean;
+}
+
+// ── Notifications ───────────────────────────────────────────────────────────
+
+export interface PortalNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  caseId: string | null;
+  matterTitle: string | null;
+  firm: { organizationId: string; name: string };
+  readAt: string | null;
+  createdAt: string;
+}
+
+// ── People (org-level colleagues) ─────────────────────────────────────────────
+
+export interface PortalPerson {
+  clientUserId: string;
+  email: string;
+  fullName: string | null;
+  pending: boolean;
+  invitedByMe: boolean;
+}
+
+export interface PortalPeopleGroup {
+  client: { clientId: string; organizationId: string; firmName: string };
+  members: PortalPerson[];
 }
 
 export type PortalRsvpResponse = 'accepted' | 'declined' | 'tentative';
@@ -362,6 +393,15 @@ export function portalGetMe(): Promise<PortalAuthUser> {
   return portalApi<PortalAuthUser>('/me');
 }
 
+/** Update the signed-in client's own profile / preferences. */
+export function portalUpdateMe(args: {
+  fullName?: string;
+  phone?: string | null;
+  emailNotificationsEnabled?: boolean;
+}): Promise<PortalAuthUser> {
+  return portalApi<PortalAuthUser>('/me', { method: 'PATCH', body: args });
+}
+
 export function portalGetMatters(): Promise<PortalMatterSummary[]> {
   return portalApi<PortalMatterSummary[]>('/matters');
 }
@@ -430,6 +470,51 @@ export function portalRsvpEvent(
   return portalApi<{ eventId: string; response: PortalRsvpResponse }>(
     `/matters/${caseId}/calendar/${eventId}/rsvp`,
     { method: 'PUT', body: { response } }
+  );
+}
+
+// ── Notifications ───────────────────────────────────────────────────────────
+
+export function portalGetNotifications(): Promise<PortalNotification[]> {
+  return portalApi<PortalNotification[]>('/notifications');
+}
+
+export function portalGetUnreadCount(): Promise<{ count: number }> {
+  return portalApi<{ count: number }>('/notifications/unread-count');
+}
+
+export function portalMarkAllNotificationsRead(): Promise<{ ok: boolean }> {
+  return portalApi<{ ok: boolean }>('/notifications/read-all', { method: 'POST' });
+}
+
+export function portalMarkNotificationRead(id: string): Promise<{ ok: boolean }> {
+  return portalApi<{ ok: boolean }>(`/notifications/${id}/read`, { method: 'POST' });
+}
+
+// ── People (org-level colleagues) ─────────────────────────────────────────────
+
+export function portalGetPeople(): Promise<PortalPeopleGroup[]> {
+  return portalApi<PortalPeopleGroup[]>('/people');
+}
+
+export function portalInvitePerson(args: {
+  clientId: string;
+  email: string;
+  fullName?: string;
+}): Promise<{ clientUserId: string; pending: boolean }> {
+  return portalApi<{ clientUserId: string; pending: boolean }>('/people', {
+    method: 'POST',
+    body: args,
+  });
+}
+
+export function portalRemovePerson(
+  clientId: string,
+  clientUserId: string
+): Promise<{ ok: boolean }> {
+  return portalApi<{ ok: boolean }>(
+    `/people/${clientUserId}?clientId=${encodeURIComponent(clientId)}`,
+    { method: 'DELETE' }
   );
 }
 

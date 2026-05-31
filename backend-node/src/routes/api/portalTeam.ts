@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
 import { assertClientCaseAccess } from '../../services/portalAccess.js';
 import { ensureClientUserForInvite } from '../../services/clientPortalAuth.js';
 import { sendClientPortalInviteEmail } from '../../services/email.js';
@@ -152,6 +153,18 @@ portalTeamRouter.post(
     const { caseId } = caseIdParamsSchema.parse(req.params);
     const { email, fullName } = inviteBodySchema.parse(req.body);
 
+    // Throttle per requester: each invite emails an arbitrary caller-supplied
+    // address, so cap it to deter spam/email amplification on top of the
+    // global per-IP limiter. 20 invites / 10 min.
+    const rl = checkRateLimit(`portal:invite:${clientUserId}`, 20, 600_000);
+    if (!rl.allowed) {
+      throw new ApiError(
+        `Too many invitations. Try again in ${rl.retryAfter}s.`,
+        429,
+        'RATE_LIMITED'
+      );
+    }
+
     // Verify requester has active access to this matter.
     await assertClientCaseAccess(clientUserId, caseId);
 
@@ -185,11 +198,10 @@ portalTeamRouter.post(
     }
 
     // Find-or-create the global client_user for the invitee.
-    const {
-      clientUserId: newClientUserId,
-      inviteToken,
-      isNew,
-    } = await ensureClientUserForInvite(email, fullName);
+    const { clientUserId: newClientUserId, inviteToken } = await ensureClientUserForInvite(
+      email,
+      fullName
+    );
 
     // The response shape is identical regardless of which table backs the
     // grant: { id, clientUserId, caseId, organizationId, role, status,
@@ -266,20 +278,6 @@ portalTeamRouter.post(
       accessRow = insert.rows[0];
     }
 
-    // Determine whether the invitee still needs to accept the invite
-    // (no password set yet).  isNew is always pending; re-invites of
-    // existing users may already have a password — re-check the DB.
-    let pending: boolean;
-    if (isNew) {
-      pending = true;
-    } else {
-      const pwResult = await db.query<{ encrypted_password: string | null }>(
-        `select encrypted_password from public.client_users where id = $1 limit 1`,
-        [newClientUserId]
-      );
-      pending = pwResult.rows[0]?.encrypted_password === null;
-    }
-
     // Best-effort invite email — never let a mail failure break the invite.
     try {
       await sendClientPortalInviteEmail({
@@ -296,6 +294,11 @@ portalTeamRouter.post(
       });
     }
 
+    // NOTE: we intentionally do NOT echo back whether the invitee already had
+    // an account (the old password-derived `pending`). That was an
+    // account-existence oracle for arbitrary emails. `pending` is a constant
+    // here; the team list (GET) reflects real acceptance state for members the
+    // requester legitimately manages.
     res.status(201).json({
       id: accessRow.id,
       clientUserId: accessRow.client_user_id,
@@ -306,7 +309,7 @@ portalTeamRouter.post(
       grantedBy: accessRow.granted_by,
       createdAt: accessRow.created_at,
       revokedAt: accessRow.revoked_at,
-      pending,
+      pending: true,
     });
   })
 );

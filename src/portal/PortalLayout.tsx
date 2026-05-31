@@ -1,12 +1,13 @@
 import { useState, type ComponentType } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, FolderKanban, CalendarDays, Menu } from 'lucide-react';
+import { LogOut, FolderKanban, CalendarDays, Menu, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn, getInitials } from '@/lib/utils';
 import { usePortalAuth } from './PortalAuthContext';
+import { PortalNotificationBell } from './PortalNotificationBell';
 
 interface NavItem {
   label: string;
@@ -27,6 +28,12 @@ const NAV_ITEMS: NavItem[] = [
     to: '/portal/calendar',
     icon: CalendarDays,
     isActive: (p) => p.startsWith('/portal/calendar'),
+  },
+  {
+    label: 'People',
+    to: '/portal/people',
+    icon: Users,
+    isActive: (p) => p.startsWith('/portal/people'),
   },
 ];
 
@@ -158,10 +165,17 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
           <AppLogo size="sm" />
           <span className="text-sm font-semibold text-foreground">Client Portal</span>
         </Link>
+        <div className="ml-auto">
+          <PortalNotificationBell />
+        </div>
       </header>
 
       <main className="md:pl-64">
-        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</div>
+        {/* Desktop top bar */}
+        <header className="sticky top-0 z-30 hidden h-16 items-center justify-end gap-2 border-b border-border/60 bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:flex">
+          <PortalNotificationBell />
+        </header>
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</div>
       </main>
     </div>
   );
