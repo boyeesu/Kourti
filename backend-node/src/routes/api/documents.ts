@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { recordCaseEvent } from '../../services/caseEvents.js';
+import { logSecurityEvent, eventContextFromRequest } from '../../services/securityEvents.js';
 import { escapeIlike } from '../../lib/escapeIlike.js';
 import { sanitizeHtml } from '../../lib/sanitizeHtml.js';
 import { createSignedUrl } from '../../services/storage.js';
@@ -55,6 +56,52 @@ const updateDocumentBodySchema = createDocumentBodySchema.partial().extend({
 });
 
 export const documentsRouter = Router();
+
+/**
+ * Cross-org reference guard (IDOR / data-integrity). client_id comes from the
+ * request body and the case relationship rides in metadata->>'case_id'; both
+ * must reference rows in the caller's organization.
+ */
+async function assertClientInOrg(
+  clientId: string | undefined,
+  organizationId: string
+): Promise<void> {
+  if (!clientId) return;
+  const res = await db.query(
+    'select 1 from public.clients where id = $1 and organization_id = $2 limit 1',
+    [clientId, organizationId]
+  );
+  if (!res.rows[0]) {
+    throw new ApiError(
+      'Referenced client does not belong to your organization',
+      400,
+      'INVALID_REFERENCE'
+    );
+  }
+}
+
+async function assertCaseInOrg(caseId: string | undefined, organizationId: string): Promise<void> {
+  if (!caseId) return;
+  const res = await db.query(
+    'select 1 from public.cases where id = $1 and organization_id = $2 limit 1',
+    [caseId, organizationId]
+  );
+  if (!res.rows[0]) {
+    throw new ApiError(
+      'Referenced case does not belong to your organization',
+      400,
+      'INVALID_REFERENCE'
+    );
+  }
+}
+
+/** Pull a case_id out of a free-form metadata object, if present and a string. */
+function caseIdFromMetadata(metadata: Record<string, unknown> | undefined): string | undefined {
+  if (metadata && typeof metadata['case_id'] === 'string' && metadata['case_id']) {
+    return metadata['case_id'] as string;
+  }
+  return undefined;
+}
 
 type DocumentFileRow = {
   id: string;
@@ -326,6 +373,10 @@ documentsRouter.post(
     const body = createDocumentBodySchema.parse(req.body);
     const auth = req.auth!;
 
+    // Block cross-org references before inserting (client_id + metadata case_id).
+    await assertClientInOrg(body.client_id, auth.organizationId);
+    await assertCaseInOrg(caseIdFromMetadata(body.metadata), auth.organizationId);
+
     // Storage cap is enforced at upload time (POST /files/documents/upload)
     // using the real uploaded byte count — not the client-reported file_size
     // here, which could be under-reported to bypass the cap.
@@ -436,6 +487,10 @@ documentsRouter.patch(
     const updateData = updateDocumentBodySchema.parse(req.body);
     const organizationId = req.auth!.organizationId;
 
+    // Block cross-org references before updating (client_id + metadata case_id).
+    await assertClientInOrg(updateData.client_id, organizationId);
+    await assertCaseInOrg(caseIdFromMetadata(updateData.metadata), organizationId);
+
     // Server-side HTML sanitisation (defence-in-depth; client uses DOMPurify)
     const sanitizedContent =
       updateData.content != null ? sanitizeHtml(updateData.content) : updateData.content;
@@ -537,6 +592,14 @@ documentsRouter.delete(
     if ((result.rowCount || 0) === 0) {
       throw new ApiError('Document not found', 404, 'NOT_FOUND');
     }
+
+    void logSecurityEvent({
+      eventType: 'document_deleted',
+      severity: 'warning',
+      ...eventContextFromRequest(req),
+      targetType: 'document',
+      targetId: id,
+    });
 
     res.status(204).send();
   })

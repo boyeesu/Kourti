@@ -5,6 +5,7 @@ import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { enforceCountLimit } from '../../services/limits.js';
 import { recordCaseEvent } from '../../services/caseEvents.js';
+import { logSecurityEvent, eventContextFromRequest } from '../../services/securityEvents.js';
 
 const listCasesQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -50,6 +51,54 @@ const updateCaseBodySchema = createCaseBodySchema.partial().extend({
 });
 
 export const casesRouter = Router();
+
+/**
+ * Cross-org reference guard (IDOR / data-integrity). Bodies accept client_id /
+ * assigned_to ids the caller could point at rows in another organization.
+ * Verify each referenced row belongs to the caller's org before insert/update.
+ */
+async function assertClientInOrg(
+  clientId: string | undefined,
+  organizationId: string
+): Promise<void> {
+  if (!clientId) return;
+  const res = await db.query(
+    'select 1 from public.clients where id = $1 and organization_id = $2 limit 1',
+    [clientId, organizationId]
+  );
+  if (!res.rows[0]) {
+    throw new ApiError(
+      'Referenced client does not belong to your organization',
+      400,
+      'INVALID_REFERENCE'
+    );
+  }
+}
+
+async function assertAssigneeInOrg(
+  userId: string | undefined,
+  organizationId: string
+): Promise<void> {
+  if (!userId) return;
+  const res = await db.query(
+    `select 1
+       from public.profiles
+      where user_id = $1 and organization_id = $2
+      union all
+      select 1
+       from public.user_role_assignments
+      where user_id = $1 and organization_id = $2
+      limit 1`,
+    [userId, organizationId]
+  );
+  if (!res.rows[0]) {
+    throw new ApiError(
+      'Assigned user does not belong to your organization',
+      400,
+      'INVALID_REFERENCE'
+    );
+  }
+}
 
 type CaseRow = {
   id: string;
@@ -235,6 +284,10 @@ casesRouter.post(
     const body = createCaseBodySchema.parse(req.body);
     const auth = req.auth!;
 
+    // Block cross-org references before inserting.
+    await assertClientInOrg(body.client_id, auth.organizationId);
+    await assertAssigneeInOrg(body.assigned_to, auth.organizationId);
+
     // Tiered plan cap on ACTIVE matters only — closed/archived matters are just
     // historical records and must not consume the cap.
     const countRes = await db.query<{ c: number }>(
@@ -348,6 +401,10 @@ casesRouter.patch(
     const updateData = updateCaseBodySchema.parse(req.body);
     const organizationId = req.auth!.organizationId;
     const auth = req.auth!;
+
+    // Block cross-org references before updating.
+    await assertClientInOrg(updateData.client_id, organizationId);
+    await assertAssigneeInOrg(updateData.assigned_to, organizationId);
 
     // Capture current values before the update so we can detect changes.
     const preResult = await db.query<{ status: string; next_hearing_date: string | null }>(
@@ -467,6 +524,14 @@ casesRouter.delete(
     if ((result.rowCount || 0) === 0) {
       throw new ApiError('Case not found', 404, 'NOT_FOUND');
     }
+
+    void logSecurityEvent({
+      eventType: 'case_deleted',
+      severity: 'warning',
+      ...eventContextFromRequest(req),
+      targetType: 'case',
+      targetId: id,
+    });
 
     res.status(204).send();
   })

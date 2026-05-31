@@ -4,7 +4,12 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+import type { NextFunction, Request, Response } from 'express';
+
 import { corsOrigins } from './config/env.js';
+import { ApiError } from './lib/http.js';
+import { checkRateLimit } from './lib/rateLimit.js';
+import { isPlatformStaff } from './services/authorization.js';
 import { requireAuth } from './middleware/auth.js';
 import { requireClientAuth } from './middleware/requireClientAuth.js';
 import { requireActiveSubscription } from './middleware/requireActiveSubscription.js';
@@ -77,6 +82,56 @@ function stripNullsInPlace(value: unknown): void {
   }
 }
 
+/**
+ * App-wide per-IP rate limit. Generous (catches abuse/DoS, not normal use);
+ * specific limiters on auth/AI/billing routes still apply on top. Keyed by
+ * client IP so one source can't exhaust the API for everyone.
+ */
+function globalRateLimit(req: Request, res: Response, next: NextFunction) {
+  const ip = req.ip ?? req.socket?.remoteAddress ?? 'unknown';
+  const result = checkRateLimit(`global:${ip}`, 300, 60_000);
+  if (!result.allowed) {
+    res.setHeader('Retry-After', String(result.retryAfter));
+    return next(new ApiError('Too many requests. Please slow down.', 429, 'RATE_LIMITED'));
+  }
+  next();
+}
+
+/**
+ * Defense-in-depth backstop for the /api/v1/admin surface. Runs after
+ * requireAuth and rejects any caller who is not platform staff, even though
+ * every sub-route also self-authorizes via requireAdminCapabilityFor.
+ */
+function requirePlatformStaff(req: Request, _res: Response, next: NextFunction) {
+  const auth = req.auth;
+  if (!auth) return next(new ApiError('Authentication required', 401, 'AUTH_REQUIRED'));
+  isPlatformStaff(auth.userId)
+    .then((ok) => {
+      if (!ok) return next(new ApiError('Forbidden', 403, 'FORBIDDEN'));
+      next();
+    })
+    .catch(next);
+}
+
+/**
+ * HTTPS enforcement. Railway terminates TLS upstream, so we trust the proxy
+ * (app.set('trust proxy', 1)) and reject plaintext requests in production based
+ * on x-forwarded-proto / req.protocol. Health checks are exempt so platform
+ * probes (which may hit http internally) keep working.
+ */
+function enforceHttps(req: Request, _res: Response, next: NextFunction) {
+  if (process.env.NODE_ENV !== 'production') return next();
+  if (req.path === '/health' || req.path.startsWith('/health/')) return next();
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const proto =
+    (typeof forwardedProto === 'string' ? forwardedProto.split(',')[0]!.trim() : req.protocol) ||
+    req.protocol;
+  if (proto !== 'https') {
+    return next(new ApiError('HTTPS is required', 403, 'HTTPS_REQUIRED'));
+  }
+  next();
+}
+
 export function createApp() {
   const app = express();
 
@@ -90,6 +145,15 @@ export function createApp() {
     })
   );
   app.use(cookieParser());
+
+  // Reject plaintext requests in production (Railway terminates TLS upstream).
+  // Runs before everything else so no handler processes an http request.
+  app.use(enforceHttps);
+
+  // App-wide per-IP rate limit across the whole API surface. Generous cap so it
+  // only trips on abuse/DoS; route-specific limiters (auth, AI, billing) still
+  // apply their tighter limits on top.
+  app.use('/api/v1', globalRateLimit);
 
   // Webhooks must run BEFORE the JSON parser so the raw body is available
   // for HMAC verification. Each webhook router applies its own parser.
@@ -132,6 +196,7 @@ export function createApp() {
   app.use(
     '/api/v1/admin',
     requireAuth,
+    requirePlatformStaff,
     adminRateLimit('admin_surface', 240, 60_000),
     adminRouter,
     adminFeaturesRouter,
@@ -147,7 +212,13 @@ export function createApp() {
     adminCaseTypesRouter
   );
   // Bulk ops and CSV exports are heavier + more sensitive — tighter cap on top.
-  app.use('/api/v1/admin', requireAuth, adminRateLimit('bulk', 30, 60_000), adminBulkRouter);
+  app.use(
+    '/api/v1/admin',
+    requireAuth,
+    requirePlatformStaff,
+    adminRateLimit('bulk', 30, 60_000),
+    adminBulkRouter
+  );
   app.use('/api/v1/dashboard', requireAuth, dashboardRouter);
   app.use('/api/v1/misc', requireAuth, miscRouter);
   app.use('/api/v1/onboarding', requireAuth, onboardingRouter);

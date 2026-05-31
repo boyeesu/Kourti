@@ -25,8 +25,10 @@ import {
   changePassword,
   resetPasswordRequest,
   resetPasswordConfirm,
+  bumpTokenVersion,
 } from '../../services/jwt.js';
 import { sendPasswordResetEmail } from '../../services/email.js';
+import { logSecurityEvent, eventContextFromRequest } from '../../services/securityEvents.js';
 import { db } from '../../db/pool.js';
 import type { Response } from 'express';
 
@@ -88,12 +90,6 @@ const signUpSchema = z.object({
   password: passwordSchema,
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  // Must be explicitly true — the client gates the onboarding form on this,
-  // and we enforce it server-side so acceptance is genuinely required before
-  // an account (and its terms_acceptances audit row) is created.
-  acceptedTerms: z.literal(true, {
-    message: 'You must accept the Terms of Service and Privacy Policy',
-  }),
 });
 
 const changePasswordSchema = z.object({
@@ -171,7 +167,8 @@ authRouter.post(
     }
 
     const { email, password } = signInSchema.parse(req.body);
-    const result = await signIn(email, password);
+    const eventCtx = eventContextFromRequest(req);
+    const result = await signIn(email, password, eventCtx);
 
     if (result.kind === 'mfa_required') {
       // 2FA enabled — caller must redeem this token at /2fa/verify-totp,
@@ -211,16 +208,8 @@ authRouter.post(
       enforceRateLimit(`auth:sign-up:email:${emailFromBody}`, 3, 3_600_000); // 3/hr/email
     }
 
-    // acceptedTerms is validated by the schema (must be true); we don't need
-    // the value past parse, but the request IP + User-Agent are recorded with
-    // the acceptance for audit purposes.
     const { email, password, firstName, lastName } = signUpSchema.parse(req.body);
-    const result = await signUp(
-      email,
-      password,
-      { firstName, lastName },
-      { ip, userAgent: req.get('user-agent') ?? null }
-    );
+    const result = await signUp(email, password, { firstName, lastName });
 
     // Fresh sign-ups always require email OTP verification — that's
     // what proves the address is real and blocks typo'd entries.
@@ -283,7 +272,7 @@ authRouter.post(
     const ip = clientIp(req);
     enforceRateLimit(`auth:2fa:ip:${ip}`, 10, 60_000);
     const { mfaToken, code } = totpChallengeSchema.parse(req.body);
-    const tokens = await verifyTotpChallenge(mfaToken, code);
+    const tokens = await verifyTotpChallenge(mfaToken, code, eventContextFromRequest(req));
     setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
     res.status(200).json({
       accessToken: tokens.accessToken,
@@ -303,7 +292,7 @@ authRouter.post(
     const ip = clientIp(req);
     enforceRateLimit(`auth:2fa-email:ip:${ip}`, 10, 60_000);
     const { mfaToken, code } = emailOtpChallengeSchema.parse(req.body);
-    const tokens = await verifyEmailOtpChallenge(mfaToken, code);
+    const tokens = await verifyEmailOtpChallenge(mfaToken, code, eventContextFromRequest(req));
     setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
     res.status(200).json({
       accessToken: tokens.accessToken,
@@ -341,7 +330,12 @@ authRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { enabled, currentPassword } = toggleEmailOtpSchema.parse(req.body);
-    await setEmailOtpEnabled(req.auth!.userId, enabled, currentPassword);
+    await setEmailOtpEnabled(
+      req.auth!.userId,
+      enabled,
+      currentPassword,
+      eventContextFromRequest(req)
+    );
     res.status(200).json({ enabled });
   })
 );
@@ -352,7 +346,7 @@ authRouter.post(
     const ip = clientIp(req);
     enforceRateLimit(`auth:2fa:ip:${ip}`, 10, 60_000);
     const { mfaToken, code } = totpChallengeSchema.parse(req.body);
-    const tokens = await verifyRecoveryChallenge(mfaToken, code);
+    const tokens = await verifyRecoveryChallenge(mfaToken, code, eventContextFromRequest(req));
     setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
     res.status(200).json({
       accessToken: tokens.accessToken,
@@ -387,7 +381,11 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
     const { code } = enrolConfirmSchema.parse(req.body);
-    const { recoveryCodes } = await confirmTotpEnrolment(auth.userId, code);
+    const { recoveryCodes } = await confirmTotpEnrolment(
+      auth.userId,
+      code,
+      eventContextFromRequest(req)
+    );
     res.status(200).json({ enabled: true, recoveryCodes });
   })
 );
@@ -398,7 +396,7 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
     const { currentPassword } = disableTotpSchema.parse(req.body);
-    await disableTotp(auth.userId, currentPassword);
+    await disableTotp(auth.userId, currentPassword, eventContextFromRequest(req));
     res.status(200).json({ enabled: false });
   })
 );
@@ -418,7 +416,7 @@ authRouter.post(
       throw new ApiError('Refresh token required', 401, 'AUTH_INVALID_REFRESH_TOKEN');
     }
 
-    const tokens = await refreshTokens(refreshToken);
+    const tokens = await refreshTokens(refreshToken, eventContextFromRequest(req));
 
     setRefreshCookie(res, tokens.refreshToken, refreshMaxAge);
 
@@ -434,7 +432,7 @@ authRouter.post(
   '/sign-out',
   requireAuth,
   asyncHandler(async (req, res) => {
-    await signOut(req.auth!.userId);
+    await signOut(req.auth!.userId, eventContextFromRequest(req));
     clearRefreshCookie(res);
     res.status(200).json({ ok: true });
   })
@@ -445,7 +443,12 @@ authRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
-    await changePassword(req.auth!.userId, currentPassword, newPassword);
+    await changePassword(
+      req.auth!.userId,
+      currentPassword,
+      newPassword,
+      eventContextFromRequest(req)
+    );
     // Password changed -- clear refresh cookie to force re-login
     clearRefreshCookie(res);
     res.status(200).json({ ok: true });
@@ -469,6 +472,19 @@ authRouter.post(
       `UPDATE public.auth_users SET encrypted_password = $1, refresh_token = NULL, refresh_token_expires_at = NULL, updated_at = now() WHERE id = $2`,
       [hashedPassword, auth.userId]
     );
+
+    // Revoke outstanding access tokens (emits 'access_revoked'), then record
+    // the password change itself.
+    const eventCtx = eventContextFromRequest(req);
+    await bumpTokenVersion(auth.userId, 'force_change_password', eventCtx);
+    await logSecurityEvent({
+      eventType: 'password_changed',
+      severity: 'warning',
+      actorUserId: auth.userId,
+      ip: eventCtx.ip,
+      userAgent: eventCtx.userAgent,
+      details: { forced: true },
+    });
 
     clearRefreshCookie(res);
     res.status(200).json({ ok: true });
@@ -617,7 +633,7 @@ authRouter.post(
       [invitation.id]
     );
 
-    const result = await signIn(invitation.email, password);
+    const result = await signIn(invitation.email, password, eventContextFromRequest(req));
     if (result.kind === 'mfa_required') {
       // Brand-new invitation flow: if 2FA fires, surface the challenge
       // instead of silently failing.
@@ -646,7 +662,7 @@ authRouter.post(
     enforceRateLimit(`auth:reset:${ip}`, 3, 60_000); // 3 reset requests per minute per IP
 
     const { email } = resetRequestSchema.parse(req.body);
-    const token = await resetPasswordRequest(email);
+    const token = await resetPasswordRequest(email, eventContextFromRequest(req));
 
     // Send email if token was generated (user exists)
     if (token !== 'ok') {
@@ -667,7 +683,7 @@ authRouter.post(
   '/reset-password/confirm',
   asyncHandler(async (req, res) => {
     const { token, password } = resetConfirmSchema.parse(req.body);
-    await resetPasswordConfirm(token, password);
+    await resetPasswordConfirm(token, password, eventContextFromRequest(req));
     clearRefreshCookie(res);
     res.status(200).json({ ok: true });
   })

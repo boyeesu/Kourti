@@ -11,6 +11,7 @@ import {
 } from '../../services/authorization.js';
 import { sendInvitationEmail } from '../../services/email.js';
 import { assertSeatAvailableTx } from '../../services/seats.js';
+import { logSecurityEvent, eventContextFromRequest } from '../../services/securityEvents.js';
 
 const ROLE_LEVELS: Record<string, number> = {
   user: 1,
@@ -157,6 +158,16 @@ usersRouter.patch(
       [userId, disable]
     );
 
+    await logSecurityEvent({
+      eventType: 'user_status_changed',
+      severity: 'warning',
+      actorType: isPlatAdmin ? 'admin' : 'user',
+      targetType: 'user',
+      targetId: userId,
+      details: { disabled: disable },
+      ...eventContextFromRequest(req),
+    });
+
     res.status(200).json(result.rows[0]?.result ?? { success: true });
   })
 );
@@ -170,34 +181,59 @@ usersRouter.patch(
 
     // Require admin/superadmin role or platform admin
     const isPlatAdmin = await isPlatformAdminUser(auth.userId);
-    if (!isPlatAdmin) {
-      const roleResult = await db.query(
-        `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
-        [auth.userId, auth.organizationId]
+    const actorRoleResult = await db.query(
+      `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
+      [auth.userId, auth.organizationId]
+    );
+    const actorRoles = actorRoleResult.rows.map(
+      (r: Record<string, unknown>) => r.role_name as string
+    );
+    if (!isPlatAdmin && !actorRoles.includes('admin') && !actorRoles.includes('superadmin')) {
+      throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+    }
+
+    // Privilege-escalation ceiling. Platform roles can never be granted through
+    // this tenant endpoint, and a non-platform actor can't assign a role at or
+    // above their own max level (mirrors the invite path's ceiling so an org
+    // admin cannot self-promote to superadmin).
+    if (role === 'platform_admin' || role === 'superadmin') {
+      throw new ApiError(
+        `The '${role}' role cannot be assigned through the application.`,
+        400,
+        'FORBIDDEN'
       );
-      const roles = roleResult.rows.map((r: Record<string, unknown>) => r.role_name as string);
-      if (!roles.includes('admin') && !roles.includes('superadmin')) {
-        throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+    }
+    if (!isPlatAdmin) {
+      const actorMaxLevel = Math.max(...actorRoles.map(getRoleLevel), 0);
+      if (getRoleLevel(role) >= actorMaxLevel) {
+        throw new ApiError('Cannot assign a role at or above your own level', 403, 'FORBIDDEN');
       }
     }
 
     // Ensure target user belongs to the same organization
-    const targetUser = await db.query(
-      `SELECT organization_id FROM public.profiles WHERE user_id = $1 LIMIT 1`,
+    const targetUser = await db.query<{ organization_id: string; role: string | null }>(
+      `SELECT organization_id, role FROM public.profiles WHERE user_id = $1 LIMIT 1`,
       [userId]
     );
     if (!targetUser.rows[0] || targetUser.rows[0].organization_id !== auth.organizationId) {
       throw new ApiError('User not found', 404, 'NOT_FOUND');
     }
-
-    if (role === 'platform_admin') {
-      throw new ApiError('Platform admin role cannot be assigned through the application.', 400);
-    }
+    const oldRole = targetUser.rows[0].role ?? null;
 
     const result = await db.query('select public.change_user_role($1::uuid, $2::text) as result', [
       userId,
       role,
     ]);
+
+    await logSecurityEvent({
+      eventType: 'role_changed',
+      severity: 'warning',
+      actorType: isPlatAdmin ? 'admin' : 'user',
+      targetType: 'user',
+      targetId: userId,
+      details: { old_role: oldRole, new_role: role },
+      ...eventContextFromRequest(req),
+    });
 
     res.status(200).json(result.rows[0]?.result ?? { success: true });
   })

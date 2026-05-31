@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { enforceCountLimit } from '../../services/limits.js';
+import { logSecurityEvent, eventContextFromRequest } from '../../services/securityEvents.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -171,6 +172,14 @@ clientsRouter.delete(
     if (!result.rows[0]) {
       throw new ApiError('Client not found', 404, 'NOT_FOUND');
     }
+
+    void logSecurityEvent({
+      eventType: 'client_deleted',
+      severity: 'warning',
+      ...eventContextFromRequest(req),
+      targetType: 'client',
+      targetId: clientId,
+    });
 
     res.status(204).send();
   })
