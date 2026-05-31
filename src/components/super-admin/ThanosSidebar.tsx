@@ -29,6 +29,7 @@ import {
   Workflow,
   Gauge,
   Eye,
+  Briefcase,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminCapabilities, type AdminCapability } from '@/hooks/useAdminCapabilities';
@@ -103,6 +104,7 @@ const sections: NavSection[] = [
         icon: Workflow,
         cap: 'rules.manage',
       },
+      { title: 'Case Types', url: '/thanos/case-types', icon: Briefcase },
     ],
   },
 ];

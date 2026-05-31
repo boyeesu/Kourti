@@ -1292,10 +1292,16 @@ miscRouter.get(
   '/case-types',
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
+    // Return both this firm's own types and the platform-managed GLOBAL types.
+    // Inactive types (admin-disabled) are hidden from the matter dropdown.
     const result = await db
-      .query(`SELECT * FROM public.case_types WHERE organization_id = $1 ORDER BY name`, [
-        auth.organizationId,
-      ])
+      .query(
+        `SELECT * FROM public.case_types
+         WHERE (organization_id = $1 OR is_global = true)
+           AND coalesce(is_active, true) = true
+         ORDER BY name`,
+        [auth.organizationId]
+      )
       .catch(() => ({ rows: [] }));
     res.status(200).json(result.rows);
   })
@@ -1306,11 +1312,18 @@ miscRouter.post(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
     const body = z
-      .object({ name: z.string().trim().min(1), description: z.string().optional() })
+      .object({
+        name: z.string().trim().min(1),
+        description: z.string().optional(),
+        is_active: z.boolean().optional(),
+      })
       .parse(req.body);
+    // Firm-scoped type: always pinned to this org and is_global = false. Global
+    // types are created only via the platform-admin surface.
     const result = await db.query(
-      `INSERT INTO public.case_types (name, description, organization_id, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, now(), now()) RETURNING *`,
-      [body.name, body.description || null, auth.organizationId, auth.userId]
+      `INSERT INTO public.case_types (name, description, is_active, is_global, organization_id, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, false, $4, $5, now(), now()) RETURNING *`,
+      [body.name, body.description || null, body.is_active ?? true, auth.organizationId, auth.userId]
     );
     res.status(201).json(result.rows[0]);
   })
