@@ -59,6 +59,15 @@ export interface PortalDocument {
   createdAt: string;
 }
 
+export interface PortalMessage {
+  id: string;
+  senderType: 'staff' | 'client';
+  senderId: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
 export type PortalStatus = 'none' | 'pending' | 'active';
 
 export interface ClientPortalMatter {
@@ -94,6 +103,7 @@ export const clientPortalKeys = {
   events: (caseId: string) => ['clientPortal', caseId, 'events'] as const,
   digests: (caseId: string) => ['clientPortal', caseId, 'digests'] as const,
   documents: (caseId: string) => ['clientPortal', caseId, 'documents'] as const,
+  messages: (caseId: string) => ['clientPortal', caseId, 'messages'] as const,
   clientStatus: (clientId: string) => ['clientPortal', 'client', clientId] as const,
 };
 
@@ -403,6 +413,41 @@ export function useToggleDocumentShare(caseId: string) {
     },
     onError: (error: Error) => {
       toast.error('Could not update document sharing', { description: error.message });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Two-way messages (client ↔ firm thread)
+// ---------------------------------------------------------------------------
+
+export function useCasePortalMessages(
+  caseId: string,
+  options?: Partial<UseQueryOptions<PortalMessage[]>>
+) {
+  return useQuery({
+    queryKey: clientPortalKeys.messages(caseId),
+    queryFn: () => invokeNodeApi<PortalMessage[]>(`${BASE}/cases/${caseId}/messages`),
+    enabled: !!caseId,
+    ...options,
+  });
+}
+
+export function useSendPortalMessage(caseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) =>
+      invokeNodeApi<PortalMessage>(`${BASE}/cases/${caseId}/messages`, {
+        method: 'POST',
+        body: { body },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientPortalKeys.messages(caseId) });
+      // A reply also posts a client-visible timeline event.
+      queryClient.invalidateQueries({ queryKey: clientPortalKeys.events(caseId) });
+    },
+    onError: (error: Error) => {
+      toast.error('Message not sent', { description: error.message });
     },
   });
 }

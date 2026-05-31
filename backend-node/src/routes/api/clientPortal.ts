@@ -86,6 +86,10 @@ const portalSettingsSchema = z.object({
   requireOtp: z.boolean(),
 });
 
+const staffMessageSchema = z.object({
+  body: z.string().trim().min(1).max(10_000),
+});
+
 // ── POST /cases/:caseId/invite ──────────────────────────────────────────────
 
 clientPortalRouter.post(
@@ -1173,3 +1177,183 @@ clientPortalRouter.patch(
     res.status(200).json({ requireOtp: result.rows[0].portal_require_otp });
   })
 );
+
+// ── GET /cases/:caseId/messages — staff reads the client↔firm thread ─────────
+//
+//   Returns the full thread (asc). Marks unread CLIENT messages as read so the
+//   staff-side unread badge clears once the thread is opened. Mirrors the
+//   client-side GET in portal.ts (which marks STAFF messages read).
+
+clientPortalRouter.get(
+  '/cases/:caseId/messages',
+  asyncHandler(async (req, res) => {
+    const { organizationId } = req.auth!;
+    const { caseId } = caseIdParamsSchema.parse(req.params);
+    await requireCaseInOrg(caseId, organizationId);
+
+    const result = await db.query<{
+      id: string;
+      sender_type: string;
+      sender_id: string;
+      body: string;
+      read_at: string | null;
+      created_at: string;
+    }>(
+      `
+      select id, sender_type, sender_id, body, read_at, created_at
+        from public.case_client_messages
+       where case_id = $1 and organization_id = $2
+       order by created_at asc
+      `,
+      [caseId, organizationId]
+    );
+
+    // Mark unread client messages as read now that staff has fetched them.
+    await db.query(
+      `update public.case_client_messages
+          set read_at = now()
+        where case_id = $1 and organization_id = $2
+          and sender_type = 'client' and read_at is null`,
+      [caseId, organizationId]
+    );
+
+    res.status(200).json(
+      result.rows.map((r) => ({
+        id: r.id,
+        senderType: r.sender_type,
+        senderId: r.sender_id,
+        body: r.body,
+        readAt: r.read_at,
+        createdAt: r.created_at,
+      }))
+    );
+  })
+);
+
+// ── POST /cases/:caseId/messages — staff replies to the client ──────────────
+//
+//   Inserts a 'staff' message (sender_id = staff userId). The client picks it up
+//   on their next thread fetch (which clears their unread count). Emits a
+//   client-visible timeline event and a best-effort email nudge so the client
+//   knows a reply is waiting.
+
+clientPortalRouter.post(
+  '/cases/:caseId/messages',
+  asyncHandler(async (req, res) => {
+    const { organizationId, userId } = req.auth!;
+    const { caseId } = caseIdParamsSchema.parse(req.params);
+    const { body } = staffMessageSchema.parse(req.body);
+    const caseRow = await requireCaseInOrg(caseId, organizationId);
+
+    // Light throttle so a runaway client can't spam the thread / email nudges.
+    const rl = checkRateLimit(`portal-staff-msg:${userId}:${caseId}`, 30, 60_000);
+    if (!rl.allowed) {
+      throw new ApiError(`Too many messages. Try again in ${rl.retryAfter}s.`, 429, 'RATE_LIMITED');
+    }
+
+    const result = await db.query<{
+      id: string;
+      sender_type: string;
+      sender_id: string;
+      body: string;
+      read_at: string | null;
+      created_at: string;
+    }>(
+      `
+      insert into public.case_client_messages
+        (case_id, organization_id, sender_type, sender_id, body)
+      values ($1, $2, 'staff', $3, $4)
+      returning id, sender_type, sender_id, body, read_at, created_at
+      `,
+      [caseId, organizationId, userId, body]
+    );
+    const row = result.rows[0];
+
+    // Best-effort timeline event so the reply is visible in the client's
+    // Updates feed too — never blocks the response.
+    await recordCaseEvent({
+      organizationId,
+      caseId,
+      eventType: 'staff_message',
+      title: 'New message from your legal team',
+      clientVisible: true,
+      actorType: 'staff',
+      actorId: userId,
+    });
+
+    // Best-effort email nudge to the linked client portal user(s).
+    void notifyClientOfStaffMessage(organizationId, caseId, caseRow.title).catch((err) => {
+      console.error('[clientPortal] staff message email nudge failed', {
+        caseId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
+    res.status(201).json({
+      id: row.id,
+      senderType: row.sender_type,
+      senderId: row.sender_id,
+      body: row.body,
+      readAt: row.read_at,
+      createdAt: row.created_at,
+    });
+  })
+);
+
+/**
+ * Best-effort email nudge: tell the client(s) with active access to this case
+ * that the firm replied. Resolves the recipient emails via the active grant
+ * paths (client-level + explicit per-matter) and sends a lightweight notice.
+ */
+async function notifyClientOfStaffMessage(
+  organizationId: string,
+  caseId: string,
+  matterTitle: string
+): Promise<void> {
+  const recipients = await db.query<{ email: string }>(
+    `
+    select distinct cu.email
+      from public.client_users cu
+     where cu.email is not null
+       and (
+         exists (
+           select 1 from public.client_case_access cca
+            where cca.client_user_id = cu.id
+              and cca.case_id = $1
+              and cca.status = 'active'
+         )
+         or exists (
+           select 1
+             from public.client_portal_access cpa
+             join public.cases c on c.id = $1
+            where cpa.client_user_id = cu.id
+              and cpa.status = 'active'
+              and cpa.client_id = c.client_id
+              and not coalesce(c.portal_private, false)
+         )
+       )
+    `,
+    [caseId]
+  );
+
+  const orgRes = await db.query<{ name: string }>(
+    `select name from public.organizations where id = $1 limit 1`,
+    [organizationId]
+  );
+  const firmName = orgRes.rows[0]?.name ?? 'Your legal team';
+
+  await Promise.all(
+    recipients.rows.map((r) =>
+      sendClientUpdateEmail({
+        email: r.email,
+        firmName,
+        matterTitle,
+        caseId,
+        subject: `New message from ${firmName}`,
+        bodyMarkdown: `${firmName} sent you a new message about your matter. Sign in to your client portal to read and reply.`,
+      }).catch(() => {
+        /* per-recipient best-effort */
+      })
+    )
+  );
+}

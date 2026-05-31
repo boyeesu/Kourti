@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Trash2, Loader2, Send, Sparkles, Mail, FileText } from 'lucide-react';
+import { Trash2, Loader2, Send, Sparkles, Mail, FileText, MessageSquare } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +42,8 @@ import {
   useGenerateDigest,
   useApproveDigest,
   useDiscardDigest,
+  useCasePortalMessages,
+  useSendPortalMessage,
   type PortalAccessRow,
   type PortalDigest,
 } from '@/features/clientPortal/api';
@@ -104,6 +107,7 @@ export function ClientPortalPanel({ caseId, caseData }: ClientPortalPanelProps) 
             <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="updates">Updates</TabsTrigger>
           </TabsList>
 
@@ -118,6 +122,9 @@ export function ClientPortalPanel({ caseId, caseData }: ClientPortalPanelProps) 
           </TabsContent>
           <TabsContent value="documents" className="pt-4">
             <DocumentsSection caseId={caseId} />
+          </TabsContent>
+          <TabsContent value="messages" className="pt-4">
+            <MessagesSection caseId={caseId} />
           </TabsContent>
           <TabsContent value="updates" className="pt-4">
             <UpdatesSection caseId={caseId} />
@@ -392,6 +399,94 @@ function DocumentsSection({ caseId }: { caseId: string }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Messages (two-way client ↔ firm thread)
+// ---------------------------------------------------------------------------
+
+function MessagesSection({ caseId }: { caseId: string }) {
+  // Light polling so staff see the client's replies without a refresh.
+  const { data: messages = [], isLoading } = useCasePortalMessages(caseId, {
+    refetchInterval: 20_000,
+  });
+  const send = useSendPortalMessage(caseId);
+  const [draft, setDraft] = useState('');
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    const body = draft.trim();
+    if (!body) return;
+    send.mutate(body, { onSuccess: () => setDraft('') });
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Reply directly to the client. Messages appear in their portal and they're emailed a nudge.
+      </p>
+
+      <div className="max-h-[28rem] space-y-3 overflow-y-auto rounded-lg border border-border bg-muted/20 p-4">
+        {isLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : messages.length > 0 ? (
+          messages.map((msg) => {
+            const fromStaff = msg.senderType === 'staff';
+            return (
+              <div key={msg.id} className={`flex ${fromStaff ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                    fromStaff
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background border border-border text-foreground'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{msg.body}</p>
+                  <p
+                    className={`mt-1 text-[11px] ${
+                      fromStaff ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {fromStaff ? 'You' : 'Client'} ·{' '}
+                    {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
+            <MessageSquare className="h-7 w-7 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              No messages yet. Start the conversation below.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSend} className="space-y-2">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Write a reply to the client…"
+          rows={3}
+          disabled={send.isPending}
+        />
+        <div className="flex justify-end">
+          <Button type="submit" disabled={send.isPending || !draft.trim()}>
+            {send.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}
+            {send.isPending ? 'Sending…' : 'Send reply'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
