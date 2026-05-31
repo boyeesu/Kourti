@@ -43,6 +43,32 @@ export async function authenticateRequest(headers: {
   // ── Custom JWT mode ─────────────────────────────────────────────────────
   const authUser = verifyAccessToken(token);
 
+  // ── Impersonation tokens ─────────────────────────────────────────────────
+  // A "View as" token carries an `imp` claim. Re-validate the backing session
+  // on every request so an admin can force-revoke it (or it can expire) and the
+  // impersonation immediately stops working — the token alone is not enough.
+  let impersonation: { sessionId: string; by: string; scope: 'read' | 'write' } | undefined;
+  if (authUser.impersonation) {
+    const session = await db.query<{ scope: 'read' | 'write' }>(
+      `select scope
+         from public.impersonation_sessions
+        where id = $1
+          and admin_user_id = $2
+          and ended_at is null
+          and expires_at > now()
+        limit 1`,
+      [authUser.impersonation.sid, authUser.impersonation.by]
+    );
+    if (!session.rows[0]) {
+      throw new ApiError('Impersonation session has ended', 401, 'IMPERSONATION_ENDED');
+    }
+    impersonation = {
+      sessionId: authUser.impersonation.sid,
+      by: authUser.impersonation.by,
+      scope: session.rows[0].scope,
+    };
+  }
+
   // If the JWT already has an org claim, use it; otherwise look up from profiles
   let organizationId = authUser.organizationId;
   if (
@@ -64,5 +90,6 @@ export async function authenticateRequest(headers: {
       !organizationId || organizationId === '00000000-0000-0000-0000-000000000000'
         ? ''
         : organizationId,
+    impersonation,
   };
 }

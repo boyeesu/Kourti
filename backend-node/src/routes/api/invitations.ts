@@ -134,7 +134,9 @@ invitationsRouter.post(
       const client = await db.connect();
       try {
         await client.query('begin');
-        await assertSeatAvailableTx(client, auth.organizationId, 1);
+        // Platform admins manage orgs on the firm's behalf and aren't billed,
+        // so they bypass seat limits (incl. orgs with no live plan / 0 seats).
+        if (!isPlatAdmin) await assertSeatAvailableTx(client, auth.organizationId, 1);
         const inserted = await client.query(
           `
           insert into public.invitations (

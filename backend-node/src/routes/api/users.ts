@@ -4,7 +4,11 @@ import crypto from 'node:crypto';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
-import { isPlatformAdminUser, requirePlatformAdminUser } from '../../services/authorization.js';
+import {
+  isPlatformAdminUser,
+  isPlatformStaff,
+  requirePlatformAdminUser,
+} from '../../services/authorization.js';
 import { sendInvitationEmail } from '../../services/email.js';
 import { assertSeatAvailableTx } from '../../services/seats.js';
 
@@ -50,7 +54,9 @@ usersRouter.get(
   '/is-platform-admin',
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
-    const isPlatformAdmin = await isPlatformAdminUser(auth.userId);
+    // Any platform staff role (superadmin, support, billing) may enter the
+    // /thanos panel; individual tabs/actions are capability-gated server-side.
+    const isPlatformAdmin = await isPlatformStaff(auth.userId);
     res.status(200).json({ isPlatformAdmin });
   })
 );
@@ -434,7 +440,9 @@ usersRouter.post(
       const client = await db.connect();
       try {
         await client.query('begin');
-        await assertSeatAvailableTx(client, auth.organizationId, 1);
+        // Platform admins manage orgs on the firm's behalf and aren't billed,
+        // so they bypass seat limits (incl. orgs with no live plan / 0 seats).
+        if (!isPlatAdmin) await assertSeatAvailableTx(client, auth.organizationId, 1);
         const inserted = await client.query(
           `
           insert into public.invitations (

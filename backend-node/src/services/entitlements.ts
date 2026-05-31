@@ -15,6 +15,7 @@
 import { env } from '../config/env.js';
 import { db } from '../db/pool.js';
 import { isPlatformAdminUser } from './authorization.js';
+import { featureOverrideDecision, orgOverrides } from './featureOverrides.js';
 
 // Core features every paid plan (and trial) gets.
 const CORE = [
@@ -123,6 +124,11 @@ export async function hasFeature(
   if (env.AUTH_MODE === 'development') return true;
   if (userId && (await isPlatformAdminUser(userId))) return true;
 
+  // Per-org overrides win over the plan matrix in both directions: a 'grant'
+  // unlocks a feature the plan doesn't include; a 'revoke' removes one it does.
+  const override = await featureOverrideDecision(orgId, feature);
+  if (override !== null) return override;
+
   const planType = await effectivePlanType(orgId);
   if (!planType) return false;
 
@@ -143,12 +149,19 @@ export async function getEntitlements(
   }
 
   const planType = await effectivePlanType(orgId);
-  if (!planType) return { plan_type: null, features: [] };
 
-  const matrix = await loadMatrix();
-  const enabled = matrix.get(planType) ?? new Set<string>();
-  return {
-    plan_type: planType,
-    features: FEATURE_KEYS.filter((k) => enabled.has(k)),
-  };
+  // An org with no live subscription can still have features force-granted via
+  // an override (e.g. a pre-sales pilot), so compute overrides regardless.
+  const { granted, revoked } = await orgOverrides(orgId);
+  const grantedSet = new Set(granted);
+  const revokedSet = new Set(revoked);
+
+  const matrix = planType ? await loadMatrix() : null;
+  const enabled = (matrix?.get(planType as string) ?? new Set<string>()) as Set<string>;
+
+  const features = FEATURE_KEYS.filter(
+    (k) => (enabled.has(k) || grantedSet.has(k)) && !revokedSet.has(k)
+  );
+
+  return { plan_type: planType, features };
 }

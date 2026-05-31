@@ -10,6 +10,16 @@ import { SubscriptionManagement } from '@/components/super-admin/SubscriptionMan
 import { AnalyticsTab } from '@/components/super-admin/AnalyticsTab';
 import { OrganizationDetail } from '@/components/super-admin/OrganizationDetail';
 import { UserDetail } from '@/components/super-admin/UserDetail';
+import { BillingOpsTab } from '@/components/super-admin/BillingOpsTab';
+import { OrgUsageTab } from '@/components/super-admin/OrgUsageTab';
+import { SystemHealthTab } from '@/components/super-admin/SystemHealthTab';
+import { EmailLogTab } from '@/components/super-admin/EmailLogTab';
+import { AuditLogProTab } from '@/components/super-admin/AuditLogProTab';
+import { KbAdminTab } from '@/components/super-admin/KbAdminTab';
+import { ClientPortalAdminTab } from '@/components/super-admin/ClientPortalAdminTab';
+import { BulkOpsTab } from '@/components/super-admin/BulkOpsTab';
+import { LifecycleRulesTab } from '@/components/super-admin/LifecycleRulesTab';
+import { ImpersonationTab } from '@/components/super-admin/ImpersonationTab';
 import { usePlatformAnalytics } from '@/hooks/usePlatformAnalytics';
 
 export default function ThanosDashboard() {
@@ -59,7 +69,17 @@ export default function ThanosDashboard() {
               <Route path="users/:id" element={<UserDetail />} />
               <Route path="plans" element={<PlansTab />} />
               <Route path="subscriptions" element={<SubscriptionManagement />} />
+              <Route path="billing-ops" element={<BillingOpsTab />} />
+              <Route path="usage" element={<OrgUsageTab />} />
               <Route path="analytics" element={<AnalyticsTab />} />
+              <Route path="health" element={<SystemHealthTab />} />
+              <Route path="email" element={<EmailLogTab />} />
+              <Route path="audit" element={<AuditLogProTab />} />
+              <Route path="knowledge-base" element={<KbAdminTab />} />
+              <Route path="client-portal" element={<ClientPortalAdminTab />} />
+              <Route path="impersonation" element={<ImpersonationTab />} />
+              <Route path="bulk-ops" element={<BulkOpsTab />} />
+              <Route path="lifecycle-rules" element={<LifecycleRulesTab />} />
             </Routes>
           </div>
         </div>

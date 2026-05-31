@@ -16,6 +16,7 @@ import { invokeNodeApi } from '@/lib/backendApi';
 import { logError } from '@/lib/logger';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useInitiatePayment } from '@/hooks/useSubscription';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 
 interface PricingPlan {
   id: string;
@@ -96,13 +97,16 @@ function usePricingPlans(enabled: boolean) {
 
 export function TrialExpiredModal() {
   const { data: trial } = useTrialStatus();
+  const { data: isPlatformAdmin } = usePlatformAdmin();
   const location = useLocation();
   const navigate = useNavigate();
 
   const expired =
     !!trial && (trial.is_expired || trial.status === 'expired' || trial.status === 'past_due');
   const onAllowedPath = ALLOWED_PATHS.some((p) => location.pathname.startsWith(p));
-  const shouldShow = expired && !onAllowedPath;
+  // Platform admins/staff aren't billed and must keep full access regardless of
+  // their org's subscription state — never paywall them.
+  const shouldShow = expired && !onAllowedPath && !isPlatformAdmin;
 
   const { data: plans = [], isLoading } = usePricingPlans(shouldShow);
   const tiers = useMemo(() => cleanPlans(plans), [plans]);
