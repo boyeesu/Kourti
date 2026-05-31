@@ -27,20 +27,38 @@ const sqlStr = (s: string) => `'${s.replace(/'/g, "''")}'`;
 // Types; these are only the initial seed.
 const DEFAULT_GLOBAL_CASE_TYPES: Array<{ name: string; description: string }> = [
   { name: 'Litigation', description: 'Contentious matters and court proceedings.' },
-  { name: 'Corporate & Commercial', description: 'Company formation, governance, and commercial agreements.' },
-  { name: 'Mergers & Acquisitions', description: 'Acquisitions, disposals, and corporate restructuring.' },
+  {
+    name: 'Corporate & Commercial',
+    description: 'Company formation, governance, and commercial agreements.',
+  },
+  {
+    name: 'Mergers & Acquisitions',
+    description: 'Acquisitions, disposals, and corporate restructuring.',
+  },
   { name: 'Banking & Finance', description: 'Lending, security, and financing transactions.' },
   { name: 'Real Estate & Property', description: 'Conveyancing, leases, and property disputes.' },
-  { name: 'Employment & Labour', description: 'Employment contracts, disputes, and workplace matters.' },
-  { name: 'Intellectual Property', description: 'Trademarks, patents, copyright, and IP enforcement.' },
+  {
+    name: 'Employment & Labour',
+    description: 'Employment contracts, disputes, and workplace matters.',
+  },
+  {
+    name: 'Intellectual Property',
+    description: 'Trademarks, patents, copyright, and IP enforcement.',
+  },
   { name: 'Family Law', description: 'Divorce, custody, and matrimonial matters.' },
   { name: 'Criminal Defence', description: 'Criminal charges and defence representation.' },
   { name: 'Tax', description: 'Tax advisory, planning, and disputes.' },
-  { name: 'Estate Planning & Probate', description: 'Wills, trusts, estate administration, and probate.' },
+  {
+    name: 'Estate Planning & Probate',
+    description: 'Wills, trusts, estate administration, and probate.',
+  },
   { name: 'Immigration', description: 'Visas, permits, and immigration applications.' },
   { name: 'Regulatory & Compliance', description: 'Regulatory advice, licensing, and compliance.' },
   { name: 'Debt Recovery', description: 'Recovery of outstanding debts and enforcement.' },
-  { name: 'Contract Drafting & Review', description: 'Drafting, reviewing, and negotiating contracts.' },
+  {
+    name: 'Contract Drafting & Review',
+    description: 'Drafting, reviewing, and negotiating contracts.',
+  },
 ];
 
 // Idempotent seed: insert a default only when no global type with the same
@@ -1568,6 +1586,7 @@ const bootstrapStatements = [
   // In production we instead run `prodCleanupStatements` to remediate any
   // deployment that previously seeded that backdoor. SOC 2: no shared/default
   // privileged credentials in production.
+  // (security_events table is defined above in the data-protection block.)
 
   // ── Plan feature entitlements ─────────────────────────────────────
   // Source of truth for feature-gating (plan_type → feature_key). Seeded from
@@ -1998,7 +2017,6 @@ export async function ensureDatabaseSchema() {
   // NOT EXISTS) so it is safe to run on every boot — including production.
   // Previously gated behind RUN_BOOTSTRAP=1 in prod, but that caused 500s
   // when new columns were deployed without running the migration first.
-
   const isProd = process.env.NODE_ENV === 'production';
   // In non-prod, append the local dev superadmin seed. In prod, append the
   // remediation statements that remove that backdoor if it was ever seeded.

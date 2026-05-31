@@ -70,7 +70,8 @@ const envSchema = z.object({
   // Dedicated symmetric key for application-layer field encryption (e.g. TOTP
   // secrets at rest). Optional: when unset, a JWT_SECRET-derived key is used as
   // a fallback. A dedicated 32+ byte key is recommended in production (see the
-  // boot-time warning below).
+  // boot-time warning below). Retention windows (incl. RETENTION_AUDIT_LOG_DAYS)
+  // are declared together in the data-protection block further below.
   APP_ENCRYPTION_KEY: optionalNonEmptyString,
 
   AGENT_ENABLED: z
