@@ -1,4 +1,5 @@
 import { db } from '../db/pool.js';
+import { fanOutCaseEvent } from './portalNotifications.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -59,11 +60,12 @@ export async function recordCaseEvent(input: RecordCaseEventInput): Promise<void
     const clientVisible = input.clientVisible ?? DEFAULT_VISIBILITY[input.eventType] ?? false;
     const actorType = input.actorType ?? 'staff';
 
-    await db.query(
+    const inserted = await db.query<{ id: string }>(
       `INSERT INTO public.case_events
          (organization_id, case_id, event_type, title, body, payload,
           actor_type, actor_id, client_visible, occurred_at, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, now(), now())`,
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, now(), now())
+       RETURNING id`,
       [
         input.organizationId,
         input.caseId,
@@ -76,6 +78,21 @@ export async function recordCaseEvent(input: RecordCaseEventInput): Promise<void
         clientVisible,
       ]
     );
+
+    // Fan a client-visible event out to the per-client notification feed (bell
+    // + coalesced email). Best effort — fanOutCaseEvent never throws.
+    if (clientVisible && inserted.rows[0]) {
+      await fanOutCaseEvent({
+        eventId: inserted.rows[0].id,
+        organizationId: input.organizationId,
+        caseId: input.caseId,
+        eventType: input.eventType,
+        title: input.title ?? null,
+        body: input.body ?? null,
+        actorType,
+        actorId: input.actorId ?? null,
+      });
+    }
   } catch (err) {
     // Swallow: a failed timeline write must never break the primary write.
     console.error('[caseEvents] recordCaseEvent failed:', err instanceof Error ? err.message : err);

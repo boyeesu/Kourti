@@ -1,7 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  subMonths,
+  isToday,
+} from 'date-fns';
 import {
   CalendarDays,
   Gavel,
@@ -10,8 +22,11 @@ import {
   AlertCircle,
   CalendarClock,
   ChevronRight,
+  ChevronLeft,
   Search,
   X,
+  LayoutGrid,
+  List as ListIcon,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
   portalGetCalendar,
@@ -161,6 +177,202 @@ function CalendarEventCard({
   );
 }
 
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Month-grid view of the calendar. Reads from the already-filtered events. */
+function MonthGrid({
+  events,
+  viewMonth,
+  setViewMonth,
+  selectedDay,
+  setSelectedDay,
+  renderDayEvents,
+}: {
+  events: PortalCalendarEventWithMatter[];
+  viewMonth: Date;
+  setViewMonth: (d: Date) => void;
+  selectedDay: Date;
+  setSelectedDay: (d: Date) => void;
+  renderDayEvents: (events: PortalCalendarEventWithMatter[]) => JSX.Element;
+}) {
+  // Map yyyy-MM-dd -> events starting that day (skip events without a valid start).
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, PortalCalendarEventWithMatter[]>();
+    for (const ev of events) {
+      const start = toDate(ev.start_date);
+      if (!start) continue;
+      const key = format(start, 'yyyy-MM-dd');
+      const arr = map.get(key);
+      if (arr) arr.push(ev);
+      else map.set(key, [ev]);
+    }
+    return map;
+  }, [events]);
+
+  const days = useMemo(() => {
+    const gridStart = startOfWeek(startOfMonth(viewMonth));
+    const gridEnd = endOfWeek(endOfMonth(viewMonth));
+    return eachDayOfInterval({ start: gridStart, end: gridEnd });
+  }, [viewMonth]);
+
+  const selectedKey = format(selectedDay, 'yyyy-MM-dd');
+  const selectedEvents = eventsByDay.get(selectedKey) ?? [];
+
+  return (
+    <Card>
+      <CardContent className="p-3 sm:p-4">
+        {/* Month header */}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-foreground sm:text-base">
+            {format(viewMonth, 'MMMM yyyy')}
+          </h2>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setViewMonth(startOfMonth(new Date()))}
+            >
+              Today
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Previous month"
+              onClick={() => setViewMonth(subMonths(viewMonth, 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Next month"
+              onClick={() => setViewMonth(addMonths(viewMonth, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Weekday header */}
+        <div className="grid grid-cols-7 gap-1">
+          {WEEKDAY_LABELS.map((label) => (
+            <div
+              key={label}
+              className="pb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs"
+            >
+              <span className="sm:hidden">{label.charAt(0)}</span>
+              <span className="hidden sm:inline">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Day cells */}
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((day) => {
+            const key = format(day, 'yyyy-MM-dd');
+            const dayEvents = eventsByDay.get(key) ?? [];
+            const outside = !isSameMonth(day, viewMonth);
+            const today = isToday(day);
+            const selected = isSameDay(day, selectedDay);
+            const visibleChips = dayEvents.slice(0, 2);
+            const extra = dayEvents.length - visibleChips.length;
+
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSelectedDay(day)}
+                aria-pressed={selected}
+                aria-label={`${format(day, 'PPPP')}${
+                  dayEvents.length
+                    ? `, ${dayEvents.length} date${dayEvents.length === 1 ? '' : 's'}`
+                    : ''
+                }`}
+                className={cn(
+                  'flex min-h-[3.5rem] flex-col rounded-md border p-1 text-left transition-colors sm:min-h-[5.5rem] sm:p-1.5',
+                  selected
+                    ? 'border-primary ring-1 ring-primary'
+                    : 'border-transparent hover:bg-muted/60',
+                  today && !selected && 'bg-primary/10'
+                )}
+              >
+                <span
+                  className={cn(
+                    'mb-1 text-xs font-medium sm:text-sm',
+                    outside && 'text-muted-foreground/40',
+                    today && 'font-bold text-primary'
+                  )}
+                >
+                  {format(day, 'd')}
+                </span>
+
+                {/* Chips on larger screens */}
+                <div className="hidden min-w-0 flex-1 flex-col gap-0.5 sm:flex">
+                  {visibleChips.map((ev) => {
+                    const hearing = isHearing(ev.event_type);
+                    return (
+                      <span
+                        key={ev.id}
+                        className={cn(
+                          'truncate rounded px-1 py-0.5 text-[10px] leading-tight',
+                          hearing ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground'
+                        )}
+                        title={ev.title || 'Event'}
+                      >
+                        {ev.title || 'Event'}
+                      </span>
+                    );
+                  })}
+                  {extra > 0 && (
+                    <span className="px-1 text-[10px] leading-tight text-muted-foreground">
+                      +{extra} more
+                    </span>
+                  )}
+                </div>
+
+                {/* Dot indicator on small screens */}
+                {dayEvents.length > 0 && (
+                  <span className="mt-auto flex gap-0.5 sm:hidden" aria-hidden>
+                    {dayEvents.slice(0, 3).map((ev) => (
+                      <span
+                        key={ev.id}
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          isHearing(ev.event_type) ? 'bg-primary' : 'bg-muted-foreground/50'
+                        )}
+                      />
+                    ))}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected day events live outside the grid for full detail. */}
+        <div className="mt-4 border-t border-border pt-4">
+          {selectedEvents.length > 0 ? (
+            renderDayEvents(selectedEvents)
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No dates on {format(selectedDay, 'PPP')}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+type CalendarView = 'month' | 'list';
+const VIEW_STORAGE_KEY = 'kourti_portal_calendar_view';
+
 export default function PortalCalendar() {
   const queryClient = useQueryClient();
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -201,6 +413,42 @@ export default function PortalCalendar() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hearing' | 'other'>('all');
   const [matterFilter, setMatterFilter] = useState<string>('all');
+  const [view, setView] = useState<CalendarView>(() => {
+    const stored =
+      typeof localStorage !== 'undefined' ? localStorage.getItem(VIEW_STORAGE_KEY) : null;
+    return stored === 'list' ? 'list' : 'month';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, view);
+    } catch {
+      /* ignore persistence errors (private mode, etc.) */
+    }
+  }, [view]);
+
+  // Soonest upcoming (or earliest) event start — anchors the initial visible month/day.
+  const soonestStart = useMemo(() => {
+    let earliest: Date | null = null;
+    for (const ev of data ?? []) {
+      const start = toDate(ev.start_date);
+      if (!start) continue;
+      if (!earliest || start.getTime() < earliest.getTime()) earliest = start;
+    }
+    return earliest;
+  }, [data]);
+
+  const [viewMonth, setViewMonth] = useState<Date>(() => startOfMonth(new Date()));
+  const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
+  // Once data loads, jump the grid to the soonest event's month (only if user
+  // hasn't navigated away yet — i.e. still on the current month).
+  const [anchored, setAnchored] = useState(false);
+  useEffect(() => {
+    if (anchored || !soonestStart) return;
+    setViewMonth(startOfMonth(soonestStart));
+    setSelectedDay(soonestStart);
+    setAnchored(true);
+  }, [anchored, soonestStart]);
 
   // Distinct matters present across events (for the matter filter).
   const matters = useMemo(() => {
@@ -319,6 +567,36 @@ export default function PortalCalendar() {
                 Clear
               </Button>
             )}
+            <div className="ml-auto inline-flex rounded-md border border-border p-0.5">
+              <button
+                type="button"
+                aria-label="Month view"
+                aria-pressed={view === 'month'}
+                onClick={() => setView('month')}
+                className={cn(
+                  'rounded p-1.5 transition-colors',
+                  view === 'month'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="List view"
+                aria-pressed={view === 'list'}
+                onClick={() => setView('list')}
+                className={cn(
+                  'rounded p-1.5 transition-colors',
+                  view === 'list'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <ListIcon className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -357,7 +635,7 @@ export default function PortalCalendar() {
         </Card>
       )}
 
-      {!isLoading && !isError && data && data.length > 0 && groups.length === 0 && (
+      {!isLoading && !isError && data && data.length > 0 && filtered.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Search className="h-8 w-8 text-muted-foreground" />
@@ -374,7 +652,29 @@ export default function PortalCalendar() {
         </Card>
       )}
 
-      {!isLoading && !isError && groups.length > 0 && (
+      {!isLoading && !isError && filtered.length > 0 && view === 'month' && (
+        <MonthGrid
+          events={filtered}
+          viewMonth={viewMonth}
+          setViewMonth={setViewMonth}
+          selectedDay={selectedDay}
+          setSelectedDay={setSelectedDay}
+          renderDayEvents={(dayEvents) => (
+            <div className="space-y-3">
+              {dayEvents.map((event) => (
+                <CalendarEventCard
+                  key={event.id}
+                  event={event}
+                  onRsvp={handleRsvp}
+                  rsvpPending={rsvp.isPending}
+                />
+              ))}
+            </div>
+          )}
+        />
+      )}
+
+      {!isLoading && !isError && filtered.length > 0 && view === 'list' && groups.length > 0 && (
         <div className="space-y-8">
           {groups.map((group) => (
             <div key={group.month} className="space-y-3">

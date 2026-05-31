@@ -231,8 +231,13 @@ portalRouter.get(
   asyncHandler(async (req, res) => {
     const { clientUserId } = req.clientAuth!;
 
-    const result = await db.query<{ id: string; email: string; full_name: string | null }>(
-      `select id, email, full_name from public.client_users where id = $1 limit 1`,
+    const result = await db.query<{
+      id: string;
+      email: string;
+      full_name: string | null;
+      email_notifications_enabled: boolean;
+    }>(
+      `select id, email, full_name, email_notifications_enabled from public.client_users where id = $1 limit 1`,
       [clientUserId]
     );
 
@@ -241,7 +246,12 @@ portalRouter.get(
       throw new ApiError('Client not found', 404, 'NOT_FOUND');
     }
 
-    res.status(200).json({ id: row.id, email: row.email, fullName: row.full_name });
+    res.status(200).json({
+      id: row.id,
+      email: row.email,
+      fullName: row.full_name,
+      emailNotificationsEnabled: row.email_notifications_enabled,
+    });
   })
 );
 
@@ -250,6 +260,7 @@ portalRouter.get(
 const updateMeSchema = z.object({
   fullName: z.string().trim().max(200).optional(),
   phone: z.string().trim().max(50).optional().nullable(),
+  emailNotificationsEnabled: z.boolean().optional(),
 });
 
 portalRouter.patch(
@@ -262,20 +273,31 @@ portalRouter.patch(
       email: string;
       full_name: string | null;
       phone: string | null;
+      email_notifications_enabled: boolean;
     }>(
       `update public.client_users
           set full_name = coalesce($2, full_name),
               phone = coalesce($3, phone),
+              email_notifications_enabled = coalesce($4, email_notifications_enabled),
               updated_at = now()
         where id = $1
-        returning id, email, full_name, phone`,
-      [clientUserId, body.fullName ?? null, body.phone ?? null]
+        returning id, email, full_name, phone, email_notifications_enabled`,
+      [
+        clientUserId,
+        body.fullName ?? null,
+        body.phone ?? null,
+        body.emailNotificationsEnabled ?? null,
+      ]
     );
     const row = result.rows[0];
     if (!row) throw new ApiError('Client not found', 404, 'NOT_FOUND');
-    res
-      .status(200)
-      .json({ id: row.id, email: row.email, fullName: row.full_name, phone: row.phone });
+    res.status(200).json({
+      id: row.id,
+      email: row.email,
+      fullName: row.full_name,
+      phone: row.phone,
+      emailNotificationsEnabled: row.email_notifications_enabled,
+    });
   })
 );
 

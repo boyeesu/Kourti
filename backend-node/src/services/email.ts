@@ -809,3 +809,61 @@ export async function sendClientUpdateEmail(args: {
     'client_update'
   );
 }
+
+/**
+ * Coalesced portal-notification email. A burst of client-visible updates
+ * (new matter, message, document, hearing, …) collected within a short window
+ * is sent as ONE email summarising every item, rather than one mail per event.
+ * Sent from a generic Kourti sender because a single email may span items from
+ * more than one firm.
+ */
+export async function sendPortalNotificationEmail(args: {
+  email: string;
+  clientName?: string;
+  items: { title: string; body?: string | null; firmName: string; caseId: string | null }[];
+}): Promise<{ messageId?: string }> {
+  const { email, clientName, items } = args;
+  if (items.length === 0) return {};
+
+  const greeting = clientName ? `Hi ${escapeHtml(clientName)},` : 'Hi,';
+  const count = items.length;
+  const subject =
+    count === 1 ? `New update: ${items[0].title}` : `You have ${count} new updates on your matters`;
+
+  const rows = items
+    .map((it) => {
+      const safeTitle = escapeHtml(it.title);
+      const safeFirm = escapeHtml(it.firmName);
+      const safeBody = it.body ? escapeHtml(it.body) : '';
+      const link = it.caseId
+        ? `${PORTAL_URL}/matters/${encodeURIComponent(it.caseId)}`
+        : `${PORTAL_URL}`;
+      return `
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid ${BRAND.border};">
+            <a href="${link}" style="color:${BRAND.lightText};font-size:15px;font-weight:600;text-decoration:none;">${safeTitle}</a>
+            ${safeBody ? `<p style="color:${BRAND.mutedText};font-size:13px;line-height:1.5;margin:4px 0 0;">${safeBody}</p>` : ''}
+            <p style="color:${BRAND.mutedText};font-size:12px;margin:4px 0 0;">${safeFirm}</p>
+          </td>
+        </tr>`;
+    })
+    .join('');
+
+  const body = `
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">${greeting}</p>
+    <p style="color:${BRAND.mutedText};font-size:14px;line-height:1.6;margin:0 0 8px;">Here's what's new across your matters:</p>
+    <table role="presentation" width="100%" style="border-collapse:collapse;margin:0 0 8px;">${rows}</table>
+    ${ctaButton('Open your client portal', PORTAL_URL)}
+    <p style="color:${BRAND.mutedText};font-size:13px;line-height:1.6;">You're receiving this because you follow these matters on your client portal. You can turn these emails off from the notifications menu in the portal.</p>
+  `;
+
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject,
+      html: wrapHtml(subject, body),
+    },
+    'portal_notification'
+  );
+}
