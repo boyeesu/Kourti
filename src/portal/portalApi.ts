@@ -5,77 +5,47 @@
  * `lib/api.ts` / `lib/backendApi.ts` but for the `/api/v1/portal*` endpoints
  * with portal-specific bearer + refresh handling.
  *
- * Token storage model (SAFE INTERIM, see H5 below):
+ * Token storage model (httpOnly-cookie refresh, H5 fix — mirrors the staff app):
  * - Access token: held in memory only (never persisted to storage).
- * - Refresh token: kept in `sessionStorage` (tab-scoped) under
- *   `kourti_portal_refresh`, so a page reload within the same tab can still
- *   recover the session without a long-lived `localStorage` artifact that
- *   survives across tabs/restarts and is trivially exfiltrated by XSS.
- *
- * // SECURITY-TODO(H5): full fix is httpOnly cookie for refresh token —
- * requires backend Set-Cookie on /portal/auth/refresh (coordinated change)
+ * - Refresh token: NEVER touches JS. The backend sets it as an httpOnly cookie
+ *   (`kourti_prt`, path `/api/v1/portal/auth`) on login/verify-otp/accept-invite/
+ *   refresh, and clears it on logout. All auth fetches use `credentials:'include'`
+ *   so the cookie rides along automatically and a page reload can recover the
+ *   session via POST /auth/refresh (the cookie carries the token). This removes
+ *   the XSS-exfiltration surface of a JS-readable refresh token.
  */
 import { env } from '@/lib/env';
 
 // ── Token storage ─────────────────────────────────────────────────────────────
 
-/** sessionStorage key holding only the (tab-scoped) refresh token. */
-export const PORTAL_REFRESH_KEY = 'kourti_portal_refresh';
-
 export interface PortalTokens {
   accessToken: string;
-  refreshToken: string;
   /** epoch ms at which the access token expires */
   expiresAt: number;
 }
 
 // Access token + its expiry live in memory only (module-scoped), mirroring the
-// staff app (`lib/authClient.ts`). They are intentionally NOT persisted.
+// staff app (`lib/authClient.ts`). They are intentionally NOT persisted. The
+// refresh token lives in an httpOnly cookie managed by the backend.
 let accessTokenInMemory: string | null = null;
 let accessTokenExpiresAt = 0;
 
-function getRefreshToken(): string | null {
-  try {
-    return sessionStorage.getItem(PORTAL_REFRESH_KEY);
-  } catch {
-    return null;
-  }
-}
-
 export function getPortalTokens(): PortalTokens | null {
-  const refreshToken = getRefreshToken();
-  if (!accessTokenInMemory || !refreshToken) return null;
+  if (!accessTokenInMemory) return null;
   return {
     accessToken: accessTokenInMemory,
-    refreshToken,
     expiresAt: accessTokenExpiresAt,
   };
 }
 
-export function setPortalTokens(input: {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}): void {
+export function setPortalTokens(input: { accessToken: string; expiresIn: number }): void {
   accessTokenInMemory = input.accessToken;
   accessTokenExpiresAt = Date.now() + input.expiresIn * 1000;
-  try {
-    // Tab-scoped: cleared when the tab closes; not shared across tabs.
-    sessionStorage.setItem(PORTAL_REFRESH_KEY, input.refreshToken);
-  } catch {
-    // sessionStorage unavailable — session will not survive a reload, but the
-    // in-memory access token still works for the current page lifetime.
-  }
 }
 
 export function clearPortalTokens(): void {
   accessTokenInMemory = null;
   accessTokenExpiresAt = 0;
-  try {
-    sessionStorage.removeItem(PORTAL_REFRESH_KEY);
-  } catch {
-    /* ignore */
-  }
 }
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -90,7 +60,6 @@ export interface PortalAuthUser {
 
 export interface PortalAuthResponse {
   accessToken: string;
-  refreshToken: string;
   expiresIn: number;
   user: PortalAuthUser;
 }
@@ -262,6 +231,8 @@ async function authCall<T>(path: string, body?: Record<string, unknown>): Promis
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
+    // Send/receive the httpOnly refresh cookie (kourti_prt) cross-origin.
+    credentials: 'include',
     signal: controller.signal,
   }).finally(() => clearTimeout(timeout));
 
@@ -284,23 +255,17 @@ async function authCall<T>(path: string, body?: Record<string, unknown>): Promis
 let refreshInFlight: Promise<PortalTokens> | null = null;
 
 /**
- * Refresh the portal access token using the (tab-scoped, sessionStorage) refresh
- * token. Reads the refresh token directly so it also works after a page reload,
- * when the in-memory access token is gone but the refresh token survives.
+ * Refresh the portal access token using the httpOnly refresh cookie. Sends no
+ * body — the cookie (`kourti_prt`) rides along via `credentials:'include'`, so
+ * this also works after a page reload when the in-memory access token is gone
+ * but the cookie survives. A 401 means no/expired cookie → sign-in required.
  */
 async function refreshPortalSession(): Promise<PortalTokens> {
   if (refreshInFlight) return refreshInFlight;
 
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    throw new PortalApiError('Session expired. Please sign in again.', 401);
-  }
-
   refreshInFlight = (async () => {
     try {
-      const data = await authCall<PortalAuthResponse>('/auth/refresh', {
-        refreshToken,
-      });
+      const data = await authCall<PortalAuthResponse>('/auth/refresh');
       setPortalTokens(data);
       return getPortalTokens()!;
     } catch (err) {
@@ -315,22 +280,13 @@ async function refreshPortalSession(): Promise<PortalTokens> {
 }
 
 /**
- * True when a refresh token is present for this tab — i.e. a session may be
- * recoverable (e.g. immediately after a page reload, before any access token
- * has been minted into memory).
- */
-export function hasPortalRefreshToken(): boolean {
-  return getRefreshToken() !== null;
-}
-
-/**
- * Bootstrap the in-memory access token from the tab-scoped refresh token.
- * Used on app startup / page reload to re-establish the session. Resolves with
- * `true` when an access token is available afterwards.
+ * Bootstrap the in-memory access token from the httpOnly refresh cookie. Used on
+ * app startup / page reload to re-establish the session. Resolves with `true`
+ * when an access token is available afterwards. The cookie is not readable from
+ * JS, so we simply attempt the refresh and treat a failure as "no session".
  */
 export async function ensurePortalSession(): Promise<boolean> {
   if (getPortalTokens()?.accessToken) return true;
-  if (!getRefreshToken()) return false;
   try {
     await refreshPortalSession();
     return true;
@@ -353,11 +309,15 @@ async function portalApi<T>(
 ): Promise<T> {
   let tokens = getPortalTokens();
   if (!tokens?.accessToken) {
-    // No in-memory access token (e.g. just after a page reload). If a tab-scoped
-    // refresh token survives, mint a fresh access token before giving up.
-    if (!isRetry && getRefreshToken()) {
-      await refreshPortalSession();
-      tokens = getPortalTokens();
+    // No in-memory access token (e.g. just after a page reload). Attempt a
+    // cookie-based refresh to mint a fresh access token before giving up.
+    if (!isRetry) {
+      try {
+        await refreshPortalSession();
+        tokens = getPortalTokens();
+      } catch {
+        /* fall through to the not-authenticated throw below */
+      }
     }
     if (!tokens?.accessToken) {
       throw new PortalApiError('Not authenticated', 401);
@@ -374,6 +334,8 @@ async function portalApi<T>(
       Authorization: `Bearer ${tokens.accessToken}`,
     },
     body: options?.body ? JSON.stringify(options.body) : undefined,
+    // Carry the httpOnly refresh cookie so a 401-triggered refresh can rotate it.
+    credentials: 'include',
     signal: controller.signal,
   }).finally(() => clearTimeout(timeout));
 
@@ -417,10 +379,6 @@ export function portalResendOtp(otpToken: string): Promise<PortalResendOtpRespon
   return authCall<PortalResendOtpResponse>('/auth/resend-otp', { otpToken });
 }
 
-export function portalRefresh(refreshToken: string): Promise<PortalAuthResponse> {
-  return authCall<PortalAuthResponse>('/auth/refresh', { refreshToken });
-}
-
 export function portalAcceptInvite(args: {
   token: string;
   password: string;
@@ -437,17 +395,21 @@ export function portalResetPassword(token: string, password: string): Promise<{ 
   return authCall<{ ok: boolean }>('/auth/reset-password', { token, password });
 }
 
-/** Best-effort server-side sign out using the current bearer. */
+/**
+ * Best-effort server-side sign out. Always hits the endpoint with
+ * `credentials:'include'` so the httpOnly refresh cookie is cleared even when no
+ * in-memory access token survives (e.g. after a reload); attaches the bearer
+ * when available so the server can also revoke the session.
+ */
 export async function portalLogout(): Promise<void> {
   const tokens = getPortalTokens();
-  if (!tokens?.accessToken) return;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (tokens?.accessToken) headers.Authorization = `Bearer ${tokens.accessToken}`;
   try {
     await fetch(portalUrl('/auth/logout'), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${tokens.accessToken}`,
-      },
+      headers,
+      credentials: 'include',
     });
   } catch {
     /* best-effort */
