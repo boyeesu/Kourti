@@ -84,6 +84,14 @@ function isHearing(eventType: string | null): boolean {
   return !!eventType && /hearing|court/i.test(eventType);
 }
 
+/** Parse a date-ish value, returning null for missing/invalid input so callers
+ *  never hand an "Invalid Date" to date-fns (which throws RangeError). */
+function toDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 const RSVP_OPTIONS: { value: PortalRsvpResponse; label: string }[] = [
   { value: 'accepted', label: 'Accepted' },
   { value: 'tentative', label: 'Tentative' },
@@ -138,9 +146,11 @@ function CalendarItem({
           )}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {format(new Date(event.start_date), 'PPP')}
-          {event.end_date && event.end_date !== event.start_date
-            ? ` – ${format(new Date(event.end_date), 'PPP')}`
+          {toDate(event.start_date)
+            ? format(toDate(event.start_date)!, 'PPP')
+            : 'Date to be confirmed'}
+          {toDate(event.end_date) && event.end_date !== event.start_date
+            ? ` – ${format(toDate(event.end_date)!, 'PPP')}`
             : ''}
         </p>
         {event.location && (
@@ -209,9 +219,11 @@ function TimelineItem({ event }: { event: PortalTimelineEvent }) {
         {event.body && (
           <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{event.body}</p>
         )}
-        <p className="mt-1 text-xs text-muted-foreground">
-          {formatDistanceToNow(new Date(event.occurredAt), { addSuffix: true })}
-        </p>
+        {toDate(event.occurredAt) && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatDistanceToNow(toDate(event.occurredAt)!, { addSuffix: true })}
+          </p>
+        )}
       </div>
     </li>
   );
@@ -404,13 +416,13 @@ export default function PortalMatterDetail() {
             </p>
           )}
 
-          {matter.nextHearingDate && (
+          {toDate(matter.nextHearingDate) && (
             <div className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm">
               <CalendarClock className="h-4 w-4 text-primary" />
               <span className="text-foreground">
                 Next hearing:{' '}
                 <span className="font-medium">
-                  {format(new Date(matter.nextHearingDate), 'PPP')}
+                  {format(toDate(matter.nextHearingDate)!, 'PPP')}
                 </span>
               </span>
             </div>
@@ -562,8 +574,10 @@ export default function PortalMatterDetail() {
                               fromClient ? 'text-primary-foreground/70' : 'text-muted-foreground'
                             }`}
                           >
-                            {fromClient ? 'You' : matter.firm.name} ·{' '}
-                            {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
+                            {fromClient ? 'You' : matter.firm.name}
+                            {toDate(msg.createdAt)
+                              ? ` · ${formatDistanceToNow(toDate(msg.createdAt)!, { addSuffix: true })}`
+                              : ''}
                           </p>
                         </div>
                       </div>
