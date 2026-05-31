@@ -153,7 +153,12 @@ export function FindAvailableTimeDialog({ open, onOpenChange }: FindAvailableTim
                 <Input
                   type="date"
                   value={format(selectedDate, 'yyyy-MM-dd')}
-                  onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                  onChange={(e) => {
+                    // Parse as a LOCAL date — `new Date('yyyy-MM-dd')` is interpreted as
+                    // UTC midnight, which shifts the day backward in negative-UTC zones.
+                    const [y, m, d] = e.target.value.split('-').map(Number);
+                    if (y && m && d) setSelectedDate(new Date(y, m - 1, d));
+                  }}
                   min={format(new Date(), 'yyyy-MM-dd')}
                 />
               </div>
