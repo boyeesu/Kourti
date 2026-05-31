@@ -30,7 +30,9 @@ plansRouter.get(
     const result = await db
       .query<PlanRow>(
         `select id, name, display_name, description, plan_type, features,
-                price_monthly, price_yearly, currency
+                case when plan_type = 'enterprise' then null else price_monthly end as price_monthly,
+                case when plan_type = 'enterprise' then null else price_yearly end as price_yearly,
+                currency
            from public.user_plans
           where is_active = true
           order by case plan_type

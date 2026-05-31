@@ -355,10 +355,11 @@ adminRouter.put(
       .parse(req.body);
 
     for (const u of body.updates) {
+      // Enterprise is sales-led: its price is never settable and always stays null.
       await db.query(
         `UPDATE public.user_plans SET
-           price_monthly = COALESCE($1, price_monthly),
-           price_yearly  = COALESCE($2, price_yearly),
+           price_monthly = CASE WHEN plan_type = 'enterprise' THEN NULL ELSE COALESCE($1, price_monthly) END,
+           price_yearly  = CASE WHEN plan_type = 'enterprise' THEN NULL ELSE COALESCE($2, price_yearly) END,
            currency      = COALESCE($3, currency),
            updated_at    = now()
          WHERE id = $4`,

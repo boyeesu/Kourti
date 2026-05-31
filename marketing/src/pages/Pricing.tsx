@@ -27,11 +27,12 @@ const APP_URL = 'https://app.kourti.com';
 const CURRENCY_SYMBOLS: Record<string, string> = { USD: '$', NGN: '₦', GBP: '£', EUR: '€' };
 
 function isContactPlan(plan: PublicPlan): boolean {
-  return plan.price_monthly == null;
+  // Enterprise is always sales-led — never show a price even if one is set.
+  return plan.plan_type === 'enterprise' || plan.price_monthly == null;
 }
 
 function formatPrice(plan: PublicPlan): { price: string; period: string } {
-  if (plan.price_monthly == null) return { price: 'Custom', period: 'pricing' };
+  if (isContactPlan(plan)) return { price: 'Custom', period: 'pricing' };
   const symbol = CURRENCY_SYMBOLS[plan.currency] ?? `${plan.currency} `;
   const amount = Number.isInteger(plan.price_monthly)
     ? plan.price_monthly.toLocaleString()
