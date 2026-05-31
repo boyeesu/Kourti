@@ -62,6 +62,52 @@ window.addEventListener('unhandledrejection', (event) =>
   handleGlobalError(event, 'unhandledrejection')
 );
 
+/**
+ * Auto-recover from stale code-split chunks after a deploy.
+ *
+ * A new build changes the hashed asset filenames and the old chunks are removed
+ * from the server. A tab left open across the deploy still references the old
+ * hashes; lazy-loading a route then fails — Vite emits `vite:preloadError`, or a
+ * bare `import()` rejects with "Failed to fetch dynamically imported module"
+ * (the SPA rewrite serves index.html with a text/html MIME type for the missing
+ * asset). A one-time full reload pulls the fresh index.html and current hashes.
+ *
+ * A 10s sessionStorage window guards against reload loops: if a chunk is
+ * genuinely broken (not merely stale) the second failure within the window is
+ * left to bubble to the ErrorBoundary instead of reloading forever.
+ */
+const STALE_CHUNK_RELOAD_KEY = 'kourti:stale-chunk-reload-at';
+
+const reloadForStaleChunk = (): void => {
+  const last = Number(sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY) || 0);
+  if (Date.now() - last < 10_000) return; // already reloaded recently — avoid a loop
+  sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, String(Date.now()));
+  logInfo('Stale code-split chunk detected — reloading to fetch the latest build');
+  window.location.reload();
+};
+
+const isStaleChunkError = (reason: unknown): boolean => {
+  const message =
+    reason instanceof Error ? reason.message : typeof reason === 'string' ? reason : '';
+  return /dynamically imported module|Importing a module script failed|module script failed/i.test(
+    message
+  );
+};
+
+// Vite's documented signal for a failed chunk preload.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  reloadForStaleChunk();
+});
+
+// Fallback: a bare import() failure surfaces as an unhandled rejection.
+window.addEventListener('unhandledrejection', (event) => {
+  if (isStaleChunkError(event.reason)) {
+    event.preventDefault();
+    reloadForStaleChunk();
+  }
+});
+
 // Initialize security features with proper error handling
 try {
   initCSRFProtection();
