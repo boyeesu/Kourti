@@ -381,6 +381,29 @@ adminRouter.post(
 
 // ── User management (approve, disable, delete) ─────────────────────────────
 
+// Audit: the user's Terms of Service / Privacy Policy acceptance history.
+// Append-only; ordered newest-first. Lets an admin show, during an audit,
+// exactly which legal revision a user accepted, when, and from where.
+adminRouter.get(
+  '/users/:userId/terms-acceptances',
+  asyncHandler(async (req, res) => {
+    await requirePlatformAdminUser(req.auth!.userId);
+    const { userId } = z
+      .object({ userId: z.string().regex(/^[0-9a-fA-F-]{36}$/) })
+      .parse(req.params);
+
+    const result = await db.query(
+      `SELECT id, terms_version, privacy_version, accepted_at, ip_address, user_agent
+         FROM public.terms_acceptances
+        WHERE user_id = $1
+        ORDER BY accepted_at DESC`,
+      [userId]
+    );
+
+    res.status(200).json({ acceptances: result.rows });
+  })
+);
+
 adminRouter.post(
   '/users/:userId/approve',
   asyncHandler(async (req, res) => {

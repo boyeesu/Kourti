@@ -17,6 +17,7 @@ import { sendWelcomeEmail } from './email.js';
 const BCRYPT_COST = 12;
 
 import { env } from '../config/env.js';
+import { CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from '../config/legal.js';
 import { db } from '../db/pool.js';
 import { ApiError } from '../lib/http.js';
 
@@ -587,7 +588,8 @@ export async function getEmailOtpEnabled(userId: string): Promise<boolean> {
 export async function signUp(
   email: string,
   password: string,
-  metadata?: { firstName?: string; lastName?: string }
+  metadata?: { firstName?: string; lastName?: string },
+  consent?: { ip?: string | null; userAgent?: string | null }
 ): Promise<SignInResult> {
   // Check if user exists
   const existing = await db.query(
@@ -618,6 +620,23 @@ export async function signUp(
      VALUES ($1, $2, $3, $4, NULL, now(), now())
      ON CONFLICT (user_id) DO NOTHING`,
     [newUser.id, newUser.email, metadata?.firstName || null, metadata?.lastName || null]
+  );
+
+  // Record acceptance of the Terms of Service + Privacy Policy as an
+  // immutable audit row. The /sign-up route enforces `acceptedTerms === true`
+  // before calling this, so reaching here means the user agreed. We stamp the
+  // server-known current versions plus the request IP/User-Agent so an audit
+  // can prove exactly which revision was accepted, when, and from where.
+  await db.query(
+    `INSERT INTO public.terms_acceptances (user_id, terms_version, privacy_version, ip_address, user_agent)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      newUser.id,
+      CURRENT_TERMS_VERSION,
+      CURRENT_PRIVACY_VERSION,
+      consent?.ip ?? null,
+      consent?.userAgent ?? null,
+    ]
   );
 
   // Issue a signup-purpose email OTP. The client must verify before we

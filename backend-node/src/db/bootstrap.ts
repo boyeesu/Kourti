@@ -417,6 +417,22 @@ const bootstrapStatements = [
   `,
   `create index if not exists idx_email_otp_user_purpose on public.email_otp_codes(user_id, purpose, created_at desc)`,
   `create index if not exists idx_email_otp_expires on public.email_otp_codes(expires_at)`,
+  // Append-only audit log of legal-document acceptance at sign-up. Each row
+  // is an immutable record of which Terms/Privacy revision a user agreed to,
+  // when, and from where — produced for compliance/audit, never updated. A
+  // user may have multiple rows over time if they re-accept a newer version.
+  `
+  create table if not exists public.terms_acceptances (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.auth_users(id) on delete cascade,
+    terms_version text not null,
+    privacy_version text not null,
+    accepted_at timestamptz not null default now(),
+    ip_address text,
+    user_agent text
+  )
+  `,
+  `create index if not exists idx_terms_acceptances_user on public.terms_acceptances(user_id, accepted_at desc)`,
   `
   create table if not exists public.user_onboarding_steps (
     id uuid primary key default gen_random_uuid(),

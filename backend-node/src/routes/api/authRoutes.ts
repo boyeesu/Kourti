@@ -88,6 +88,12 @@ const signUpSchema = z.object({
   password: passwordSchema,
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  // Must be explicitly true — the client gates the onboarding form on this,
+  // and we enforce it server-side so acceptance is genuinely required before
+  // an account (and its terms_acceptances audit row) is created.
+  acceptedTerms: z.literal(true, {
+    message: 'You must accept the Terms of Service and Privacy Policy',
+  }),
 });
 
 const changePasswordSchema = z.object({
@@ -205,8 +211,16 @@ authRouter.post(
       enforceRateLimit(`auth:sign-up:email:${emailFromBody}`, 3, 3_600_000); // 3/hr/email
     }
 
+    // acceptedTerms is validated by the schema (must be true); we don't need
+    // the value past parse, but the request IP + User-Agent are recorded with
+    // the acceptance for audit purposes.
     const { email, password, firstName, lastName } = signUpSchema.parse(req.body);
-    const result = await signUp(email, password, { firstName, lastName });
+    const result = await signUp(
+      email,
+      password,
+      { firstName, lastName },
+      { ip, userAgent: req.get('user-agent') ?? null }
+    );
 
     // Fresh sign-ups always require email OTP verification — that's
     // what proves the address is real and blocks typo'd entries.
