@@ -12,6 +12,9 @@ import Security from './pages/Security';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import AIPolicy from './pages/AIPolicy';
+import DPA from './pages/DPA';
+import Subprocessors from './pages/Subprocessors';
+import CookiePolicy from './pages/CookiePolicy';
 import NotFound from './pages/NotFound';
 import Report from './pages/Report';
 import Assessment from './pages/Assessment';
@@ -37,6 +40,9 @@ const App = () => (
           <Route path="/ai-policy" element={<AIPolicy />} />
           <Route path="/report/legaltech-nigeria-q1-2026" element={<Report />} />
           <Route path="/assessment" element={<Assessment />} />
+          <Route path="/dpa" element={<DPA />} />
+          <Route path="/subprocessors" element={<Subprocessors />} />
+          <Route path="/cookie-policy" element={<CookiePolicy />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

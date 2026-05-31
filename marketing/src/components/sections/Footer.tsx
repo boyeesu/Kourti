@@ -104,6 +104,30 @@ const Footer = () => {
                   AI Policy
                 </Link>
               </li>
+              <li>
+                <Link
+                  to="/dpa"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Data Processing Agreement
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/subprocessors"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Sub-processors
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/cookie-policy"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cookie Policy
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

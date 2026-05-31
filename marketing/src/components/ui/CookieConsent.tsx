@@ -73,7 +73,7 @@ const CookieConsent = () => {
                   </Link>{' '}
                   and{' '}
                   <Link
-                    to="/privacy-policy#cookies"
+                    to="/cookie-policy"
                     className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
                   >
                     Cookie Policy
