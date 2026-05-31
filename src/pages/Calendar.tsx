@@ -77,7 +77,11 @@ export default function Calendar() {
     null
   );
   const [showEventDialog, setShowEventDialog] = useState(false);
-  const [calendarView, setCalendarView] = useState<CalendarView>('month');
+  // Default to the agenda/list view on phones (the multi-column month/week grids are cramped
+  // below tablet width). Users can still switch to any view from the tabs.
+  const [calendarView, setCalendarView] = useState<CalendarView>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'list' : 'month'
+  );
   const [eventTypeFilter, setEventTypeFilter] = useState<EventTypeFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const { data: events = [], isLoading } = useCalendarEvents();
@@ -564,7 +568,7 @@ export default function Calendar() {
                         <div
                           key={index}
                           className={cn(
-                            'min-h-[100px] p-2 border rounded-lg transition-all cursor-pointer',
+                            'min-h-[72px] p-1 sm:min-h-[100px] sm:p-2 border rounded-lg transition-all cursor-pointer',
                             isCurrentMonth
                               ? 'bg-card border-border hover:bg-accent/50 hover:border-primary/50'
                               : 'bg-muted/30 border-transparent opacity-50',
@@ -617,9 +621,9 @@ export default function Calendar() {
               )}
 
               {calendarView === 'week' && (
-                <div className="space-y-2">
-                  {/* Day headers */}
-                  <div className="grid grid-cols-7 gap-2">
+                <div className="space-y-2 overflow-x-auto">
+                  {/* Day headers — min width keeps columns legible; scrolls on mobile */}
+                  <div className="grid grid-cols-7 gap-2 min-w-[640px]">
                     {weekDays.map((day, index) => {
                       const isTodayDate = isToday(day);
                       const dayEvents = getEventsForDate(day);

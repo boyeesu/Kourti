@@ -56,7 +56,7 @@ function JsonDiff({ before, after }: { before: unknown; after: unknown }) {
   }, [beforeLines, afterLines, max]);
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Before</div>
         <pre className="overflow-auto rounded bg-muted p-2 text-xs leading-relaxed">
@@ -107,7 +107,7 @@ function ActionDetailDialog({ id, onClose }: { id: string | null; onClose: () =>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
               <div>
                 <span className="text-muted-foreground">Admin</span>
                 <div className="font-medium">{data.admin_email ?? data.admin_user_id}</div>

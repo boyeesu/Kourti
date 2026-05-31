@@ -1,5 +1,5 @@
 // src/components/layout/AppLayout.tsx
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -43,7 +43,6 @@ import {
   Bot,
   Gauge,
   Mic,
-  MonitorSmartphone,
   MessageCircle,
   Sparkles,
 } from 'lucide-react';
@@ -94,62 +93,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-
-function useIsMobile(breakpoint = 640) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < breakpoint);
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [breakpoint]);
-
-  return isMobile;
-}
-
-function MobileAccessNotice() {
-  const isMobile = useIsMobile();
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    if (!isMobile) {
-      setDismissed(false);
-    }
-  }, [isMobile]);
-
-  if (!isMobile || dismissed) {
-    return null;
-  }
-
-  return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 bg-muted/90 border-b border-border px-3 py-2 text-[13px] backdrop-blur-sm md:hidden">
-      <div className="flex items-center gap-2 text-foreground">
-        <MonitorSmartphone className="h-4 w-4 flex-shrink-0 text-primary" aria-hidden="true" />
-        <span>Best experienced on desktop or tablet.</span>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 flex-shrink-0 hover:bg-primary/10"
-        onClick={() => setDismissed(true)}
-        aria-label="Dismiss mobile notice"
-      >
-        <X className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
-}
 
 function MobileNavigation() {
   const [open, setOpen] = useState(false);
@@ -562,7 +505,6 @@ function AppLayoutInner({
   return (
     <>
       <KeyboardShortcutsDialog />
-      <MobileAccessNotice />
 
       {/* Quick Actions Modal */}
       <Dialog open={quickActionsOpen} onOpenChange={setQuickActionsOpen}>

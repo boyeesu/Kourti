@@ -225,7 +225,7 @@ export default function ClientDetails() {
             <CardTitle>Overview</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <p className="text-2xl font-bold text-blue-600">{cases.length}</p>
                 <p className="text-sm text-muted-foreground">Matters</p>
@@ -265,7 +265,7 @@ export default function ClientDetails() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-4 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
             <Select
               value={logType}
               onValueChange={(v) => setLogType(v as 'email' | 'phone' | 'note')}

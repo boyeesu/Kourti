@@ -1,16 +1,16 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Button } from "@/components/ui/button";
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Form,
   FormControl,
@@ -18,31 +18,31 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { CalendarEvent } from "@/types";
-import { useUpdateCalendarEvent } from "@/hooks/useCalendar";
-import { useCases } from "@/hooks/useCases";
-import { useClients } from "@/hooks/useClients";
-import { format } from "date-fns";
-import { useEffect, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+} from '@/components/ui/select';
+import { CalendarEvent } from '@/types';
+import { useUpdateCalendarEvent } from '@/hooks/useCalendar';
+import { useCases } from '@/hooks/useCases';
+import { useClients } from '@/hooks/useClients';
+import { format } from 'date-fns';
+import { useEffect, useRef, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { X } from 'lucide-react';
 
 const eventSchema = z
   .object({
-    title: z.string().min(1, "Title is required"),
+    title: z.string().min(1, 'Title is required'),
     description: z.string().optional(),
-    start_date: z.string().min(1, "Start date is required"),
-    end_date: z.string().min(1, "End date is required"),
+    start_date: z.string().min(1, 'Start date is required'),
+    end_date: z.string().min(1, 'End date is required'),
     location: z.string().optional(),
-    event_type: z.enum(["meeting", "hearing", "deadline", "deposition", "review", "consultation"]),
+    event_type: z.enum(['meeting', 'hearing', 'deadline', 'deposition', 'review', 'consultation']),
     case_id: z.string().optional(),
     client_id: z.string().optional(),
     attendees: z.array(z.string()).optional(),
@@ -62,8 +62,8 @@ const eventSchema = z
     if (end <= start) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "End date must be after the start date",
-        path: ["end_date"],
+        message: 'End date must be after the start date',
+        path: ['end_date'],
       });
     }
   });
@@ -80,24 +80,24 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
   const updateEvent = useUpdateCalendarEvent();
   const { data: casesData } = useCases();
   const { data: clientsData } = useClients();
-  const [newAttendee, setNewAttendee] = useState("");
+  const [newAttendee, setNewAttendee] = useState('');
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       title: event.title,
-      description: event.description || "",
+      description: event.description || '',
       start_date: format(new Date(event.start_date), "yyyy-MM-dd'T'HH:mm"),
       end_date: format(new Date(event.end_date), "yyyy-MM-dd'T'HH:mm"),
-      location: event.location || "",
+      location: event.location || '',
       event_type: event.event_type,
-      case_id: event.case_id || "none",
-      client_id: event.client_id || "none",
+      case_id: event.case_id || 'none',
+      client_id: event.client_id || 'none',
       attendees: event.attendees || [],
     },
   });
 
-  const startDateValue = form.watch("start_date");
+  const startDateValue = form.watch('start_date');
   const previousStartDateRef = useRef(startDateValue);
 
   useEffect(() => {
@@ -107,8 +107,8 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
 
     previousStartDateRef.current = startDateValue;
 
-    const startFieldState = form.getFieldState("start_date");
-    const endFieldState = form.getFieldState("end_date");
+    const startFieldState = form.getFieldState('start_date');
+    const endFieldState = form.getFieldState('end_date');
 
     if (!startFieldState.isDirty) {
       return;
@@ -116,7 +116,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
 
     if (!startDateValue) {
       if (!endFieldState.isDirty) {
-        form.setValue("end_date", "", { shouldDirty: false, shouldValidate: true });
+        form.setValue('end_date', '', { shouldDirty: false, shouldValidate: true });
       }
       return;
     }
@@ -132,7 +132,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
 
     const autoEnd = new Date(start.getTime() + 60 * 60 * 1000);
     const formattedEnd = format(autoEnd, "yyyy-MM-dd'T'HH:mm");
-    form.setValue("end_date", formattedEnd, { shouldDirty: false, shouldValidate: true });
+    form.setValue('end_date', formattedEnd, { shouldDirty: false, shouldValidate: true });
   }, [startDateValue, form]);
 
   const onSubmit = async (data: EventFormValues) => {
@@ -143,7 +143,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
         case_id: data.case_id === 'none' ? undefined : data.case_id,
         client_id: data.client_id === 'none' ? undefined : data.client_id,
       };
-      
+
       await updateEvent.mutateAsync({
         id: event.id,
         ...cleanedData,
@@ -156,15 +156,18 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
 
   const addAttendee = () => {
     if (newAttendee.trim()) {
-      const currentAttendees = form.getValues("attendees") || [];
-      form.setValue("attendees", [...currentAttendees, newAttendee.trim()]);
-      setNewAttendee("");
+      const currentAttendees = form.getValues('attendees') || [];
+      form.setValue('attendees', [...currentAttendees, newAttendee.trim()]);
+      setNewAttendee('');
     }
   };
 
   const removeAttendee = (index: number) => {
-    const currentAttendees = form.getValues("attendees") || [];
-    form.setValue("attendees", currentAttendees.filter((_, i) => i !== index));
+    const currentAttendees = form.getValues('attendees') || [];
+    form.setValue(
+      'attendees',
+      currentAttendees.filter((_, i) => i !== index)
+    );
   };
 
   const cases = Array.isArray(casesData) ? casesData : casesData?.cases || [];
@@ -175,9 +178,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Event</DialogTitle>
-          <DialogDescription>
-            Update the event details below.
-          </DialogDescription>
+          <DialogDescription>Update the event details below.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -236,7 +237,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="start_date"
@@ -280,7 +281,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="case_id"
@@ -349,7 +350,7 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {(form.watch("attendees") || []).map((attendee, index) => (
+                {(form.watch('attendees') || []).map((attendee, index) => (
                   <Badge key={index} variant="secondary" className="gap-1">
                     {attendee}
                     <Button
@@ -367,15 +368,11 @@ export function EventEditDialog({ event, open, onOpenChange }: EventEditDialogPr
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={updateEvent.isPending}>
-                {updateEvent.isPending ? "Updating..." : "Update Event"}
+                {updateEvent.isPending ? 'Updating...' : 'Update Event'}
               </Button>
             </div>
           </form>

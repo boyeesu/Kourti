@@ -1116,7 +1116,7 @@ If you notice any security concerns:
                   <h3 className="font-semibold text-lg mb-4">Submit a Support Request</h3>
 
                   <form onSubmit={handleSupportSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="support-name">Name *</Label>
                         <Input

@@ -147,7 +147,7 @@ export default function CaseActivities() {
                   onChange={(e) => setNewActivity({ ...newActivity, description: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label>Type</Label>
                   <Select

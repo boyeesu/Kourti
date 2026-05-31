@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectTrigger,
@@ -380,6 +381,25 @@ function ClientPortalSection({ caseId, caseData }: { caseId: string; caseData: a
   );
 }
 
+const TASK_TYPE_LABELS: Record<string, string> = {
+  general: 'General',
+  court_appearance: 'Court',
+  client_visit: 'Visit',
+  document_review: 'Doc Review',
+  research: 'Research',
+  filing: 'Filing',
+  deposition: 'Deposition',
+  meeting: 'Meeting',
+  phone_call: 'Call',
+  investigation: 'Investigation',
+  negotiation: 'Negotiation',
+  contract_draft: 'Drafting',
+};
+
+function priorityBadgeVariant(priority?: string) {
+  return priority === 'high' ? 'destructive' : priority === 'medium' ? 'default' : 'outline';
+}
+
 function TasksSection({ caseId }: { caseId: string }) {
   const { data: tasks = [], isLoading } = useTasks(caseId);
   const { data: users = [] } = useOrganizationMembers();
@@ -400,36 +420,89 @@ function TasksSection({ caseId }: { caseId: string }) {
           {done} of {total} complete
         </span>
       </div>
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left py-2">Task</th>
-            <th className="text-left py-2">Type</th>
-            <th className="text-left py-2">Due</th>
-            <th className="text-left py-2">Assignee</th>
-            <th className="text-left py-2">Priority</th>
-            <th className="text-left py-2">Status</th>
-            <th className="text-left py-2">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((task) => {
-            const taskTypeLabels: Record<string, string> = {
-              general: 'General',
-              court_appearance: 'Court',
-              client_visit: 'Visit',
-              document_review: 'Doc Review',
-              research: 'Research',
-              filing: 'Filing',
-              deposition: 'Deposition',
-              meeting: 'Meeting',
-              phone_call: 'Call',
-              investigation: 'Investigation',
-              negotiation: 'Negotiation',
-              contract_draft: 'Drafting',
-            };
+      {/* Mobile: stacked task cards (a 7-col table is unusable on a phone) */}
+      <div className="space-y-3 md:hidden">
+        {tasks.map((task) => {
+          const assignee =
+            task.assigned_to && task.assigned_to !== 'unassigned'
+              ? users.find((u: any) => u.user_id === task.assigned_to)?.first_name || 'Unknown'
+              : 'Unassigned';
+          return (
+            <div
+              key={task.id}
+              className={cn('rounded-lg border p-3 space-y-2', task.completed && 'opacity-60')}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium break-words">{task.title}</p>
+                  {task.description && (
+                    <p className="text-xs text-muted-foreground mt-1 break-words">
+                      {task.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => setEditTask(task)}>
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => deleteTask.mutate({ id: task.id, case_id: caseId })}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <Badge variant="secondary" className="text-xs">
+                  {TASK_TYPE_LABELS[(task as any).task_type] || 'General'}
+                </Badge>
+                <Badge variant={priorityBadgeVariant(task.priority)} className="text-xs capitalize">
+                  {task.priority || 'Medium'}
+                </Badge>
+                <span>
+                  {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
+                </span>
+                <span>· {assignee}</span>
+              </div>
+              <Button
+                size="sm"
+                className="w-full"
+                variant={task.completed ? 'secondary' : 'outline'}
+                onClick={() =>
+                  updateTask.mutate({ id: task.id, case_id: caseId!, completed: !task.completed })
+                }
+              >
+                {task.completed ? (
+                  <>
+                    <Check className="h-4 w-4 mr-1.5" /> Completed
+                  </>
+                ) : (
+                  'Mark Done'
+                )}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
 
-            return (
+      {/* Tablet/desktop: full table (scroll-safe wrapper for narrow widths) */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-2">Task</th>
+              <th className="text-left py-2">Type</th>
+              <th className="text-left py-2">Due</th>
+              <th className="text-left py-2">Assignee</th>
+              <th className="text-left py-2">Priority</th>
+              <th className="text-left py-2">Status</th>
+              <th className="text-left py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tasks.map((task) => (
               <tr key={task.id} className={task.completed ? 'opacity-60' : ''}>
                 <td className="py-2">
                   <div>
@@ -441,7 +514,7 @@ function TasksSection({ caseId }: { caseId: string }) {
                 </td>
                 <td className="py-2">
                   <Badge variant="secondary" className="text-xs">
-                    {taskTypeLabels[(task as any).task_type] || 'General'}
+                    {TASK_TYPE_LABELS[(task as any).task_type] || 'General'}
                   </Badge>
                 </td>
                 <td className="py-2">
@@ -459,13 +532,7 @@ function TasksSection({ caseId }: { caseId: string }) {
                 </td>
                 <td className="py-2">
                   <Badge
-                    variant={
-                      task.priority === 'high'
-                        ? 'destructive'
-                        : task.priority === 'medium'
-                          ? 'default'
-                          : 'outline'
-                    }
+                    variant={priorityBadgeVariant(task.priority)}
                     className="text-xs capitalize"
                   >
                     {task.priority || 'Medium'}
@@ -501,10 +568,10 @@ function TasksSection({ caseId }: { caseId: string }) {
                   </div>
                 </td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {/* Edit Task Dialog */}
       {editTask && (
         <NewTaskDialog

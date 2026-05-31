@@ -3,15 +3,16 @@ import type { NextFunction, Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { db } from '../db/pool.js';
 import { ApiError } from '../lib/http.js';
-import { isPlatformAdminUser } from '../services/authorization.js';
+import { isPlatformStaff } from '../services/authorization.js';
 
 /**
  * Gate for premium routes. Allows the request when the requesting user's
  * organization has a sub that is either `active`, or `trialing` whose
  * trial window has not yet expired.
  *
- * Platform admins are always allowed (so support can poke at customer orgs
- * even when expired). Auth-less requests fall through to 401 via the upstream
+ * Platform staff (admin/support/billing) are always allowed (they aren't
+ * billed and support needs to poke at customer orgs even when expired).
+ * Auth-less requests fall through to 401 via the upstream
  * requireAuth middleware — this middleware always runs after it.
  */
 export async function requireActiveSubscription(req: Request, _res: Response, next: NextFunction) {
@@ -24,7 +25,7 @@ export async function requireActiveSubscription(req: Request, _res: Response, ne
 
     if (env.AUTH_MODE === 'development') return next();
 
-    if (await isPlatformAdminUser(auth.userId)) return next();
+    if (await isPlatformStaff(auth.userId)) return next();
 
     const fetchLive = () =>
       db.query<{

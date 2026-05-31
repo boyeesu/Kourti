@@ -14,7 +14,7 @@
  */
 import { env } from '../config/env.js';
 import { db } from '../db/pool.js';
-import { isPlatformAdminUser } from './authorization.js';
+import { isPlatformStaff } from './authorization.js';
 import { featureOverrideDecision, orgOverrides } from './featureOverrides.js';
 
 // Core features every paid plan (and trial) gets.
@@ -113,7 +113,7 @@ export async function effectivePlanType(orgId: string): Promise<string | null> {
 }
 
 /**
- * Does this org's plan include `feature`? Platform admins and development
+ * Does this org's plan include `feature`? Platform staff and development
  * mode are always allowed.
  */
 export async function hasFeature(
@@ -122,7 +122,7 @@ export async function hasFeature(
   userId?: string
 ): Promise<boolean> {
   if (env.AUTH_MODE === 'development') return true;
-  if (userId && (await isPlatformAdminUser(userId))) return true;
+  if (userId && (await isPlatformStaff(userId))) return true;
 
   // Per-org overrides win over the plan matrix in both directions: a 'grant'
   // unlocks a feature the plan doesn't include; a 'revoke' removes one it does.
@@ -138,13 +138,13 @@ export async function hasFeature(
 
 /**
  * The org's effective plan + the full set of enabled feature keys — for the
- * frontend to gate UI. Platform admins / dev get everything.
+ * frontend to gate UI. Platform staff / dev get everything.
  */
 export async function getEntitlements(
   orgId: string,
   userId?: string
 ): Promise<{ plan_type: string | null; features: FeatureKey[] }> {
-  if (env.AUTH_MODE === 'development' || (userId && (await isPlatformAdminUser(userId)))) {
+  if (env.AUTH_MODE === 'development' || (userId && (await isPlatformStaff(userId)))) {
     return { plan_type: 'enterprise', features: [...FEATURE_KEYS] };
   }
 
