@@ -17,6 +17,45 @@ const planLimitSeedValues = Object.entries(DEFAULT_PLAN_LIMITS)
   )
   .join(',');
 
+// Single-quote a code-constant string for inline SQL. Values below are
+// hard-coded (no user input), so doubling quotes is sufficient.
+const sqlStr = (s: string) => `'${s.replace(/'/g, "''")}'`;
+
+// Default GLOBAL case (matter) types. organization_id stays NULL and
+// is_global = true so every firm sees them in the Matter Type dropdown out of
+// the box. Platform admins manage the live set from /thanos → Global Case
+// Types; these are only the initial seed.
+const DEFAULT_GLOBAL_CASE_TYPES: Array<{ name: string; description: string }> = [
+  { name: 'Litigation', description: 'Contentious matters and court proceedings.' },
+  { name: 'Corporate & Commercial', description: 'Company formation, governance, and commercial agreements.' },
+  { name: 'Mergers & Acquisitions', description: 'Acquisitions, disposals, and corporate restructuring.' },
+  { name: 'Banking & Finance', description: 'Lending, security, and financing transactions.' },
+  { name: 'Real Estate & Property', description: 'Conveyancing, leases, and property disputes.' },
+  { name: 'Employment & Labour', description: 'Employment contracts, disputes, and workplace matters.' },
+  { name: 'Intellectual Property', description: 'Trademarks, patents, copyright, and IP enforcement.' },
+  { name: 'Family Law', description: 'Divorce, custody, and matrimonial matters.' },
+  { name: 'Criminal Defence', description: 'Criminal charges and defence representation.' },
+  { name: 'Tax', description: 'Tax advisory, planning, and disputes.' },
+  { name: 'Estate Planning & Probate', description: 'Wills, trusts, estate administration, and probate.' },
+  { name: 'Immigration', description: 'Visas, permits, and immigration applications.' },
+  { name: 'Regulatory & Compliance', description: 'Regulatory advice, licensing, and compliance.' },
+  { name: 'Debt Recovery', description: 'Recovery of outstanding debts and enforcement.' },
+  { name: 'Contract Drafting & Review', description: 'Drafting, reviewing, and negotiating contracts.' },
+];
+
+// Idempotent seed: insert a default only when no global type with the same
+// (case-insensitive) name exists yet, so admin renames/deletes survive redeploys.
+const caseTypeSeedStatements = DEFAULT_GLOBAL_CASE_TYPES.map(
+  (ct) => `
+  insert into public.case_types (name, description, is_global, is_active)
+  select ${sqlStr(ct.name)}, ${sqlStr(ct.description)}, true, true
+  where not exists (
+    select 1 from public.case_types
+    where is_global = true and lower(name) = lower(${sqlStr(ct.name)})
+  )
+  `
+);
+
 const bootstrapStatements = [
   `create extension if not exists pgcrypto`,
   `
@@ -422,6 +461,22 @@ const bootstrapStatements = [
   `,
   `create index if not exists idx_email_otp_user_purpose on public.email_otp_codes(user_id, purpose, created_at desc)`,
   `create index if not exists idx_email_otp_expires on public.email_otp_codes(expires_at)`,
+  // Append-only audit log of legal-document acceptance at sign-up. Each row
+  // is an immutable record of which Terms/Privacy revision a user agreed to,
+  // when, and from where — produced for compliance/audit, never updated. A
+  // user may have multiple rows over time if they re-accept a newer version.
+  `
+  create table if not exists public.terms_acceptances (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.auth_users(id) on delete cascade,
+    terms_version text not null,
+    privacy_version text not null,
+    accepted_at timestamptz not null default now(),
+    ip_address text,
+    user_agent text
+  )
+  `,
+  `create index if not exists idx_terms_acceptances_user on public.terms_acceptances(user_id, accepted_at desc)`,
   `
   create table if not exists public.user_onboarding_steps (
     id uuid primary key default gen_random_uuid(),
@@ -1810,6 +1865,23 @@ const bootstrapStatements = [
     updated_at timestamptz not null default now()
   )
   `,
+  // ── Case (matter) types + custom fields ───────────────────────────
+  // case_types are either GLOBAL (organization_id NULL, is_global=true,
+  // managed by platform admins) or firm-specific (organization_id set). The
+  // Matter Type dropdown reads both via /api/v1/misc/case-types.
+  `
+  create table if not exists public.case_types (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid,
+    name text not null,
+    description text,
+    is_active boolean not null default true,
+    is_global boolean not null default false,
+    created_by uuid,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
   `create index if not exists idx_breach_status on public.breach_incidents(status, detected_at desc)`,
 
   // Lightweight security-event feed for anomaly signals (auth-failure spikes,
@@ -1830,6 +1902,36 @@ const bootstrapStatements = [
   `,
   `create index if not exists idx_security_events_type on public.security_events(event_type, created_at desc)`,
   `create index if not exists idx_security_events_sev on public.security_events(severity, created_at desc)`,
+
+  // ── Case (matter) types + custom fields ───────────────────────────
+  // Defensive add-column for any pre-existing table that predates these flags.
+  `alter table public.case_types add column if not exists organization_id uuid`,
+  `alter table public.case_types add column if not exists description text`,
+  `alter table public.case_types add column if not exists is_active boolean not null default true`,
+  `alter table public.case_types add column if not exists is_global boolean not null default false`,
+  `alter table public.case_types add column if not exists created_by uuid`,
+  // One global type per name (case-insensitive); firm-specific names are unconstrained.
+  `create unique index if not exists uq_case_types_global_name on public.case_types (lower(name)) where is_global = true`,
+  `create index if not exists idx_case_types_org on public.case_types (organization_id)`,
+  `
+  create table if not exists public.case_fields (
+    id uuid primary key default gen_random_uuid(),
+    case_type_id uuid not null,
+    organization_id uuid not null,
+    name text not null,
+    field_type text not null default 'text',
+    required boolean not null default false,
+    options jsonb,
+    sort_order integer not null default 0,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_case_fields_type on public.case_fields (case_type_id)`,
+  `create index if not exists idx_case_fields_org on public.case_fields (organization_id)`,
+
+  // Seed the default global case types (idempotent).
+  ...caseTypeSeedStatements,
 ];
 
 // Local-development convenience seed: a fixed org/profile/auth_user plus the
