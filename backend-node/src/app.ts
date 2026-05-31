@@ -124,19 +124,28 @@ export function createApp() {
   // Platform-admin surface (/thanos). Each sub-router self-authorizes per route
   // via requireAdminCapabilityFor, so they only need requireAuth upstream. All
   // share the /api/v1/admin prefix with distinct, non-colliding path segments.
-  app.use('/api/v1/admin', requireAuth, adminRouter);
-  app.use('/api/v1/admin', requireAuth, adminFeaturesRouter);
-  app.use('/api/v1/admin', requireAuth, adminImpersonationRouter);
-  app.use('/api/v1/admin', requireAuth, adminBillingRouter);
-  app.use('/api/v1/admin', requireAuth, adminUsageRouter);
-  app.use('/api/v1/admin', requireAuth, adminHealthRouter);
-  app.use('/api/v1/admin', requireAuth, adminEmailRouter);
-  app.use('/api/v1/admin', requireAuth, adminAuditRouter);
-  app.use('/api/v1/admin', requireAuth, adminKbRouter);
-  app.use('/api/v1/admin', requireAuth, adminPortalRouter);
-  // Bulk ops and CSV exports are heavy + sensitive — cap per-admin throughput.
+  // Single auth pass + a blanket per-admin rate limit across the whole admin
+  // surface (every mutation is also capability-gated + audited downstream).
+  // Routers are chained so requireAuth/authenticateRequest runs once per request
+  // rather than once per mounted router.
+  app.use(
+    '/api/v1/admin',
+    requireAuth,
+    adminRateLimit('admin_surface', 240, 60_000),
+    adminRouter,
+    adminFeaturesRouter,
+    adminImpersonationRouter,
+    adminBillingRouter,
+    adminUsageRouter,
+    adminHealthRouter,
+    adminEmailRouter,
+    adminAuditRouter,
+    adminKbRouter,
+    adminPortalRouter,
+    adminRulesRouter
+  );
+  // Bulk ops and CSV exports are heavier + more sensitive — tighter cap on top.
   app.use('/api/v1/admin', requireAuth, adminRateLimit('bulk', 30, 60_000), adminBulkRouter);
-  app.use('/api/v1/admin', requireAuth, adminRulesRouter);
   app.use('/api/v1/dashboard', requireAuth, dashboardRouter);
   app.use('/api/v1/misc', requireAuth, miscRouter);
   app.use('/api/v1/onboarding', requireAuth, onboardingRouter);
