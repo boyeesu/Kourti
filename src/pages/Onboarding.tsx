@@ -172,6 +172,7 @@ export default function Onboarding() {
       email: '',
       password: '',
       confirmPassword: '',
+      acceptedTerms: false,
     },
     organization: {
       name: '',
@@ -258,11 +259,15 @@ export default function Onboarding() {
       }
       if (!formData.account.password) {
         errors.password = 'Password is required';
-      } else if (formData.account.password.length < 8) {
-        errors.password = 'Password must be at least 8 characters';
+      } else if (formData.account.password.length < 12) {
+        errors.password = 'Password must be at least 12 characters';
       }
       if (formData.account.password !== formData.account.confirmPassword) {
         errors.confirmPassword = 'Passwords do not match';
+      }
+      if (!formData.account.acceptedTerms) {
+        errors.acceptedTerms =
+          'You must accept the Terms of Service and Privacy Policy to continue';
       }
     }
 
@@ -892,6 +897,55 @@ export default function Onboarding() {
                   <span>Invite teammates when you&apos;re ready.</span>
                 </li>
               </ul>
+            </div>
+
+            <div className="space-y-2.5">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="acceptedTerms"
+                  className="mt-0.5"
+                  checked={formData.account.acceptedTerms}
+                  onCheckedChange={(checked) => {
+                    setFormData({
+                      ...formData,
+                      account: { ...formData.account, acceptedTerms: checked === true },
+                    });
+                    if (validationErrors.acceptedTerms) {
+                      setValidationErrors({ ...validationErrors, acceptedTerms: '' });
+                    }
+                  }}
+                />
+                <Label
+                  htmlFor="acceptedTerms"
+                  className="text-sm font-normal leading-relaxed cursor-pointer text-muted-foreground"
+                >
+                  I agree to the{' '}
+                  <a
+                    href="https://kourti.com/terms-of-use"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:no-underline"
+                  >
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a
+                    href="https://kourti.com/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:no-underline"
+                  >
+                    Privacy Policy
+                  </a>
+                  .
+                </Label>
+              </div>
+              {validationErrors.acceptedTerms && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.acceptedTerms}
+                </p>
+              )}
             </div>
           </div>
         );
