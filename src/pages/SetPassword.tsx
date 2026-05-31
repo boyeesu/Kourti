@@ -200,7 +200,7 @@ export default function SetPassword() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={12}
                   autoComplete="new-password"
                 />
                 <button
@@ -234,7 +234,7 @@ export default function SetPassword() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={12}
                   autoComplete="new-password"
                 />
                 <button
