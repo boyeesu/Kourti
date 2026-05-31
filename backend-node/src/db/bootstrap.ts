@@ -1494,6 +1494,19 @@ const bootstrapStatements = [
   `alter table public.calendar_events add column if not exists client_visible boolean not null default true`,
   `create index if not exists idx_calendar_events_case on public.calendar_events(case_id) where case_id is not null`,
   `create index if not exists idx_calendar_events_org on public.calendar_events(organization_id, start_date)`,
+  // Self-heal: older databases created calendar_events WITHOUT a primary key
+  // (the table pre-dates this bootstrap definition, so `create table if not
+  // exists` above is a no-op and never adds the PK). Without a unique
+  // constraint on id, the calendar_event_rsvps FK below silently fails to
+  // create — which 500s the client portal calendar. Add the PK if absent.
+  `do $$ begin
+     if not exists (
+       select 1 from pg_constraint
+        where conrelid = 'public.calendar_events'::regclass and contype = 'p'
+     ) then
+       alter table public.calendar_events add constraint calendar_events_pkey primary key (id);
+     end if;
+   end $$;`,
 
   // ── Client portal: CLIENT-LEVEL access (the primary spine) ────────────
   // When a firm enables the portal for a client, the linked client_user gets
