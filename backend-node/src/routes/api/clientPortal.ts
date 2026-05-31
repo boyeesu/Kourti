@@ -4,9 +4,14 @@ import { z } from 'zod';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { getBoss } from '../../lib/pgboss.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
 import { recordCaseEvent } from '../../services/caseEvents.js';
 import { ensureClientUserForInvite } from '../../services/clientPortalAuth.js';
-import { sendClientPortalInviteEmail, sendClientUpdateEmail } from '../../services/email.js';
+import {
+  sendClientPortalAccessGrantedEmail,
+  sendClientPortalInviteEmail,
+  sendClientUpdateEmail,
+} from '../../services/email.js';
 
 // ════════════════════════════════════════════════════════════════════════
 // Staff-side client-portal management router.
@@ -358,6 +363,290 @@ clientPortalRouter.patch(
       caseId: result.rows[0].id,
       portalPrivate: result.rows[0].portal_private,
     });
+  })
+);
+
+// ════════════════════════════════════════════════════════════════════════
+// CLIENT-LEVEL portal management (the primary flow).
+//
+// Portal access is a property of the CLIENT, not a single matter. The firm
+// enables the portal for a client (reusing the client's stored email — never
+// re-typed), which grants access to ALL that client's matters, each gated by
+// cases.portal_private (private by default). These routes back the Clients
+// list "..." action and the Client Details portal section.
+// ════════════════════════════════════════════════════════════════════════
+
+const clientIdParamsSchema = z.object({ clientId: z.string().uuid() });
+
+/** Resolve the inviter's display name + firm name for invite emails. */
+async function resolveInviterAndFirm(
+  userId: string,
+  organizationId: string
+): Promise<{ inviterName?: string; firmName: string }> {
+  let inviterName: string | undefined;
+  let firmName = 'Your law firm';
+  try {
+    const [profileRes, orgRes] = await Promise.all([
+      db.query<{ first_name: string | null; last_name: string | null }>(
+        `select first_name, last_name from public.profiles where user_id = $1 and organization_id = $2 limit 1`,
+        [userId, organizationId]
+      ),
+      db.query<{ name: string }>(`select name from public.organizations where id = $1 limit 1`, [
+        organizationId,
+      ]),
+    ]);
+    const p = profileRes.rows[0];
+    const composed = [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim();
+    inviterName = composed || undefined;
+    if (orgRes.rows[0]?.name) firmName = orgRes.rows[0].name;
+  } catch {
+    // Non-fatal — fall back to defaults.
+  }
+  return { inviterName, firmName };
+}
+
+type ClientPortalStatusRow = {
+  client_id: string;
+  email: string | null;
+  portal_enabled: boolean;
+  client_user_id: string | null;
+  email_verified_at: string | null;
+  last_sign_in_at: string | null;
+  grant_status: string | null;
+};
+
+/** Compute a single portal status for a client: 'none' (never enabled / no
+ *  active grant), 'pending' (invited, not yet accepted) or 'active'. */
+function derivePortalStatus(row: ClientPortalStatusRow | undefined): 'none' | 'pending' | 'active' {
+  if (!row || !row.portal_enabled || row.grant_status !== 'active' || !row.client_user_id) {
+    return 'none';
+  }
+  return row.email_verified_at ? 'active' : 'pending';
+}
+
+// ── GET /clients/:clientId/portal — status + the client's matters ───────────
+
+clientPortalRouter.get(
+  '/clients/:clientId/portal',
+  asyncHandler(async (req, res) => {
+    const { organizationId } = req.auth!;
+    const { clientId } = clientIdParamsSchema.parse(req.params);
+
+    const statusRes = await db.query<ClientPortalStatusRow>(
+      `
+      select
+        c.id as client_id,
+        c.email,
+        coalesce(c.portal_enabled, false) as portal_enabled,
+        c.client_user_id,
+        cu.email_verified_at,
+        cu.last_sign_in_at,
+        cpa.status as grant_status
+      from public.clients c
+      left join public.client_users cu on cu.id = c.client_user_id
+      left join public.client_portal_access cpa
+        on cpa.client_id = c.id
+       and cpa.client_user_id = c.client_user_id
+       and cpa.organization_id = c.organization_id
+      where c.id = $1 and c.organization_id = $2
+      limit 1
+      `,
+      [clientId, organizationId]
+    );
+
+    const row = statusRes.rows[0];
+    if (!row) {
+      throw new ApiError('Client not found', 404, 'NOT_FOUND');
+    }
+
+    const mattersRes = await db.query<{
+      id: string;
+      title: string;
+      status: string | null;
+      portal_private: boolean;
+    }>(
+      `select id, title, status, portal_private
+         from public.cases
+        where client_id = $1 and organization_id = $2
+        order by created_at desc`,
+      [clientId, organizationId]
+    );
+
+    res.status(200).json({
+      clientId: row.client_id,
+      email: row.email,
+      status: derivePortalStatus(row),
+      portalEnabled: row.portal_enabled,
+      clientUserId: row.client_user_id,
+      emailVerifiedAt: row.email_verified_at,
+      lastSignInAt: row.last_sign_in_at,
+      matters: mattersRes.rows.map((m) => ({
+        id: m.id,
+        title: m.title,
+        status: m.status,
+        portalPrivate: m.portal_private,
+      })),
+    });
+  })
+);
+
+// ── POST /clients/:clientId/enable — enable portal + (re)send invite ────────
+
+clientPortalRouter.post(
+  '/clients/:clientId/enable',
+  asyncHandler(async (req, res) => {
+    const { organizationId, userId } = req.auth!;
+    const { clientId } = clientIdParamsSchema.parse(req.params);
+
+    // Throttle: each enable (re)sends an email. Cap per staff member + client so
+    // a double-click or a script can't amplify invite mail to a client's inbox.
+    const rl = checkRateLimit(`portal-enable:${userId}:${clientId}`, 3, 60_000);
+    if (!rl.allowed) {
+      throw new ApiError(
+        `Too many invite attempts. Try again in ${rl.retryAfter}s.`,
+        429,
+        'RATE_LIMITED'
+      );
+    }
+
+    const clientRes = await db.query<{ id: string; name: string; email: string | null }>(
+      `select id, name, email from public.clients where id = $1 and organization_id = $2 limit 1`,
+      [clientId, organizationId]
+    );
+    const client = clientRes.rows[0];
+    if (!client) {
+      throw new ApiError('Client not found', 404, 'NOT_FOUND');
+    }
+    if (!client.email) {
+      throw new ApiError(
+        'This client has no email address. Add one before enabling the portal.',
+        400,
+        'CLIENT_EMAIL_REQUIRED'
+      );
+    }
+
+    // client_users is a GLOBAL identity. If one already exists for this email
+    // AND has a password set, the person is already active (likely a client of
+    // another firm). Do NOT mint a fresh invite token in that case — the invite
+    // accept flow can reset an existing password, so a token email would be a
+    // password-reset capability for an account this firm doesn't own. Instead,
+    // link to the existing identity and send a tokenless "access granted" notice.
+    const existingUser = await db.query<{ id: string; encrypted_password: string | null }>(
+      `select id, encrypted_password from public.client_users where lower(email) = lower($1) limit 1`,
+      [client.email]
+    );
+    const alreadyActive = !!existingUser.rows[0]?.encrypted_password;
+
+    let clientUserId: string;
+    let inviteToken: string | null = null;
+    if (alreadyActive) {
+      clientUserId = existingUser.rows[0]!.id;
+    } else {
+      const ensured = await ensureClientUserForInvite(client.email, client.name);
+      clientUserId = ensured.clientUserId;
+      inviteToken = ensured.inviteToken;
+    }
+
+    await db.query(
+      `update public.clients
+          set client_user_id = $1, portal_enabled = true, updated_at = now()
+        where id = $2 and organization_id = $3`,
+      [clientUserId, clientId, organizationId]
+    );
+
+    const grantRes = await db.query(
+      `
+      insert into public.client_portal_access
+        (client_user_id, client_id, organization_id, role, status, granted_by, granted_by_type)
+      values ($1, $2, $3, 'viewer', 'active', $4, 'staff')
+      on conflict (client_user_id, client_id) do update set
+        status = 'active',
+        revoked_at = null
+      returning *
+      `,
+      [clientUserId, clientId, organizationId, userId]
+    );
+
+    const { inviterName, firmName } = await resolveInviterAndFirm(userId, organizationId);
+
+    try {
+      if (inviteToken) {
+        await sendClientPortalInviteEmail({
+          email: client.email,
+          firmName,
+          inviterName,
+          inviteToken,
+        });
+      } else {
+        await sendClientPortalAccessGrantedEmail({ email: client.email, firmName, inviterName });
+      }
+    } catch (err) {
+      console.error('[client-portal] client-level invite email failed', {
+        error: err instanceof Error ? err.message : String(err),
+        clientId,
+        organizationId,
+      });
+    }
+
+    res.status(201).json({
+      grant: grantRes.rows[0],
+      status: alreadyActive ? 'active' : 'pending',
+      pending: !alreadyActive,
+    });
+  })
+);
+
+// ── POST /clients/:clientId/disable — revoke portal access ──────────────────
+
+clientPortalRouter.post(
+  '/clients/:clientId/disable',
+  asyncHandler(async (req, res) => {
+    const { organizationId } = req.auth!;
+    const { clientId } = clientIdParamsSchema.parse(req.params);
+
+    const clientRes = await db.query<{ id: string; client_user_id: string | null }>(
+      `select id, client_user_id from public.clients where id = $1 and organization_id = $2 limit 1`,
+      [clientId, organizationId]
+    );
+    const client = clientRes.rows[0];
+    if (!client) {
+      throw new ApiError('Client not found', 404, 'NOT_FOUND');
+    }
+
+    if (client.client_user_id) {
+      // Revoke BOTH grant paths or access leaks: the authorization predicate in
+      // services/portalAccess.ts is `explicit OR (clientLevel AND NOT private)`,
+      // and portal_enabled is NOT part of it. Clearing only the client-level
+      // grant would leave any explicit per-matter (client_case_access) grants —
+      // e.g. legacy matter invites or team invites — still active.
+      await Promise.all([
+        db.query(
+          `update public.client_portal_access
+              set status = 'revoked', revoked_at = now()
+            where client_id = $1 and client_user_id = $2 and organization_id = $3 and status = 'active'`,
+          [clientId, client.client_user_id, organizationId]
+        ),
+        db.query(
+          `update public.client_case_access cca
+              set status = 'revoked', revoked_at = now()
+            from public.cases c
+            where cca.case_id = c.id
+              and c.client_id = $1
+              and cca.client_user_id = $2
+              and cca.organization_id = $3
+              and cca.status = 'active'`,
+          [clientId, client.client_user_id, organizationId]
+        ),
+      ]);
+    }
+
+    await db.query(
+      `update public.clients set portal_enabled = false, updated_at = now()
+        where id = $1 and organization_id = $2`,
+      [clientId, organizationId]
+    );
+
+    res.status(200).json({ clientId, status: 'none' });
   })
 );
 

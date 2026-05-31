@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import {
   Select,
@@ -28,6 +29,9 @@ import {
   FileText,
   Download,
   Eye,
+  Globe,
+  CalendarClock,
+  ChevronRight,
 } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
@@ -53,6 +57,7 @@ import { getActivityIcon, getActivityStatusColor } from '@/utils/activityUtils';
 import { MatterReviewButton } from '@/components/agents/MatterReviewButton';
 import { ClientPortalPanel } from '@/components/clientPortal/ClientPortalPanel';
 import { useHasFeature, FEATURE_META } from '@/hooks/useEntitlements';
+import { useSetPortalPrivate } from '@/features/clientPortal/api';
 import { Lock, ArrowUpRight } from 'lucide-react';
 
 export default function CaseDetails() {
@@ -60,6 +65,7 @@ export default function CaseDetails() {
   const navigate = useNavigate();
   const { data: caseData, isLoading, error } = useCase(id!);
   const updateCase = useUpdateCase();
+  const setPortalPrivate = useSetPortalPrivate(id!);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDocumentDialog, setShowDocumentDialog] = useState(false);
   const [showActivityDialog, setShowActivityDialog] = useState(false);
@@ -131,193 +137,258 @@ export default function CaseDetails() {
     }
   };
 
+  const portalPrivate = (caseData as any).portal_private !== false;
+
   return (
     <PageContainer>
       <Breadcrumbs />
+
+      {/* Header */}
       <PageHeader
         title={caseData.title}
         description={`Matter #${caseData.case_number || caseData.id}`}
         backHref="/matters"
-        actions={
-          <>
-            <MatterReviewButton caseId={caseData.id} caseTitle={caseData.title} />
-            <Badge className={getStatusColor(caseData.status)}>
-              {caseData.status.replace('_', ' ')}
-            </Badge>
-            <Badge className={getPriorityColor(caseData.priority)} variant="outline">
-              {caseData.priority} Priority
-            </Badge>
-          </>
-        }
+        actions={<MatterReviewButton caseId={caseData.id} caseTitle={caseData.title} />}
       />
 
-      {/* Matter Information */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Matter Information</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Matter Type and Issue */}
-          {caseType && (
-            <div className="flex items-center gap-3">
-              <Gavel className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Matter Type</p>
-                <p className="font-medium">{caseType}</p>
-              </div>
-            </div>
+      {/* Status / meta bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge className={cn('capitalize', getStatusColor(caseData.status))}>
+          {caseData.status.replace('_', ' ')}
+        </Badge>
+        {caseData.priority && (
+          <Badge
+            className={cn('capitalize', getPriorityColor(caseData.priority))}
+            variant="outline"
+          >
+            {caseData.priority} Priority
+          </Badge>
+        )}
+        <Badge
+          variant="outline"
+          className={cn(
+            'gap-1.5',
+            portalPrivate
+              ? 'border-warning/40 bg-warning/10 text-warning-foreground'
+              : 'border-success/40 bg-success/10 text-success-foreground'
           )}
+        >
+          {portalPrivate ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
+          {portalPrivate ? 'Private — hidden from client portal' : 'Public — visible to client'}
+        </Badge>
 
-          {caseIssue && (
-            <div className="flex items-center gap-3">
-              <Gavel className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Matter Issue</p>
-                <p className="font-medium">{caseIssue}</p>
-              </div>
-            </div>
-          )}
-
+        <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {caseData.client && (
-            <div className="flex items-center gap-3">
-              <Building className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Client</p>
-                <p className="font-medium">{caseData.client.name}</p>
-              </div>
-            </div>
-          )}
-          {caseData.court && (
-            <div className="flex items-center gap-3">
-              <Gavel className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Court</p>
-                <p className="font-medium">{caseData.court}</p>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center gap-3">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-muted-foreground">Created</p>
-              <p className="font-medium">{new Date(caseData.created_at).toLocaleDateString()}</p>
-            </div>
-          </div>
-          {caseData.next_hearing_date && (
-            <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Next Hearing</p>
-                <p className="font-medium">
-                  {new Date(caseData.next_hearing_date).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Description */}
-      {caseData.description && (
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle>Description</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-foreground whitespace-pre-wrap">{caseData.description}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Progress Tracking */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Progress</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Progress value={pct} className="h-3" />
-          <div className="flex items-center gap-4">
-            <span className="capitalize text-sm text-muted-foreground">
-              {caseData.status.replace('_', ' ')}
-            </span>
-            <Select
-              value={caseData.status}
-              onValueChange={(v) => updateCase.mutate({ id: caseData.id, status: v })}
+            <button
+              type="button"
+              onClick={() => caseData.client_id && navigate(`/clients/${caseData.client_id}`)}
+              className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary disabled:cursor-default disabled:text-foreground disabled:hover:text-foreground"
+              disabled={!caseData.client_id}
             >
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STAGES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s.replace('_', ' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+              <Building className="h-4 w-4 text-muted-foreground" />
+              {caseData.client.name}
+            </button>
+          )}
+          {caseData.next_hearing_date && (
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarClock className="h-4 w-4" />
+              Next hearing {new Date(caseData.next_hearing_date).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+      </div>
 
-      {/* Tasks Section */}
-      <Card className="shadow-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Tasks</CardTitle>
-          <Button size="sm" onClick={() => setShowTaskDialog(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Add Task
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <TasksSection caseId={caseData.id} />
-        </CardContent>
-      </Card>
+      {/* Two-column layout: main content + side rail */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Main content column */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* Description */}
+          {caseData.description && (
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle>Description</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="whitespace-pre-wrap text-foreground">{caseData.description}</p>
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Activities Section */}
-      <Card className="shadow-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Activities</CardTitle>
-          <Button size="sm" onClick={() => setShowActivityDialog(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Add Activity
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <ActivitiesSection caseId={caseData.id} />
-        </CardContent>
-      </Card>
+          {/* Progress Tracking */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Progress value={pct} className="h-3" />
+              <div className="flex items-center gap-4">
+                <span className="text-sm capitalize text-muted-foreground">
+                  {caseData.status.replace('_', ' ')}
+                </span>
+                <Select
+                  value={caseData.status}
+                  onValueChange={(v) => updateCase.mutate({ id: caseData.id, status: v })}
+                >
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STAGES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Documents Section */}
-      <Card className="shadow-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Matter Documents</CardTitle>
-          <Button size="sm" onClick={() => setShowDocumentDialog(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Attach Document
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <DocumentsSection caseId={caseData.id} />
-        </CardContent>
-      </Card>
+          {/* Tasks Section */}
+          <Card className="shadow-card">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Tasks</CardTitle>
+              <Button size="sm" onClick={() => setShowTaskDialog(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Add Task
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <TasksSection caseId={caseData.id} />
+            </CardContent>
+          </Card>
 
-      {/* Client Portal Section (gated by 'client_portal' entitlement) */}
-      <ClientPortalSection caseId={caseData.id} caseData={caseData} />
+          {/* Activities Section */}
+          <Card className="shadow-card">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Activities</CardTitle>
+              <Button size="sm" onClick={() => setShowActivityDialog(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Add Activity
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <ActivitiesSection caseId={caseData.id} />
+            </CardContent>
+          </Card>
 
-      {/* Quick Actions */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <Button onClick={() => navigate(`/matters/${caseData.id}/edit`)}>Edit Matter</Button>
-            <Button variant="outline" onClick={() => navigate('/documents')}>
-              View Documents
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/calendar')}>
-              Schedule Event
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Documents Section */}
+          <Card className="shadow-card">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Matter Documents</CardTitle>
+              <Button size="sm" onClick={() => setShowDocumentDialog(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Attach Document
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <DocumentsSection caseId={caseData.id} />
+            </CardContent>
+          </Card>
+
+          {/* Client Portal Section (gated by 'client_portal' entitlement) */}
+          <ClientPortalSection caseId={caseData.id} caseData={caseData} />
+        </div>
+
+        {/* Side rail */}
+        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+          {/* Quick Actions */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button className="w-full" onClick={() => navigate(`/matters/${caseData.id}/edit`)}>
+                <Edit2 className="mr-2 h-4 w-4" /> Edit Matter
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => navigate('/documents')}
+              >
+                <FileText className="mr-2 h-4 w-4" /> View Documents
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => navigate('/calendar')}
+              >
+                <Calendar className="mr-2 h-4 w-4" /> Schedule Event
+              </Button>
+
+              <Separator className="my-1" />
+
+              {portalPrivate ? (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-success/40 text-success-foreground hover:bg-success/10"
+                  disabled={setPortalPrivate.isPending}
+                  onClick={() => setPortalPrivate.mutate(false)}
+                >
+                  <Globe className="mr-2 h-4 w-4" />
+                  {setPortalPrivate.isPending ? 'Publishing…' : 'Make Public'}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-warning/40 text-warning-foreground hover:bg-warning/10"
+                  disabled={setPortalPrivate.isPending}
+                  onClick={() => setPortalPrivate.mutate(true)}
+                >
+                  <Lock className="mr-2 h-4 w-4" />
+                  {setPortalPrivate.isPending ? 'Hiding…' : 'Make Private'}
+                </Button>
+              )}
+              <p className="px-1 text-xs text-muted-foreground">
+                {portalPrivate
+                  ? 'This matter is hidden from the client portal. Make it public to share progress with the client.'
+                  : 'This matter is visible to the client in their portal.'}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Matter Information */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>Matter Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <InfoRow icon={Gavel} label="Matter Type" value={caseType} />
+              <InfoRow icon={Gavel} label="Matter Issue" value={caseIssue} />
+              {caseData.client && (
+                <div className="flex items-start gap-3">
+                  <Building className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Client</p>
+                    {caseData.client_id ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/clients/${caseData.client_id}`)}
+                        className="inline-flex items-center gap-1 font-medium text-foreground hover:text-primary"
+                      >
+                        {caseData.client.name}
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    ) : (
+                      <p className="font-medium">{caseData.client.name}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              <InfoRow icon={Gavel} label="Court" value={caseData.court} />
+              <InfoRow
+                icon={Calendar}
+                label="Created"
+                value={new Date(caseData.created_at).toLocaleDateString()}
+              />
+              {caseData.next_hearing_date && (
+                <InfoRow
+                  icon={CalendarClock}
+                  label="Next Hearing"
+                  value={new Date(caseData.next_hearing_date).toLocaleDateString()}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Task Creation Dialog */}
       <NewTaskDialog open={showTaskDialog} onOpenChange={setShowTaskDialog} caseId={caseData.id} />
@@ -336,6 +407,28 @@ export default function CaseDetails() {
         caseId={caseData.id}
       />
     </PageContainer>
+  );
+}
+
+// --- Small labelled info row for the Matter Information side panel ---
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value?: string | null;
+}) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-3">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="font-medium break-words">{value}</p>
+      </div>
+    </div>
   );
 }
 

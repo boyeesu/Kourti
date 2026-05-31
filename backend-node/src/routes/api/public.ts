@@ -24,6 +24,7 @@ import {
   sendContactLeadNotification,
 } from '../../services/email.js';
 import { brevoSyncMarketingLead, logBrevoError } from '../../services/brevo.js';
+import { applyUnsubscribe, recordConsent, consentContext } from '../../services/consent.js';
 import { streamChatCompletion } from '../../lib/openai.js';
 import { searchMarketingKb, ingestKnowledge } from '../../services/marketingKb.js';
 import { KOURTI_KNOWLEDGE, type KnowledgeEntry } from '../../data/kourtiKnowledge.js';
@@ -127,6 +128,52 @@ publicRouter.get(
   })
 );
 
+// ── Marketing unsubscribe (one-click, stateless token) ─────────────────────
+// Linked from the footer of every marketing email. Validates an HMAC token so
+// no login is required, then suppresses the address everywhere we track it.
+const unsubscribeSchema = z.object({
+  email: z.string().trim().email().max(254),
+  token: z.string().min(1).max(200),
+});
+
+async function handleUnsubscribe(email: string, token: string, res: import('express').Response) {
+  const ok = await applyUnsubscribe(email, token);
+  if (!ok) {
+    res
+      .status(400)
+      .type('html')
+      .send('<h1>Invalid unsubscribe link</h1><p>This link is invalid or expired.</p>');
+    return;
+  }
+  res
+    .status(200)
+    .type('html')
+    .send(
+      '<h1>You have been unsubscribed</h1><p>You will no longer receive marketing emails from Kourti. Transactional messages (security, billing) may still be sent.</p>'
+    );
+}
+
+publicRouter.get(
+  '/unsubscribe',
+  asyncHandler(async (req, res) => {
+    const parsed = unsubscribeSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).type('html').send('<h1>Invalid unsubscribe link</h1>');
+      return;
+    }
+    await handleUnsubscribe(parsed.data.email, parsed.data.token, res);
+  })
+);
+
+publicRouter.post(
+  '/unsubscribe',
+  asyncHandler(async (req, res) => {
+    const { email, token } = unsubscribeSchema.parse(req.body ?? {});
+    const ok = await applyUnsubscribe(email, token);
+    res.status(ok ? 200 : 400).json({ success: ok });
+  })
+);
+
 // ── Contact form ──────────────────────────────────────────────────────────────
 
 const contactSchema = z.object({
@@ -138,6 +185,10 @@ const contactSchema = z.object({
   firmSize: z.string().trim().max(50).optional(),
   interest: z.string().trim().min(1).max(100),
   message: z.string().trim().min(1).max(5000),
+  // Explicit, optional marketing opt-in (GDPR Art. 7). Submitting the form to
+  // get a reply is the contract/legitimate-interest basis; adding the lead to
+  // the marketing CRM requires this separate consent.
+  marketingConsent: z.boolean().optional(),
   // Honeypot: a hidden field real users never fill. Bots that auto-fill every
   // input trip it. Accepted then silently dropped (we don't 4xx, to avoid
   // signalling the trap).
@@ -149,7 +200,10 @@ function isHoneypotTripped(value: string | undefined): boolean {
   return !!value && value.trim().length > 0;
 }
 
-const HONEYPOT_OK = { success: true, message: "Thanks for reaching out! We'll get back to you within 24 hours." };
+const HONEYPOT_OK = {
+  success: true,
+  message: "Thanks for reaching out! We'll get back to you within 24 hours.",
+};
 
 publicRouter.post(
   '/contact',
@@ -162,10 +216,12 @@ publicRouter.post(
     }
     const email = lead.email.toLowerCase();
 
+    const marketingConsent = lead.marketingConsent === true;
+
     await db.query(
       `insert into public.contact_submissions
-         (first_name, last_name, email, company, phone, firm_size, interest, message, source)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,'contact')`,
+         (first_name, last_name, email, company, phone, firm_size, interest, message, source, marketing_consent)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,'contact',$9)`,
       [
         lead.firstName,
         lead.lastName,
@@ -175,18 +231,34 @@ publicRouter.post(
         lead.firmSize ?? null,
         lead.interest,
         lead.message,
+        marketingConsent,
       ]
     );
 
-    // Notify sales + mirror to CRM — never block the response on either.
+    const { ip, userAgent } = consentContext(req);
+    void recordConsent({
+      subjectType: 'lead',
+      email,
+      consentType: 'marketing',
+      granted: marketingConsent,
+      source: 'contact_form',
+      ip,
+      userAgent,
+    });
+
+    // Notify sales — never block the response. This is the legitimate-interest
+    // basis (responding to an enquiry), not marketing, so it always runs.
     void sendContactLeadNotification({ ...lead, email }).catch((err) =>
       console.error('[public/contact] notification email failed:', err)
     );
-    void brevoSyncMarketingLead(email, {
-      firstName: lead.firstName,
-      lastName: lead.lastName,
-      firmName: lead.company,
-    }).catch(logBrevoError);
+    // Mirror to the marketing CRM ONLY with explicit opt-in.
+    if (marketingConsent) {
+      void brevoSyncMarketingLead(email, {
+        firstName: lead.firstName,
+        lastName: lead.lastName,
+        firmName: lead.company,
+      }).catch(logBrevoError);
+    }
 
     res.status(200).json({
       success: true,
@@ -208,6 +280,7 @@ const assessmentSchema = z.object({
   // Answers are score values (numbers) but accept strings too for resilience.
   answers: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
   dimensionScores: z.record(z.string(), z.number()),
+  marketingConsent: z.boolean().optional(),
   website: z.string().max(200).optional(), // honeypot
 });
 
@@ -222,10 +295,12 @@ publicRouter.post(
     }
     const email = lead.email.toLowerCase();
 
+    const marketingConsent = lead.marketingConsent === true;
+
     await db.query(
       `insert into public.contact_submissions
-         (first_name, last_name, email, company, interest, message, source, metadata)
-       values ($1,$2,$3,$4,'assessment',$5,'assessment',$6::jsonb)`,
+         (first_name, last_name, email, company, interest, message, source, metadata, marketing_consent)
+       values ($1,$2,$3,$4,'assessment',$5,'assessment',$6::jsonb,$7)`,
       [
         lead.firstName,
         lead.lastName,
@@ -239,8 +314,20 @@ publicRouter.post(
           dimensionScores: lead.dimensionScores,
           answers: lead.answers ?? {},
         }),
+        marketingConsent,
       ]
     );
+
+    const { ip, userAgent } = consentContext(req);
+    void recordConsent({
+      subjectType: 'lead',
+      email,
+      consentType: 'marketing',
+      granted: marketingConsent,
+      source: 'assessment',
+      ip,
+      userAgent,
+    });
 
     const emailLead = {
       firstName: lead.firstName,
@@ -259,11 +346,13 @@ publicRouter.post(
     void sendAssessmentLeadNotification(emailLead).catch((err) =>
       console.error('[public/assessment] notification email failed:', err)
     );
-    void brevoSyncMarketingLead(email, {
-      firstName: lead.firstName,
-      lastName: lead.lastName,
-      firmName: lead.company,
-    }).catch(logBrevoError);
+    if (marketingConsent) {
+      void brevoSyncMarketingLead(email, {
+        firstName: lead.firstName,
+        lastName: lead.lastName,
+        firmName: lead.company,
+      }).catch(logBrevoError);
+    }
 
     res.status(200).json({ success: true });
   })

@@ -3,6 +3,16 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import {
+  acceptTermsForUser,
+  consentContext,
+  setUserMarketingConsent,
+} from '../../services/consent.js';
+import { brevoSyncSignup, logBrevoError } from '../../services/brevo.js';
+
+// Version stamp recorded with each acceptance so we can prove WHICH terms a
+// user agreed to. Bump when Terms / Privacy Policy materially change.
+const TERMS_VERSION = process.env.TERMS_VERSION || '2026-05';
 
 const completeOnboardingSchema = z.object({
   organization: z.object({
@@ -21,6 +31,10 @@ const completeOnboardingSchema = z.object({
       lastName: z.string().trim().max(100).optional().nullable(),
     })
     .optional(),
+  // GDPR Art. 7 — terms/privacy acceptance is mandatory and recorded server-side.
+  // Marketing opt-in is a SEPARATE, optional, default-off choice.
+  acceptedTerms: z.boolean().optional(),
+  marketingConsent: z.boolean().optional(),
 });
 
 export const onboardingRouter = Router();
@@ -122,6 +136,39 @@ onboardingRouter.post(
         [auth.userId, organizationId]
       )
       .catch(() => undefined);
+
+    // ── Consent capture (GDPR Art. 7 / NDPR) ──────────────────────────────
+    // Persist terms acceptance durably so we can demonstrate it. The frontend
+    // gates the button on this, but we record server-side as the system of
+    // record. Older clients that don't send the flag still get terms recorded
+    // (continuing past onboarding is itself the acceptance act).
+    const { ip, userAgent } = consentContext(req);
+    await acceptTermsForUser({
+      userId: auth.userId,
+      email: auth.email ?? null,
+      version: TERMS_VERSION,
+      ip,
+      userAgent,
+      source: 'onboarding',
+    });
+
+    if (body.marketingConsent === true) {
+      await setUserMarketingConsent({
+        userId: auth.userId,
+        email: auth.email ?? null,
+        granted: true,
+        ip,
+        userAgent,
+        source: 'onboarding',
+      });
+      // Now that consent exists, mirror into the Brevo marketing CRM.
+      const name = body.profile;
+      brevoSyncSignup(auth.email ?? '', {
+        firstName: name?.firstName ?? null,
+        lastName: name?.lastName ?? null,
+        userId: auth.userId,
+      }).catch(logBrevoError);
+    }
 
     const result = await db.query<{ id: string; name: string }>(
       `select id, name from public.organizations where id = $1 limit 1`,

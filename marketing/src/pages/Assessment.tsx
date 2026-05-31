@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import Navigation from '@/components/ui/navigation';
 import Footer from '@/components/sections/Footer';
 import MouseFollowGlow from '@/components/ui/MouseFollowGlow';
@@ -408,6 +409,7 @@ const AssessmentResults = ({ answers }: { answers: Answers }) => {
   const { toast } = useToast();
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -504,6 +506,7 @@ const AssessmentResults = ({ answers }: { answers: Answers }) => {
 
       await postJson('/api/v1/public/assessment', {
         ...formData,
+        marketingConsent,
         totalScore: result.totalScore,
         maxScore: result.maxScore,
         tier: result.tier.name,
@@ -652,7 +655,13 @@ const AssessmentResults = ({ answers }: { answers: Answers }) => {
                     tabIndex={-1}
                     autoComplete="off"
                     aria-hidden="true"
-                    style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+                    style={{
+                      position: 'absolute',
+                      left: '-9999px',
+                      width: 1,
+                      height: 1,
+                      opacity: 0,
+                    }}
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <Input
@@ -684,6 +693,20 @@ const AssessmentResults = ({ answers }: { answers: Answers }) => {
                     value={formData.company}
                     onChange={handleInputChange}
                   />
+                  {/* Marketing consent — unchecked by default */}
+                  <label className="flex items-start gap-2.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={marketingConsent}
+                      onChange={(e) => setMarketingConsent(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border border-border accent-primary cursor-pointer"
+                    />
+                    <span className="text-[11px] text-muted-foreground leading-relaxed group-hover:text-foreground transition-colors">
+                      Keep me updated about Kourti products and legal-tech insights. You can
+                      unsubscribe anytime.
+                    </span>
+                  </label>
+
                   <Button
                     type="submit"
                     size="lg"
@@ -696,7 +719,14 @@ const AssessmentResults = ({ answers }: { answers: Answers }) => {
                     )}
                   </Button>
                   <p className="text-[10px] text-muted-foreground text-center">
-                    No spam. We'll send your results and recommendations to your email.
+                    No spam. We'll send your results to your email. View our{' '}
+                    <Link
+                      to="/privacy-policy"
+                      className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+                    >
+                      Privacy Policy
+                    </Link>
+                    .
                   </p>
                 </form>
               </div>

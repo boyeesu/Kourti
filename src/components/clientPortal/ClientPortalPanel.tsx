@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { UserPlus, Trash2, Loader2, Send, Sparkles, Mail, FileText } from 'lucide-react';
+import { Trash2, Loader2, Send, Sparkles, Mail, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,9 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   useCasePortalAccess,
-  useInviteClient,
   useRevokeAccess,
-  useSetPortalPrivate,
   useSetClientSummary,
   useCasePortalEvents,
   useToggleEventVisibility,
@@ -43,8 +41,6 @@ import {
   useGenerateDigest,
   useApproveDigest,
   useDiscardDigest,
-  useClientPortalSettings,
-  useUpdateClientPortalSettings,
   type PortalAccessRow,
   type PortalDigest,
 } from '@/features/clientPortal/api';
@@ -138,100 +134,40 @@ export function ClientPortalPanel({ caseId, caseData }: ClientPortalPanelProps) 
 
 function AccessSection({ caseId, caseData }: ClientPortalPanelProps) {
   const { data: rows = [], isLoading } = useCasePortalAccess(caseId);
-  const invite = useInviteClient(caseId);
   const revoke = useRevokeAccess(caseId);
-  const setPrivate = useSetPortalPrivate(caseId);
-  const { data: settings } = useClientPortalSettings();
-  const updateSettings = useUpdateClientPortalSettings();
-
-  const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('');
-
-  const handleInvite = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    invite.mutate(
-      { email: email.trim(), fullName: fullName.trim() || undefined },
-      {
-        onSuccess: () => {
-          setEmail('');
-          setFullName('');
-        },
-      }
-    );
-  };
+  const isPrivate = !!caseData.portal_private;
 
   return (
     <div className="space-y-6">
-      {/* ── Firm-wide settings ── */}
-      <div className="rounded-lg border border-dashed p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Firm-wide
-        </p>
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label className="text-sm font-medium">Require 2FA for all client sign-ins</Label>
-            <p className="text-sm text-muted-foreground">
-              Applies to every client across your firm, not just this matter.
-            </p>
-          </div>
-          <Switch
-            checked={settings?.requireOtp ?? false}
-            disabled={updateSettings.isPending || settings === undefined}
-            onCheckedChange={(checked) => updateSettings.mutate({ requireOtp: checked })}
-          />
-        </div>
-      </div>
-
-      {/* ── Per-matter controls ── */}
+      {/* ── Matter visibility (read-only here; the toggle lives in the matter's
+          Quick Actions). Portal access itself is granted per-client from the
+          client's profile, so there is no invite form on a matter anymore. ── */}
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div className="space-y-0.5">
-          <Label className="text-sm font-medium">Portal private</Label>
+          <Label className="text-sm font-medium">Matter visibility</Label>
           <p className="text-sm text-muted-foreground">
-            When private, clients cannot view this matter in their portal.
+            {isPrivate
+              ? 'Private — hidden from the client portal. Use “Make Public” in Quick Actions to share it.'
+              : 'Public — visible to clients who have portal access.'}
           </p>
         </div>
-        <Switch
-          checked={!!caseData.portal_private}
-          disabled={setPrivate.isPending}
-          onCheckedChange={(checked) => setPrivate.mutate(checked)}
-        />
+        <Badge
+          variant={isPrivate ? 'outline' : 'secondary'}
+          className={isPrivate ? '' : 'bg-success text-success-foreground'}
+        >
+          {isPrivate ? 'Private' : 'Public'}
+        </Badge>
       </div>
 
-      <form onSubmit={handleInvite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="flex-1">
-          <Label className="mb-2 block text-sm font-medium">Client email *</Label>
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="client@example.com"
-            required
-          />
-        </div>
-        <div className="flex-1">
-          <Label className="mb-2 block text-sm font-medium">Full name (optional)</Label>
-          <Input
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="Jane Doe"
-          />
-        </div>
-        <Button type="submit" disabled={invite.isPending || !email.trim()}>
-          {invite.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <UserPlus className="mr-2 h-4 w-4" />
-          )}
-          Invite client
-        </Button>
-      </form>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Clients with access
+      </p>
 
       {isLoading ? (
         <p className="py-4 text-sm text-muted-foreground">Loading access…</p>
       ) : rows.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          No clients have access to this matter yet.
+          No clients have portal access yet. Enable the portal from the client&apos;s profile.
         </p>
       ) : (
         <div className="space-y-2">

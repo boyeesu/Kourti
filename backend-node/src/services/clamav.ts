@@ -33,11 +33,31 @@ export function isClamAvConfigured(): boolean {
 }
 
 /**
+ * Whether malware scanning is REQUIRED for an upload to proceed (fail-closed).
+ *
+ * SOC 2 posture: in production we will not accept documents we couldn't scan.
+ * Enforcement is on when either:
+ *   - CLAMAV_MODE === 'enforce' (the default), or
+ *   - NODE_ENV === 'production' AND a ClamAV host is configured.
+ *
+ * When enforcement is on, the caller MUST reject the upload (503) if the
+ * scanner is unconfigured/unreachable/errored rather than failing open.
+ * In dev/local with no scanner configured and CLAMAV_MODE=warn, enforcement
+ * is off so uploads still work without a sidecar.
+ */
+export function isScanEnforced(): boolean {
+  if (env.CLAMAV_MODE === 'enforce') return true;
+  return env.NODE_ENV === 'production' && isClamAvConfigured();
+}
+
+/**
  * Scan a buffer with clamd's INSTREAM command. Throws on socket /
  * protocol failures; returns {ok:false, virus} on detection.
  *
- * Caller decides what to do when scanned=false (typically: allow the
- * upload but log it so operators notice the sidecar is offline).
+ * Caller decides what to do when scanned=false or the scan throws: in
+ * enforced mode (see isScanEnforced) the upload is rejected (fail-closed);
+ * otherwise it logs and lets the upload through (fail-open) so local dev
+ * without a sidecar still works.
  */
 export async function scanBuffer(buffer: Buffer): Promise<ScanResult> {
   if (!isClamAvConfigured()) {

@@ -67,6 +67,12 @@ const envSchema = z.object({
   // SSO encryption key for client secrets
   SSO_SECRET_KEY: z.string().default('kourti-dev-sso-key-change-in-production'),
 
+  // Dedicated symmetric key for application-layer field encryption (e.g. TOTP
+  // secrets at rest). Optional: when unset, a JWT_SECRET-derived key is used as
+  // a fallback. A dedicated 32+ byte key is recommended in production (see the
+  // boot-time warning below).
+  APP_ENCRYPTION_KEY: optionalNonEmptyString,
+
   AGENT_ENABLED: z
     .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
     .default(true),
@@ -123,6 +129,24 @@ const envSchema = z.object({
   //   300 = 3%, typical hedge for the NGN parallel market.
   USD_NGN_FALLBACK_RATE: z.coerce.number().positive().default(1600),
   USD_NGN_MARKUP_BPS: z.coerce.number().int().min(0).max(2000).default(300),
+
+  // ── Data-protection / retention (GDPR Art. 5(1)(e), NDPR) ──────────────
+  // Retention windows enforced by the `retention_sweep` job (see
+  // agents/retentionSweep.ts) and docs/compliance/RETENTION_POLICY.md.
+  // All values are days. Set to 0 to disable a given sweep.
+  RETENTION_OTP_HOURS: z.coerce.number().int().min(0).default(24),
+  RETENTION_EMAIL_LOG_DAYS: z.coerce.number().int().min(0).default(730), // 24 months
+  RETENTION_AI_CONVERSATION_DAYS: z.coerce.number().int().min(0).default(365), // 12 months idle
+  RETENTION_CONTACT_SUBMISSION_DAYS: z.coerce.number().int().min(0).default(730),
+  RETENTION_AUDIT_LOG_DAYS: z.coerce.number().int().min(0).default(730),
+  RETENTION_DELETED_DOC_GRACE_DAYS: z.coerce.number().int().min(0).default(30),
+  RETENTION_RATE_LIMIT_DAYS: z.coerce.number().int().min(0).default(7),
+  RETENTION_SWEEP_CRON: z.string().default('41 2 * * *'), // daily 02:41
+
+  // Base URL the marketing-email unsubscribe link points at. Falls back to
+  // APP_URL. The link carries an HMAC token (no DB lookup) — see
+  // services/consent.ts unsubscribeToken().
+  PUBLIC_BASE_URL: optionalUrl,
 });
 
 export const env = envSchema.parse(process.env);
@@ -155,6 +179,23 @@ if (env.NODE_ENV === 'production') {
 
   if (env.SSO_SECRET_KEY === 'kourti-dev-sso-key-change-in-production') {
     throw new Error('SSO_SECRET_KEY must be changed from the default value in production');
+  }
+
+  // Entropy guard for the SSO encryption key, consistent with the JWT secret
+  // guards above — a <32-char key is brute-forceable.
+  if (env.SSO_SECRET_KEY.length < 32) {
+    throw new Error('SSO_SECRET_KEY must be at least 32 characters in production');
+  }
+
+  // Field-encryption key (TOTP secrets at rest). WARN only — a JWT_SECRET-
+  // derived fallback is used when this is absent or too short, so we don't
+  // hard-fail, but a dedicated key is strongly recommended.
+  if (!env.APP_ENCRYPTION_KEY || env.APP_ENCRYPTION_KEY.length < 32) {
+    console.warn(
+      '[env] WARNING: APP_ENCRYPTION_KEY is unset or shorter than 32 characters. ' +
+        'A dedicated 32+ byte APP_ENCRYPTION_KEY is recommended for field encryption ' +
+        '(e.g. TOTP secrets at rest); falling back to a JWT_SECRET-derived key.'
+    );
   }
 }
 

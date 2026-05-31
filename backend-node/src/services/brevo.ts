@@ -294,6 +294,41 @@ export function brevoSyncMarketingLead(
   );
 }
 
+/**
+ * Unsubscribe a contact from marketing (GDPR Art. 21 objection / opt-out).
+ * Blacklists the email in Brevo so no campaign can reach it, but keeps the
+ * record for suppression purposes. Idempotent and fire-and-forget safe.
+ */
+export async function brevoRemoveFromMarketing(email: string): Promise<void> {
+  if (!isConfigured()) return;
+  const clean = email.trim().toLowerCase();
+  if (!clean) return;
+  const res = await brevoFetch(`/contacts/${encodeURIComponent(clean)}`, {
+    method: 'PUT',
+    body: {
+      emailBlacklisted: true,
+      unlinkListIds: allLifecycleLists().concat(LIST_ID_LEADS ?? []),
+    },
+  });
+  if (!res.ok && res.status !== 204 && res.status !== 404) {
+    throw new Error(`brevo blacklist failed: ${res.status} ${await safeText(res)}`);
+  }
+}
+
+/**
+ * Hard-delete a contact from Brevo (right to erasure, Art. 17). 404 is fine —
+ * the contact may never have been synced.
+ */
+export async function brevoDeleteContact(email: string): Promise<void> {
+  if (!isConfigured()) return;
+  const clean = email.trim().toLowerCase();
+  if (!clean) return;
+  const res = await brevoFetch(`/contacts/${encodeURIComponent(clean)}`, { method: 'DELETE' });
+  if (!res.ok && res.status !== 204 && res.status !== 404) {
+    throw new Error(`brevo delete failed: ${res.status} ${await safeText(res)}`);
+  }
+}
+
 export function logBrevoError(err: unknown): void {
   console.error('[brevo] sync failed:', err instanceof Error ? err.message : err);
 }

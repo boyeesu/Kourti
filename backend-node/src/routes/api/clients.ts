@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { enforceCountLimit } from '../../services/limits.js';
+import { logSecurityEvent, eventContextFromRequest } from '../../services/securityEvents.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -16,7 +17,9 @@ const clientParamsSchema = z.object({ clientId: uuidLike });
 
 const createClientBodySchema = z.object({
   name: z.string().trim().min(1),
-  email: z.string().email().optional(),
+  // Email is required: it is the identity reused to grant client-portal access
+  // (no separate invite email is ever typed). See clientPortal.ts enable route.
+  email: z.string().trim().email(),
   phone: z.string().optional(),
   address: z.string().optional(),
   company: z.string().optional(),
@@ -104,7 +107,7 @@ clientsRouter.post(
       `,
       [
         body.name,
-        body.email || null,
+        body.email,
         body.phone || null,
         body.address || null,
         body.company || null,
@@ -169,6 +172,14 @@ clientsRouter.delete(
     if (!result.rows[0]) {
       throw new ApiError('Client not found', 404, 'NOT_FOUND');
     }
+
+    void logSecurityEvent({
+      eventType: 'client_deleted',
+      severity: 'warning',
+      ...eventContextFromRequest(req),
+      targetType: 'client',
+      targetId: clientId,
+    });
 
     res.status(204).send();
   })

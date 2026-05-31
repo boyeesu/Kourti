@@ -29,6 +29,7 @@ import {
   DeleteObjectCommand,
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
+import type { PutObjectCommandInput } from '@aws-sdk/client-s3';
 
 import { env } from '../config/env.js';
 
@@ -50,6 +51,77 @@ const s3 = USE_S3
   : null;
 
 const S3_BUCKET = env.S3_BUCKET ?? '';
+
+// ── Encryption-at-rest config ────────────────────────────────────────────────
+//
+// S3 path (production): every PutObject is written with server-side
+// encryption. Defaults to SSE-S3 (AES256, key managed by the store) and
+// upgrades to SSE-KMS automatically when S3_SSE_KMS_KEY_ID is set. These are
+// read straight off process.env (config/env.ts is owned by another lane).
+const S3_SSE_KMS_KEY_ID = process.env.S3_SSE_KMS_KEY_ID;
+// ServerSideEncryption is a string-literal union in the SDK; cast through the
+// command's expected type so env-driven values stay assignable.
+const S3_SSE = (
+  S3_SSE_KMS_KEY_ID ? 'aws:kms' : process.env.S3_SSE || 'AES256'
+) as PutObjectCommandInput['ServerSideEncryption'];
+
+// Local fs path: the at-rest control for the Railway volume is disk-level
+// encryption on the volume itself (an infra concern, not application code).
+// As defense-in-depth we ALSO support optional application-layer envelope
+// encryption of each file's bytes, gated behind STORAGE_ENCRYPT_LOCAL=true.
+// When enabled, bytes are sealed with AES-256-GCM under a key derived from
+// APP_ENCRYPTION_KEY (sha256 → 32 bytes) and prefixed with a magic header so
+// the read path can transparently decrypt new files while still serving any
+// legacy plaintext files written before the flag was turned on.
+const STORAGE_ENCRYPT_LOCAL = process.env.STORAGE_ENCRYPT_LOCAL === 'true';
+// Magic header identifying an application-encrypted local file. Layout:
+//   [8-byte magic]['KLENC' + version byte][12-byte IV][16-byte GCM tag][ciphertext]
+const LOCAL_ENC_MAGIC = Buffer.from('KLENC\x01\x00', 'ascii'); // 7 bytes
+const LOCAL_ENC_IV_LEN = 12;
+const LOCAL_ENC_TAG_LEN = 16;
+
+function localEncKey(): Buffer {
+  const secret = process.env.APP_ENCRYPTION_KEY;
+  if (!secret) {
+    throw new Error('STORAGE_ENCRYPT_LOCAL=true requires APP_ENCRYPTION_KEY to be set');
+  }
+  return crypto.createHash('sha256').update(secret).digest(); // 32 bytes
+}
+
+/** Seal plaintext bytes for at-rest storage on the local fs driver. */
+function encryptLocal(plaintext: Buffer): Buffer {
+  const key = localEncKey();
+  const iv = crypto.randomBytes(LOCAL_ENC_IV_LEN);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([LOCAL_ENC_MAGIC, iv, tag, ciphertext]);
+}
+
+/**
+ * Reverse of encryptLocal. If the stored bytes don't carry our magic header
+ * (legacy plaintext file, or the flag wasn't on when it was written) the bytes
+ * are returned untouched so existing files keep reading. Only files we wrote
+ * with the header are decrypted, which makes the rollout symmetric and safe.
+ */
+function decryptLocal(stored: Buffer): Buffer {
+  if (
+    stored.length < LOCAL_ENC_MAGIC.length + LOCAL_ENC_IV_LEN + LOCAL_ENC_TAG_LEN ||
+    !stored.subarray(0, LOCAL_ENC_MAGIC.length).equals(LOCAL_ENC_MAGIC)
+  ) {
+    return stored; // plaintext / legacy — serve as-is
+  }
+  const key = localEncKey();
+  let off = LOCAL_ENC_MAGIC.length;
+  const iv = stored.subarray(off, off + LOCAL_ENC_IV_LEN);
+  off += LOCAL_ENC_IV_LEN;
+  const tag = stored.subarray(off, off + LOCAL_ENC_TAG_LEN);
+  off += LOCAL_ENC_TAG_LEN;
+  const ciphertext = stored.subarray(off);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+}
 
 /**
  * S3 object key. We keep the existing `<bucket>/<filePath>` namespacing
@@ -192,6 +264,11 @@ export async function uploadFile(
         Key: s3Key(bucket, filePath),
         Body: data,
         ContentType: contentType ?? mimeFromExt(path.extname(filePath).toLowerCase()),
+        // Encryption at rest: SSE-S3 (AES256) by default, SSE-KMS when a
+        // key id is configured. The store encrypts the object server-side
+        // before it touches disk.
+        ServerSideEncryption: S3_SSE,
+        ...(S3_SSE === 'aws:kms' && S3_SSE_KMS_KEY_ID ? { SSEKMSKeyId: S3_SSE_KMS_KEY_ID } : {}),
         // Stored as x-amz-meta-sha256 so any external auditor (mc, aws
         // cli, browser of the bucket) can verify integrity without
         // touching our DB.
@@ -203,7 +280,11 @@ export async function uploadFile(
 
   const fullPath = bucketPath(bucket, filePath);
   await ensureDir(path.dirname(fullPath));
-  await fs.writeFile(fullPath, data);
+  // At-rest control for the local fs driver is the encrypted Railway volume
+  // (disk-level). When STORAGE_ENCRYPT_LOCAL=true we additionally seal the
+  // bytes with AES-256-GCM as defense-in-depth; the read path detects the
+  // magic header and decrypts, while legacy plaintext files still read.
+  await fs.writeFile(fullPath, STORAGE_ENCRYPT_LOCAL ? encryptLocal(data) : data);
   return { filePath, size: data.length, sha256 };
 }
 
@@ -253,7 +334,11 @@ export async function downloadFile(
 
   const fullPath = bucketPath(bucket, filePath);
   try {
-    const data = await fs.readFile(fullPath);
+    const raw = await fs.readFile(fullPath);
+    // Transparently decrypt files we sealed at write time; legacy plaintext
+    // files (no magic header) pass through unchanged. SHA-256 is computed on
+    // the plaintext so it matches the hash captured at upload.
+    const data = decryptLocal(raw);
     const ext = path.extname(filePath).toLowerCase();
     const contentType = mimeFromExt(ext);
     const sha256 = sha256Hex(data);

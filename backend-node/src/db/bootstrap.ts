@@ -31,10 +31,15 @@ const bootstrapStatements = [
     password_reset_token text,
     password_reset_expires_at timestamptz,
     last_sign_in_at timestamptz,
+    token_version integer not null default 0,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
   )
   `,
+  // Idempotent backfill of the token-revocation column for DBs created before
+  // it was added to the CREATE TABLE above (used by the AUTH lane to invalidate
+  // all outstanding JWTs for a user by bumping the version).
+  `alter table public.auth_users add column if not exists token_version integer not null default 0`,
   `
   create table if not exists public.profiles (
     id uuid primary key default gen_random_uuid(),
@@ -1445,10 +1450,38 @@ const bootstrapStatements = [
   `create index if not exists idx_cpa_client on public.client_portal_access(client_id)`,
   `create index if not exists idx_cpa_org on public.client_portal_access(organization_id)`,
 
-  // Per-matter privacy escape hatch: exclude a sensitive matter from the
-  // client's portal even though they have client-level access. Default false
-  // (matters are visible to their client by default — the chosen model).
+  // Per-matter privacy gate. The chosen model is PRIVATE BY DEFAULT: a matter
+  // is hidden from the client portal until the firm explicitly makes it public
+  // (Quick Actions → "Make Public"). The column predates this default, so we
+  // flip the column default below; existing rows are migrated once by the
+  // guarded block further down.
   `alter table public.cases add column if not exists portal_private boolean not null default false`,
+  `alter table public.cases alter column portal_private set default true`,
+
+  // One-time migration ledger. Lets us run a data backfill exactly once instead
+  // of on every boot (the rest of bootstrap is idempotent DDL; data updates are
+  // not, and re-running them would clobber later firm edits).
+  `
+  create table if not exists public.app_migration_flags (
+    key text primary key,
+    applied_at timestamptz not null default now()
+  )
+  `,
+
+  // Flip ALL existing matters to private exactly once, then record the flag so
+  // a firm that later makes a matter public is never silently re-privatised on
+  // the next deploy.
+  `
+  do $$
+  begin
+    if not exists (
+      select 1 from public.app_migration_flags where key = 'matters_private_by_default_v1'
+    ) then
+      update public.cases set portal_private = true where portal_private = false;
+      insert into public.app_migration_flags(key) values ('matters_private_by_default_v1');
+    end if;
+  end $$;
+  `,
 
   // Firm-enforced client 2FA. Because client_users is a GLOBAL identity,
   // OTP is forced at login when ANY firm the client has active access to has
@@ -1474,42 +1507,12 @@ const bootstrapStatements = [
   `create index if not exists idx_calendar_rsvps_event on public.calendar_event_rsvps(calendar_event_id)`,
   `create index if not exists idx_calendar_rsvps_client on public.calendar_event_rsvps(client_user_id)`,
 
-  `
-  insert into public.organizations (id, name, email)
-  values ('00000000-0000-0000-0000-000000000001', 'Kourti Local Dev Org', 'dev@kourti.local')
-  on conflict (id) do nothing
-  `,
-  `
-  insert into public.profiles (user_id, organization_id, email, first_name, last_name)
-  values (
-    '00000000-0000-0000-0000-000000000001',
-    '00000000-0000-0000-0000-000000000001',
-    'dev@kourti.local',
-    'Dev',
-    'User'
-  )
-  on conflict (user_id) do nothing
-  `,
-  `
-  insert into public.auth_users (id, email, encrypted_password, is_active, email_confirmed_at)
-  values (
-    '00000000-0000-0000-0000-000000000001',
-    'dev@kourti.local',
-    '$2b$12$/8EAYMwovKMeiAFPEhQ4geMawJ.EbVzwsPaMTGa7VIMkHFoV7Uwya',
-    true,
-    now()
-  )
-  on conflict (id) do nothing
-  `,
-  `do $$ begin
-    insert into public.user_role_assignments (user_id, role_name, organization_id)
-    values (
-      '00000000-0000-0000-0000-000000000001',
-      'superadmin',
-      '00000000-0000-0000-0000-000000000001'
-    );
-    exception when unique_violation then null;
-   end $$`,
+  // NOTE: the hardcoded local-dev superadmin seed (org/profile/auth_user/role
+  // for 00000000-...-000000000001, dev@kourti.local) lives in `devSeedStatements`
+  // below and is ONLY appended to the run list when NODE_ENV !== 'production'.
+  // In production we instead run `prodCleanupStatements` to remediate any
+  // deployment that previously seeded that backdoor. SOC 2: no shared/default
+  // privileged credentials in production.
 
   // ── Plan feature entitlements ─────────────────────────────────────
   // Source of truth for feature-gating (plan_type → feature_key). Seeded from
@@ -1736,6 +1739,156 @@ const bootstrapStatements = [
   )
   `,
   `create index if not exists idx_sub_adjustments_org on public.subscription_adjustments(organization_id, created_at desc)`,
+
+  // ── Data protection: consent, processing restrictions, breach register ────
+  // (GDPR Art. 7/13/30/33, NDPR). See docs/compliance/.
+
+  // Append-only, versioned consent ledger. One row per consent event so we
+  // can demonstrate WHEN and HOW consent was given/withdrawn (Art. 7(1)).
+  // subject_id is null for pre-signup marketing leads (keyed by email only).
+  `
+  create table if not exists public.consent_records (
+    id uuid primary key default gen_random_uuid(),
+    subject_type text not null check (subject_type in ('user','client_user','lead')),
+    subject_id uuid,
+    email text,
+    consent_type text not null
+      check (consent_type in ('terms','privacy','marketing','cookies','dpa')),
+    granted boolean not null,
+    version text,
+    source text,
+    ip_address text,
+    user_agent text,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_consent_subject on public.consent_records(subject_type, subject_id, consent_type, created_at desc)`,
+  `create index if not exists idx_consent_email on public.consent_records(lower(email), consent_type, created_at desc)`,
+
+  // Quick-access consent state on the profile (denormalized from the ledger
+  // for cheap reads). The ledger remains the source of truth.
+  `alter table public.profiles add column if not exists terms_accepted_at timestamptz`,
+  `alter table public.profiles add column if not exists terms_version text`,
+  `alter table public.profiles add column if not exists marketing_consent boolean not null default false`,
+  `alter table public.profiles add column if not exists marketing_consent_at timestamptz`,
+  `alter table public.profiles add column if not exists processing_restricted boolean not null default false`,
+  `alter table public.profiles add column if not exists processing_restricted_at timestamptz`,
+  `alter table public.profiles add column if not exists deletion_requested_at timestamptz`,
+
+  `alter table public.client_users add column if not exists terms_accepted_at timestamptz`,
+  `alter table public.client_users add column if not exists marketing_consent boolean not null default false`,
+  `alter table public.client_users add column if not exists processing_restricted boolean not null default false`,
+  `alter table public.client_users add column if not exists deletion_requested_at timestamptz`,
+
+  // Marketing-lead opt-out state (covers pre-signup leads not in profiles).
+  `alter table public.contact_submissions add column if not exists marketing_consent boolean not null default false`,
+  `alter table public.contact_submissions add column if not exists unsubscribed_at timestamptz`,
+
+  // Breach incident register (Art. 33/34, NDPR). Drives the 72-hour clock.
+  // Mirrors docs/compliance/BREACH_RESPONSE_RUNBOOK.md.
+  `
+  create table if not exists public.breach_incidents (
+    id uuid primary key default gen_random_uuid(),
+    reference text unique,
+    title text not null,
+    description text,
+    severity text not null default 'sev3' check (severity in ('sev1','sev2','sev3','sev4')),
+    status text not null default 'open'
+      check (status in ('open','triaged','contained','notifying','closed')),
+    detected_at timestamptz not null default now(),
+    awareness_at timestamptz,
+    affected_data_categories text[],
+    affected_subject_count integer,
+    affected_organization_ids uuid[],
+    notify_authority_required boolean,
+    authority_notified_at timestamptz,
+    subjects_notified_at timestamptz,
+    customers_notified_at timestamptz,
+    detected_by uuid,
+    details jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_breach_status on public.breach_incidents(status, detected_at desc)`,
+
+  // Lightweight security-event feed for anomaly signals (auth-failure spikes,
+  // bulk exports, signed-URL abuse). Feeds breach triage; auto-purged by the
+  // retention sweep.
+  `
+  create table if not exists public.security_events (
+    id uuid primary key default gen_random_uuid(),
+    event_type text not null,
+    severity text not null default 'info' check (severity in ('info','warning','critical')),
+    actor_type text,
+    actor_id uuid,
+    organization_id uuid,
+    ip_address text,
+    details jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_security_events_type on public.security_events(event_type, created_at desc)`,
+  `create index if not exists idx_security_events_sev on public.security_events(severity, created_at desc)`,
+];
+
+// Local-development convenience seed: a fixed org/profile/auth_user plus the
+// `superadmin` global role for 00000000-...-000000000001 (dev@kourti.local).
+// This is a SHARED, COMMITTED credential — it MUST NEVER exist in production.
+// These statements are appended to the run list ONLY when NODE_ENV !==
+// 'production' (see ensureDatabaseSchema below). The generic global_roles
+// *definitions* (superadmin/admin/user) are seeded unconditionally above —
+// only this privileged *assignment* is gated.
+const devSeedStatements = [
+  `
+  insert into public.organizations (id, name, email)
+  values ('00000000-0000-0000-0000-000000000001', 'Kourti Local Dev Org', 'dev@kourti.local')
+  on conflict (id) do nothing
+  `,
+  `
+  insert into public.profiles (user_id, organization_id, email, first_name, last_name)
+  values (
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    'dev@kourti.local',
+    'Dev',
+    'User'
+  )
+  on conflict (user_id) do nothing
+  `,
+  `
+  insert into public.auth_users (id, email, encrypted_password, is_active, email_confirmed_at)
+  values (
+    '00000000-0000-0000-0000-000000000001',
+    'dev@kourti.local',
+    '$2b$12$/8EAYMwovKMeiAFPEhQ4geMawJ.EbVzwsPaMTGa7VIMkHFoV7Uwya',
+    true,
+    now()
+  )
+  on conflict (id) do nothing
+  `,
+  `do $$ begin
+    insert into public.user_role_assignments (user_id, role_name, organization_id)
+    values (
+      '00000000-0000-0000-0000-000000000001',
+      'superadmin',
+      '00000000-0000-0000-0000-000000000001'
+    );
+    exception when unique_violation then null;
+   end $$`,
+];
+
+// Production remediation: actively neutralize the committed dev superadmin on
+// any deployment that seeded it before this gate existed. Idempotent and safe
+// when the rows are absent — (a) deactivate the auth_user, (b) revoke its
+// superadmin assignment. Runs on every prod boot.
+const prodCleanupStatements = [
+  `update public.auth_users
+     set is_active = false, updated_at = now()
+   where id = '00000000-0000-0000-0000-000000000001'`,
+  `delete from public.user_role_assignments
+   where user_id = '00000000-0000-0000-0000-000000000001'
+     and role_name = 'superadmin'`,
 ];
 
 export async function ensureDatabaseSchema() {
@@ -1744,8 +1897,16 @@ export async function ensureDatabaseSchema() {
   // Previously gated behind RUN_BOOTSTRAP=1 in prod, but that caused 500s
   // when new columns were deployed without running the migration first.
 
+  const isProd = process.env.NODE_ENV === 'production';
+  // In non-prod, append the local dev superadmin seed. In prod, append the
+  // remediation statements that remove that backdoor if it was ever seeded.
+  const statements = [
+    ...bootstrapStatements,
+    ...(isProd ? prodCleanupStatements : devSeedStatements),
+  ];
+
   console.log('Running database bootstrap...');
-  for (const statement of bootstrapStatements) {
+  for (const statement of statements) {
     try {
       await db.query(statement);
     } catch (err) {

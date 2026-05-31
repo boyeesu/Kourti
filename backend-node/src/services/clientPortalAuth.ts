@@ -384,44 +384,18 @@ export async function clientSignIn(email: string, password: string): Promise<Cli
     throw new ApiError('Account is disabled', 403, 'CLIENT_AUTH_ACCOUNT_DISABLED');
   }
 
-  // client_users is a GLOBAL identity (multi-firm). Even if this client's own
-  // otp_enabled flag is off, OTP must be forced when ANY firm they currently
-  // have ACTIVE access to (client-level or per-matter) requires it.
-  const firmReq = await db.query<{ required: boolean }>(
-    `select exists(
-       select 1 from public.organizations o
-        where o.portal_require_otp = true
-          and (
-            exists(select 1 from public.client_portal_access cpa
-                    where cpa.client_user_id = $1 and cpa.status = 'active' and cpa.organization_id = o.id)
-            or exists(select 1 from public.client_case_access cca
-                    where cca.client_user_id = $1 and cca.status = 'active' and cca.organization_id = o.id)
-          )
-     ) as required`,
-    [user.id]
-  );
-  const firmRequiresOtp = firmReq.rows[0]?.required === true;
-
-  // Email OTP is on-by-default (otp_enabled defaults true). When enabled — or
-  // when a firm policy forces it — we issue a short-lived `client_otp` token
-  // and email a code instead of session tokens; the client redeems both via
-  // clientVerifyOtp.
-  if (user.otp_enabled !== false || firmRequiresOtp) {
-    await issueClientOtp(user.id, user.email);
-    return {
-      kind: 'otp_required',
-      otpToken: signClientOtpToken(user.id, user.email),
-      otpTokenExpiresIn: OTP_TOKEN_TTL_SECONDS,
-      emailHint: maskEmail(user.email),
-    };
-  }
-
-  const tokens = await issueClientTokensAndStore({
-    id: user.id,
-    email: user.email,
-    fullName: user.full_name,
-  });
-  return { kind: 'tokens', ...tokens };
+  // Email OTP 2FA is ENFORCED for every client sign-in — it is not optional and
+  // not configurable per-firm or per-user. We always issue a short-lived
+  // `client_otp` token and email a code instead of session tokens; the client
+  // redeems both via clientVerifyOtp. (The legacy otp_enabled /
+  // portal_require_otp flags are left in the schema but no longer gate login.)
+  await issueClientOtp(user.id, user.email);
+  return {
+    kind: 'otp_required',
+    otpToken: signClientOtpToken(user.id, user.email),
+    otpTokenExpiresIn: OTP_TOKEN_TTL_SECONDS,
+    emailHint: maskEmail(user.email),
+  };
 }
 
 /**

@@ -11,6 +11,11 @@ import {
 } from '../../services/authorization.js';
 import { sendInvitationEmail } from '../../services/email.js';
 import { assertSeatAvailableTx } from '../../services/seats.js';
+import { publicProfile } from '../../lib/serialize.js';
+import { exportUserData, eraseUser } from '../../services/privacy.js';
+import { consentContext, setUserMarketingConsent, recordConsent } from '../../services/consent.js';
+import { verifyUserPassword } from '../../services/jwt.js';
+import { logSecurityEvent, eventContextFromRequest } from '../../services/securityEvents.js';
 
 const ROLE_LEVELS: Record<string, number> = {
   user: 1,
@@ -157,6 +162,16 @@ usersRouter.patch(
       [userId, disable]
     );
 
+    await logSecurityEvent({
+      eventType: 'user_status_changed',
+      severity: 'warning',
+      actorType: isPlatAdmin ? 'admin' : 'user',
+      targetType: 'user',
+      targetId: userId,
+      details: { disabled: disable },
+      ...eventContextFromRequest(req),
+    });
+
     res.status(200).json(result.rows[0]?.result ?? { success: true });
   })
 );
@@ -170,34 +185,59 @@ usersRouter.patch(
 
     // Require admin/superadmin role or platform admin
     const isPlatAdmin = await isPlatformAdminUser(auth.userId);
-    if (!isPlatAdmin) {
-      const roleResult = await db.query(
-        `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
-        [auth.userId, auth.organizationId]
+    const actorRoleResult = await db.query(
+      `SELECT role_name FROM public.user_role_assignments WHERE user_id = $1 AND organization_id = $2`,
+      [auth.userId, auth.organizationId]
+    );
+    const actorRoles = actorRoleResult.rows.map(
+      (r: Record<string, unknown>) => r.role_name as string
+    );
+    if (!isPlatAdmin && !actorRoles.includes('admin') && !actorRoles.includes('superadmin')) {
+      throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+    }
+
+    // Privilege-escalation ceiling. Platform roles can never be granted through
+    // this tenant endpoint, and a non-platform actor can't assign a role at or
+    // above their own max level (mirrors the invite path's ceiling so an org
+    // admin cannot self-promote to superadmin).
+    if (role === 'platform_admin' || role === 'superadmin') {
+      throw new ApiError(
+        `The '${role}' role cannot be assigned through the application.`,
+        400,
+        'FORBIDDEN'
       );
-      const roles = roleResult.rows.map((r: Record<string, unknown>) => r.role_name as string);
-      if (!roles.includes('admin') && !roles.includes('superadmin')) {
-        throw new ApiError('Forbidden', 403, 'FORBIDDEN');
+    }
+    if (!isPlatAdmin) {
+      const actorMaxLevel = Math.max(...actorRoles.map(getRoleLevel), 0);
+      if (getRoleLevel(role) >= actorMaxLevel) {
+        throw new ApiError('Cannot assign a role at or above your own level', 403, 'FORBIDDEN');
       }
     }
 
     // Ensure target user belongs to the same organization
-    const targetUser = await db.query(
-      `SELECT organization_id FROM public.profiles WHERE user_id = $1 LIMIT 1`,
+    const targetUser = await db.query<{ organization_id: string; role: string | null }>(
+      `SELECT organization_id, role FROM public.profiles WHERE user_id = $1 LIMIT 1`,
       [userId]
     );
     if (!targetUser.rows[0] || targetUser.rows[0].organization_id !== auth.organizationId) {
       throw new ApiError('User not found', 404, 'NOT_FOUND');
     }
-
-    if (role === 'platform_admin') {
-      throw new ApiError('Platform admin role cannot be assigned through the application.', 400);
-    }
+    const oldRole = targetUser.rows[0].role ?? null;
 
     const result = await db.query('select public.change_user_role($1::uuid, $2::text) as result', [
       userId,
       role,
     ]);
+
+    await logSecurityEvent({
+      eventType: 'role_changed',
+      severity: 'warning',
+      actorType: isPlatAdmin ? 'admin' : 'user',
+      targetType: 'user',
+      targetId: userId,
+      details: { old_role: oldRole, new_role: role },
+      ...eventContextFromRequest(req),
+    });
 
     res.status(200).json(result.rows[0]?.result ?? { success: true });
   })
@@ -533,7 +573,7 @@ usersRouter.get(
         email: auth.email,
         organization_id: auth.organizationId,
       },
-      profile: profile.rows[0] || null,
+      profile: publicProfile(profile.rows[0]) || null,
     });
   })
 );
@@ -569,6 +609,105 @@ usersRouter.patch(
     );
 
     res.status(200).json(result.rows[0] || null);
+  })
+);
+
+// ── Data-subject rights (GDPR Art. 15/17/20/21, NDPR) ───────────────────────
+
+// Right of access + portability — download a machine-readable copy of all
+// personal data we hold about the authenticated user.
+usersRouter.get(
+  '/me/export',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const data = await exportUserData(auth.userId);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="kourti-data-export-${auth.userId}.json"`
+    );
+    res.status(200).send(JSON.stringify(data, null, 2));
+  })
+);
+
+// Marketing-email preference (opt-in / opt-out). Recorded in the consent ledger.
+const marketingConsentSchema = z.object({ granted: z.boolean() });
+usersRouter.post(
+  '/me/marketing-consent',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { granted } = marketingConsentSchema.parse(req.body ?? {});
+    const { ip, userAgent } = consentContext(req);
+    await setUserMarketingConsent({
+      userId: auth.userId,
+      email: auth.email ?? null,
+      granted,
+      ip,
+      userAgent,
+      source: 'preferences',
+    });
+    res.status(200).json({ marketing_consent: granted });
+  })
+);
+
+// Right to restrict processing (Art. 18) — flag the account; surfaced to staff.
+const restrictionSchema = z.object({ restricted: z.boolean() });
+usersRouter.post(
+  '/me/processing-restriction',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { restricted } = restrictionSchema.parse(req.body ?? {});
+    const { ip, userAgent } = consentContext(req);
+    await db.query(
+      `update public.profiles
+          set processing_restricted = $2,
+              processing_restricted_at = case when $2 then now() else null end,
+              updated_at = now()
+        where user_id = $1`,
+      [auth.userId, restricted]
+    );
+    await recordConsent({
+      subjectType: 'user',
+      subjectId: auth.userId,
+      email: auth.email ?? null,
+      consentType: 'privacy',
+      granted: !restricted,
+      source: 'processing_restriction',
+      ip,
+      userAgent,
+    });
+    res.status(200).json({ processing_restricted: restricted });
+  })
+);
+
+// Right to erasure (Art. 17). Re-authenticates with the current password,
+// then hard-deletes/anonymizes all personal data. Irreversible.
+const deleteAccountSchema = z.object({ password: z.string().min(1), confirm: z.literal('DELETE') });
+usersRouter.delete(
+  '/me',
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    const { password } = deleteAccountSchema.parse(req.body ?? {});
+
+    // Block the last admin / org creator from self-erasing and orphaning the
+    // org. They must transfer ownership or delete the organization instead.
+    const creator = await db.query<{ is_organization_creator: boolean | null }>(
+      `select is_organization_creator from public.profiles where user_id = $1 limit 1`,
+      [auth.userId]
+    );
+    if (creator.rows[0]?.is_organization_creator) {
+      throw new ApiError(
+        'Organization owners must transfer ownership or delete the organization before erasing their account.',
+        409,
+        'OWNER_CANNOT_SELF_ERASE'
+      );
+    }
+
+    const ok = await verifyUserPassword(auth.userId, password);
+    if (!ok) throw new ApiError('Password is incorrect', 401, 'AUTH_INVALID_CREDENTIALS');
+
+    const result = await eraseUser(auth.userId);
+    res.status(200).json({ erased: true, ...result });
   })
 );
 

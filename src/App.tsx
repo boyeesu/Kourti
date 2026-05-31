@@ -22,6 +22,7 @@ import { useUserOrganization } from '@/hooks/useUserOrganization';
 // All pages lazy-loaded for code splitting
 import { logInfo, logWarn } from './lib/logger';
 import { SuperAdminRoute } from '@/components/SuperAdminRoute';
+import { CookieConsent } from '@/components/CookieConsent';
 import { MessageCircle } from 'lucide-react';
 // LiveChat overlay removed - now using LiveChatPage as a proper route
 // ThemeProvider removed - now handled in main.tsx
@@ -650,6 +651,7 @@ function FloatingLiveChatButton() {
 const App = () => (
   <TooltipProvider>
     <Sonner />
+    <CookieConsent />
     <NotificationsProvider>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <PageViewTracker />

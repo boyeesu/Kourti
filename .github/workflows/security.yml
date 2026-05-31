@@ -20,9 +20,10 @@ jobs:
           node-version: 22
           cache: 'npm'
       - run: npm ci --ignore-scripts
+      # SOC 2 CI gate: high+ vulnerabilities must FAIL the job (removed
+      # continue-on-error) so vulnerable dependencies block the build.
       - name: Run npm audit
         run: npm audit --audit-level=high
-        continue-on-error: true
       - name: Check for critical vulnerabilities
         run: npm audit --audit-level=critical
 

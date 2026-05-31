@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Building, Mail, MoreHorizontal, Upload, UserCheck, Filter } from 'lucide-react';
+import {
+  Plus,
+  Building,
+  Mail,
+  MoreHorizontal,
+  Upload,
+  UserCheck,
+  Filter,
+  ShieldCheck,
+  ShieldOff,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,12 +20,25 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { PageContainer, PageHeader } from '@/components/layout/PageContainer';
 import { useClients } from '@/hooks/useClients';
+import { useEnableClientPortal, useDisableClientPortal } from '@/features/clientPortal/api';
+import { toast } from 'sonner';
 import type { Client } from '@/types';
 import { TableSkeleton } from '@/components/ui/loading-states';
 import { ErrorState } from '@/components/ui/error-state';
@@ -251,31 +274,7 @@ export default function Clients() {
                   header: 'Actions',
                   sortable: false,
                   minWidth: '80px',
-                  cell: (client) => (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}`)}>
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>
-                          Edit Client
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/matters?client=${client.id}`)}>
-                          View Matters
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => navigate(`/contracts?client=${client.id}`)}
-                        >
-                          View Contracts
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ),
+                  cell: (client) => <ClientActionsMenu client={client} navigate={navigate} />,
                 },
               ] as ColumnDef<Client>[]
             }
@@ -314,6 +313,93 @@ export default function Clients() {
         />
       )}
     </PageContainer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-row actions menu (extracted so the client portal hooks can be used) ---
+// ---------------------------------------------------------------------------
+interface ClientActionsMenuProps {
+  client: Client;
+  navigate: ReturnType<typeof useNavigate>;
+}
+
+function ClientActionsMenu({ client, navigate }: ClientActionsMenuProps) {
+  const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
+  const enablePortal = useEnableClientPortal();
+  const disablePortal = useDisableClientPortal();
+
+  // The clients list row does not carry portal state, so we always offer both
+  // enable (idempotent server-side — it re-sends the invite) and disable, and
+  // rely on the mutation toasts + query invalidation for feedback.
+  const hasEmail = Boolean(client.email);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}`)}>
+            View Details
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate(`/clients/${client.id}/edit`)}>
+            Edit Client
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate(`/matters?client=${client.id}`)}>
+            View Matters
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate(`/contracts?client=${client.id}`)}>
+            View Contracts
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={!hasEmail || enablePortal.isPending}
+            onClick={() => {
+              if (!hasEmail) {
+                toast.error('An email address is required to enable the client portal');
+                return;
+              }
+              enablePortal.mutate(client.id);
+            }}
+          >
+            <ShieldCheck className="h-4 w-4 mr-2" />
+            Enable client portal
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => setConfirmDisableOpen(true)}
+          >
+            <ShieldOff className="h-4 w-4 mr-2" />
+            Disable client portal
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={confirmDisableOpen} onOpenChange={setConfirmDisableOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable client portal?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This revokes {client.name}&apos;s access to the client portal. They will no longer be
+              able to sign in or view case updates. You can re-enable access at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => disablePortal.mutate(client.id)}
+            >
+              Disable access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

@@ -16,12 +16,31 @@ import './agents/weeklyDigest.js';
 import './agents/trialExpirySweep.js';
 import './agents/unverifiedUserSweep.js';
 import './agents/lifecycleRulesSweep.js';
+import './agents/retentionSweep.js';
 import { startMonitorScheduler } from './agents/monitorScheduler.js';
 import { startWeeklyDigestScheduler } from './agents/weeklyDigest.js';
 import { startTrialExpirySweep } from './agents/trialExpirySweep.js';
 import { startUnverifiedUserSweep } from './agents/unverifiedUserSweep.js';
 import { startMarketingKbScheduler } from './agents/marketingKbSync.js';
 import { startLifecycleRulesSweep } from './agents/lifecycleRulesSweep.js';
+import { startRetentionSweep } from './agents/retentionSweep.js';
+import { purgeExpiredAuditData } from './scripts/retentionPurge.js';
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+// SOC 2 storage-limitation control: purge expired audit/security/email-log
+// data once shortly after boot, then daily. Guarded so a failure never crashes
+// the server (the purge itself is already best-effort per-table).
+function scheduleRetentionPurge() {
+  const run = () => {
+    void purgeExpiredAuditData().catch((error) => {
+      console.error('Retention purge failed:', error instanceof Error ? error.message : error);
+    });
+  };
+  // First run a short delay after boot so it doesn't compete with startup work.
+  setTimeout(run, 60_000).unref?.();
+  setInterval(run, ONE_DAY_MS).unref?.();
+}
 
 const app = createApp();
 const server = createServer(app);
@@ -50,6 +69,7 @@ async function start() {
     await startUnverifiedUserSweep();
     await startMarketingKbScheduler();
     await startLifecycleRulesSweep();
+    await startRetentionSweep();
   } catch (error) {
     console.error(
       'Agent worker startup failed (server will still start):',
@@ -59,6 +79,7 @@ async function start() {
 
   server.listen(env.PORT, '0.0.0.0', () => {
     console.log(`backend-node listening on 0.0.0.0:${env.PORT} [${env.NODE_ENV}]`);
+    scheduleRetentionPurge();
   });
 }
 
