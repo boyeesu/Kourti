@@ -329,6 +329,7 @@ export default function Onboarding() {
           email: formData.account.email,
           first_name: formData.account.firstName,
           last_name: formData.account.lastName,
+          acceptedTerms: formData.account.acceptedTerms,
         });
 
         if (!result.error) {

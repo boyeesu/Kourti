@@ -42,6 +42,7 @@ interface UserData {
   first_name?: string;
   last_name?: string;
   email: string;
+  acceptedTerms?: boolean;
   [key: string]: unknown;
 }
 
@@ -169,6 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = await authSignUp(email, password, {
         firstName: userData?.first_name,
         lastName: userData?.last_name,
+        acceptedTerms: userData?.acceptedTerms === true,
       });
 
       if (error) {

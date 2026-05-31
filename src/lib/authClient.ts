@@ -210,7 +210,7 @@ export async function signIn(email: string, password: string): Promise<SignInOut
 export async function signUp(
   email: string,
   password: string,
-  metadata?: { firstName?: string; lastName?: string }
+  metadata?: { firstName?: string; lastName?: string; acceptedTerms?: boolean }
 ): Promise<SignInOutcome> {
   try {
     const data = await apiCall<SignInResponse>('/sign-up', {
@@ -218,6 +218,7 @@ export async function signUp(
       password,
       firstName: metadata?.firstName,
       lastName: metadata?.lastName,
+      acceptedTerms: metadata?.acceptedTerms === true,
     });
     if (isMfaRequired(data)) {
       return { session: null, mfa: data, error: null };
