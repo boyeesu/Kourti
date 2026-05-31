@@ -173,6 +173,13 @@ function safeDisposition(mime: string, filename?: string): string {
   return `${verb}; filename="${safe}"`;
 }
 
+// Cap signed-URL lifetime. The signed URL IS the credential (it carries no
+// user identity and is freely shareable), so an uncapped `expiresIn` would let
+// any authenticated caller mint a near-permanent document link that outlives
+// the session or a deactivated account. Both routes below are staff-auth, so
+// 3600s (1h) is the ceiling; a portal variant (if added) should cap to 900s.
+const MAX_SIGNED_URL_EXPIRES_IN = 3600;
+
 export const filesRouter = Router();
 
 // ── Upload to documents bucket ──────────────────────────────────────────────
@@ -326,7 +333,7 @@ filesRouter.get(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
     const filePath = z.string().min(1).parse(req.query.filePath);
-    const expiresIn = Number(req.query.expiresIn) || 3600;
+    const expiresIn = Math.min(Number(req.query.expiresIn) || 3600, MAX_SIGNED_URL_EXPIRES_IN);
 
     if (!filePath.startsWith(`${auth.organizationId}/`)) {
       throw new ApiError('Access denied', 403, 'FORBIDDEN');
@@ -348,7 +355,7 @@ filesRouter.get(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
     const filePath = z.string().min(1).parse(req.query.filePath);
-    const expiresIn = Number(req.query.expiresIn) || 3600;
+    const expiresIn = Math.min(Number(req.query.expiresIn) || 3600, MAX_SIGNED_URL_EXPIRES_IN);
 
     if (!filePath.startsWith(`${auth.organizationId}/`)) {
       throw new ApiError('Access denied', 403, 'FORBIDDEN');

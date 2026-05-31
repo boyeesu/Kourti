@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { logError } from '@/lib/logger';
+import { logError, logInfo } from '@/lib/logger';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,10 +56,8 @@ export default function ForgotPassword() {
       return;
     }
 
-    // Log success in development
-    if (import.meta.env.DEV) {
-      console.log('Password reset email sent successfully');
-    }
+    // Route through the logger so production gating + URL sanitization apply.
+    logInfo('Password reset email sent successfully');
 
     setEmailSent(true);
     setLoading(false);

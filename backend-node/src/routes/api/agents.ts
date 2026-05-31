@@ -6,6 +6,7 @@ import { ApiError, asyncHandler } from '../../lib/http.js';
 import { getBoss } from '../../lib/pgboss.js';
 import { markApprovalExecuted } from '../../lib/approvalGate.js';
 import { checkRateLimit } from '../../lib/rateLimit.js';
+import { isOrgAdminOrSoleMember } from '../../services/authorization.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -20,13 +21,13 @@ function enforceRateLimit(identifier: string, maxRequests: number, windowMs: num
   }
 }
 
+// H8 — use the canonical org-admin authorization check (user_role_assignments
+// + sole-member fallback) instead of the divergent free-text profiles.role
+// lookup. Same allow/deny outcome for genuine org admins, consistent with
+// billing.ts / misc.ts.
 async function requireAdminRole(userId: string, organizationId: string) {
-  const result = await db.query(
-    `select role from profiles where user_id = $1 and organization_id = $2`,
-    [userId, organizationId]
-  );
-  const role = result.rows[0]?.role;
-  if (!role || !['admin', 'owner', 'partner'].includes(role.toLowerCase())) {
+  const allowed = await isOrgAdminOrSoleMember(userId, organizationId);
+  if (!allowed) {
     throw new ApiError('This action requires admin privileges', 403, 'ADMIN_REQUIRED');
   }
 }

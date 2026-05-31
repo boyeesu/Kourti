@@ -21,7 +21,19 @@ type RateLimitResult = {
 // instance onto the shared authoritative count within one request.
 const memoryStore = new Map<string, { count: number; resetAt: number }>();
 
-let useDbStore = true;
+// DB-store availability with a cooldown circuit breaker. A single DB error no
+// longer disables the shared counter for the whole process lifetime (a brief
+// blip would permanently degrade distributed limiting to per-instance memory).
+// Instead we back off for DB_STORE_COOLDOWN_MS, fall back to in-memory in the
+// interim, then re-attempt the DB store after the cooldown elapses.
+const DB_STORE_COOLDOWN_MS = 30_000;
+// Timestamp (ms) until which the DB store is considered unavailable. 0 = healthy.
+let dbStoreUnavailableUntil = 0;
+
+/** True when the DB store should be attempted (healthy, or cooldown elapsed). */
+function dbStoreReady(now: number): boolean {
+  return dbStoreUnavailableUntil === 0 || now >= dbStoreUnavailableUntil;
+}
 
 /**
  * Derive a stable window key so each fixed window gets its own row. The window
@@ -86,7 +98,13 @@ export function checkRateLimit(
  * immediately on the next call even if its local count was lower.
  */
 function reconcileWithDb(key: string, resetAt: number, maxRequests: number) {
-  if (!useDbStore) return;
+  const now = Date.now();
+  if (!dbStoreReady(now)) return;
+  // A prior cooldown has elapsed — clear it and re-attempt the DB store. If this
+  // attempt also fails the .catch() below re-arms the cooldown.
+  if (dbStoreUnavailableUntil !== 0) {
+    dbStoreUnavailableUntil = 0;
+  }
   db.query<{ count: number }>(
     `INSERT INTO public.rate_limits (key, count, reset_at)
      VALUES ($1, 1, to_timestamp($2 / 1000.0))
@@ -117,15 +135,19 @@ function reconcileWithDb(key: string, resetAt: number, maxRequests: number) {
       }
     })
     .catch((err) => {
-      // First failure flips us to in-memory-only (fail open to preserve
-      // availability); bootstrap should have created the table.
-      if (useDbStore) {
+      // Back off for a cooldown window instead of disabling permanently. During
+      // the cooldown we fail open to in-memory (preserving availability); once it
+      // elapses the next call re-attempts the DB store. Only log on the leading
+      // edge (transition from healthy → unavailable) to avoid log spam.
+      // NOTE: alert on this warn in your log pipeline — sustained occurrences
+      // mean cross-replica limiting is degraded (see VAPT M10).
+      if (dbStoreUnavailableUntil === 0) {
         console.warn(
-          '[rateLimit] DB counter unavailable, falling back to in-memory:',
+          `[rateLimit] DB counter unavailable, falling back to in-memory for ${DB_STORE_COOLDOWN_MS}ms:`,
           err?.message ?? err
         );
-        useDbStore = false;
       }
+      dbStoreUnavailableUntil = Date.now() + DB_STORE_COOLDOWN_MS;
     });
 }
 
@@ -134,7 +156,7 @@ function reconcileWithDb(key: string, resetAt: number, maxRequests: number) {
  * This ensures rate limits survive restarts.
  */
 export async function hydrateRateLimits() {
-  if (!useDbStore) return;
+  if (!dbStoreReady(Date.now())) return;
   try {
     const result = await db.query<{ key: string; count: number; reset_at: string }>(
       `SELECT key, count, extract(epoch from reset_at) * 1000 as reset_at

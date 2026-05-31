@@ -20,11 +20,50 @@ export interface LogEntry {
 // Constants for logger configuration
 const MAX_LOGS = 200; // Reduced to prevent excessive localStorage usage
 const LOG_STORAGE_KEY = 'kourti_legal_logs';
-const SHOULD_PERSIST_TO_LOCAL = import.meta.env.MODE !== 'production';
+
+/**
+ * True only when running on a local development host. Used to gate features that
+ * could leak data on deployed environments (localStorage log persistence,
+ * `window.__KOURTI_LOGS__`). We deliberately key off the hostname rather than
+ * `import.meta.env.MODE`, because staging/preview deploys also build in
+ * non-production modes and must NOT persist logs to the browser. (M7)
+ */
+const IS_LOCALHOST =
+  typeof window !== 'undefined' &&
+  /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/.test(window.location.hostname);
+
+const SHOULD_PERSIST_TO_LOCAL = IS_LOCALHOST;
 const SHOULD_SEND_TO_SERVER = true;
 const SERVER_LOG_ENDPOINT = import.meta.env.VITE_LOG_API_ENDPOINT || null;
 const LOG_BATCH_SIZE = 20; // Number of logs to collect before sending to server
 const ENABLE_CONSOLE_LOGS = import.meta.env.MODE !== 'production';
+
+/** Query params that must never be recorded in logs (M7). */
+const SENSITIVE_QUERY_PARAMS = ['token', 'access_token', 'refresh_token', 'code', 'state', 'email'];
+
+/**
+ * Strip sensitive query parameters (reset/invite tokens, OAuth codes, email)
+ * from a URL before it is logged. Returns the URL with offending params replaced
+ * by `[redacted]`. Falls back to the path-only form if parsing fails.
+ */
+export function sanitizeUrl(rawUrl: string | undefined | null): string | undefined {
+  if (!rawUrl) return undefined;
+  try {
+    const url = new URL(rawUrl, typeof window !== 'undefined' ? window.location.origin : undefined);
+    for (const key of SENSITIVE_QUERY_PARAMS) {
+      if (url.searchParams.has(key)) {
+        url.searchParams.set(key, '[redacted]');
+      }
+    }
+    return url.toString();
+  } catch {
+    // Not a parseable URL (e.g. a bare search string) — redact defensively.
+    return rawUrl.replace(
+      new RegExp(`([?&](?:${SENSITIVE_QUERY_PARAMS.join('|')})=)[^&#]*`, 'gi'),
+      '$1[redacted]'
+    );
+  }
+}
 
 // Generate a unique session ID for better tracking (lazy-loaded to avoid initialization issues)
 let _sessionId: string | null = null;
@@ -102,7 +141,7 @@ function addEntry(entry: LogEntry) {
   const enhancedEntry: LogEntry = {
     ...entry,
     sessionId: getSessionId(),
-    url: typeof window !== 'undefined' ? window.location.href : undefined,
+    url: typeof window !== 'undefined' ? sanitizeUrl(window.location.href) : undefined,
     userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
   };
 
@@ -336,8 +375,9 @@ if (typeof window !== 'undefined' && SHOULD_SEND_TO_SERVER && SERVER_LOG_ENDPOIN
 // Initialize logs
 persistToLocalStorage();
 
-// Expose logs for debugging in non-production environments
-if (typeof window !== 'undefined' && import.meta.env.MODE !== 'production') {
+// Expose logs for debugging on localhost only (M7) — never on deployed envs,
+// including staging/preview which also build in non-production modes.
+if (typeof window !== 'undefined' && IS_LOCALHOST) {
   (window as unknown as Record<string, unknown>).__KOURTI_LOGS__ = {
     getLogs,
     clearLogs,

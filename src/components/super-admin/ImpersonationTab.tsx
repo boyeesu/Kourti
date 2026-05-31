@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Eye, ShieldAlert, X } from 'lucide-react';
+import { Eye, ShieldAlert, X, Copy, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   useActiveImpersonations,
   useStartImpersonation,
@@ -21,15 +22,43 @@ export function ImpersonationTab() {
   const [targetUserId, setTargetUserId] = useState('');
   const [reason, setReason] = useState('');
   const [scope, setScope] = useState<'read' | 'write'>('read');
-  const [lastToken, setLastToken] = useState<string | null>(null);
+  // Hold the issued token in a ref (not React state / DevTools-visible state) so
+  // it is never rendered to the DOM. We only surface a masked preview + a
+  // copy-to-clipboard action, then clear it from memory after copy.
+  const lastTokenRef = useRef<string | null>(null);
+  const [tokenMask, setTokenMask] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const canWrite = has('impersonate.write');
 
+  const maskToken = (token: string): string => {
+    const last4 = token.slice(-4);
+    return `••••••••••••••••${last4}`;
+  };
+
   const handleStart = async () => {
     const result = await start.mutateAsync({ targetUserId: targetUserId.trim(), scope, reason });
-    setLastToken(result.token);
+    lastTokenRef.current = result.token;
+    setTokenMask(maskToken(result.token));
+    setCopied(false);
     setTargetUserId('');
     setReason('');
+  };
+
+  const handleCopyToken = async () => {
+    const token = lastTokenRef.current;
+    if (!token) return;
+    try {
+      await navigator.clipboard.writeText(token);
+      setCopied(true);
+      // Clear the token from memory once copied — it lives only on the clipboard.
+      lastTokenRef.current = null;
+      toast.success('Token copied', {
+        description: 'The impersonation token is on your clipboard and cleared from this page.',
+      });
+    } catch {
+      toast.error('Copy failed', { description: 'Could not access the clipboard.' });
+    }
   };
 
   return (
@@ -91,19 +120,36 @@ export function ImpersonationTab() {
             Start session
           </Button>
 
-          {lastToken && (
+          {tokenMask && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
               <div className="mb-1 flex items-center gap-1.5 font-semibold">
                 <ShieldAlert className="h-3.5 w-3.5" /> Session token issued
               </div>
               <p className="mb-2">
                 This short-lived token authenticates as the target user. The in-browser “become
-                user” swap is intentionally a separate, carefully-reviewed step — for now use this
-                token with an API client to reproduce the user’s requests, or revoke it below.
+                user” swap is intentionally a separate, carefully-reviewed step — for now copy this
+                token to use with an API client to reproduce the user’s requests, or revoke it
+                below. For security the full token is never displayed; copy it once, then it is
+                cleared from this page.
               </p>
-              <code className="block max-h-24 overflow-auto break-all rounded bg-white/60 p-2">
-                {lastToken}
-              </code>
+              <div className="flex items-center gap-2">
+                <code className="block flex-1 overflow-hidden text-ellipsis rounded bg-white/60 p-2">
+                  {tokenMask}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopyToken}
+                  disabled={!lastTokenRef.current || copied}
+                >
+                  {copied ? (
+                    <Check className="mr-1.5 h-3.5 w-3.5" />
+                  ) : (
+                    <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {copied ? 'Copied' : 'Copy token'}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

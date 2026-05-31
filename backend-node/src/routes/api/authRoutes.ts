@@ -464,6 +464,29 @@ authRouter.post(
     const body = z.object({ newPassword: passwordSchema }).parse(req.body);
     const auth = req.auth!;
 
+    // H7 — only honor this no-current-password path when the account is
+    // genuinely in a forced-change state. Otherwise a stolen live access
+    // token could silently replace the victim's password. Legitimate
+    // first-login / admin-forced resets set one of these profile flags;
+    // the normal /change-password route (which requires currentPassword)
+    // is the only other way to rotate a password.
+    const flagResult = await db.query<{
+      must_change_password: boolean | null;
+      password_reset_required: boolean | null;
+    }>(
+      `SELECT must_change_password, password_reset_required
+         FROM public.profiles WHERE user_id = $1 LIMIT 1`,
+      [auth.userId]
+    );
+    const flags = flagResult.rows[0];
+    if (!flags || (!flags.must_change_password && !flags.password_reset_required)) {
+      throw new ApiError(
+        'Password change not required. Use the standard change-password flow.',
+        403,
+        'AUTH_FORCE_CHANGE_NOT_REQUIRED'
+      );
+    }
+
     const hashedPassword = await import('bcryptjs').then((b) =>
       b.default.hash(body.newPassword, 12)
     );
@@ -682,6 +705,7 @@ authRouter.post(
 authRouter.post(
   '/reset-password/confirm',
   asyncHandler(async (req, res) => {
+    enforceRateLimit(`auth:reset-confirm:${clientIp(req)}`, 10, 60_000);
     const { token, password } = resetConfirmSchema.parse(req.body);
     await resetPasswordConfirm(token, password, eventContextFromRequest(req));
     clearRefreshCookie(res);
@@ -695,8 +719,19 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
 
+    // Explicit projection (data minimization) — mirrors lib/serialize.ts
+    // publicProfile by omitting the INTERNAL_PROFILE_FIELDS
+    // (disabled_*/approved_by/must_change_password/password_reset_required/
+    // processing_restricted_at). Only columns the frontend consumes are
+    // returned; `SELECT p.*` would otherwise leak new operational columns.
     const profile = await db.query(
-      `SELECT p.*, o.name as organization_name
+      `SELECT p.id, p.user_id, p.organization_id, p.email,
+              p.first_name, p.last_name, p.role, p.department, p.status,
+              p.approved_at, p.terms_accepted_at, p.terms_version,
+              p.marketing_consent, p.marketing_consent_at,
+              p.processing_restricted, p.deletion_requested_at,
+              p.created_at, p.updated_at,
+              o.name as organization_name
        FROM public.profiles p
        LEFT JOIN public.organizations o ON o.id = p.organization_id
        WHERE p.user_id = $1 LIMIT 1`,

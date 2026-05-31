@@ -20,7 +20,7 @@ import { SearchProvider } from '@/hooks/use-search';
 import { useInactivityLogout } from '@/hooks/useInactivityLogout';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
 // All pages lazy-loaded for code splitting
-import { logInfo, logWarn } from './lib/logger';
+import { logInfo, logWarn, sanitizeUrl } from './lib/logger';
 import { SuperAdminRoute } from '@/components/SuperAdminRoute';
 import { CookieConsent } from '@/components/CookieConsent';
 import { MessageCircle } from 'lucide-react';
@@ -490,7 +490,8 @@ function PageViewTracker() {
   useEffect(() => {
     logInfo('Page view', {
       path: location.pathname,
-      search: location.search,
+      // Redact reset/invite tokens, OAuth codes, email before logging (M7).
+      search: sanitizeUrl(location.search),
     });
   }, [location]);
 

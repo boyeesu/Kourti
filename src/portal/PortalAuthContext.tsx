@@ -10,7 +10,7 @@ import {
   portalResendOtp,
   portalLogout,
   clearPortalTokens,
-  getPortalTokens,
+  ensurePortalSession,
   setPortalTokens,
   type PortalAuthUser,
   type PortalResendOtpResponse,
@@ -52,7 +52,10 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
 
   const hydrate = useCallback(async () => {
-    if (!getPortalTokens()) {
+    // On page reload the in-memory access token is gone; re-establish it from
+    // the tab-scoped refresh token (sessionStorage) before calling /me.
+    const recovered = await ensurePortalSession();
+    if (!recovered) {
       setClient(null);
       setLoading(false);
       return;

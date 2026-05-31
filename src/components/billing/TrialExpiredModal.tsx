@@ -17,6 +17,7 @@ import { logError } from '@/lib/logger';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useInitiatePayment } from '@/hooks/useSubscription';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { isSafeHttpsUrl, PAYMENT_REDIRECT_ORIGINS } from '@/lib/safeUrl';
 
 interface PricingPlan {
   id: string;
@@ -143,7 +144,11 @@ export function TrialExpiredModal() {
       const checkoutUrl =
         (result as { authorization_url?: string; payment_link?: string }).authorization_url ??
         (result as { authorization_url?: string; payment_link?: string }).payment_link;
-      if (!checkoutUrl) throw new Error('No checkout URL returned');
+      // Defense-in-depth: require https on an expected payment-provider origin.
+      // An invalid/unexpected URL falls through to the settings-page fallback.
+      if (!isSafeHttpsUrl(checkoutUrl, PAYMENT_REDIRECT_ORIGINS)) {
+        throw new Error('No valid checkout URL returned');
+      }
       window.location.href = checkoutUrl;
     } catch (error) {
       logError('Error initiating payment from trial-expired modal', error);

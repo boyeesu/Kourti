@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { AppLogo } from '@/components/ui/AppLogo';
+import { isSafePath } from '@/lib/safeUrl';
 import { usePortalAuth } from '../PortalAuthContext';
 
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -31,7 +32,10 @@ export default function PortalLogin() {
   const [verifying, setVerifying] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
-  const from = (location.state as { from?: Location } | null)?.from?.pathname ?? '/portal';
+  // Validate the post-login redirect target to prevent open-redirect via a
+  // tampered location.state; fall back to /portal for anything unsafe.
+  const fromCandidate = (location.state as { from?: Location } | null)?.from?.pathname;
+  const from = isSafePath(fromCandidate) ? fromCandidate : '/portal';
 
   useEffect(() => {
     if (cooldown <= 0) return;

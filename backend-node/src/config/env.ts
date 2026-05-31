@@ -74,6 +74,16 @@ const envSchema = z.object({
   // are declared together in the data-protection block further below.
   APP_ENCRYPTION_KEY: optionalNonEmptyString,
 
+  // Dedicated HMAC keys, segregated from JWT_SECRET so a single leak doesn't
+  // widen the blast radius across every signing use (VAPT Low — crypto key
+  // reuse). Both OPTIONAL: when unset the code falls back to JWT_SECRET so
+  // already-issued signed file URLs and live unsubscribe links keep verifying.
+  // Set dedicated 32+ byte values in production; rotate independently of JWT.
+  //   - SIGNED_URL_SECRET: HMAC key for backend-issued signed file URLs.
+  //   - UNSUBSCRIBE_HMAC_SECRET: HMAC key for one-click unsubscribe tokens.
+  SIGNED_URL_SECRET: optionalNonEmptyString,
+  UNSUBSCRIBE_HMAC_SECRET: optionalNonEmptyString,
+
   AGENT_ENABLED: z
     .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
     .default(true),
@@ -178,10 +188,6 @@ if (env.NODE_ENV === 'production') {
     }
   }
 
-  if (env.SSO_SECRET_KEY === 'kourti-dev-sso-key-change-in-production') {
-    throw new Error('SSO_SECRET_KEY must be changed from the default value in production');
-  }
-
   // Entropy guard for the SSO encryption key, consistent with the JWT secret
   // guards above — a <32-char key is brute-forceable.
   if (env.SSO_SECRET_KEY.length < 32) {
@@ -198,6 +204,19 @@ if (env.NODE_ENV === 'production') {
         '(e.g. TOTP secrets at rest); falling back to a JWT_SECRET-derived key.'
     );
   }
+}
+
+// SSO_SECRET_KEY default-value guard. Broadened to fire on ANY non-development
+// boot (staging included), not just NODE_ENV=production — a staging env on the
+// public default constant is just as exposed (VAPT Low). Local dev
+// (NODE_ENV=development) keeps the default so it stays zero-config.
+if (
+  env.NODE_ENV !== 'development' &&
+  env.SSO_SECRET_KEY === 'kourti-dev-sso-key-change-in-production'
+) {
+  throw new Error(
+    'SSO_SECRET_KEY must be changed from the default value outside local development'
+  );
 }
 
 // S3 driver requires its full credential set — refuse to boot half-configured.

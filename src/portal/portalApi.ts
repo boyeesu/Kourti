@@ -1,16 +1,26 @@
 /**
  * Client Portal API client.
  *
- * A separate auth surface from the staff app. Tokens are stored in localStorage
- * under `kourti_portal_tokens` (distinct from the staff token store). Mirrors the
- * conventions in `lib/api.ts` / `lib/backendApi.ts` but for the `/api/v1/portal*`
- * endpoints with portal-specific bearer + refresh handling.
+ * A separate auth surface from the staff app. Mirrors the conventions in
+ * `lib/api.ts` / `lib/backendApi.ts` but for the `/api/v1/portal*` endpoints
+ * with portal-specific bearer + refresh handling.
+ *
+ * Token storage model (SAFE INTERIM, see H5 below):
+ * - Access token: held in memory only (never persisted to storage).
+ * - Refresh token: kept in `sessionStorage` (tab-scoped) under
+ *   `kourti_portal_refresh`, so a page reload within the same tab can still
+ *   recover the session without a long-lived `localStorage` artifact that
+ *   survives across tabs/restarts and is trivially exfiltrated by XSS.
+ *
+ * // SECURITY-TODO(H5): full fix is httpOnly cookie for refresh token —
+ * requires backend Set-Cookie on /portal/auth/refresh (coordinated change)
  */
 import { env } from '@/lib/env';
 
 // ── Token storage ─────────────────────────────────────────────────────────────
 
-export const PORTAL_TOKEN_KEY = 'kourti_portal_tokens';
+/** sessionStorage key holding only the (tab-scoped) refresh token. */
+export const PORTAL_REFRESH_KEY = 'kourti_portal_refresh';
 
 export interface PortalTokens {
   accessToken: string;
@@ -19,16 +29,27 @@ export interface PortalTokens {
   expiresAt: number;
 }
 
-export function getPortalTokens(): PortalTokens | null {
+// Access token + its expiry live in memory only (module-scoped), mirroring the
+// staff app (`lib/authClient.ts`). They are intentionally NOT persisted.
+let accessTokenInMemory: string | null = null;
+let accessTokenExpiresAt = 0;
+
+function getRefreshToken(): string | null {
   try {
-    const raw = localStorage.getItem(PORTAL_TOKEN_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PortalTokens;
-    if (!parsed?.accessToken || !parsed?.refreshToken) return null;
-    return parsed;
+    return sessionStorage.getItem(PORTAL_REFRESH_KEY);
   } catch {
     return null;
   }
+}
+
+export function getPortalTokens(): PortalTokens | null {
+  const refreshToken = getRefreshToken();
+  if (!accessTokenInMemory || !refreshToken) return null;
+  return {
+    accessToken: accessTokenInMemory,
+    refreshToken,
+    expiresAt: accessTokenExpiresAt,
+  };
 }
 
 export function setPortalTokens(input: {
@@ -36,16 +57,25 @@ export function setPortalTokens(input: {
   refreshToken: string;
   expiresIn: number;
 }): void {
-  const tokens: PortalTokens = {
-    accessToken: input.accessToken,
-    refreshToken: input.refreshToken,
-    expiresAt: Date.now() + input.expiresIn * 1000,
-  };
-  localStorage.setItem(PORTAL_TOKEN_KEY, JSON.stringify(tokens));
+  accessTokenInMemory = input.accessToken;
+  accessTokenExpiresAt = Date.now() + input.expiresIn * 1000;
+  try {
+    // Tab-scoped: cleared when the tab closes; not shared across tabs.
+    sessionStorage.setItem(PORTAL_REFRESH_KEY, input.refreshToken);
+  } catch {
+    // sessionStorage unavailable — session will not survive a reload, but the
+    // in-memory access token still works for the current page lifetime.
+  }
 }
 
 export function clearPortalTokens(): void {
-  localStorage.removeItem(PORTAL_TOKEN_KEY);
+  accessTokenInMemory = null;
+  accessTokenExpiresAt = 0;
+  try {
+    sessionStorage.removeItem(PORTAL_REFRESH_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -253,19 +283,23 @@ async function authCall<T>(path: string, body?: Record<string, unknown>): Promis
 
 let refreshInFlight: Promise<PortalTokens> | null = null;
 
-/** Refresh the portal access token using the stored refresh token. */
+/**
+ * Refresh the portal access token using the (tab-scoped, sessionStorage) refresh
+ * token. Reads the refresh token directly so it also works after a page reload,
+ * when the in-memory access token is gone but the refresh token survives.
+ */
 async function refreshPortalSession(): Promise<PortalTokens> {
   if (refreshInFlight) return refreshInFlight;
 
-  const tokens = getPortalTokens();
-  if (!tokens?.refreshToken) {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
     throw new PortalApiError('Session expired. Please sign in again.', 401);
   }
 
   refreshInFlight = (async () => {
     try {
       const data = await authCall<PortalAuthResponse>('/auth/refresh', {
-        refreshToken: tokens.refreshToken,
+        refreshToken,
       });
       setPortalTokens(data);
       return getPortalTokens()!;
@@ -281,6 +315,31 @@ async function refreshPortalSession(): Promise<PortalTokens> {
 }
 
 /**
+ * True when a refresh token is present for this tab — i.e. a session may be
+ * recoverable (e.g. immediately after a page reload, before any access token
+ * has been minted into memory).
+ */
+export function hasPortalRefreshToken(): boolean {
+  return getRefreshToken() !== null;
+}
+
+/**
+ * Bootstrap the in-memory access token from the tab-scoped refresh token.
+ * Used on app startup / page reload to re-establish the session. Resolves with
+ * `true` when an access token is available afterwards.
+ */
+export async function ensurePortalSession(): Promise<boolean> {
+  if (getPortalTokens()?.accessToken) return true;
+  if (!getRefreshToken()) return false;
+  try {
+    await refreshPortalSession();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Authenticated portal request. Attaches the portal bearer; on a 401 it tries a
  * single refresh + retry, then gives up (clearing tokens).
  */
@@ -292,9 +351,17 @@ async function portalApi<T>(
   },
   isRetry = false
 ): Promise<T> {
-  const tokens = getPortalTokens();
+  let tokens = getPortalTokens();
   if (!tokens?.accessToken) {
-    throw new PortalApiError('Not authenticated', 401);
+    // No in-memory access token (e.g. just after a page reload). If a tab-scoped
+    // refresh token survives, mint a fresh access token before giving up.
+    if (!isRetry && getRefreshToken()) {
+      await refreshPortalSession();
+      tokens = getPortalTokens();
+    }
+    if (!tokens?.accessToken) {
+      throw new PortalApiError('Not authenticated', 401);
+    }
   }
 
   const controller = new AbortController();

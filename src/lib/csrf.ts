@@ -1,4 +1,3 @@
-import { onAuthStateChange } from '@/lib/authClient';
 import { logError, logInfo } from './logger';
 
 /**
@@ -143,55 +142,25 @@ export const refreshCSRFToken = (): string => {
 };
 
 /**
- * Initialize CSRF protection for the application
+ * Initialize CSRF protection for the application.
+ *
+ * NOTE (M6): the previous implementation monkey-patched `window.fetch` to inject
+ * the `X-CSRF-Token` header on same-origin, state-changing requests. That code
+ * was dead: every API call goes cross-origin to `VITE_BACKEND_API_URL`, so the
+ * same-origin guard never matched and no token was ever sent. Staff/portal auth
+ * is bearer-token-in-header (not cookie-based), so it is not CSRF-vulnerable and
+ * the patch provided only false assurance. The fetch patch, the periodic
+ * refresh interval, and the auth-state listener have therefore been removed.
+ *
+ * The token is still minted on init and exposed via `addCSRFToRequest()`, which
+ * the logger uses for the optional same-origin log endpoint
+ * (`VITE_LOG_API_ENDPOINT`) — the one genuinely same-origin caller.
  */
 export const initCSRFProtection = (): void => {
   try {
-    // Set initial token
+    // Set initial token (consumed by addCSRFToRequest for the log endpoint).
     setCSRFToken();
-
-    // Listen for auth state changes to refresh token
-    onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        refreshCSRFToken();
-      }
-    });
-
-    // Periodically refresh token (every few hours)
-    const refreshInterval = (TOKEN_EXPIRY_HOURS * 60 * 60 * 1000) / 2; // Refresh at half the expiry time
-    setInterval(refreshCSRFToken, refreshInterval);
-
-    // Patch fetch to automatically include CSRF token for same-origin requests
-    const originalFetch = window.fetch;
-    window.fetch = function (input: URL | RequestInfo, init?: RequestInit) {
-      try {
-        let url: URL;
-
-        if (typeof input === 'string') {
-          // Handle relative URLs correctly
-          url = new URL(input, window.location.origin);
-        } else if (input instanceof URL) {
-          url = input;
-        } else {
-          // Handle Request objects
-          url = new URL(input.url, window.location.origin);
-        }
-
-        // Only add CSRF token for same-origin requests that modify state
-        const isModifyingMethod =
-          !init?.method || ['POST', 'PUT', 'PATCH', 'DELETE'].includes(init.method.toUpperCase());
-
-        if (url.origin === window.location.origin && isModifyingMethod) {
-          init = addCSRFToRequest(init || {});
-        }
-      } catch (error) {
-        logError('Error in CSRF fetch wrapper', error);
-      }
-
-      return originalFetch.call(this, input, init);
-    };
-
-    logInfo('CSRF protection initialized successfully');
+    logInfo('CSRF token initialized');
   } catch (error) {
     logError('Failed to initialize CSRF protection', error);
   }

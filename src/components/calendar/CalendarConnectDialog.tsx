@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Calendar, CheckCircle2 } from 'lucide-react';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { toast } from 'sonner';
+import { isSafeHttpsUrl, CALENDAR_OAUTH_ORIGINS } from '@/lib/safeUrl';
 
 interface CalendarConnectDialogProps {
   open: boolean;
@@ -28,8 +29,15 @@ export function CalendarConnectDialog({
     setIsConnecting(true);
     try {
       const authUrl = await connectCalendar.mutateAsync(provider);
-      if (authUrl) {
+      // Defense-in-depth: only redirect to a server-supplied OAuth URL when it
+      // is https and on an expected Google/Microsoft origin.
+      if (isSafeHttpsUrl(authUrl, CALENDAR_OAUTH_ORIGINS)) {
         window.location.href = authUrl;
+      } else if (authUrl) {
+        toast.error('Connection Failed', {
+          description: 'Received an unexpected authorization URL. Please try again.',
+        });
+        setIsConnecting(false);
       }
     } catch (error: unknown) {
       const errorMessage =

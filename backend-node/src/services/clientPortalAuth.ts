@@ -6,6 +6,14 @@ import { env } from '../config/env.js';
 import { db } from '../db/pool.js';
 import { ApiError } from '../lib/http.js';
 import { sendClientOtpEmail } from './email.js';
+import { logSecurityEvent } from './securityEvents.js';
+
+/** Minimal request context for audit logging on the unauthenticated portal
+ *  refresh path (the client realm has no req.auth to read from). */
+export interface ClientAuthContext {
+  ip?: string | null;
+  userAgent?: string | null;
+}
 
 const BCRYPT_COST = 12;
 
@@ -445,7 +453,10 @@ export async function clientResendOtp(
   };
 }
 
-export async function clientRefresh(refreshToken: string): Promise<ClientTokens> {
+export async function clientRefresh(
+  refreshToken: string,
+  ctx?: ClientAuthContext
+): Promise<ClientTokens> {
   const { sub } = verifyClientRefreshToken(refreshToken);
 
   const refreshHash = sha256(refreshToken);
@@ -461,11 +472,37 @@ export async function clientRefresh(refreshToken: string): Promise<ClientTokens>
   if (!user || !user.is_active) {
     throw new ApiError('Invalid refresh token', 401, 'CLIENT_AUTH_INVALID_REFRESH_TOKEN');
   }
+  // Reuse detection (mirrors staff refreshTokens in services/jwt.ts): a
+  // signature-valid refresh token that does NOT match the stored hash while a
+  // stored token still exists is a replay of a previously-rotated (or stolen)
+  // token. Kill the session family — NULL the stored refresh token so neither
+  // the legitimate client nor the attacker can rotate again; both must
+  // re-authenticate. The portal realm has no token_version column; NULLing the
+  // stored hash is its session-family kill switch.
   if (
     !user.refresh_token ||
     user.refresh_token.length !== refreshHash.length ||
     !crypto.timingSafeEqual(Buffer.from(user.refresh_token), Buffer.from(refreshHash))
   ) {
+    if (user.refresh_token) {
+      await db.query(
+        `UPDATE public.client_users SET
+           refresh_token = NULL,
+           refresh_token_expires_at = NULL,
+           updated_at = now()
+         WHERE id = $1`,
+        [user.id]
+      );
+      await logSecurityEvent({
+        eventType: 'token_reuse_detected',
+        severity: 'critical',
+        actorUserId: user.id,
+        actorType: 'client',
+        ip: ctx?.ip ?? null,
+        userAgent: ctx?.userAgent ?? null,
+        details: { realm: 'client_portal', reason: 'refresh_token_replay' },
+      });
+    }
     throw new ApiError('Refresh token revoked', 401, 'CLIENT_AUTH_REFRESH_TOKEN_REVOKED');
   }
   if (user.refresh_token_expires_at && new Date(user.refresh_token_expires_at) < new Date()) {
@@ -473,11 +510,23 @@ export async function clientRefresh(refreshToken: string): Promise<ClientTokens>
   }
 
   // Rotate.
-  return issueClientTokensAndStore({
+  const tokens = await issueClientTokensAndStore({
     id: user.id,
     email: user.email,
     fullName: user.full_name,
   });
+
+  await logSecurityEvent({
+    eventType: 'token_refreshed',
+    severity: 'info',
+    actorUserId: user.id,
+    actorType: 'client',
+    ip: ctx?.ip ?? null,
+    userAgent: ctx?.userAgent ?? null,
+    details: { realm: 'client_portal' },
+  });
+
+  return tokens;
 }
 
 export async function clientSignOut(clientUserId: string): Promise<void> {
