@@ -16,7 +16,9 @@ const clientParamsSchema = z.object({ clientId: uuidLike });
 
 const createClientBodySchema = z.object({
   name: z.string().trim().min(1),
-  email: z.string().email().optional(),
+  // Email is required: it is the identity reused to grant client-portal access
+  // (no separate invite email is ever typed). See clientPortal.ts enable route.
+  email: z.string().trim().email(),
   phone: z.string().optional(),
   address: z.string().optional(),
   company: z.string().optional(),
@@ -104,7 +106,7 @@ clientsRouter.post(
       `,
       [
         body.name,
-        body.email || null,
+        body.email,
         body.phone || null,
         body.address || null,
         body.company || null,

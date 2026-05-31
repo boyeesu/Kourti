@@ -1500,10 +1500,38 @@ const bootstrapStatements = [
   `create index if not exists idx_cpa_client on public.client_portal_access(client_id)`,
   `create index if not exists idx_cpa_org on public.client_portal_access(organization_id)`,
 
-  // Per-matter privacy escape hatch: exclude a sensitive matter from the
-  // client's portal even though they have client-level access. Default false
-  // (matters are visible to their client by default — the chosen model).
+  // Per-matter privacy gate. The chosen model is PRIVATE BY DEFAULT: a matter
+  // is hidden from the client portal until the firm explicitly makes it public
+  // (Quick Actions → "Make Public"). The column predates this default, so we
+  // flip the column default below; existing rows are migrated once by the
+  // guarded block further down.
   `alter table public.cases add column if not exists portal_private boolean not null default false`,
+  `alter table public.cases alter column portal_private set default true`,
+
+  // One-time migration ledger. Lets us run a data backfill exactly once instead
+  // of on every boot (the rest of bootstrap is idempotent DDL; data updates are
+  // not, and re-running them would clobber later firm edits).
+  `
+  create table if not exists public.app_migration_flags (
+    key text primary key,
+    applied_at timestamptz not null default now()
+  )
+  `,
+
+  // Flip ALL existing matters to private exactly once, then record the flag so
+  // a firm that later makes a matter public is never silently re-privatised on
+  // the next deploy.
+  `
+  do $$
+  begin
+    if not exists (
+      select 1 from public.app_migration_flags where key = 'matters_private_by_default_v1'
+    ) then
+      update public.cases set portal_private = true where portal_private = false;
+      insert into public.app_migration_flags(key) values ('matters_private_by_default_v1');
+    end if;
+  end $$;
+  `,
 
   // Firm-enforced client 2FA. Because client_users is a GLOBAL identity,
   // OTP is forced at login when ANY firm the client has active access to has

@@ -59,13 +59,26 @@ export interface PortalDocument {
   createdAt: string;
 }
 
-export interface InviteResult {
-  grant: PortalAccessRow | null;
-  pending: boolean;
+export type PortalStatus = 'none' | 'pending' | 'active';
+
+export interface ClientPortalMatter {
+  id: string;
+  title: string;
+  status: string | null;
+  portalPrivate: boolean;
 }
 
-export interface ClientPortalSettings {
-  requireOtp: boolean;
+/** Client-level portal status, backing the Clients list action + the Client
+ *  Details portal section. */
+export interface ClientPortalStatus {
+  clientId: string;
+  email: string | null;
+  status: PortalStatus;
+  portalEnabled: boolean;
+  clientUserId: string | null;
+  emailVerifiedAt: string | null;
+  lastSignInAt: string | null;
+  matters: ClientPortalMatter[];
 }
 
 interface ListResponse<T> {
@@ -81,41 +94,64 @@ export const clientPortalKeys = {
   events: (caseId: string) => ['clientPortal', caseId, 'events'] as const,
   digests: (caseId: string) => ['clientPortal', caseId, 'digests'] as const,
   documents: (caseId: string) => ['clientPortal', caseId, 'documents'] as const,
-  settings: () => ['clientPortal', 'settings'] as const,
+  clientStatus: (clientId: string) => ['clientPortal', 'client', clientId] as const,
 };
 
 // ---------------------------------------------------------------------------
-// Org-wide settings
+// Client-level portal access (the primary flow). 2FA is always enforced
+// server-side, so there is no firm-wide settings toggle here anymore.
 // ---------------------------------------------------------------------------
 
-export function useClientPortalSettings(options?: Partial<UseQueryOptions<ClientPortalSettings>>) {
+export function useClientPortalStatus(
+  clientId: string,
+  options?: Partial<UseQueryOptions<ClientPortalStatus>>
+) {
   return useQuery({
-    queryKey: clientPortalKeys.settings(),
-    queryFn: () => invokeNodeApi<ClientPortalSettings>(`${BASE}/settings`),
+    queryKey: clientPortalKeys.clientStatus(clientId),
+    queryFn: () => invokeNodeApi<ClientPortalStatus>(`${BASE}/clients/${clientId}/portal`),
+    enabled: !!clientId,
     ...options,
   });
 }
 
-export function useUpdateClientPortalSettings() {
+export function useEnableClientPortal() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { requireOtp: boolean }) =>
-      invokeNodeApi<ClientPortalSettings>(`${BASE}/settings`, {
-        method: 'PATCH',
-        body,
+    mutationFn: (clientId: string) =>
+      invokeNodeApi<{ status: PortalStatus }>(`${BASE}/clients/${clientId}/enable`, {
+        method: 'POST',
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientPortalKeys.settings() });
-      toast.success('Portal settings saved');
+    onSuccess: (_data, clientId) => {
+      queryClient.invalidateQueries({ queryKey: clientPortalKeys.clientStatus(clientId) });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Portal invitation sent');
     },
     onError: (error: Error) => {
-      toast.error('Could not update portal settings', { description: error.message });
+      toast.error('Could not enable the client portal', { description: error.message });
+    },
+  });
+}
+
+export function useDisableClientPortal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (clientId: string) =>
+      invokeNodeApi<{ status: PortalStatus }>(`${BASE}/clients/${clientId}/disable`, {
+        method: 'POST',
+      }),
+    onSuccess: (_data, clientId) => {
+      queryClient.invalidateQueries({ queryKey: clientPortalKeys.clientStatus(clientId) });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Portal access disabled');
+    },
+    onError: (error: Error) => {
+      toast.error('Could not disable the client portal', { description: error.message });
     },
   });
 }
 
 // ---------------------------------------------------------------------------
-// Access
+// Access (matter-scoped, read-only listing for the matter portal panel)
 // ---------------------------------------------------------------------------
 
 export function useCasePortalAccess(
@@ -132,24 +168,6 @@ export function useCasePortalAccess(
     },
     enabled: !!caseId,
     ...options,
-  });
-}
-
-export function useInviteClient(caseId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: { email: string; fullName?: string }) =>
-      invokeNodeApi<InviteResult>(`${BASE}/cases/${caseId}/invite`, {
-        method: 'POST',
-        body,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientPortalKeys.access(caseId) });
-      toast.success('Invitation sent');
-    },
-    onError: (error: Error) => {
-      toast.error('Could not send invitation', { description: error.message });
-    },
   });
 }
 

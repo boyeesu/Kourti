@@ -650,20 +650,30 @@ export async function sendClientPortalInviteEmail(args: {
   email: string;
   firmName: string;
   inviterName?: string;
-  matterTitle: string;
+  /** Optional. When omitted the invite is firm/client-level (access to all of
+   *  the client's matters) rather than scoped to a single matter. */
+  matterTitle?: string;
   inviteToken: string;
 }): Promise<{ messageId?: string }> {
   const { email, firmName, inviterName, matterTitle, inviteToken } = args;
   const safeFirm = escapeHtml(firmName);
-  const safeMatter = escapeHtml(matterTitle);
   const acceptUrl = `${PORTAL_URL}/accept-invite?token=${encodeURIComponent(inviteToken)}`;
   const intro = inviterName
     ? `<strong>${escapeHtml(inviterName)}</strong> at <strong>${safeFirm}</strong> has invited you`
     : `<strong>${safeFirm}</strong> has invited you`;
 
+  // Scope the wording: a specific matter when given, otherwise a generic
+  // client-portal invite covering all of the client's matters.
+  const scopeSentence = matterTitle
+    ? `${intro} to follow your matter <strong>&ldquo;${escapeHtml(matterTitle)}&rdquo;</strong> on a secure client portal.`
+    : `${intro} to a secure client portal where you can follow your matters.`;
+  const subject = matterTitle
+    ? `${firmName} invited you to view "${matterTitle}"`
+    : `${firmName} invited you to your client portal`;
+
   const body = `
     <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">Hi,</p>
-    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">${intro} to follow your matter <strong>&ldquo;${safeMatter}&rdquo;</strong> on a secure client portal.</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">${scopeSentence}</p>
     <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">You can view real-time updates, important documents, and communicate directly with your legal team — all in one place.</p>
     ${ctaButton('Accept invitation &amp; set password', acceptUrl)}
     <p style="color:${BRAND.mutedText};font-size:13px;line-height:1.6;">This invitation link expires in 24 hours. If you weren't expecting this email, you can safely ignore it.</p>
@@ -674,8 +684,45 @@ export async function sendClientPortalInviteEmail(args: {
     {
       from: `${safeFirm} <${FROM_EMAIL}>`,
       to: [email.toLowerCase()],
-      subject: `${firmName} invited you to view "${matterTitle}"`,
-      html: wrapHtml(`${firmName} invited you to view "${matterTitle}"`, body),
+      subject,
+      html: wrapHtml(subject, body),
+    },
+    'client_portal_invite'
+  );
+}
+
+/** Notify an ALREADY-ACTIVE client (global identity, password already set) that
+ *  a firm has granted them portal access. Unlike the invite, this carries NO
+ *  token — it must not be able to reset an existing password — it just points
+ *  them to sign in with their existing credentials. */
+export async function sendClientPortalAccessGrantedEmail(args: {
+  email: string;
+  firmName: string;
+  inviterName?: string;
+}): Promise<{ messageId?: string }> {
+  const { email, firmName, inviterName } = args;
+  const safeFirm = escapeHtml(firmName);
+  const loginUrl = `${PORTAL_URL}/login`;
+  const intro = inviterName
+    ? `<strong>${escapeHtml(inviterName)}</strong> at <strong>${safeFirm}</strong> has given you`
+    : `<strong>${safeFirm}</strong> has given you`;
+  const subject = `${firmName} gave you access to your client portal`;
+
+  const body = `
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">Hi,</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">${intro} access to your matters on a secure client portal.</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">You already have an account — just sign in with your existing email and password.</p>
+    ${ctaButton('Sign in to your portal', loginUrl)}
+    <p style="color:${BRAND.mutedText};font-size:13px;line-height:1.6;">If you've forgotten your password, use “Forgot password” on the sign-in page. If you weren't expecting this, you can ignore it.</p>
+    <p style="color:${BRAND.mutedText};font-size:12px;word-break:break-all;">Direct link: ${loginUrl}</p>
+  `;
+
+  return sendResendEmail(
+    {
+      from: `${safeFirm} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject,
+      html: wrapHtml(subject, body),
     },
     'client_portal_invite'
   );
