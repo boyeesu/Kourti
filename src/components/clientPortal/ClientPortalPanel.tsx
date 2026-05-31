@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Trash2, Loader2, Send, Sparkles, Mail, FileText, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -43,7 +44,9 @@ import {
   useApproveDigest,
   useDiscardDigest,
   useCasePortalMessages,
+  useCasePortalUnreadCount,
   useSendPortalMessage,
+  clientPortalKeys,
   type PortalAccessRow,
   type PortalDigest,
 } from '@/features/clientPortal/api';
@@ -95,6 +98,10 @@ function digestStatusBadge(status: PortalDigest['status']) {
 }
 
 export function ClientPortalPanel({ caseId, caseData }: ClientPortalPanelProps) {
+  // Poll the unread client-message count so the badge appears even while the
+  // panel is open on another tab. Cleared when staff open the Messages tab.
+  const { data: unread = 0 } = useCasePortalUnreadCount(caseId, { refetchInterval: 20_000 });
+
   return (
     <Card className="shadow-card">
       <CardHeader>
@@ -107,7 +114,17 @@ export function ClientPortalPanel({ caseId, caseData }: ClientPortalPanelProps) 
             <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
-            <TabsTrigger value="messages">Messages</TabsTrigger>
+            <TabsTrigger value="messages" className="gap-1.5">
+              Messages
+              {unread > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="h-5 min-w-5 justify-center px-1.5 text-[10px]"
+                >
+                  {unread}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="updates">Updates</TabsTrigger>
           </TabsList>
 
@@ -408,12 +425,20 @@ function DocumentsSection({ caseId }: { caseId: string }) {
 // ---------------------------------------------------------------------------
 
 function MessagesSection({ caseId }: { caseId: string }) {
+  const queryClient = useQueryClient();
   // Light polling so staff see the client's replies without a refresh.
-  const { data: messages = [], isLoading } = useCasePortalMessages(caseId, {
-    refetchInterval: 20_000,
-  });
+  const messagesQuery = useCasePortalMessages(caseId, { refetchInterval: 20_000 });
+  const { data: messages = [], isLoading } = messagesQuery;
   const send = useSendPortalMessage(caseId);
   const [draft, setDraft] = useState('');
+
+  // Fetching the thread marks client messages read server-side, so refresh the
+  // unread count to clear the tab badge once the section is open.
+  useEffect(() => {
+    if (messagesQuery.isSuccess) {
+      queryClient.invalidateQueries({ queryKey: clientPortalKeys.unreadCount(caseId) });
+    }
+  }, [messagesQuery.isSuccess, messagesQuery.dataUpdatedAt, caseId, queryClient]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();

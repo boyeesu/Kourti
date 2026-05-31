@@ -1178,6 +1178,32 @@ clientPortalRouter.patch(
   })
 );
 
+// ── GET /cases/:caseId/messages/unread-count — unread CLIENT messages ────────
+//
+//   Side-effect-free count of client messages staff hasn't read yet. Drives the
+//   unread badge on the Messages tab WITHOUT marking anything read (so the badge
+//   only clears once staff actually opens the thread). Registered before the
+//   `/messages` route so the more specific path matches first.
+
+clientPortalRouter.get(
+  '/cases/:caseId/messages/unread-count',
+  asyncHandler(async (req, res) => {
+    const { organizationId } = req.auth!;
+    const { caseId } = caseIdParamsSchema.parse(req.params);
+    await requireCaseInOrg(caseId, organizationId);
+
+    const result = await db.query<{ count: string }>(
+      `select count(*)::int as count
+         from public.case_client_messages
+        where case_id = $1 and organization_id = $2
+          and sender_type = 'client' and read_at is null`,
+      [caseId, organizationId]
+    );
+
+    res.status(200).json({ count: Number(result.rows[0]?.count ?? 0) });
+  })
+);
+
 // ── GET /cases/:caseId/messages — staff reads the client↔firm thread ─────────
 //
 //   Returns the full thread (asc). Marks unread CLIENT messages as read so the

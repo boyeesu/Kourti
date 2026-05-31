@@ -104,6 +104,7 @@ export const clientPortalKeys = {
   digests: (caseId: string) => ['clientPortal', caseId, 'digests'] as const,
   documents: (caseId: string) => ['clientPortal', caseId, 'documents'] as const,
   messages: (caseId: string) => ['clientPortal', caseId, 'messages'] as const,
+  unreadCount: (caseId: string) => ['clientPortal', caseId, 'messages', 'unread'] as const,
   clientStatus: (clientId: string) => ['clientPortal', 'client', clientId] as const,
 };
 
@@ -428,6 +429,24 @@ export function useCasePortalMessages(
   return useQuery({
     queryKey: clientPortalKeys.messages(caseId),
     queryFn: () => invokeNodeApi<PortalMessage[]>(`${BASE}/cases/${caseId}/messages`),
+    enabled: !!caseId,
+    ...options,
+  });
+}
+
+/** Side-effect-free count of unread CLIENT messages — drives the tab badge. */
+export function useCasePortalUnreadCount(
+  caseId: string,
+  options?: Partial<UseQueryOptions<number>>
+) {
+  return useQuery({
+    queryKey: clientPortalKeys.unreadCount(caseId),
+    queryFn: async () => {
+      const res = await invokeNodeApi<{ count: number }>(
+        `${BASE}/cases/${caseId}/messages/unread-count`
+      );
+      return res.count ?? 0;
+    },
     enabled: !!caseId,
     ...options,
   });
