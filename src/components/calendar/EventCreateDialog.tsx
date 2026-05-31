@@ -203,34 +203,48 @@ export function EventCreateDialog({
   );
   const clients = Array.isArray(clientsData) ? clientsData : clientsData?.items || [];
 
-  // Reset form when dialog opens with new initial values
+  // Reset form ONCE each time the dialog opens.
+  //
+  // This must NOT re-run on every render: `initialAttendees = []` and inline-constructed
+  // defaults produce a fresh reference each render, so a broad dependency array would re-fire
+  // the effect continuously and call form.reset() (plus setReminders([])) in a render loop —
+  // wiping every keystroke before it can show. The `hasInitializedRef` guard ensures the reset
+  // happens exactly once per open transition; the effect may still re-run but returns early.
+  const hasInitializedRef = useRef(false);
   useEffect(() => {
-    if (open) {
-      form.reset({
-        title: '',
-        description: '',
-        start_date: getDefaultStartDate(),
-        end_date: getDefaultEndDate(),
-        location: '',
-        event_type: defaultEventType as
-          | 'meeting'
-          | 'hearing'
-          | 'deadline'
-          | 'deposition'
-          | 'review'
-          | 'consultation',
-        case_id: '',
-        client_id: '',
-        attendees: initialAttendees || [],
-        is_recurring: false,
-        recurrence_frequency: 'weekly',
-        recurrence_interval: 1,
-        reminders: [],
-      });
-      setReminders([]);
-      setIsRecurring(false);
-      setNewAttendee('');
+    if (!open) {
+      hasInitializedRef.current = false;
+      return;
     }
+    if (hasInitializedRef.current) {
+      return;
+    }
+    hasInitializedRef.current = true;
+
+    form.reset({
+      title: '',
+      description: '',
+      start_date: getDefaultStartDate(),
+      end_date: getDefaultEndDate(),
+      location: '',
+      event_type: defaultEventType as
+        | 'meeting'
+        | 'hearing'
+        | 'deadline'
+        | 'deposition'
+        | 'review'
+        | 'consultation',
+      case_id: '',
+      client_id: '',
+      attendees: initialAttendees || [],
+      is_recurring: false,
+      recurrence_frequency: 'weekly',
+      recurrence_interval: 1,
+      reminders: [],
+    });
+    setReminders([]);
+    setIsRecurring(false);
+    setNewAttendee('');
   }, [
     open,
     initialDate,
