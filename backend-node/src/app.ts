@@ -6,6 +6,7 @@ import morgan from 'morgan';
 
 import { corsOrigins } from './config/env.js';
 import { requireAuth } from './middleware/auth.js';
+import { requireClientAuth } from './middleware/requireClientAuth.js';
 import { requireActiveSubscription } from './middleware/requireActiveSubscription.js';
 import { requireFeature } from './middleware/requireFeature.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -44,6 +45,10 @@ import { intelligenceRouter } from './routes/api/intelligence.js';
 import { documentVersionsRouter } from './routes/api/documentVersions.js';
 import { redlineRouter } from './routes/api/redline.js';
 import { tabularReviewsRouter } from './routes/api/tabularReviews.js';
+import { portalRouter, portalAuthRouter } from './routes/api/portal.js';
+import { portalTeamRouter } from './routes/api/portalTeam.js';
+import { portalCalendarRouter } from './routes/api/portalCalendar.js';
+import { clientPortalRouter } from './routes/api/clientPortal.js';
 
 function stripNullsInPlace(value: unknown): void {
   if (Array.isArray(value)) {
@@ -176,6 +181,28 @@ export function createApp() {
     requireActiveSubscription,
     requireFeature('tabular_review'),
     tabularReviewsRouter
+  );
+
+  // ── Client Portal ──────────────────────────────────────────────────
+  // Client-facing surface. Its own auth (client_users), NOT staff requireAuth.
+  // The unauthenticated auth sub-router (login / accept-invite / reset) is
+  // mounted FIRST so it isn't caught by requireClientAuth on the parent path.
+  app.use('/api/v1/portal/auth', portalAuthRouter);
+  // requireClientAuth runs once for the whole authenticated portal surface;
+  // the feature routers (matters, team, calendar) are then layered on the
+  // same base path.
+  app.use('/api/v1/portal', requireClientAuth);
+  app.use('/api/v1/portal', portalRouter);
+  app.use('/api/v1/portal', portalTeamRouter);
+  app.use('/api/v1/portal', portalCalendarRouter);
+  // Staff-side management of the portal. Gated to Professional+ via the
+  // 'client_portal' feature, like the rest of the automation suite.
+  app.use(
+    '/api/v1/client-portal',
+    requireAuth,
+    requireActiveSubscription,
+    requireFeature('client_portal'),
+    clientPortalRouter
   );
 
   app.use(notFoundHandler);

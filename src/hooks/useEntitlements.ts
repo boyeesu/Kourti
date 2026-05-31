@@ -21,6 +21,7 @@ export type FeatureKey =
   | 'playbooks'
   | 'tabular_review'
   | 'redline'
+  | 'client_portal'
   | 'sso';
 
 export interface Entitlements {
@@ -39,6 +40,7 @@ export const FEATURE_META: Record<
   playbooks: { label: 'Playbook automation', requiredPlan: 'Professional' },
   tabular_review: { label: 'Tabular review', requiredPlan: 'Professional' },
   redline: { label: 'Redline', requiredPlan: 'Professional' },
+  client_portal: { label: 'Client Portal', requiredPlan: 'Professional' },
   sso: { label: 'SSO / SAML', requiredPlan: 'Enterprise' },
 };
 

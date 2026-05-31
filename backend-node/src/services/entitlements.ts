@@ -38,6 +38,8 @@ const AUTOMATION = [
   'playbooks',
   'tabular_review',
   'redline',
+  // Client portal: client-facing case visibility + proactive updates.
+  'client_portal',
 ] as const;
 
 export const FEATURE_KEYS = [...CORE, ...AUTOMATION, 'sso'] as const;

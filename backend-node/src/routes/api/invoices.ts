@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { recordCaseEvent } from '../../services/caseEvents.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -89,7 +90,9 @@ invoicesRouter.post(
     const numResult = await db
       .query<{
         generate_invoice_number: string;
-      }>('select public.generate_invoice_number($1) as generate_invoice_number', [auth.organizationId])
+      }>('select public.generate_invoice_number($1) as generate_invoice_number', [
+        auth.organizationId,
+      ])
       .catch(async () => {
         // fallback: count-based number
         const countRes = await db.query<{ c: number }>(
@@ -160,6 +163,20 @@ invoicesRouter.post(
       }
 
       await db.query('commit');
+
+      // Emit invoice_sent when the invoice is created with status 'sent' and has a case.
+      if (body.status === 'sent' && newInvoice.case_id) {
+        await recordCaseEvent({
+          organizationId: auth.organizationId,
+          caseId: newInvoice.case_id,
+          eventType: 'invoice_sent',
+          title: `Invoice ${newInvoice.invoice_number}`,
+          actorType: 'staff',
+          actorId: auth.userId,
+        });
+      }
+      // TODO: emit invoice_sent/invoice_paid for invoices without a case_id (no case linkage to record against)
+
       res.status(201).json({ ...newInvoice, vat: body.vat, items: body.items });
     } catch (err) {
       await db.query('rollback').catch(() => {});
@@ -174,6 +191,18 @@ invoicesRouter.patch(
     const auth = req.auth!;
     const { invoiceId } = invoiceParamsSchema.parse(req.params);
     const body = updateInvoiceBodySchema.omit({ id: true }).parse(req.body);
+
+    // Capture current status + case_id before the update for change detection.
+    const preResult = await db.query<{
+      status: string;
+      case_id: string | null;
+      invoice_number: string;
+      title: string;
+    }>(
+      'select status, case_id, invoice_number, title from public.invoices where id = $1 and organization_id = $2 limit 1',
+      [invoiceId, auth.organizationId]
+    );
+    const preInvoice = preResult.rows[0];
 
     const updates: Array<{ col: string; val: unknown }> = [];
     if (body.title !== undefined) updates.push({ col: 'title', val: body.title });
@@ -239,7 +268,37 @@ invoicesRouter.patch(
       throw new ApiError('Invoice not found', 404, 'NOT_FOUND');
     }
 
-    res.status(200).json(result.rows[0]);
+    const updatedInvoice = result.rows[0];
+
+    // Emit status-transition events when case_id is present.
+    if (preInvoice && body.status !== undefined && body.status !== preInvoice.status) {
+      const caseId = updatedInvoice.case_id ?? preInvoice.case_id;
+      if (caseId) {
+        const invoiceLabel = `Invoice ${preInvoice.invoice_number}`;
+        if (body.status === 'sent') {
+          await recordCaseEvent({
+            organizationId: auth.organizationId,
+            caseId,
+            eventType: 'invoice_sent',
+            title: invoiceLabel,
+            actorType: 'staff',
+            actorId: auth.userId,
+          });
+        } else if (body.status === 'paid') {
+          await recordCaseEvent({
+            organizationId: auth.organizationId,
+            caseId,
+            eventType: 'invoice_paid',
+            title: invoiceLabel,
+            actorType: 'staff',
+            actorId: auth.userId,
+          });
+        }
+      }
+      // TODO: emit invoice_sent/invoice_paid for invoices without a case_id (no case linkage to record against)
+    }
+
+    res.status(200).json(updatedInvoice);
   })
 );
 

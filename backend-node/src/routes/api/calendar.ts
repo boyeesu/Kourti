@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { recordCaseEvent } from '../../services/caseEvents.js';
 
 const uuidLike = z.string().regex(/^[0-9a-fA-F-]{36}$/);
 
@@ -34,6 +35,7 @@ const createEventBodySchema = z.object({
     })
     .optional(),
   recurrence_end_date: z.string().optional(),
+  client_visible: z.boolean().optional(),
 });
 
 const updateEventBodySchema = createEventBodySchema.partial();
@@ -51,6 +53,49 @@ const updateShareBodySchema = z.object({
   permission_level: z.enum(['view', 'edit']).optional(),
   is_active: z.boolean().optional(),
 });
+
+/**
+ * Best-effort: mirror a matter-linked calendar event onto the case timeline so
+ * clients see upcoming dates. No-op when the event row has no case_id.
+ * recordCaseEvent itself never throws; this wrapper is purely additive and
+ * must never break the primary calendar write.
+ */
+async function emitCalendarCaseEvent(
+  event: Record<string, unknown>,
+  auth: { organizationId: string; userId: string }
+): Promise<void> {
+  const caseId = event.case_id as string | null | undefined;
+  if (!caseId) return;
+
+  const id = event.id as string;
+  const eventTypeRaw = (event.event_type as string | null) ?? '';
+  const title = (event.title as string | null) ?? null;
+  const startDate = event.start_date as string | null;
+  const endDate = event.end_date as string | null;
+  const location = (event.location as string | null) ?? null;
+  const clientVisible = Boolean(event.client_visible);
+
+  const timelineType = /hearing|court/i.test(eventTypeRaw) ? 'hearing_scheduled' : 'calendar_event';
+
+  const body = `${startDate ?? ''}${location ? ` at ${location}` : ''}`;
+
+  await recordCaseEvent({
+    organizationId: auth.organizationId,
+    caseId,
+    eventType: timelineType,
+    title: title ?? undefined,
+    body,
+    payload: {
+      calendarEventId: id,
+      start_date: startDate,
+      end_date: endDate,
+      location,
+    },
+    actorType: 'staff',
+    actorId: auth.userId,
+    clientVisible,
+  });
+}
 
 export const calendarRouter = Router();
 
@@ -117,10 +162,10 @@ calendarRouter.post(
       insert into public.calendar_events (
         title, description, start_date, end_date, location, attendees,
         event_type, case_id, client_id, organization_id, created_by,
-        is_recurring, recurrence_pattern, recurrence_end_date,
+        is_recurring, recurrence_pattern, recurrence_end_date, client_visible,
         created_at, updated_at
       )
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now(),now())
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now(),now())
       returning *
       `,
       [
@@ -138,10 +183,16 @@ calendarRouter.post(
         body.is_recurring || false,
         body.recurrence_pattern ? JSON.stringify(body.recurrence_pattern) : null,
         body.recurrence_end_date || null,
+        body.client_visible ?? true,
       ]
     );
 
-    res.status(201).json(result.rows[0]);
+    const event = result.rows[0] as Record<string, unknown>;
+
+    // Best-effort matter-timeline emission — recordCaseEvent never throws.
+    await emitCalendarCaseEvent(event, auth);
+
+    res.status(201).json(event);
   })
 );
 
@@ -178,6 +229,8 @@ calendarRouter.patch(
       updates.push({ col: 'recurrence_pattern', val: JSON.stringify(body.recurrence_pattern) });
     if (body.recurrence_end_date !== undefined)
       updates.push({ col: 'recurrence_end_date', val: body.recurrence_end_date });
+    if (body.client_visible !== undefined)
+      updates.push({ col: 'client_visible', val: body.client_visible });
 
     if (!updates.length) {
       throw new ApiError('No update fields provided', 400, 'VALIDATION_ERROR');
@@ -191,7 +244,12 @@ calendarRouter.patch(
       [...values, eventId]
     );
 
-    res.status(200).json(result.rows[0]);
+    const event = result.rows[0] as Record<string, unknown>;
+
+    // Best-effort matter-timeline emission — recordCaseEvent never throws.
+    await emitCalendarCaseEvent(event, auth);
+
+    res.status(200).json(event);
   })
 );
 

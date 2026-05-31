@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { recordCaseEvent } from '../../services/caseEvents.js';
 import { escapeIlike } from '../../lib/escapeIlike.js';
 import { sanitizeHtml } from '../../lib/sanitizeHtml.js';
 import { createSignedUrl } from '../../services/storage.js';
@@ -403,7 +404,28 @@ documentsRouter.post(
       ]
     );
 
-    res.status(201).json(mapDocumentRow(result.rows[0]));
+    const newDoc = result.rows[0];
+
+    // Resolve case_id from metadata only when explicitly provided and unambiguous.
+    // documents has no case_id column; the case relationship lives in metadata->>'case_id'.
+    const metaCaseId =
+      body.metadata && typeof body.metadata['case_id'] === 'string' && body.metadata['case_id']
+        ? (body.metadata['case_id'] as string)
+        : null;
+
+    if (metaCaseId) {
+      await recordCaseEvent({
+        organizationId: auth.organizationId,
+        caseId: metaCaseId,
+        eventType: 'document_added',
+        title: newDoc.name,
+        actorType: 'staff',
+        actorId: auth.userId,
+      });
+    }
+    // TODO v2: resolve case for document event when document is linked only via client_id (ambiguous — a client may have multiple cases)
+
+    res.status(201).json(mapDocumentRow(newDoc));
   })
 );
 

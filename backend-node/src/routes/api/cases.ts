@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { enforceCountLimit } from '../../services/limits.js';
+import { recordCaseEvent } from '../../services/caseEvents.js';
 
 const listCasesQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -37,6 +38,7 @@ const createCaseBodySchema = z.object({
   court: optionalString,
   next_hearing_date: optionalString,
   assigned_to: optionalUuid,
+  portal_private: z.boolean().optional(),
   custom_fields: z
     .record(z.string(), z.unknown())
     .nullish()
@@ -254,6 +256,7 @@ casesRouter.post(
         court,
         next_hearing_date,
         assigned_to,
+        portal_private,
         custom_fields,
         organization_id,
         created_by
@@ -269,9 +272,10 @@ casesRouter.post(
         $8,
         $9,
         $10,
-        $11::jsonb,
-        $12,
-        $13
+        coalesce($11, false),
+        $12::jsonb,
+        $13,
+        $14
       )
       returning
         id,
@@ -305,13 +309,25 @@ casesRouter.post(
         body.court || null,
         body.next_hearing_date || null,
         body.assigned_to || null,
+        body.portal_private ?? null,
         body.custom_fields ? JSON.stringify(body.custom_fields) : null,
         auth.organizationId,
         auth.userId,
       ]
     );
 
-    res.status(201).json(mapCaseRow(result.rows[0]));
+    const newCase = result.rows[0];
+
+    await recordCaseEvent({
+      organizationId: auth.organizationId,
+      caseId: newCase.id,
+      eventType: 'case_created',
+      title: newCase.title,
+      actorType: 'staff',
+      actorId: auth.userId,
+    });
+
+    res.status(201).json(mapCaseRow(newCase));
   })
 );
 
@@ -321,6 +337,14 @@ casesRouter.patch(
     const { id } = caseIdParamsSchema.parse(req.params);
     const updateData = updateCaseBodySchema.parse(req.body);
     const organizationId = req.auth!.organizationId;
+    const auth = req.auth!;
+
+    // Capture current values before the update so we can detect changes.
+    const preResult = await db.query<{ status: string; next_hearing_date: string | null }>(
+      'select status, next_hearing_date from public.cases where id = $1 and organization_id = $2 limit 1',
+      [id, organizationId]
+    );
+    const preRow = preResult.rows[0];
 
     const updates: Array<{ column: string; value: unknown }> = [
       { column: 'title', value: updateData.title },
@@ -333,6 +357,7 @@ casesRouter.patch(
       { column: 'court', value: updateData.court },
       { column: 'next_hearing_date', value: updateData.next_hearing_date },
       { column: 'assigned_to', value: updateData.assigned_to },
+      { column: 'portal_private', value: updateData.portal_private },
       {
         column: 'custom_fields',
         value: updateData.custom_fields ? JSON.stringify(updateData.custom_fields) : undefined,
@@ -380,7 +405,39 @@ casesRouter.patch(
       throw new ApiError('Case not found', 404, 'NOT_FOUND');
     }
 
-    res.status(200).json(mapCaseRow(result.rows[0]));
+    const updatedCase = result.rows[0];
+
+    // Emit status_changed if the status field actually changed.
+    if (preRow && updateData.status !== undefined && updateData.status !== preRow.status) {
+      await recordCaseEvent({
+        organizationId,
+        caseId: id,
+        eventType: 'status_changed',
+        body: `Status changed to ${updateData.status}`,
+        payload: { from: preRow.status, to: updateData.status },
+        actorType: 'staff',
+        actorId: auth.userId,
+      });
+    }
+
+    // Emit hearing_scheduled if next_hearing_date changed to a non-null value.
+    if (
+      preRow &&
+      updateData.next_hearing_date !== undefined &&
+      updateData.next_hearing_date !== null &&
+      updateData.next_hearing_date !== preRow.next_hearing_date
+    ) {
+      await recordCaseEvent({
+        organizationId,
+        caseId: id,
+        eventType: 'hearing_scheduled',
+        payload: { date: updateData.next_hearing_date },
+        actorType: 'staff',
+        actorId: auth.userId,
+      });
+    }
+
+    res.status(200).json(mapCaseRow(updatedCase));
   })
 );
 
