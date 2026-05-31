@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mail, Phone, MapPin, Clock, MessageSquare, Calendar } from 'lucide-react';
+import { Mail, Calendar } from 'lucide-react';
 import { useState } from 'react';
 import { postJson } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -111,7 +111,7 @@ const Contact = () => {
               <div>
                 <h2 className="text-3xl font-bold text-foreground mb-6">Send us a message</h2>
                 <p className="text-muted-foreground mb-8">
-                  We respond within 24 hours (Mon–Fri). Prefer a walkthrough?{' '}
+                  We respond within 24 hours. Prefer a walkthrough?{' '}
                   <a
                     href="https://cal.com/kourti-legal/discovery"
                     target="_blank"
@@ -134,7 +134,13 @@ const Contact = () => {
                     tabIndex={-1}
                     autoComplete="off"
                     aria-hidden="true"
-                    style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+                    style={{
+                      position: 'absolute',
+                      left: '-9999px',
+                      width: 1,
+                      height: 1,
+                      opacity: 0,
+                    }}
                   />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -312,26 +318,6 @@ const Contact = () => {
                       <CardContent className="p-6">
                         <div className="flex items-start space-x-4">
                           <div className="bg-primary/10 p-3 rounded-lg">
-                            <Phone className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-foreground mb-1">Phone Support</h3>
-                            <p className="text-muted-foreground mb-2">
-                              Speak directly with our legal tech specialists
-                            </p>
-                            <p className="font-medium text-foreground">+234 (80) 8433 1425</p>
-                            <p className="text-sm text-muted-foreground">
-                              Mon-Fri, 9 AM - 6 PM PST
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-start space-x-4">
-                          <div className="bg-primary/10 p-3 rounded-lg">
                             <Mail className="h-6 w-6 text-primary" />
                           </div>
                           <div>
@@ -373,40 +359,6 @@ const Contact = () => {
                       </CardContent>
                     </Card>
                   </div>
-                </div>
-
-                {/* Business Hours */}
-                <div>
-                  <h3 className="text-xl font-semibold text-foreground mb-4">Business Hours</h3>
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-start space-x-4">
-                        <div className="bg-primary/10 p-3 rounded-lg">
-                          <Clock className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Monday - Friday</span>
-                            <span className="font-medium text-foreground">
-                              {' '}
-                              9:00 AM - 6:00 PM PST
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Saturday</span>
-                            <span className="font-medium text-foreground">
-                              {' '}
-                              10:00 AM - 2:00 PM PST
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Sunday</span>
-                            <span className="font-medium text-foreground">Closed</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
                 </div>
               </div>
             </div>
