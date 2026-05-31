@@ -37,6 +37,14 @@ import {
   type PortalCalendarEventWithMatter,
 } from '../portalApi';
 
+/** Parse a date-ish value, returning null for missing/invalid input so callers
+ *  never hand an "Invalid Date" to date-fns (which throws RangeError). */
+function toDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function isHearing(eventType: string | null): boolean {
   return !!eventType && /hearing|court/i.test(eventType);
 }
@@ -60,6 +68,7 @@ function NextUp({ event }: { event: PortalCalendarEventWithMatter }) {
   const navigate = useNavigate();
   const hearing = isHearing(event.event_type);
   const Icon = hearing ? Gavel : CalendarDays;
+  const startsAt = toDate(event.start_date);
   return (
     <Card className="border-primary/30 bg-primary/5">
       <CardContent className="flex items-center gap-4 p-4">
@@ -69,7 +78,8 @@ function NextUp({ event }: { event: PortalCalendarEventWithMatter }) {
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Next up</p>
           <p className="truncate text-sm font-medium text-foreground">
-            {event.title || 'Event'} · {format(new Date(event.start_date), 'PPP')}
+            {event.title || 'Event'}
+            {startsAt && ` · ${format(startsAt, 'PPP')}`}
           </p>
           <p className="truncate text-xs text-muted-foreground">{event.matterTitle}</p>
         </div>
@@ -95,6 +105,8 @@ function MatterCard({
   nextEvent?: PortalCalendarEventWithMatter;
 }) {
   const navigate = useNavigate();
+  const updatedAt = toDate(matter.lastEventAt);
+  const nextAt = toDate(nextEvent?.start_date);
   return (
     <Card
       className="cursor-pointer transition-all hover:border-primary/40 hover:shadow-card"
@@ -125,9 +137,9 @@ function MatterCard({
         <div className="mt-3 flex items-center gap-2">
           <span className={cn('h-2 w-2 shrink-0 rounded-full', statusTone(matter.status))} />
           <span className="text-xs font-medium text-foreground">{prettyStatus(matter.status)}</span>
-          {matter.lastEventAt && (
+          {updatedAt && (
             <span className="text-xs text-muted-foreground">
-              · Updated {formatDistanceToNow(new Date(matter.lastEventAt), { addSuffix: true })}
+              · Updated {formatDistanceToNow(updatedAt, { addSuffix: true })}
             </span>
           )}
         </div>
@@ -142,9 +154,11 @@ function MatterCard({
             <span className="truncate text-xs text-foreground">
               {nextEvent.title || 'Next date'}
             </span>
-            <span className="ml-auto shrink-0 text-xs font-medium text-muted-foreground">
-              {format(new Date(nextEvent.start_date), 'MMM d')}
-            </span>
+            {nextAt && (
+              <span className="ml-auto shrink-0 text-xs font-medium text-muted-foreground">
+                {format(nextAt, 'MMM d')}
+              </span>
+            )}
           </div>
         )}
 
@@ -166,6 +180,8 @@ function MatterRow({
   nextEvent?: PortalCalendarEventWithMatter;
 }) {
   const navigate = useNavigate();
+  const updatedAt = toDate(matter.lastEventAt);
+  const nextAt = toDate(nextEvent?.start_date);
   return (
     <button
       type="button"
@@ -200,13 +216,13 @@ function MatterRow({
           ) : (
             <CalendarDays className="h-3 w-3 text-muted-foreground" />
           )}
-          {format(new Date(nextEvent.start_date), 'MMM d')}
+          {nextAt ? format(nextAt, 'MMM d') : nextEvent.title || 'Upcoming'}
         </div>
       )}
 
-      {matter.lastEventAt && (
+      {updatedAt && (
         <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
-          {formatDistanceToNow(new Date(matter.lastEventAt), { addSuffix: true })}
+          {formatDistanceToNow(updatedAt, { addSuffix: true })}
         </span>
       )}
 

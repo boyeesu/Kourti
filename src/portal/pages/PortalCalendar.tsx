@@ -38,6 +38,14 @@ function isHearing(eventType: string | null): boolean {
   return !!eventType && /hearing|court/i.test(eventType);
 }
 
+/** Parse a date-ish value, returning null for missing/invalid input so callers
+ *  never hand an "Invalid Date" to date-fns (which throws RangeError). */
+function toDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 const RSVP_OPTIONS: { value: PortalRsvpResponse; label: string }[] = [
   { value: 'accepted', label: 'Going' },
   { value: 'tentative', label: 'Maybe' },
@@ -56,7 +64,8 @@ function CalendarEventCard({
   const navigate = useNavigate();
   const hearing = isHearing(event.event_type);
   const Icon = hearing ? Gavel : CalendarDays;
-  const start = new Date(event.start_date);
+  const start = toDate(event.start_date);
+  const end = toDate(event.end_date);
 
   return (
     <Card className={hearing ? 'border-primary/30' : undefined}>
@@ -68,9 +77,9 @@ function CalendarEventCard({
           }`}
         >
           <span className="text-[10px] font-semibold uppercase tracking-wide">
-            {format(start, 'MMM')}
+            {start ? format(start, 'MMM') : '—'}
           </span>
-          <span className="text-lg font-bold leading-none">{format(start, 'd')}</span>
+          <span className="text-lg font-bold leading-none">{start ? format(start, 'd') : '?'}</span>
         </div>
 
         <div className="min-w-0 flex-1">
@@ -96,10 +105,8 @@ function CalendarEventCard({
           </button>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            {format(start, 'EEEE, PPP')}
-            {event.end_date && event.end_date !== event.start_date
-              ? ` – ${format(new Date(event.end_date), 'PPP')}`
-              : ''}
+            {start ? format(start, 'EEEE, PPP') : 'Date to be confirmed'}
+            {end && event.end_date !== event.start_date ? ` – ${format(end, 'PPP')}` : ''}
           </p>
 
           {event.location && (
@@ -237,11 +244,12 @@ export default function PortalCalendar() {
   // Group chronologically by month label.
   const groups = useMemo(() => {
     const sorted = [...filtered].sort(
-      (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+      (a, b) => (toDate(a.start_date)?.getTime() ?? 0) - (toDate(b.start_date)?.getTime() ?? 0)
     );
     const byMonth = new Map<string, PortalCalendarEventWithMatter[]>();
     for (const ev of sorted) {
-      const key = format(new Date(ev.start_date), 'MMMM yyyy');
+      const startsAt = toDate(ev.start_date);
+      const key = startsAt ? format(startsAt, 'MMMM yyyy') : 'Date to be confirmed';
       const arr = byMonth.get(key);
       if (arr) arr.push(ev);
       else byMonth.set(key, [ev]);
