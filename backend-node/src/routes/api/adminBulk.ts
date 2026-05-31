@@ -185,6 +185,10 @@ function csvCell(value: unknown): string {
   let s: string;
   if (value instanceof Date) s = value.toISOString();
   else s = String(value);
+  // Neutralize CSV formula injection (CWE-1236): user-controlled fields
+  // (email/first_name/last_name) beginning with a formula trigger can execute
+  // when the export is opened in a spreadsheet. Prefix such cells with an apostrophe.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return `"${s.replace(/"/g, '""')}"`;
 }
 
