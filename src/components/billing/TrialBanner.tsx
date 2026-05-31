@@ -2,10 +2,15 @@ import { Link } from 'react-router-dom';
 import { Sparkles, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 
 export function TrialBanner() {
   const { data } = useTrialStatus();
+  const { data: isPlatformAdmin } = usePlatformAdmin();
   if (!data) return null;
+
+  // Platform admins/staff aren't billed — don't nag them about the org's trial.
+  if (isPlatformAdmin) return null;
 
   if (data.status === 'active') return null;
 

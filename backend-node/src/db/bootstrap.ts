@@ -1570,6 +1570,172 @@ const bootstrapStatements = [
   `,
   `create index if not exists idx_contact_submissions_email on public.contact_submissions(email)`,
   `create index if not exists idx_contact_submissions_created_at on public.contact_submissions(created_at desc)`,
+
+  // ══ Platform-admin capabilities ════════════════════════════════════════════
+  // Everything below powers the expanded /thanos admin surface: granular admin
+  // roles, a richer audit trail, per-org feature overrides, and impersonation.
+
+  // ── Granular platform-admin roles ─────────────────────────────────────────
+  // The single 'platform_admin' role is kept as the all-powerful superadmin.
+  // These finer roles let us grant scoped staff access (support can read +
+  // impersonate read-only; billing can touch subscriptions/credits) without
+  // handing out the keys to the whole platform. Stored in user_role_assignments
+  // with a sentinel org id (platform roles aren't org-scoped). See
+  // services/authorization.ts for the role→capability mapping.
+  `do $$ begin
+     insert into public.global_roles (role, display_name, description) values
+       ('platform_admin', 'Platform Superadmin', 'Full platform administration across all firms');
+     exception when unique_violation then null;
+   end $$`,
+  `do $$ begin
+     insert into public.global_roles (role, display_name, description) values
+       ('platform_support', 'Platform Support', 'Read-only platform access + read-only impersonation');
+     exception when unique_violation then null;
+   end $$`,
+  `do $$ begin
+     insert into public.global_roles (role, display_name, description) values
+       ('platform_billing', 'Platform Billing', 'Billing, subscriptions, plans and credits');
+     exception when unique_violation then null;
+   end $$`,
+
+  // ── Richer admin audit trail ──────────────────────────────────────────────
+  // Add a human reason (required for destructive/billing/impersonation actions)
+  // and a before/after snapshot so mutating actions are reconstructable. These
+  // are additive columns on the existing admin_actions table.
+  `alter table public.admin_actions add column if not exists reason text`,
+  `alter table public.admin_actions add column if not exists before_state jsonb`,
+  `alter table public.admin_actions add column if not exists after_state jsonb`,
+  `create index if not exists idx_admin_actions_admin on public.admin_actions(admin_user_id, created_at desc)`,
+  `create index if not exists idx_admin_actions_target on public.admin_actions(target_type, target_id)`,
+
+  // ── Per-org feature overrides ─────────────────────────────────────────────
+  // A grant/revoke layer that sits ABOVE plan_features so an admin can switch a
+  // single feature on/off for one org (sales trials, beta access, incident
+  // workarounds) without editing the plan. `mode='grant'` forces the feature
+  // on; `mode='revoke'` forces it off. Optional expiry; null = permanent until
+  // removed. Consulted by services/entitlements.ts before the plan matrix.
+  `
+  create table if not exists public.feature_overrides (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null,
+    feature_key text not null,
+    mode text not null default 'grant' check (mode in ('grant','revoke')),
+    reason text,
+    created_by uuid,
+    expires_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    unique (organization_id, feature_key)
+  )
+  `,
+  `create index if not exists idx_feature_overrides_org on public.feature_overrides(organization_id)`,
+
+  // ── Impersonation sessions ────────────────────────────────────────────────
+  // Audit record for every "View as" session. The minted impersonation JWT
+  // carries this row's id as its jti; authenticateRequest checks the row is
+  // still active (ended_at is null, not past expiry) on every request so a
+  // session can be force-revoked. `scope` gates write actions — read-only is
+  // the default and the only mode platform_support may use.
+  `
+  create table if not exists public.impersonation_sessions (
+    id uuid primary key default gen_random_uuid(),
+    admin_user_id uuid not null,
+    target_type text not null check (target_type in ('staff','client')),
+    target_user_id uuid not null,
+    target_organization_id uuid,
+    scope text not null default 'read' check (scope in ('read','write')),
+    reason text not null,
+    ip_address text,
+    user_agent text,
+    expires_at timestamptz not null,
+    ended_at timestamptz,
+    ended_by uuid,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_impersonation_active
+     on public.impersonation_sessions(admin_user_id) where ended_at is null`,
+
+  // ── Lifecycle automation rules ────────────────────────────────────────────
+  // Lightweight rules engine over the manual admin actions: auto-approve users
+  // whose email matches a domain, flag/auto-disable dormant accounts, etc.
+  // `trigger` + `params` describe the rule; the runner (services/adminRules.ts)
+  // evaluates enabled rules on a schedule and writes admin_actions for each
+  // action it takes (admin_user_id = the rule's created_by).
+  `
+  create table if not exists public.admin_lifecycle_rules (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,
+    trigger text not null check (trigger in ('user_signup','dormant_account','trial_expiring')),
+    action text not null check (action in ('auto_approve','flag','auto_disable','notify')),
+    params jsonb not null default '{}'::jsonb,
+    enabled boolean not null default true,
+    created_by uuid,
+    last_run_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+
+  // ── Email delivery log ────────────────────────────────────────────────────
+  // Unified per-recipient send log across providers (Resend transactional,
+  // Brevo marketing). Written by services/email.ts + services/brevo.ts so the
+  // admin email-deliverability viewer has a single queryable history with
+  // bounce/complaint status. `provider_message_id` links back to the provider
+  // dashboard; `status` is updated by provider webhooks where available.
+  `
+  create table if not exists public.email_delivery_log (
+    id uuid primary key default gen_random_uuid(),
+    provider text not null check (provider in ('resend','brevo')),
+    to_email text not null,
+    subject text,
+    template text,
+    provider_message_id text,
+    status text not null default 'sent'
+      check (status in ('queued','sent','delivered','bounced','complained','failed')),
+    error text,
+    organization_id uuid,
+    user_id uuid,
+    metadata jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_email_log_to on public.email_delivery_log(to_email, created_at desc)`,
+  `create index if not exists idx_email_log_status on public.email_delivery_log(status, created_at desc)`,
+
+  // ── Billing: manual credits + subscription adjustments ────────────────────
+  // Comp credits and manual billing adjustments applied by platform-billing
+  // staff, separate from Paystack. `billing_credits` is a ledger (positive =
+  // credit granted to the org, in minor units of `currency`); `subscription_
+  // adjustments` records discrete admin actions on a subscription (extend
+  // trial, change seats, force plan sync, mark paid) for reconciliation.
+  `
+  create table if not exists public.billing_credits (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null,
+    amount_minor bigint not null,
+    currency text not null default 'NGN',
+    reason text not null,
+    created_by uuid,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_billing_credits_org on public.billing_credits(organization_id, created_at desc)`,
+  `
+  create table if not exists public.subscription_adjustments (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null,
+    subscription_id uuid,
+    adjustment_type text not null
+      check (adjustment_type in ('extend_trial','change_seats','force_sync','mark_paid','cancel','reactivate')),
+    params jsonb not null default '{}'::jsonb,
+    reason text,
+    created_by uuid,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_sub_adjustments_org on public.subscription_adjustments(organization_id, created_at desc)`,
 ];
 
 export async function ensureDatabaseSchema() {

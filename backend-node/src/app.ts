@@ -9,10 +9,22 @@ import { requireAuth } from './middleware/auth.js';
 import { requireClientAuth } from './middleware/requireClientAuth.js';
 import { requireActiveSubscription } from './middleware/requireActiveSubscription.js';
 import { requireFeature } from './middleware/requireFeature.js';
+import { adminRateLimit } from './middleware/adminRateLimit.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { withRequestContext } from './middleware/requestContext.js';
 import { aiRouter } from './routes/api/ai.js';
 import { adminRouter } from './routes/api/admin.js';
+import { adminBulkRouter } from './routes/api/adminBulk.js';
+import { adminFeaturesRouter } from './routes/api/adminFeatures.js';
+import { adminImpersonationRouter } from './routes/api/adminImpersonation.js';
+import { adminBillingRouter } from './routes/api/adminBilling.js';
+import { adminUsageRouter } from './routes/api/adminUsage.js';
+import { adminHealthRouter } from './routes/api/adminHealth.js';
+import { adminEmailRouter } from './routes/api/adminEmail.js';
+import { adminAuditRouter } from './routes/api/adminAudit.js';
+import { adminKbRouter } from './routes/api/adminKb.js';
+import { adminPortalRouter } from './routes/api/adminPortal.js';
+import { adminRulesRouter } from './routes/api/adminRules.js';
 import { authRouter } from './routes/api/authRoutes.js';
 import { casesRouter } from './routes/api/cases.js';
 import { chatRouter } from './routes/api/chat.js';
@@ -109,7 +121,22 @@ export function createApp() {
   app.use('/api/v1/public', publicRouter);
 
   // Ungated (always reachable so users can pay, manage org, see banner).
+  // Platform-admin surface (/thanos). Each sub-router self-authorizes per route
+  // via requireAdminCapabilityFor, so they only need requireAuth upstream. All
+  // share the /api/v1/admin prefix with distinct, non-colliding path segments.
   app.use('/api/v1/admin', requireAuth, adminRouter);
+  app.use('/api/v1/admin', requireAuth, adminFeaturesRouter);
+  app.use('/api/v1/admin', requireAuth, adminImpersonationRouter);
+  app.use('/api/v1/admin', requireAuth, adminBillingRouter);
+  app.use('/api/v1/admin', requireAuth, adminUsageRouter);
+  app.use('/api/v1/admin', requireAuth, adminHealthRouter);
+  app.use('/api/v1/admin', requireAuth, adminEmailRouter);
+  app.use('/api/v1/admin', requireAuth, adminAuditRouter);
+  app.use('/api/v1/admin', requireAuth, adminKbRouter);
+  app.use('/api/v1/admin', requireAuth, adminPortalRouter);
+  // Bulk ops and CSV exports are heavy + sensitive — cap per-admin throughput.
+  app.use('/api/v1/admin', requireAuth, adminRateLimit('bulk', 30, 60_000), adminBulkRouter);
+  app.use('/api/v1/admin', requireAuth, adminRulesRouter);
   app.use('/api/v1/dashboard', requireAuth, dashboardRouter);
   app.use('/api/v1/misc', requireAuth, miscRouter);
   app.use('/api/v1/onboarding', requireAuth, onboardingRouter);

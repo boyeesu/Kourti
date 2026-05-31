@@ -19,6 +19,8 @@
  * All calls are fire-and-forget — Brevo outages must never break signup or
  * billing. Use `brevoSync*(...).catch(logBrevoError)` at call sites.
  */
+import { logEmailDelivery } from './emailLog.js';
+
 const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
 const BREVO_BASE = 'https://api.brevo.com/v3';
 
@@ -103,11 +105,47 @@ export async function brevoUpsertContact(
     body.unlinkListIds = options.unlinkListIds;
   }
 
-  const res = await brevoFetch('/contacts', { method: 'POST', body });
+  let res: Response;
+  try {
+    res = await brevoFetch('/contacts', { method: 'POST', body });
+  } catch (err) {
+    void logEmailDelivery({
+      provider: 'brevo',
+      toEmail: cleanEmail,
+      template: 'contact_sync',
+      status: 'failed',
+      error: err instanceof Error ? err.message : String(err),
+      organizationId: attrs.ORGANIZATION_ID ?? null,
+      userId: attrs.USER_ID ?? null,
+      metadata: { sub_status: attrs.SUB_STATUS ?? null },
+    });
+    throw err;
+  }
+
   if (!res.ok && res.status !== 204) {
     const text = await safeText(res);
+    void logEmailDelivery({
+      provider: 'brevo',
+      toEmail: cleanEmail,
+      template: 'contact_sync',
+      status: 'failed',
+      error: `brevo upsert failed: ${res.status} ${text}`,
+      organizationId: attrs.ORGANIZATION_ID ?? null,
+      userId: attrs.USER_ID ?? null,
+      metadata: { sub_status: attrs.SUB_STATUS ?? null },
+    });
     throw new Error(`brevo upsert failed: ${res.status} ${text}`);
   }
+
+  void logEmailDelivery({
+    provider: 'brevo',
+    toEmail: cleanEmail,
+    template: 'contact_sync',
+    status: 'sent',
+    organizationId: attrs.ORGANIZATION_ID ?? null,
+    userId: attrs.USER_ID ?? null,
+    metadata: { sub_status: attrs.SUB_STATUS ?? null },
+  });
 }
 
 async function safeText(res: Response): Promise<string> {

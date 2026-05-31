@@ -15,11 +15,13 @@ import './agents/intelligenceSynthesis.js';
 import './agents/weeklyDigest.js';
 import './agents/trialExpirySweep.js';
 import './agents/unverifiedUserSweep.js';
+import './agents/lifecycleRulesSweep.js';
 import { startMonitorScheduler } from './agents/monitorScheduler.js';
 import { startWeeklyDigestScheduler } from './agents/weeklyDigest.js';
 import { startTrialExpirySweep } from './agents/trialExpirySweep.js';
 import { startUnverifiedUserSweep } from './agents/unverifiedUserSweep.js';
 import { startMarketingKbScheduler } from './agents/marketingKbSync.js';
+import { startLifecycleRulesSweep } from './agents/lifecycleRulesSweep.js';
 
 const app = createApp();
 const server = createServer(app);
@@ -47,6 +49,7 @@ async function start() {
     await startTrialExpirySweep();
     await startUnverifiedUserSweep();
     await startMarketingKbScheduler();
+    await startLifecycleRulesSweep();
   } catch (error) {
     console.error(
       'Agent worker startup failed (server will still start):',

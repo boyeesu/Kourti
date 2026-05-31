@@ -28,10 +28,23 @@ const DUMMY_PASSWORD_HASH = '$2b$12$N9qo8uLOickgx2ZMRZoMye.IjPeZgSdBmkqPxxnkNLpf
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
+/**
+ * Impersonation claim carried by a "View as" access token. `sid` is the
+ * public.impersonation_sessions row id — checked active on every request so a
+ * session can be force-revoked. `scope='read'` tokens are blocked from mutating
+ * requests at the middleware layer.
+ */
+export interface ImpersonationClaim {
+  sid: string; // impersonation_sessions.id
+  by: string; // admin user id who started the session
+  scope: 'read' | 'write';
+}
+
 export interface JwtPayload {
   sub: string; // user id
   email: string;
   org: string; // organization_id
+  imp?: ImpersonationClaim;
   iat?: number;
   exp?: number;
 }
@@ -53,6 +66,7 @@ export interface AuthUser {
   id: string;
   email: string;
   organizationId: string;
+  impersonation?: ImpersonationClaim;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -68,6 +82,29 @@ function signRefreshToken(userId: string): string {
   return jwt.sign({ sub: userId, type: 'refresh' }, env.JWT_REFRESH_SECRET!, {
     algorithm: 'HS256',
     expiresIn: parseExpiresIn(env.JWT_REFRESH_EXPIRES_IN),
+  });
+}
+
+/**
+ * Mint a short-lived access token that authenticates AS `target` but carries an
+ * impersonation claim. Used by the platform-admin "View as" flow. No refresh
+ * token is issued — impersonation sessions are deliberately short and must be
+ * re-started. `expiresInSeconds` is clamped by the caller to the session TTL.
+ */
+export function signImpersonationAccessToken(
+  target: { id: string; email: string; organizationId: string },
+  impersonation: ImpersonationClaim,
+  expiresInSeconds: number
+): string {
+  const payload: JwtPayload = {
+    sub: target.id,
+    email: target.email,
+    org: target.organizationId,
+    imp: impersonation,
+  };
+  return jwt.sign(payload, env.JWT_SECRET!, {
+    algorithm: 'HS256',
+    expiresIn: expiresInSeconds,
   });
 }
 
@@ -608,6 +645,7 @@ export function verifyAccessToken(token: string): AuthUser {
       id: payload.sub,
       email: payload.email,
       organizationId: payload.org,
+      impersonation: payload.imp,
     };
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {

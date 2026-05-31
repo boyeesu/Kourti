@@ -1,5 +1,49 @@
 import { Resend } from 'resend';
 import { env } from '../config/env.js';
+import { logEmailDelivery } from './emailLog.js';
+
+type ResendSendPayload = Parameters<Resend['emails']['send']>[0];
+
+/**
+ * Send a transactional email via Resend and record the attempt in the email
+ * deliverability log. Centralises the send + best-effort logging so every
+ * template captures provider message id on success and the error on failure.
+ * Preserves the existing behaviour: throws on provider error, returns messageId.
+ */
+async function sendResendEmail(
+  payload: ResendSendPayload,
+  template: string
+): Promise<{ messageId?: string }> {
+  const r = getResend();
+  const recipients = Array.isArray(payload.to) ? payload.to : [payload.to];
+  const primaryTo = String(recipients[0] ?? '');
+
+  try {
+    const { data, error } = await r.emails.send(payload);
+    if (error) throw new Error(error.message);
+    void logEmailDelivery({
+      provider: 'resend',
+      toEmail: primaryTo,
+      subject: typeof payload.subject === 'string' ? payload.subject : undefined,
+      template,
+      providerMessageId: data?.id ?? null,
+      status: 'sent',
+      metadata: recipients.length > 1 ? { recipients } : {},
+    });
+    return { messageId: data?.id };
+  } catch (err) {
+    void logEmailDelivery({
+      provider: 'resend',
+      toEmail: primaryTo,
+      subject: typeof payload.subject === 'string' ? payload.subject : undefined,
+      template,
+      status: 'failed',
+      error: err instanceof Error ? err.message : String(err),
+      metadata: recipients.length > 1 ? { recipients } : {},
+    });
+    throw err;
+  }
+}
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || 'noreply@kourti.com';
@@ -103,7 +147,6 @@ export async function sendPasswordResetEmail(
   resetToken: string,
   orgName?: string
 ): Promise<{ messageId?: string }> {
-  const r = getResend();
   const resetUrl = `${APP_URL}/auth/reset-password?token=${resetToken}`;
   const displayName = orgName || BRAND_NAME;
 
@@ -118,15 +161,15 @@ export async function sendPasswordResetEmail(
     `
   );
 
-  const { data, error } = await r.emails.send({
-    from: `${displayName} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject: `Reset Your ${displayName} Password`,
-    html,
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${displayName} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject: `Reset Your ${displayName} Password`,
+      html,
+    },
+    'password_reset'
+  );
 }
 
 export async function sendEmailOtpEmail(
@@ -134,7 +177,6 @@ export async function sendEmailOtpEmail(
   code: string,
   purpose: 'login' | 'signup' | 'enable_2fa'
 ): Promise<{ messageId?: string }> {
-  const r = getResend();
   const subjectByPurpose: Record<typeof purpose, string> = {
     login: `Your ${BRAND_NAME} sign-in code`,
     signup: `Verify your email for ${BRAND_NAME}`,
@@ -158,22 +200,21 @@ export async function sendEmailOtpEmail(
     `
   );
 
-  const { data, error } = await r.emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject: subjectByPurpose[purpose],
-    html,
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject: subjectByPurpose[purpose],
+      html,
+    },
+    `otp_${purpose}`
+  );
 }
 
 export async function sendWelcomeEmail(
   email: string,
   firstName?: string
 ): Promise<{ messageId?: string }> {
-  const r = getResend();
   const greeting = firstName ? `Hi ${firstName}` : 'Hi';
 
   const html = wrapHtml(
@@ -192,15 +233,15 @@ export async function sendWelcomeEmail(
     `
   );
 
-  const { data, error } = await r.emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject: `Welcome to ${BRAND_NAME}!`,
-    html,
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject: `Welcome to ${BRAND_NAME}!`,
+      html,
+    },
+    'welcome'
+  );
 }
 
 export async function sendInvitationEmail(
@@ -213,7 +254,6 @@ export async function sendInvitationEmail(
     token?: string;
   }
 ): Promise<{ messageId?: string }> {
-  const r = getResend();
   const baseUrl = options?.invitationUrl || `${APP_URL}/auth`;
   const separator = baseUrl.includes('?') ? '&' : '?';
   const joinUrl = options?.token
@@ -230,15 +270,15 @@ export async function sendInvitationEmail(
     `
   );
 
-  const { data, error } = await r.emails.send({
-    from: `${orgName} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject: `You've been invited to ${orgName} on ${BRAND_NAME}`,
-    html,
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${orgName} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject: `You've been invited to ${orgName} on ${BRAND_NAME}`,
+      html,
+    },
+    'invitation'
+  );
 }
 
 export async function sendNotificationEmail(
@@ -248,8 +288,6 @@ export async function sendNotificationEmail(
   actionUrl?: string,
   actionText?: string
 ): Promise<{ messageId?: string }> {
-  const r = getResend();
-
   const html = wrapHtml(
     title,
     `
@@ -259,15 +297,15 @@ export async function sendNotificationEmail(
     `
   );
 
-  const { data, error } = await r.emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject: title,
-    html,
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject: title,
+      html,
+    },
+    'notification'
+  );
 }
 
 // ── Weekly Insights Digest ─────────────────────────────────────────────────
@@ -343,7 +381,6 @@ export async function sendWeeklyDigestEmail(
   email: string,
   metrics: WeeklyDigestMetrics
 ): Promise<{ messageId?: string }> {
-  const r = getResend();
   const greeting = metrics.firstName ? `Hi ${metrics.firstName}` : 'Hi';
 
   const body = `
@@ -406,15 +443,15 @@ export async function sendWeeklyDigestEmail(
 
   const html = wrapHtml(`Your Weekly Insights — ${metrics.weekLabel}`, body);
 
-  const { data, error } = await r.emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject: `Your Week in Review — ${metrics.weekLabel}`,
-    html,
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject: `Your Week in Review — ${metrics.weekLabel}`,
+      html,
+    },
+    'weekly_digest'
+  );
 }
 
 // ── Marketing-site lead emails ───────────────────────────────────────────────
@@ -456,7 +493,6 @@ export async function sendContactLeadNotification(
   lead: ContactLead
 ): Promise<{ messageId?: string }> {
   if (LEADS_NOTIFY_EMAILS.length === 0) return {};
-  const r = getResend();
 
   const body = `
     <h2 style="color:${BRAND.lightText};font-size:18px;margin:0 0 16px;">New contact form submission</h2>
@@ -470,16 +506,16 @@ export async function sendContactLeadNotification(
     <p style="color:${BRAND.mutedText};font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap;">${escapeHtml(lead.message)}</p>
   `;
 
-  const { data, error } = await r.emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: LEADS_NOTIFY_EMAILS,
-    replyTo: lead.email.toLowerCase(),
-    subject: `New contact: ${lead.firstName} ${lead.lastName} — ${lead.interest}`,
-    html: wrapHtml('New contact form submission', body),
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: LEADS_NOTIFY_EMAILS,
+      replyTo: lead.email.toLowerCase(),
+      subject: `New contact: ${lead.firstName} ${lead.lastName} — ${lead.interest}`,
+      html: wrapHtml('New contact form submission', body),
+    },
+    'contact_lead_notification'
+  );
 }
 
 export interface AssessmentLead {
@@ -519,7 +555,6 @@ function dimensionRows(scores: Record<string, number>, perDimensionMax = 4): str
 export async function sendAssessmentResultEmail(
   lead: AssessmentLead
 ): Promise<{ messageId?: string }> {
-  const r = getResend();
   const percent = Math.round((lead.totalScore / lead.maxScore) * 100);
 
   const body = `
@@ -536,15 +571,15 @@ export async function sendAssessmentResultEmail(
     ${ctaButton('Start your free trial', APP_URL)}
   `;
 
-  const { data, error } = await r.emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: [lead.email.toLowerCase()],
-    subject: `Your Practice Maturity Results: ${lead.tier} (${lead.totalScore}/${lead.maxScore})`,
-    html: wrapHtml('Your Legal Practice Maturity Results', body),
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: [lead.email.toLowerCase()],
+      subject: `Your Practice Maturity Results: ${lead.tier} (${lead.totalScore}/${lead.maxScore})`,
+      html: wrapHtml('Your Legal Practice Maturity Results', body),
+    },
+    'assessment_result'
+  );
 }
 
 /** Notify the sales team of a new assessment lead. */
@@ -552,7 +587,6 @@ export async function sendAssessmentLeadNotification(
   lead: AssessmentLead
 ): Promise<{ messageId?: string }> {
   if (LEADS_NOTIFY_EMAILS.length === 0) return {};
-  const r = getResend();
   const percent = Math.round((lead.totalScore / lead.maxScore) * 100);
 
   const body = `
@@ -565,16 +599,16 @@ export async function sendAssessmentLeadNotification(
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:12px 0;">${dimensionRows(lead.dimensionScores)}</table>
   `;
 
-  const { data, error } = await r.emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: LEADS_NOTIFY_EMAILS,
-    replyTo: lead.email.toLowerCase(),
-    subject: `New assessment lead: ${lead.tier} (${lead.totalScore}/${lead.maxScore})`,
-    html: wrapHtml('New assessment lead', body),
-  });
-
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: LEADS_NOTIFY_EMAILS,
+      replyTo: lead.email.toLowerCase(),
+      subject: `New assessment lead: ${lead.tier} (${lead.totalScore}/${lead.maxScore})`,
+      html: wrapHtml('New assessment lead', body),
+    },
+    'assessment_lead_notification'
+  );
 }
 
 // ── Client Portal emails ─────────────────────────────────────────────────────
@@ -585,7 +619,6 @@ export async function sendClientOtpEmail(
   email: string,
   code: string
 ): Promise<{ messageId?: string }> {
-  const r = getResend();
   const subject = 'Your secure sign-in code';
 
   const html = wrapHtml(
@@ -600,14 +633,15 @@ export async function sendClientOtpEmail(
     `
   );
 
-  const { data, error } = await getResend().emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject,
-    html,
-  });
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject,
+      html,
+    },
+    'client_otp'
+  );
 }
 
 /** Email a client their portal invitation link so they can set a password and
@@ -636,14 +670,15 @@ export async function sendClientPortalInviteEmail(args: {
     <p style="color:${BRAND.mutedText};font-size:12px;word-break:break-all;">Direct link: ${acceptUrl}</p>
   `;
 
-  const { data, error } = await getResend().emails.send({
-    from: `${safeFirm} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject: `${firmName} invited you to view "${matterTitle}"`,
-    html: wrapHtml(`${firmName} invited you to view "${matterTitle}"`, body),
-  });
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${safeFirm} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject: `${firmName} invited you to view "${matterTitle}"`,
+      html: wrapHtml(`${firmName} invited you to view "${matterTitle}"`, body),
+    },
+    'client_portal_invite'
+  );
 }
 
 /** Password-reset email for a CLIENT portal user. Links to the portal reset
@@ -662,14 +697,15 @@ export async function sendClientPasswordResetEmail(
     <p style="color:${BRAND.mutedText};font-size:12px;word-break:break-all;">Direct link: ${resetUrl}</p>
   `;
 
-  const { data, error } = await getResend().emails.send({
-    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject: 'Reset your client portal password',
-    html: wrapHtml('Reset your client portal password', body),
-  });
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject: 'Reset your client portal password',
+      html: wrapHtml('Reset your client portal password', body),
+    },
+    'client_password_reset'
+  );
 }
 
 /** Render a minimal subset of Markdown-ish text to safe HTML paragraphs.
@@ -716,12 +752,13 @@ export async function sendClientUpdateEmail(args: {
     <p style="color:${BRAND.mutedText};font-size:13px;line-height:1.6;">Questions? Reply to this email or message your legal team directly through the portal.</p>
   `;
 
-  const { data, error } = await getResend().emails.send({
-    from: `${safeFirm} <${FROM_EMAIL}>`,
-    to: [email.toLowerCase()],
-    subject,
-    html: wrapHtml(subject, body),
-  });
-  if (error) throw new Error(error.message);
-  return { messageId: data?.id };
+  return sendResendEmail(
+    {
+      from: `${safeFirm} <${FROM_EMAIL}>`,
+      to: [email.toLowerCase()],
+      subject,
+      html: wrapHtml(subject, body),
+    },
+    'client_update'
+  );
 }
