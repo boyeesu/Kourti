@@ -71,6 +71,7 @@ const EVENT_ICON: Record<string, typeof CircleDot> = {
   task_completed: CheckCircle2,
   note_added: StickyNote,
   client_message: MessageSquare,
+  staff_message: MessageSquare,
   invoice_sent: Receipt,
   invoice_paid: BadgeCheck,
   update_sent: Megaphone,
@@ -257,6 +258,8 @@ export default function PortalMatterDetail() {
     queryKey: ['portal', 'matter', caseId, 'messages'],
     queryFn: () => portalGetMessages(caseId),
     enabled: !!caseId,
+    // Light polling so the client sees the firm's replies without a refresh.
+    refetchInterval: 20_000,
   });
 
   const teamQ = useQuery({
