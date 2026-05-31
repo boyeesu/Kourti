@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -11,6 +11,8 @@ import {
   Gavel,
   CalendarDays,
   ArrowRight,
+  LayoutGrid,
+  List as ListIcon,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -152,6 +154,67 @@ function MatterCard({
   );
 }
 
+/** Compact single-row representation of a matter for the list view. */
+function MatterRow({
+  matter,
+  nextEvent,
+}: {
+  matter: PortalMatterSummary;
+  nextEvent?: PortalCalendarEventWithMatter;
+}) {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(`/portal/matters/${matter.caseId}`)}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+    >
+      <span
+        className={cn('h-2 w-2 shrink-0 rounded-full', statusTone(matter.status))}
+        aria-hidden
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-sm font-semibold text-foreground">{matter.title}</h3>
+          {matter.unreadMessages > 0 && (
+            <Badge variant="default" className="h-5 shrink-0 gap-1 text-[10px]">
+              <MessageSquare className="h-3 w-3" />
+              {matter.unreadMessages}
+            </Badge>
+          )}
+        </div>
+        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+          <Building2 className="h-3 w-3 shrink-0" />
+          <span className="truncate">{matter.firm.name}</span>
+          <span className="hidden sm:inline">· {prettyStatus(matter.status)}</span>
+        </div>
+      </div>
+
+      {nextEvent && (
+        <div className="hidden shrink-0 items-center gap-1.5 rounded-md bg-muted/70 px-2 py-1 text-xs text-foreground sm:flex">
+          {isHearing(nextEvent.event_type) ? (
+            <Gavel className="h-3 w-3 text-primary" />
+          ) : (
+            <CalendarDays className="h-3 w-3 text-muted-foreground" />
+          )}
+          {format(new Date(nextEvent.start_date), 'MMM d')}
+        </div>
+      )}
+
+      {matter.lastEventAt && (
+        <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
+          {formatDistanceToNow(new Date(matter.lastEventAt), { addSuffix: true })}
+        </span>
+      )}
+
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
+
+type MatterView = 'grid' | 'list';
+const VIEW_STORAGE_KEY = 'kourti_portal_matters_view';
+
 export default function PortalMatters() {
   const { client } = usePortalAuth();
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -167,6 +230,19 @@ export default function PortalMatters() {
   });
 
   const [firmFilter, setFirmFilter] = useState<string>('all');
+  const [view, setView] = useState<MatterView>(() => {
+    const stored =
+      typeof localStorage !== 'undefined' ? localStorage.getItem(VIEW_STORAGE_KEY) : null;
+    return stored === 'list' ? 'list' : 'grid';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, view);
+    } catch {
+      /* ignore persistence errors (private mode, etc.) */
+    }
+  }, [view]);
 
   // Soonest upcoming event per case (calendar is grouped by date by the server).
   const nextByCase = useMemo(() => {
@@ -217,6 +293,29 @@ export default function PortalMatters() {
   }, [visibleMatters]);
 
   const firstName = client?.fullName?.trim().split(/\s+/)[0];
+
+  const renderMatters = (matters: PortalMatterSummary[]) =>
+    view === 'grid' ? (
+      <div className="grid gap-3 sm:grid-cols-2">
+        {matters.map((matter) => (
+          <MatterCard
+            key={matter.caseId}
+            matter={matter}
+            nextEvent={nextByCase.get(matter.caseId)}
+          />
+        ))}
+      </div>
+    ) : (
+      <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-background">
+        {matters.map((matter) => (
+          <MatterRow
+            key={matter.caseId}
+            matter={matter}
+            nextEvent={nextByCase.get(matter.caseId)}
+          />
+        ))}
+      </div>
+    );
 
   return (
     <div className="space-y-6">
@@ -271,21 +370,53 @@ export default function PortalMatters() {
             <h2 className="text-sm font-semibold text-foreground">
               {visibleMatters.length} {visibleMatters.length === 1 ? 'matter' : 'matters'}
             </h2>
-            {multiFirm && (
-              <Select value={firmFilter} onValueChange={setFirmFilter}>
-                <SelectTrigger className="w-48 sm:w-64">
-                  <SelectValue placeholder="All firms" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All firms</SelectItem>
-                  {firms.map((firm) => (
-                    <SelectItem key={firm.id} value={firm.id}>
-                      {firm.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <div className="flex items-center gap-2">
+              {multiFirm && (
+                <Select value={firmFilter} onValueChange={setFirmFilter}>
+                  <SelectTrigger className="w-40 sm:w-56">
+                    <SelectValue placeholder="All firms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All firms</SelectItem>
+                    {firms.map((firm) => (
+                      <SelectItem key={firm.id} value={firm.id}>
+                        {firm.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="inline-flex rounded-md border border-border p-0.5">
+                <button
+                  type="button"
+                  aria-label="Grid view"
+                  aria-pressed={view === 'grid'}
+                  onClick={() => setView('grid')}
+                  className={cn(
+                    'rounded p-1.5 transition-colors',
+                    view === 'grid'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="List view"
+                  aria-pressed={view === 'list'}
+                  onClick={() => setView('list')}
+                  className={cn(
+                    'rounded p-1.5 transition-colors',
+                    view === 'list'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  <ListIcon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
 
           {multiFirm ? (
@@ -296,28 +427,12 @@ export default function PortalMatters() {
                     <Building2 className="h-3.5 w-3.5 shrink-0" />
                     {group.name}
                   </h3>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {group.matters.map((matter) => (
-                      <MatterCard
-                        key={matter.caseId}
-                        matter={matter}
-                        nextEvent={nextByCase.get(matter.caseId)}
-                      />
-                    ))}
-                  </div>
+                  {renderMatters(group.matters)}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {visibleMatters.map((matter) => (
-                <MatterCard
-                  key={matter.caseId}
-                  matter={matter}
-                  nextEvent={nextByCase.get(matter.caseId)}
-                />
-              ))}
-            </div>
+            renderMatters(visibleMatters)
           )}
         </>
       )}
