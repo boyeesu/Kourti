@@ -211,7 +211,12 @@ const CSV_ROW_CAP = 50_000;
  * newlines, and leading/trailing whitespace safe without per-char inspection.
  */
 function csvField(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
+  let s = value === null || value === undefined ? '' : String(value);
+  // Neutralize CSV formula injection (CWE-1236): a cell beginning with a
+  // formula trigger (= + - @, or a leading tab/CR) can execute when the export
+  // is opened in Excel/Sheets. Audit rows carry attacker-influencable values
+  // (action_type/target_id/reason), so prefix such cells with an apostrophe.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return `"${s.replace(/"/g, '""')}"`;
 }
 
