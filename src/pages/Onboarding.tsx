@@ -952,7 +952,7 @@ export default function Onboarding() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Organization Type *</Label>
                 <Select
@@ -1049,7 +1049,7 @@ export default function Onboarding() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="orgState">State/Province *</Label>
                 <Input
@@ -1112,7 +1112,7 @@ export default function Onboarding() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="orgPhone">Official Phone Number *</Label>
                 <Input
@@ -1260,7 +1260,7 @@ export default function Onboarding() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {practiceAreaOptions.map((area) => (
                   <div key={area} className="flex items-center space-x-2">
                     <Checkbox

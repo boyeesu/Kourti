@@ -29,6 +29,7 @@ import {
   Undo2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // --- Types ---
 
@@ -733,6 +734,7 @@ export function ContractAnalysisView({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [internalDecisions, setInternalDecisions] = useState<Record<string, FindingDecision>>({});
   const findingsRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const decisions = externalDecisions || internalDecisions;
   const handleDecision = useCallback(
@@ -816,9 +818,12 @@ export function ContractAnalysisView({
         </div>
       </div>
 
-      {/* Main split pane */}
-      <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
-        {/* Left: Document with highlights */}
+      {/* Main split pane — stacks vertically on mobile so each panel is full-width */}
+      <ResizablePanelGroup
+        direction={isMobile ? 'vertical' : 'horizontal'}
+        className="flex-1 min-h-0"
+      >
+        {/* Left (top on mobile): Document with highlights */}
         <ResizablePanel defaultSize={55} minSize={30}>
           <HighlightedDocument
             content={documentContent}

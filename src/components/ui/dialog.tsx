@@ -51,7 +51,11 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          'fixed left-1/2 top-1/2 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-5 border border-border/60 bg-[hsl(var(--surface))] p-6 shadow-lg sm:rounded-lg',
+          // Mobile-safe defaults: w-[calc(100%-2rem)] keeps a side gutter so the dialog never
+          // touches the screen edges on a phone, and max-h + overflow-y-auto lets tall dialogs
+          // scroll on short viewports. Per-dialog desktop sizing (sm:max-w-*) layers on top.
+          'fixed left-1/2 top-1/2 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-5 rounded-lg border border-border/60 bg-[hsl(var(--surface))] p-6 shadow-lg',
+          'max-h-[calc(100dvh-2rem)] overflow-y-auto',
           className
         )}
         style={{ zIndex }}

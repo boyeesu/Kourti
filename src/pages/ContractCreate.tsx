@@ -1201,7 +1201,7 @@ export default function ContractCreate() {
                 </p>
               </div>
               <Separator />
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
                   <p className="text-muted-foreground">Type</p>
                   <p className="font-medium">{contractData.type || '—'}</p>
