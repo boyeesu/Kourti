@@ -5,9 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, User, Mail, Phone, Building2, Briefcase, Calendar, Check, X, Trash2, Crown } from 'lucide-react';
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
+  Building2,
+  Briefcase,
+  Calendar,
+  Check,
+  X,
+  Trash2,
+  Crown,
+  ShieldCheck,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { useApproveUser, useDisableUser, useDeleteUser } from '@/hooks/useSuperAdminUserManagement';
+import { useUserTermsAcceptances } from '@/hooks/useUserTermsAcceptances';
 import { useState } from 'react';
 import {
   AlertDialog,
@@ -135,12 +149,20 @@ export function UserDetail() {
               </Button>
             )}
             {platformUser.status !== 'disabled' && (
-              <Button variant="destructive" onClick={handleDisable} disabled={disableUser.isPending}>
+              <Button
+                variant="destructive"
+                onClick={handleDisable}
+                disabled={disableUser.isPending}
+              >
                 <X className="h-4 w-4 mr-2" />
                 Disable
               </Button>
             )}
-            <Button variant="destructive" onClick={handleDeleteClick} disabled={deleteUser.isPending}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteClick}
+              disabled={deleteUser.isPending}
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </Button>
@@ -212,7 +234,9 @@ export function UserDetail() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Organization Type</label>
+                <label className="text-sm font-medium text-muted-foreground">
+                  Organization Type
+                </label>
                 <p className="text-sm">{platformUser.organization_type || '—'}</p>
               </div>
               <div className="flex items-start gap-3">
@@ -246,7 +270,9 @@ export function UserDetail() {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Last Login</label>
                 <p className="text-sm">
-                  {platformUser.last_login_at ? format(new Date(platformUser.last_login_at), 'PPpp') : 'Never'}
+                  {platformUser.last_login_at
+                    ? format(new Date(platformUser.last_login_at), 'PPpp')
+                    : 'Never'}
                 </p>
               </div>
               {platformUser.approved_at && (
@@ -275,6 +301,22 @@ export function UserDetail() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Legal Acceptance (audit) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Legal Acceptance
+            </CardTitle>
+            <CardDescription>
+              Terms of Service &amp; Privacy Policy acceptance history (for audit)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LegalAcceptanceInfo userId={platformUser.user_id} />
+          </CardContent>
+        </Card>
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -282,8 +324,8 @@ export function UserDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete user {platformUser.first_name} {platformUser.last_name} ({platformUser.email}). 
-              This action cannot be undone.
+              This will permanently delete user {platformUser.first_name} {platformUser.last_name} (
+              {platformUser.email}). This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -324,8 +366,8 @@ function UserPlanInfo({ userId }: { userId: string }) {
     currentPlan.plan_type === 'enterprise'
       ? 'default'
       : currentPlan.plan_type === 'professional'
-      ? 'secondary'
-      : 'outline';
+        ? 'secondary'
+        : 'outline';
 
   return (
     <div className="space-y-2">
@@ -338,6 +380,56 @@ function UserPlanInfo({ userId }: { userId: string }) {
       {!currentPlan.expires_at && (
         <p className="text-sm text-muted-foreground">No expiration date</p>
       )}
+    </div>
+  );
+}
+
+function LegalAcceptanceInfo({ userId }: { userId: string }) {
+  const { data: acceptances, isLoading, isError } = useUserTermsAcceptances(userId);
+
+  if (isLoading) {
+    return <Skeleton className="h-20 w-full" />;
+  }
+
+  if (isError) {
+    return <p className="text-sm text-muted-foreground">Unable to load acceptance history.</p>;
+  }
+
+  if (!acceptances || acceptances.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No recorded acceptance. This user signed up before terms acceptance was tracked.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {acceptances.map((a) => (
+        <div
+          key={a.id}
+          className="rounded-lg border border-border/60 p-4 text-sm grid gap-x-6 gap-y-2 sm:grid-cols-2"
+        >
+          <div>
+            <span className="text-muted-foreground">Accepted at</span>
+            <p className="font-medium">{format(new Date(a.accepted_at), 'PPpp')}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Versions</span>
+            <p className="font-medium">
+              Terms {a.terms_version} · Privacy {a.privacy_version}
+            </p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">IP address</span>
+            <p className="font-medium">{a.ip_address || '—'}</p>
+          </div>
+          <div className="sm:col-span-2 break-words">
+            <span className="text-muted-foreground">User agent</span>
+            <p className="font-medium">{a.user_agent || '—'}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
