@@ -33,6 +33,43 @@ const invoiceParamsSchema = z.object({ invoiceId: uuidLike });
 
 export const invoicesRouter = Router();
 
+/**
+ * Cross-org reference guard (IDOR / data-integrity). client_id / case_id come
+ * from the request body and must reference rows in the caller's organization.
+ */
+async function assertClientInOrg(
+  clientId: string | undefined,
+  organizationId: string
+): Promise<void> {
+  if (!clientId) return;
+  const res = await db.query(
+    'select 1 from public.clients where id = $1 and organization_id = $2 limit 1',
+    [clientId, organizationId]
+  );
+  if (!res.rows[0]) {
+    throw new ApiError(
+      'Referenced client does not belong to your organization',
+      400,
+      'INVALID_REFERENCE'
+    );
+  }
+}
+
+async function assertCaseInOrg(caseId: string | undefined, organizationId: string): Promise<void> {
+  if (!caseId) return;
+  const res = await db.query(
+    'select 1 from public.cases where id = $1 and organization_id = $2 limit 1',
+    [caseId, organizationId]
+  );
+  if (!res.rows[0]) {
+    throw new ApiError(
+      'Referenced case does not belong to your organization',
+      400,
+      'INVALID_REFERENCE'
+    );
+  }
+}
+
 invoicesRouter.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -82,6 +119,10 @@ invoicesRouter.post(
   asyncHandler(async (req, res) => {
     const auth = req.auth!;
     const body = createInvoiceBodySchema.parse(req.body);
+
+    // Block cross-org references before inserting.
+    await assertClientInOrg(body.client_id, auth.organizationId);
+    await assertCaseInOrg(body.case_id, auth.organizationId);
 
     const subtotal = body.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
     const total = subtotal + body.vat;
@@ -191,6 +232,10 @@ invoicesRouter.patch(
     const auth = req.auth!;
     const { invoiceId } = invoiceParamsSchema.parse(req.params);
     const body = updateInvoiceBodySchema.omit({ id: true }).parse(req.body);
+
+    // Block cross-org references before updating.
+    await assertClientInOrg(body.client_id, auth.organizationId);
+    await assertCaseInOrg(body.case_id, auth.organizationId);
 
     // Capture current status + case_id before the update for change detection.
     const preResult = await db.query<{

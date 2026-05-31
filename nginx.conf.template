@@ -17,8 +17,12 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(self), geolocation=()" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     add_header X-XSS-Protection "1; mode=block" always;
+    # CSP keeps 'unsafe-inline' on script-src/style-src because the Vite/React
+    # SPA injects inline styles and runtime scripts at build/load time;
+    # removing it would break the app. Tightening this to nonce/hash-based CSP
+    # (drop 'unsafe-inline') is a tracked hardening item for the SPA build.
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms http://cdn.mxpnl.com https://cdn.mxpnl.com; connect-src 'self' https://*.railway.app https://www.clarity.ms https://*.clarity.ms http://api-js.mixpanel.com https://api-js.mixpanel.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://storage.googleapis.com https://www.clarity.ms https://*.clarity.ms https://*.bing.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
 
     # Gzip compression

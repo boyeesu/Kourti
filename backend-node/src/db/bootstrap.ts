@@ -27,20 +27,38 @@ const sqlStr = (s: string) => `'${s.replace(/'/g, "''")}'`;
 // Types; these are only the initial seed.
 const DEFAULT_GLOBAL_CASE_TYPES: Array<{ name: string; description: string }> = [
   { name: 'Litigation', description: 'Contentious matters and court proceedings.' },
-  { name: 'Corporate & Commercial', description: 'Company formation, governance, and commercial agreements.' },
-  { name: 'Mergers & Acquisitions', description: 'Acquisitions, disposals, and corporate restructuring.' },
+  {
+    name: 'Corporate & Commercial',
+    description: 'Company formation, governance, and commercial agreements.',
+  },
+  {
+    name: 'Mergers & Acquisitions',
+    description: 'Acquisitions, disposals, and corporate restructuring.',
+  },
   { name: 'Banking & Finance', description: 'Lending, security, and financing transactions.' },
   { name: 'Real Estate & Property', description: 'Conveyancing, leases, and property disputes.' },
-  { name: 'Employment & Labour', description: 'Employment contracts, disputes, and workplace matters.' },
-  { name: 'Intellectual Property', description: 'Trademarks, patents, copyright, and IP enforcement.' },
+  {
+    name: 'Employment & Labour',
+    description: 'Employment contracts, disputes, and workplace matters.',
+  },
+  {
+    name: 'Intellectual Property',
+    description: 'Trademarks, patents, copyright, and IP enforcement.',
+  },
   { name: 'Family Law', description: 'Divorce, custody, and matrimonial matters.' },
   { name: 'Criminal Defence', description: 'Criminal charges and defence representation.' },
   { name: 'Tax', description: 'Tax advisory, planning, and disputes.' },
-  { name: 'Estate Planning & Probate', description: 'Wills, trusts, estate administration, and probate.' },
+  {
+    name: 'Estate Planning & Probate',
+    description: 'Wills, trusts, estate administration, and probate.',
+  },
   { name: 'Immigration', description: 'Visas, permits, and immigration applications.' },
   { name: 'Regulatory & Compliance', description: 'Regulatory advice, licensing, and compliance.' },
   { name: 'Debt Recovery', description: 'Recovery of outstanding debts and enforcement.' },
-  { name: 'Contract Drafting & Review', description: 'Drafting, reviewing, and negotiating contracts.' },
+  {
+    name: 'Contract Drafting & Review',
+    description: 'Drafting, reviewing, and negotiating contracts.',
+  },
 ];
 
 // Idempotent seed: insert a default only when no global type with the same
@@ -70,10 +88,15 @@ const bootstrapStatements = [
     password_reset_token text,
     password_reset_expires_at timestamptz,
     last_sign_in_at timestamptz,
+    token_version integer not null default 0,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
   )
   `,
+  // Access-token revocation epoch. Bumped on logout / password change / reset /
+  // 2FA-disable / refresh-token reuse; access JWTs carry the version they were
+  // minted at and are rejected once it no longer matches (services/auth.ts).
+  `alter table public.auth_users add column if not exists token_version integer not null default 0`,
   `
   create table if not exists public.profiles (
     id uuid primary key default gen_random_uuid(),
@@ -1557,42 +1580,30 @@ const bootstrapStatements = [
   `create index if not exists idx_calendar_rsvps_event on public.calendar_event_rsvps(calendar_event_id)`,
   `create index if not exists idx_calendar_rsvps_client on public.calendar_event_rsvps(client_user_id)`,
 
+  // Security-event audit feed (SOC 2 / CC7): authentication, MFA, privilege
+  // changes, deletions, bulk exports, signed-URL abuse. Written by
+  // services/securityEvents.ts; auto-purged by the retention sweep
+  // (scripts/retentionPurge.ts) per RETENTION_AUDIT_LOG_DAYS.
   `
-  insert into public.organizations (id, name, email)
-  values ('00000000-0000-0000-0000-000000000001', 'Kourti Local Dev Org', 'dev@kourti.local')
-  on conflict (id) do nothing
-  `,
-  `
-  insert into public.profiles (user_id, organization_id, email, first_name, last_name)
-  values (
-    '00000000-0000-0000-0000-000000000001',
-    '00000000-0000-0000-0000-000000000001',
-    'dev@kourti.local',
-    'Dev',
-    'User'
+  create table if not exists public.security_events (
+    id uuid primary key default gen_random_uuid(),
+    event_type text not null,
+    severity text not null default 'info' check (severity in ('info','warning','critical')),
+    actor_type text,
+    actor_id uuid,
+    organization_id uuid,
+    ip_address text,
+    details jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now()
   )
-  on conflict (user_id) do nothing
   `,
-  `
-  insert into public.auth_users (id, email, encrypted_password, is_active, email_confirmed_at)
-  values (
-    '00000000-0000-0000-0000-000000000001',
-    'dev@kourti.local',
-    '$2b$12$/8EAYMwovKMeiAFPEhQ4geMawJ.EbVzwsPaMTGa7VIMkHFoV7Uwya',
-    true,
-    now()
-  )
-  on conflict (id) do nothing
-  `,
-  `do $$ begin
-    insert into public.user_role_assignments (user_id, role_name, organization_id)
-    values (
-      '00000000-0000-0000-0000-000000000001',
-      'superadmin',
-      '00000000-0000-0000-0000-000000000001'
-    );
-    exception when unique_violation then null;
-   end $$`,
+  `create index if not exists idx_security_events_type on public.security_events(event_type, created_at desc)`,
+  `create index if not exists idx_security_events_sev on public.security_events(severity, created_at desc)`,
+
+  // NOTE: the local-dev org/user/superadmin seed (00000000-…-000000000001,
+  // dev@kourti.local) lives in `devSeedStatements` and is applied ONLY when
+  // NODE_ENV !== 'production'. In production `prodCleanupStatements` runs
+  // instead to neutralize any such account that may already exist.
 
   // ── Plan feature entitlements ─────────────────────────────────────
   // Source of truth for feature-gating (plan_type → feature_key). Seeded from
@@ -1867,14 +1878,74 @@ const bootstrapStatements = [
   ...caseTypeSeedStatements,
 ];
 
+// Local-development seed: a fixed dev org + user granted `superadmin`. This is
+// applied ONLY outside production. It must never run in prod — the committed
+// bcrypt hash would otherwise be a password-only, MFA-less platform-admin
+// backdoor (SOC 2 finding). See `prodCleanupStatements` for the prod path.
+const devSeedStatements = [
+  `
+  insert into public.organizations (id, name, email)
+  values ('00000000-0000-0000-0000-000000000001', 'Kourti Local Dev Org', 'dev@kourti.local')
+  on conflict (id) do nothing
+  `,
+  `
+  insert into public.profiles (user_id, organization_id, email, first_name, last_name)
+  values (
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    'dev@kourti.local',
+    'Dev',
+    'User'
+  )
+  on conflict (user_id) do nothing
+  `,
+  `
+  insert into public.auth_users (id, email, encrypted_password, is_active, email_confirmed_at)
+  values (
+    '00000000-0000-0000-0000-000000000001',
+    'dev@kourti.local',
+    '$2b$12$/8EAYMwovKMeiAFPEhQ4geMawJ.EbVzwsPaMTGa7VIMkHFoV7Uwya',
+    true,
+    now()
+  )
+  on conflict (id) do nothing
+  `,
+  `do $$ begin
+    insert into public.user_role_assignments (user_id, role_name, organization_id)
+    values (
+      '00000000-0000-0000-0000-000000000001',
+      'superadmin',
+      '00000000-0000-0000-0000-000000000001'
+    );
+    exception when unique_violation then null;
+   end $$`,
+];
+
+// Production remediation: actively neutralize the dev superadmin account if a
+// prior (pre-fix) deploy ever seeded it. Idempotent and safe when absent.
+const prodCleanupStatements = [
+  `update public.auth_users
+      set is_active = false, updated_at = now()
+    where id = '00000000-0000-0000-0000-000000000001'`,
+  `delete from public.user_role_assignments
+    where user_id = '00000000-0000-0000-0000-000000000001'
+      and role_name = 'superadmin'`,
+];
+
 export async function ensureDatabaseSchema() {
   // Bootstrap uses idempotent DDL (CREATE IF NOT EXISTS, ADD COLUMN IF
   // NOT EXISTS) so it is safe to run on every boot — including production.
   // Previously gated behind RUN_BOOTSTRAP=1 in prod, but that caused 500s
   // when new columns were deployed without running the migration first.
+  const isProd = process.env.NODE_ENV === 'production';
+  const statements = [
+    ...bootstrapStatements,
+    // Dev seed only outside production; in production, remediate instead.
+    ...(isProd ? prodCleanupStatements : devSeedStatements),
+  ];
 
   console.log('Running database bootstrap...');
-  for (const statement of bootstrapStatements) {
+  for (const statement of statements) {
     try {
       await db.query(statement);
     } catch (err) {

@@ -17,3 +17,5 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
+      # SOC 2 CI gate: run the test suite so regressions block the build.
+      - run: npm test

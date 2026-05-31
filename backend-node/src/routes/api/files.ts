@@ -6,8 +6,9 @@ import { db } from '../../db/pool.js';
 import { env } from '../../config/env.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { requireAuth } from '../../middleware/auth.js';
-import { scanBuffer } from '../../services/clamav.js';
+import { scanBuffer, isScanEnforced } from '../../services/clamav.js';
 import { enforceStorageLimit } from '../../services/limits.js';
+import { logSecurityEvent, eventContextFromRequest } from '../../services/securityEvents.js';
 import {
   uploadFile,
   downloadFile,
@@ -22,9 +23,12 @@ import {
  *   - clean → returns silently
  *   - infected, CLAMAV_MODE=enforce → throws 422 MALWARE_DETECTED
  *   - infected, CLAMAV_MODE=warn → logs at error level and lets it through
- *   - scanner unreachable / protocol error → logs at error level, fails
- *     OPEN (we'd rather let one upload through during an AV outage than
- *     wedge the product)
+ *   - scanner unconfigured / unreachable / protocol error:
+ *       · enforced (isScanEnforced, e.g. production or CLAMAV_MODE=enforce)
+ *         → fail CLOSED: throws 503 MALWARE_SCAN_UNAVAILABLE so we never
+ *           store a document we couldn't scan (SOC 2 / CC6)
+ *       · otherwise (dev/local, no sidecar, CLAMAV_MODE=warn) → fail OPEN:
+ *         logs and lets the upload through so local dev stays frictionless
  *
  * Hook into both upload routes so chat and document attachments get the
  * same coverage.
@@ -36,9 +40,25 @@ async function scanOrThrow(
 ): Promise<void> {
   try {
     const result = await scanBuffer(buffer);
-    if (!result.scanned) return;
+    if (!result.scanned) {
+      // Scanner is not configured. In enforced mode this is fail-closed.
+      if (isScanEnforced()) {
+        console.error('[clamav] scanner not configured but enforcement is on', {
+          filename,
+          bucket: ctx.bucket,
+          userId: ctx.userId,
+          organizationId: ctx.organizationId,
+        });
+        throw new ApiError(
+          'Malware scanning is required but unavailable. Please retry shortly.',
+          503,
+          'MALWARE_SCAN_UNAVAILABLE'
+        );
+      }
+      return;
+    }
     if (result.ok) return;
-     
+
     console.error('[clamav] infected upload blocked', {
       virus: result.virus,
       filename,
@@ -56,7 +76,24 @@ async function scanOrThrow(
     }
   } catch (err) {
     if (err instanceof ApiError) throw err;
-     
+
+    // Scanner unreachable / protocol error. Fail CLOSED when enforced,
+    // otherwise fall through to fail-open for local dev.
+    if (isScanEnforced()) {
+      console.error('[clamav] scanner unreachable, failing closed', {
+        error: err instanceof Error ? err.message : String(err),
+        filename,
+        bucket: ctx.bucket,
+        userId: ctx.userId,
+        organizationId: ctx.organizationId,
+      });
+      throw new ApiError(
+        'Malware scanning is required but unavailable. Please retry shortly.',
+        503,
+        'MALWARE_SCAN_UNAVAILABLE'
+      );
+    }
+
     console.error('[clamav] scanner unreachable, failing open', {
       error: err instanceof Error ? err.message : String(err),
       filename,
@@ -250,6 +287,16 @@ filesRouter.get(
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Content-Disposition', safeDisposition(contentType));
       res.send(data);
+
+      // SOC 2 audit trail: who downloaded which document. Non-blocking —
+      // logSecurityEvent never throws. filePath is a path, not a secret.
+      void logSecurityEvent({
+        ...eventContextFromRequest(req),
+        eventType: 'document_downloaded',
+        targetType: 'document',
+        targetId: filePath,
+        details: { bucket: 'documents', filePath, contentType, size: data.length },
+      });
     } catch (err) {
       if (err instanceof StorageIntegrityError) {
         // Hard signal — bytes on disk don't match what we recorded at
@@ -345,6 +392,22 @@ filesRouter.get(
       res.setHeader('Content-Disposition', safeDisposition(contentType));
       res.setHeader('Cache-Control', 'private, max-age=3600');
       res.send(data);
+
+      // SOC 2 audit trail: a signed URL was redeemed to pull a file out of
+      // the app boundary. There's no req.auth here (the URL is the
+      // credential), so we carry the org via the URL's audience. Treated as
+      // an export and flagged 'warning' since the bytes left via a shareable
+      // link. Non-blocking; filePath/key are paths, not secrets.
+      void logSecurityEvent({
+        ...eventContextFromRequest(req),
+        eventType: 'document_exported',
+        severity: 'warning',
+        actorType: 'system',
+        organizationId: aud ?? null,
+        targetType: 'document',
+        targetId: filePath,
+        details: { bucket, filePath, contentType, size: data.length, via: 'signed_url' },
+      });
     } catch (err) {
       if (err instanceof StorageIntegrityError) {
         console.error('[storage-integrity]', err.message);

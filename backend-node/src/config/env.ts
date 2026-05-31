@@ -67,6 +67,15 @@ const envSchema = z.object({
   // SSO encryption key for client secrets
   SSO_SECRET_KEY: z.string().default('kourti-dev-sso-key-change-in-production'),
 
+  // Dedicated 32+ byte key for at-rest field encryption (TOTP secrets, via
+  // services/fieldCrypto.ts). Optional: when unset we derive a key from
+  // JWT_SECRET. Production should set a dedicated value (warned below).
+  APP_ENCRYPTION_KEY: optionalNonEmptyString,
+
+  // Data-retention window (days) for audit/security/email-delivery logs,
+  // enforced by scripts/retentionPurge.ts. 0 disables the purge.
+  RETENTION_AUDIT_LOG_DAYS: z.coerce.number().int().min(0).default(730),
+
   AGENT_ENABLED: z
     .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
     .default(true),
@@ -155,6 +164,20 @@ if (env.NODE_ENV === 'production') {
 
   if (env.SSO_SECRET_KEY === 'kourti-dev-sso-key-change-in-production') {
     throw new Error('SSO_SECRET_KEY must be changed from the default value in production');
+  }
+  // SSO_SECRET_KEY encrypts SSO client secrets at rest (pgp_sym_encrypt) — it
+  // must carry real entropy, not just be different from the default.
+  if (env.SSO_SECRET_KEY.length < 32) {
+    throw new Error('SSO_SECRET_KEY must be at least 32 characters in production');
+  }
+  // APP_ENCRYPTION_KEY is optional (falls back to a JWT_SECRET-derived key) but
+  // a dedicated 32+ byte key is strongly recommended for field encryption.
+  if (!env.APP_ENCRYPTION_KEY || env.APP_ENCRYPTION_KEY.length < 32) {
+    console.warn(
+      'APP_ENCRYPTION_KEY is unset or shorter than 32 chars; field encryption ' +
+        '(TOTP secrets) will derive its key from JWT_SECRET. Set a dedicated ' +
+        'APP_ENCRYPTION_KEY (32+ bytes) for defense-in-depth.'
+    );
   }
 }
 
