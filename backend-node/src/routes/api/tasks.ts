@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
+import { recordCaseEvent } from '../../services/caseEvents.js';
 
 const listTasksQuerySchema = z.object({
   caseId: z.string().uuid(),
@@ -105,9 +106,14 @@ tasksRouter.patch(
     const { taskId } = updateTaskParamsSchema.parse(req.params);
     const body = updateTaskBodySchema.parse(req.body);
 
-    const ownership = await db.query(
+    const ownership = await db.query<{
+      id: string;
+      completed: boolean;
+      case_id: string | null;
+      title: string;
+    }>(
       `
-      select t.id
+      select t.id, t.completed, t.case_id, t.title
       from public.tasks t
       join public.cases c on c.id = t.case_id
       where t.id = $1 and c.organization_id = $2
@@ -119,6 +125,8 @@ tasksRouter.patch(
     if (!ownership.rows[0]) {
       throw new ApiError('Task not found', 404, 'NOT_FOUND');
     }
+
+    const preTask = ownership.rows[0];
 
     const updates: Array<{ column: string; value: unknown }> = [
       { column: 'title', value: body.title },
@@ -146,6 +154,18 @@ tasksRouter.patch(
       `,
       [...values, taskId]
     );
+
+    // Emit task_completed when the task transitions false → true and has a case.
+    if (body.completed === true && preTask.completed === false && preTask.case_id) {
+      await recordCaseEvent({
+        organizationId: auth.organizationId,
+        caseId: preTask.case_id,
+        eventType: 'task_completed',
+        title: result.rows[0]?.title ?? preTask.title,
+        actorType: 'staff',
+        actorId: auth.userId,
+      });
+    }
 
     res.status(200).json(result.rows[0]);
   })

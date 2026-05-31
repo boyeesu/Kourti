@@ -6,6 +6,7 @@ const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || 'noreply@kourti.com';
 const APP_URL = process.env.APP_URL || env.APP_URL || 'https://app.kourti.com';
 const BRAND_NAME = 'Kourti AI';
 const LOGO_URL = `${APP_URL}/kourti-light-full.png`;
+const PORTAL_URL = process.env.PORTAL_URL || `${APP_URL}/portal`;
 
 let resend: Resend | null = null;
 
@@ -572,6 +573,155 @@ export async function sendAssessmentLeadNotification(
     html: wrapHtml('New assessment lead', body),
   });
 
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
+// ── Client Portal emails ─────────────────────────────────────────────────────
+
+/** Email a client a one-time sign-in code for the portal. Reuses the big-code
+ *  visual block from sendEmailOtpEmail. */
+export async function sendClientOtpEmail(
+  email: string,
+  code: string
+): Promise<{ messageId?: string }> {
+  const r = getResend();
+  const subject = 'Your secure sign-in code';
+
+  const html = wrapHtml(
+    subject,
+    `
+    <p style="color:#374151;font-size:15px;line-height:1.6;">Use the code below to finish signing in to your client portal:</p>
+    <div style="margin:24px 0;padding:20px 24px;background:${BRAND.lightBg};border:1px solid ${BRAND.border};border-radius:12px;text-align:center;">
+      <div style="font-family:'SFMono-Regular',Consolas,Menlo,monospace;font-size:32px;letter-spacing:8px;font-weight:700;color:${BRAND.dark};">${code}</div>
+    </div>
+    <p style="color:#6b7280;font-size:13px;">This code expires in 10 minutes and can only be used once.</p>
+    <p style="color:#6b7280;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
+    `
+  );
+
+  const { data, error } = await getResend().emails.send({
+    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+    to: [email.toLowerCase()],
+    subject,
+    html,
+  });
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
+/** Email a client their portal invitation link so they can set a password and
+ *  access their matter for the first time. */
+export async function sendClientPortalInviteEmail(args: {
+  email: string;
+  firmName: string;
+  inviterName?: string;
+  matterTitle: string;
+  inviteToken: string;
+}): Promise<{ messageId?: string }> {
+  const { email, firmName, inviterName, matterTitle, inviteToken } = args;
+  const safeFirm = escapeHtml(firmName);
+  const safeMatter = escapeHtml(matterTitle);
+  const acceptUrl = `${PORTAL_URL}/accept-invite?token=${encodeURIComponent(inviteToken)}`;
+  const intro = inviterName
+    ? `<strong>${escapeHtml(inviterName)}</strong> at <strong>${safeFirm}</strong> has invited you`
+    : `<strong>${safeFirm}</strong> has invited you`;
+
+  const body = `
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">Hi,</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">${intro} to follow your matter <strong>&ldquo;${safeMatter}&rdquo;</strong> on a secure client portal.</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">You can view real-time updates, important documents, and communicate directly with your legal team — all in one place.</p>
+    ${ctaButton('Accept invitation &amp; set password', acceptUrl)}
+    <p style="color:${BRAND.mutedText};font-size:13px;line-height:1.6;">This invitation link expires in 24 hours. If you weren't expecting this email, you can safely ignore it.</p>
+    <p style="color:${BRAND.mutedText};font-size:12px;word-break:break-all;">Direct link: ${acceptUrl}</p>
+  `;
+
+  const { data, error } = await getResend().emails.send({
+    from: `${safeFirm} <${FROM_EMAIL}>`,
+    to: [email.toLowerCase()],
+    subject: `${firmName} invited you to view "${matterTitle}"`,
+    html: wrapHtml(`${firmName} invited you to view "${matterTitle}"`, body),
+  });
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
+/** Password-reset email for a CLIENT portal user. Links to the portal reset
+ *  page (distinct from the staff /auth/reset-password flow). */
+export async function sendClientPasswordResetEmail(
+  email: string,
+  resetToken: string
+): Promise<{ messageId?: string }> {
+  const resetUrl = `${PORTAL_URL}/reset-password?token=${encodeURIComponent(resetToken)}`;
+
+  const body = `
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">Hi,</p>
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">We received a request to reset the password for your client portal account.</p>
+    ${ctaButton('Reset password', resetUrl)}
+    <p style="color:${BRAND.mutedText};font-size:13px;line-height:1.6;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+    <p style="color:${BRAND.mutedText};font-size:12px;word-break:break-all;">Direct link: ${resetUrl}</p>
+  `;
+
+  const { data, error } = await getResend().emails.send({
+    from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+    to: [email.toLowerCase()],
+    subject: 'Reset your client portal password',
+    html: wrapHtml('Reset your client portal password', body),
+  });
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
+/** Render a minimal subset of Markdown-ish text to safe HTML paragraphs.
+ *  Escapes all user content first, then:
+ *  - Blank-line-separated blocks → <p> elements.
+ *  - Single newlines within a block → <br>.
+ *  No external libraries used. */
+function renderSimpleMarkdown(raw: string): string {
+  const escaped = escapeHtml(raw);
+  // Split on one or more blank lines to get paragraph blocks
+  const blocks = escaped.split(/\n{2,}/);
+  return blocks
+    .map((block) => {
+      const trimmed = block.trim();
+      if (!trimmed) return '';
+      // Within a block, convert single newlines to <br>
+      return `<p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">${trimmed.replace(/\n/g, '<br>')}</p>`;
+    })
+    .filter(Boolean)
+    .join('\n    ');
+}
+
+/** Email an approved client update digest to a matter's client. */
+export async function sendClientUpdateEmail(args: {
+  email: string;
+  firmName: string;
+  clientName?: string;
+  matterTitle: string;
+  subject: string;
+  bodyMarkdown: string;
+  caseId: string;
+}): Promise<{ messageId?: string }> {
+  const { email, firmName, clientName, matterTitle, subject, bodyMarkdown, caseId } = args;
+  const safeFirm = escapeHtml(firmName);
+  const safeMatter = escapeHtml(matterTitle);
+  const greeting = clientName ? `Hi ${escapeHtml(clientName)},` : 'Hi,';
+  const matterUrl = `${PORTAL_URL}/matters/${encodeURIComponent(caseId)}`;
+
+  const body = `
+    <p style="color:${BRAND.lightText};font-size:15px;line-height:1.6;">${greeting}</p>
+    <p style="color:${BRAND.mutedText};font-size:13px;line-height:1.6;margin:0 0 16px;">Matter: <strong style="color:${BRAND.lightText};">${safeMatter}</strong> &mdash; ${safeFirm}</p>
+    ${renderSimpleMarkdown(bodyMarkdown)}
+    ${ctaButton('View your matter', matterUrl)}
+    <p style="color:${BRAND.mutedText};font-size:13px;line-height:1.6;">Questions? Reply to this email or message your legal team directly through the portal.</p>
+  `;
+
+  const { data, error } = await getResend().emails.send({
+    from: `${safeFirm} <${FROM_EMAIL}>`,
+    to: [email.toLowerCase()],
+    subject,
+    html: wrapHtml(subject, body),
+  });
   if (error) throw new Error(error.message);
   return { messageId: data?.id };
 }

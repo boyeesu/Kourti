@@ -13,6 +13,9 @@ import { Action, Resource } from '@/hooks/usePermissions';
 import OrganizationSetup from '@/components/OrganizationSetup';
 import ForcePasswordChange from '@/components/ForcePasswordChange';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import { PortalAuthProvider } from '@/portal/PortalAuthContext';
+import { PortalProtectedRoute } from '@/portal/PortalProtectedRoute';
+import { PortalLayout } from '@/portal/PortalLayout';
 import { SearchProvider } from '@/hooks/use-search';
 import { useInactivityLogout } from '@/hooks/useInactivityLogout';
 import { useUserOrganization } from '@/hooks/useUserOrganization';
@@ -85,6 +88,14 @@ const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 const Changelog = lazy(() => import('./pages/Changelog'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const BillingCallback = lazy(() => import('./pages/BillingCallback'));
+
+// Client Portal (separate auth surface — see src/portal/)
+const PortalLogin = lazy(() => import('./portal/pages/PortalLogin'));
+const PortalAcceptInvite = lazy(() => import('./portal/pages/PortalAcceptInvite'));
+const PortalForgotPassword = lazy(() => import('./portal/pages/PortalForgotPassword'));
+const PortalResetPassword = lazy(() => import('./portal/pages/PortalResetPassword'));
+const PortalMatters = lazy(() => import('./portal/pages/PortalMatters'));
+const PortalMatterDetail = lazy(() => import('./portal/pages/PortalMatterDetail'));
 
 type ProtectedRouteConfig = {
   path: string;
@@ -729,6 +740,76 @@ const App = () => (
                     </ModuleErrorBoundary>
                   </SuperAdminRoute>
                 </Suspense>
+              }
+            />
+            {/* Client Portal — isolated auth surface (own provider, NOT staff ProtectedRoute/AppLayout) */}
+            <Route
+              path="/portal/*"
+              element={
+                <PortalAuthProvider>
+                  <Routes>
+                    <Route
+                      path="login"
+                      element={
+                        <Suspense fallback={<LoadingFallback />}>
+                          <PortalLogin />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="accept-invite"
+                      element={
+                        <Suspense fallback={<LoadingFallback />}>
+                          <PortalAcceptInvite />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="forgot-password"
+                      element={
+                        <Suspense fallback={<LoadingFallback />}>
+                          <PortalForgotPassword />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="reset-password"
+                      element={
+                        <Suspense fallback={<LoadingFallback />}>
+                          <PortalResetPassword />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path=""
+                      element={
+                        <PortalProtectedRoute>
+                          <PortalLayout>
+                            <ModuleErrorBoundary name="Portal Matters">
+                              <Suspense fallback={<LoadingFallback />}>
+                                <PortalMatters />
+                              </Suspense>
+                            </ModuleErrorBoundary>
+                          </PortalLayout>
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="matters/:caseId"
+                      element={
+                        <PortalProtectedRoute>
+                          <PortalLayout>
+                            <ModuleErrorBoundary name="Portal Matter Detail">
+                              <Suspense fallback={<LoadingFallback />}>
+                                <PortalMatterDetail />
+                              </Suspense>
+                            </ModuleErrorBoundary>
+                          </PortalLayout>
+                        </PortalProtectedRoute>
+                      }
+                    />
+                  </Routes>
+                </PortalAuthProvider>
               }
             />
             <Route

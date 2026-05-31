@@ -50,6 +50,9 @@ import { ActivityDialog } from '@/components/ActivityDialog';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { getActivityIcon, getActivityStatusColor } from '@/utils/activityUtils';
 import { MatterReviewButton } from '@/components/agents/MatterReviewButton';
+import { ClientPortalPanel } from '@/components/clientPortal/ClientPortalPanel';
+import { useHasFeature, FEATURE_META } from '@/hooks/useEntitlements';
+import { Lock, ArrowUpRight } from 'lucide-react';
 
 export default function CaseDetails() {
   const { id } = useParams<{ id: string }>();
@@ -294,6 +297,9 @@ export default function CaseDetails() {
         </CardContent>
       </Card>
 
+      {/* Client Portal Section (gated by 'client_portal' entitlement) */}
+      <ClientPortalSection caseId={caseData.id} caseData={caseData} />
+
       {/* Quick Actions */}
       <Card className="shadow-card">
         <CardHeader>
@@ -329,6 +335,48 @@ export default function CaseDetails() {
         caseId={caseData.id}
       />
     </PageContainer>
+  );
+}
+
+// --- Client Portal Section (entitlement-gated wrapper) ---
+function ClientPortalSection({ caseId, caseData }: { caseId: string; caseData: any }) {
+  const navigate = useNavigate();
+  const { allowed, isLoading } = useHasFeature('client_portal');
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (allowed) {
+    return <ClientPortalPanel caseId={caseId} caseData={caseData} />;
+  }
+
+  const meta = FEATURE_META['client_portal'];
+
+  return (
+    <Card className="shadow-card">
+      <CardHeader>
+        <CardTitle>Client Portal</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+          <Lock className="h-7 w-7 text-muted-foreground" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">
+            {meta.label} is a {meta.requiredPlan} feature
+          </h3>
+          <p className="max-w-md text-sm text-muted-foreground">
+            Upgrade your plan to give clients secure portal access, timelines, shared documents, and
+            AI-drafted progress updates.
+          </p>
+        </div>
+        <Button onClick={() => navigate('/settings?tab=billing')}>
+          <ArrowUpRight className="mr-2 h-4 w-4" />
+          Upgrade to {meta.requiredPlan}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

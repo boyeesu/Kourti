@@ -9,6 +9,7 @@ import { hydrateRateLimits } from './lib/rateLimit.js';
 
 // Import agents so they register their handlers before worker starts
 import './agents/matterReview.js';
+import './agents/clientUpdateDigest.js';
 import './agents/monitorScheduler.js';
 import './agents/intelligenceSynthesis.js';
 import './agents/weeklyDigest.js';

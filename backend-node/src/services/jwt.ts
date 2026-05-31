@@ -593,9 +593,16 @@ export function verifyAccessToken(token: string): AuthUser {
   try {
     const payload = jwt.verify(token, env.JWT_SECRET!, { algorithms: ['HS256'] }) as JwtPayload & {
       mfa?: boolean;
+      typ?: string;
     };
     if (payload.mfa) {
       throw new ApiError('MFA verification required', 401, 'AUTH_MFA_REQUIRED');
+    }
+    // Client-portal tokens are signed with the same secret but carry a
+    // `typ: 'client*'` claim. They must NEVER authenticate the staff API —
+    // reject them here so a client token can't be replayed as a staff token.
+    if (typeof payload.typ === 'string' && payload.typ.startsWith('client')) {
+      throw new ApiError('Invalid token', 401, 'AUTH_INVALID_TOKEN');
     }
     return {
       id: payload.sub,

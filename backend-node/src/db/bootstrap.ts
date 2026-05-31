@@ -1232,6 +1232,248 @@ const bootstrapStatements = [
      practice    = excluded.practice,
      updated_at  = now()`,
 
+  // ── Client Portal ─────────────────────────────────────────────────
+  // Client-facing case visibility + proactive updates. See
+  // docs/client-portal-SPEC.md. A client_user is a GLOBAL identity (one
+  // login across many firms) — deliberately NOT scoped to an organization.
+  // Authorization to see a matter lives in client_case_access; that grant
+  // carries organization_id so every matter is labeled with its firm and two
+  // firms' data never overlap. Gated to Professional+ via the 'client_portal'
+  // feature key (enforced in the routes, not here).
+  `
+  create table if not exists public.client_users (
+    id uuid primary key default gen_random_uuid(),
+    email text not null,
+    encrypted_password text,
+    full_name text,
+    phone text,
+    is_active boolean not null default true,
+    email_verified_at timestamptz,
+    last_sign_in_at timestamptz,
+    refresh_token text,
+    refresh_token_expires_at timestamptz,
+    invite_token text,
+    invite_expires_at timestamptz,
+    password_reset_token text,
+    password_reset_expires_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  `create unique index if not exists idx_client_users_email_lower on public.client_users (lower(email))`,
+  `create index if not exists idx_client_users_invite_token on public.client_users(invite_token) where invite_token is not null`,
+  `create index if not exists idx_client_users_reset_token on public.client_users(password_reset_token) where password_reset_token is not null`,
+
+  // Link a firm's per-org contact record to the global identity. One
+  // client_user ↔ many clients rows (one per firm). portal_enabled gates
+  // whether this firm has switched the portal on for this contact.
+  `alter table public.clients add column if not exists client_user_id uuid references public.client_users(id)`,
+  `alter table public.clients add column if not exists portal_enabled boolean not null default false`,
+  `create index if not exists idx_clients_client_user on public.clients(client_user_id)`,
+
+  // Authorization spine. Deny-by-default: a client_user sees a case ONLY if
+  // an active row exists here. organization_id is denormalized for fast
+  // filtering + firm labeling in the portal.
+  `
+  create table if not exists public.client_case_access (
+    id uuid primary key default gen_random_uuid(),
+    client_user_id uuid not null references public.client_users(id) on delete cascade,
+    case_id uuid not null references public.cases(id) on delete cascade,
+    organization_id uuid not null,
+    client_id uuid,
+    role text not null default 'viewer' check (role in ('viewer','collaborator')),
+    status text not null default 'active' check (status in ('active','revoked')),
+    granted_by uuid,
+    created_at timestamptz not null default now(),
+    revoked_at timestamptz,
+    unique (client_user_id, case_id)
+  )
+  `,
+  `create index if not exists idx_ccaccess_client on public.client_case_access(client_user_id, status)`,
+  `create index if not exists idx_ccaccess_case on public.client_case_access(case_id)`,
+  `create index if not exists idx_ccaccess_org on public.client_case_access(organization_id)`,
+
+  // Append-only case timeline. Every meaningful action writes one row. The
+  // portal reads ONLY rows where client_visible = true.
+  `
+  create table if not exists public.case_events (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null,
+    case_id uuid not null references public.cases(id) on delete cascade,
+    event_type text not null,
+    title text,
+    body text,
+    payload jsonb not null default '{}'::jsonb,
+    actor_type text not null default 'staff' check (actor_type in ('staff','client','system','agent')),
+    actor_id uuid,
+    client_visible boolean not null default false,
+    notified_at timestamptz,
+    occurred_at timestamptz not null default now(),
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_case_events_case on public.case_events(case_id, occurred_at desc)`,
+  `create index if not exists idx_case_events_org on public.case_events(organization_id, occurred_at desc)`,
+  `create index if not exists idx_case_events_digest on public.case_events(case_id) where client_visible = true and notified_at is null`,
+
+  // Two-way per-case client↔firm thread. Distinct from the staff-only
+  // conversations/messages tables.
+  `
+  create table if not exists public.case_client_messages (
+    id uuid primary key default gen_random_uuid(),
+    case_id uuid not null references public.cases(id) on delete cascade,
+    organization_id uuid not null,
+    sender_type text not null check (sender_type in ('staff','client')),
+    sender_id uuid not null,
+    body text not null,
+    read_at timestamptz,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_case_client_messages_case on public.case_client_messages(case_id, created_at)`,
+
+  // Audit of generated / sent client updates. Draft → approved → sent.
+  `
+  create table if not exists public.client_update_digests (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null,
+    case_id uuid not null references public.cases(id) on delete cascade,
+    client_user_id uuid references public.client_users(id) on delete set null,
+    status text not null default 'draft' check (status in ('draft','approved','sent','failed')),
+    channel text not null default 'email',
+    subject text,
+    body_md text,
+    event_ids uuid[] not null default '{}',
+    generated_by_job_id uuid,
+    approved_by uuid,
+    approved_at timestamptz,
+    sent_at timestamptz,
+    error text,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_client_digests_case on public.client_update_digests(case_id, created_at desc)`,
+  `create index if not exists idx_client_digests_status on public.client_update_digests(organization_id, status)`,
+
+  // Firm-curated plain-English "what's happening" blurb shown to the client.
+  `alter table public.cases add column if not exists client_summary text`,
+
+  // Client portal email-OTP second factor. On by default (mirrors staff
+  // email OTP). Stored in a dedicated table so client and staff OTP code
+  // spaces never share rows. `user_id` here is a client_users.id.
+  `alter table public.client_users add column if not exists otp_enabled boolean not null default true`,
+  `
+  create table if not exists public.client_email_otp_codes (
+    id uuid primary key default gen_random_uuid(),
+    client_user_id uuid not null references public.client_users(id) on delete cascade,
+    purpose text not null default 'login' check (purpose in ('login')),
+    code_hash text not null,
+    expires_at timestamptz not null,
+    attempts int not null default 0,
+    used_at timestamptz,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_client_otp_user on public.client_email_otp_codes(client_user_id, purpose, created_at desc)`,
+  `create index if not exists idx_client_otp_expires on public.client_email_otp_codes(expires_at)`,
+
+  // Documents shared to the client portal. A document becomes visible to the
+  // client only when staff explicitly share it (sets client_visible=true and
+  // emits a document_shared case_event). The case link lives in
+  // metadata->>'case_id' (this codebase has no documents.case_id column).
+  `alter table public.documents add column if not exists client_visible boolean not null default false`,
+  `create index if not exists idx_documents_client_visible on public.documents(client_visible) where client_visible = true`,
+
+  // Calendar exposure to clients. calendar_events already carries case_id /
+  // client_id (set by the staff calendar). Ensure the table + the columns the
+  // portal reads exist, and add client_visible so a matter-linked event (e.g.
+  // a court hearing) shows in the client's portal by default while staff can
+  // hide internal items. create-if-not-exists is a no-op where the table
+  // already exists from the legacy schema.
+  `
+  create table if not exists public.calendar_events (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null,
+    created_by uuid,
+    title text not null,
+    description text,
+    start_date timestamptz,
+    end_date timestamptz,
+    location text,
+    attendees jsonb,
+    event_type text,
+    case_id uuid,
+    client_id uuid,
+    is_recurring boolean default false,
+    recurrence_pattern jsonb,
+    recurrence_end_date timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
+  `alter table public.calendar_events add column if not exists case_id uuid`,
+  `alter table public.calendar_events add column if not exists client_id uuid`,
+  `alter table public.calendar_events add column if not exists client_visible boolean not null default true`,
+  `create index if not exists idx_calendar_events_case on public.calendar_events(case_id) where case_id is not null`,
+  `create index if not exists idx_calendar_events_org on public.calendar_events(organization_id, start_date)`,
+
+  // ── Client portal: CLIENT-LEVEL access (the primary spine) ────────────
+  // When a firm enables the portal for a client, the linked client_user gets
+  // access to ALL that client's matters (current + future) via a row here,
+  // keyed on the firm's clients.id. A matter can opt OUT with
+  // cases.portal_private = true. The older per-matter client_case_access
+  // table remains as a SECONDARY, explicit grant path (e.g. giving a
+  // non-client third party access to a single matter); an explicit grant
+  // overrides portal_private. Client-invited teammates also get rows here
+  // (granted_by_type='client') so a client's colleagues see the same matters.
+  `
+  create table if not exists public.client_portal_access (
+    id uuid primary key default gen_random_uuid(),
+    client_user_id uuid not null references public.client_users(id) on delete cascade,
+    client_id uuid not null,
+    organization_id uuid not null,
+    role text not null default 'viewer' check (role in ('viewer','collaborator')),
+    status text not null default 'active' check (status in ('active','revoked')),
+    granted_by uuid,
+    granted_by_type text not null default 'staff' check (granted_by_type in ('staff','client')),
+    created_at timestamptz not null default now(),
+    revoked_at timestamptz,
+    unique (client_user_id, client_id)
+  )
+  `,
+  `create index if not exists idx_cpa_user on public.client_portal_access(client_user_id, status)`,
+  `create index if not exists idx_cpa_client on public.client_portal_access(client_id)`,
+  `create index if not exists idx_cpa_org on public.client_portal_access(organization_id)`,
+
+  // Per-matter privacy escape hatch: exclude a sensitive matter from the
+  // client's portal even though they have client-level access. Default false
+  // (matters are visible to their client by default — the chosen model).
+  `alter table public.cases add column if not exists portal_private boolean not null default false`,
+
+  // Firm-enforced client 2FA. Because client_users is a GLOBAL identity,
+  // OTP is forced at login when ANY firm the client has active access to has
+  // this set — that's the only coherent rule for a shared login. Default
+  // false (the per-client client_users.otp_enabled default-true already keeps
+  // OTP on out of the box; this lets a firm HARD-require it).
+  `alter table public.organizations add column if not exists portal_require_otp boolean not null default false`,
+
+  // Client RSVP to a matter calendar event (e.g. a court hearing). One row per
+  // (event, client_user). Surfaced back to the client + emitted to the matter
+  // timeline so staff see responses without a separate calendar UI.
+  `
+  create table if not exists public.calendar_event_rsvps (
+    id uuid primary key default gen_random_uuid(),
+    calendar_event_id uuid not null references public.calendar_events(id) on delete cascade,
+    client_user_id uuid not null references public.client_users(id) on delete cascade,
+    response text not null check (response in ('accepted','declined','tentative')),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    unique (calendar_event_id, client_user_id)
+  )
+  `,
+  `create index if not exists idx_calendar_rsvps_event on public.calendar_event_rsvps(calendar_event_id)`,
+  `create index if not exists idx_calendar_rsvps_client on public.calendar_event_rsvps(client_user_id)`,
+
   `
   insert into public.organizations (id, name, email)
   values ('00000000-0000-0000-0000-000000000001', 'Kourti Local Dev Org', 'dev@kourti.local')

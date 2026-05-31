@@ -9,6 +9,12 @@ declare global {
         email: string | null;
         organizationId: string;
       };
+      // Set by middleware/requireClientAuth for the client portal surface.
+      // Deliberately separate from `auth` — client tokens are NOT staff tokens.
+      clientAuth?: {
+        clientUserId: string;
+        email: string;
+      };
     }
   }
 }
