@@ -19,6 +19,7 @@ import { KbAdminTab } from '@/components/super-admin/KbAdminTab';
 import { ClientPortalAdminTab } from '@/components/super-admin/ClientPortalAdminTab';
 import { BulkOpsTab } from '@/components/super-admin/BulkOpsTab';
 import { LifecycleRulesTab } from '@/components/super-admin/LifecycleRulesTab';
+import { GlobalCaseTypesTab } from '@/components/super-admin/GlobalCaseTypesTab';
 import { ImpersonationTab } from '@/components/super-admin/ImpersonationTab';
 import { usePlatformAnalytics } from '@/hooks/usePlatformAnalytics';
 
@@ -80,6 +81,7 @@ export default function ThanosDashboard() {
               <Route path="impersonation" element={<ImpersonationTab />} />
               <Route path="bulk-ops" element={<BulkOpsTab />} />
               <Route path="lifecycle-rules" element={<LifecycleRulesTab />} />
+              <Route path="case-types" element={<GlobalCaseTypesTab />} />
             </Routes>
           </div>
         </div>
