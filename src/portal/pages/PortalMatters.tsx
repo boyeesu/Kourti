@@ -13,10 +13,13 @@ import {
   ArrowRight,
   LayoutGrid,
   List as ListIcon,
+  Search,
+  X,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import {
   Select,
@@ -230,6 +233,8 @@ export default function PortalMatters() {
   });
 
   const [firmFilter, setFirmFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [search, setSearch] = useState<string>('');
   const [view, setView] = useState<MatterView>(() => {
     const stored =
       typeof localStorage !== 'undefined' ? localStorage.getItem(VIEW_STORAGE_KEY) : null;
@@ -276,11 +281,42 @@ export default function PortalMatters() {
 
   const multiFirm = firms.length > 1;
 
+  // Distinct statuses present across the matters (for the status filter).
+  const statuses = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const m of data ?? []) {
+      const key = m.status ?? '';
+      if (!seen.has(key)) seen.set(key, prettyStatus(m.status));
+    }
+    return Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
+  }, [data]);
+
+  const multiStatus = statuses.length > 1;
+
   const visibleMatters = useMemo(() => {
     if (!data) return [];
-    if (!multiFirm || firmFilter === 'all') return data;
-    return data.filter((m) => m.firm.organizationId === firmFilter);
-  }, [data, multiFirm, firmFilter]);
+    const q = search.trim().toLowerCase();
+    return data.filter((m) => {
+      if (multiFirm && firmFilter !== 'all' && m.firm.organizationId !== firmFilter) return false;
+      if (statusFilter !== 'all' && (m.status ?? '') !== statusFilter) return false;
+      if (q) {
+        const haystack = [m.title, m.clientSummary, m.firm.name, prettyStatus(m.status)]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [data, multiFirm, firmFilter, statusFilter, search]);
+
+  const hasActiveFilters = firmFilter !== 'all' || statusFilter !== 'all' || search.trim() !== '';
+
+  const clearFilters = () => {
+    setFirmFilter('all');
+    setStatusFilter('all');
+    setSearch('');
+  };
 
   const groups = useMemo(() => {
     const byFirm = new Map<string, { name: string; matters: PortalMatterSummary[] }>();
@@ -366,60 +402,117 @@ export default function PortalMatters() {
         <>
           {soonest && <NextUp event={soonest} />}
 
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-foreground">
-              {visibleMatters.length} {visibleMatters.length === 1 ? 'matter' : 'matters'}
-            </h2>
-            <div className="flex items-center gap-2">
-              {multiFirm && (
-                <Select value={firmFilter} onValueChange={setFirmFilter}>
-                  <SelectTrigger className="w-40 sm:w-56">
-                    <SelectValue placeholder="All firms" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All firms</SelectItem>
-                    {firms.map((firm) => (
-                      <SelectItem key={firm.id} value={firm.id}>
-                        {firm.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <div className="inline-flex rounded-md border border-border p-0.5">
-                <button
-                  type="button"
-                  aria-label="Grid view"
-                  aria-pressed={view === 'grid'}
-                  onClick={() => setView('grid')}
-                  className={cn(
-                    'rounded p-1.5 transition-colors',
-                    view === 'grid'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted'
-                  )}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="List view"
-                  aria-pressed={view === 'list'}
-                  onClick={() => setView('list')}
-                  className={cn(
-                    'rounded p-1.5 transition-colors',
-                    view === 'list'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted'
-                  )}
-                >
-                  <ListIcon className="h-4 w-4" />
-                </button>
+          <div className="space-y-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search matters by title, summary or firm…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+                aria-label="Search matters"
+              />
+            </div>
+
+            {/* Count + filters + view toggle */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-foreground">
+                {visibleMatters.length} {visibleMatters.length === 1 ? 'matter' : 'matters'}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                {multiStatus && (
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-36 sm:w-44">
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      {statuses.map((s) => (
+                        <SelectItem key={s.value || 'none'} value={s.value || 'none'}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {multiFirm && (
+                  <Select value={firmFilter} onValueChange={setFirmFilter}>
+                    <SelectTrigger className="w-36 sm:w-48">
+                      <SelectValue placeholder="All firms" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All firms</SelectItem>
+                      {firms.map((firm) => (
+                        <SelectItem key={firm.id} value={firm.id}>
+                          {firm.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="text-muted-foreground"
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Clear
+                  </Button>
+                )}
+                <div className="inline-flex rounded-md border border-border p-0.5">
+                  <button
+                    type="button"
+                    aria-label="Grid view"
+                    aria-pressed={view === 'grid'}
+                    onClick={() => setView('grid')}
+                    className={cn(
+                      'rounded p-1.5 transition-colors',
+                      view === 'grid'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="List view"
+                    aria-pressed={view === 'list'}
+                    onClick={() => setView('list')}
+                    className={cn(
+                      'rounded p-1.5 transition-colors',
+                      view === 'list'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    <ListIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {multiFirm ? (
+          {visibleMatters.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+                <Search className="h-8 w-8 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-foreground">No matters match your filters</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Try a different search term or clear the filters.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              </CardContent>
+            </Card>
+          ) : multiFirm ? (
             <div className="space-y-6">
               {groups.map((group) => (
                 <div key={group.id} className="space-y-3">
