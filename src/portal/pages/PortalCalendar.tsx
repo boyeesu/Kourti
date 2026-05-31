@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -10,10 +10,20 @@ import {
   AlertCircle,
   CalendarClock,
   ChevronRight,
+  Search,
+  X,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import {
@@ -181,9 +191,52 @@ export default function PortalCalendar() {
     rsvp.mutate({ caseId: event.caseId, eventId: event.id, response });
   };
 
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'hearing' | 'other'>('all');
+  const [matterFilter, setMatterFilter] = useState<string>('all');
+
+  // Distinct matters present across events (for the matter filter).
+  const matters = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const ev of data ?? []) {
+      if (!seen.has(ev.caseId)) seen.set(ev.caseId, ev.matterTitle);
+    }
+    return Array.from(seen.entries()).map(([caseId, title]) => ({ caseId, title }));
+  }, [data]);
+
+  const multiMatter = matters.length > 1;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (data ?? []).filter((ev) => {
+      if (matterFilter !== 'all' && ev.caseId !== matterFilter) return false;
+      if (typeFilter !== 'all') {
+        const hearing = isHearing(ev.event_type);
+        if (typeFilter === 'hearing' && !hearing) return false;
+        if (typeFilter === 'other' && hearing) return false;
+      }
+      if (q) {
+        const haystack = [ev.title, ev.matterTitle, ev.location, ev.description]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [data, search, typeFilter, matterFilter]);
+
+  const hasActiveFilters = search.trim() !== '' || typeFilter !== 'all' || matterFilter !== 'all';
+
+  const clearFilters = () => {
+    setSearch('');
+    setTypeFilter('all');
+    setMatterFilter('all');
+  };
+
   // Group chronologically by month label.
   const groups = useMemo(() => {
-    const sorted = [...(data ?? [])].sort(
+    const sorted = [...filtered].sort(
       (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
     );
     const byMonth = new Map<string, PortalCalendarEventWithMatter[]>();
@@ -194,7 +247,7 @@ export default function PortalCalendar() {
       else byMonth.set(key, [ev]);
     }
     return Array.from(byMonth.entries()).map(([month, events]) => ({ month, events }));
-  }, [data]);
+  }, [filtered]);
 
   return (
     <div className="space-y-6">
@@ -204,6 +257,63 @@ export default function PortalCalendar() {
           Hearings, deadlines and key dates across all your matters.
         </p>
       </div>
+
+      {!isLoading && !isError && data && data.length > 0 && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search dates by title, matter or location…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              aria-label="Search calendar"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={typeFilter}
+              onValueChange={(v) => setTypeFilter(v as 'all' | 'hearing' | 'other')}
+            >
+              <SelectTrigger className="w-36 sm:w-44">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="hearing">Hearings</SelectItem>
+                <SelectItem value="other">Other dates</SelectItem>
+              </SelectContent>
+            </Select>
+            {multiMatter && (
+              <Select value={matterFilter} onValueChange={setMatterFilter}>
+                <SelectTrigger className="w-44 sm:w-56">
+                  <SelectValue placeholder="All matters" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All matters</SelectItem>
+                  {matters.map((m) => (
+                    <SelectItem key={m.caseId} value={m.caseId}>
+                      {m.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="text-muted-foreground"
+              >
+                <X className="mr-1 h-4 w-4" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center justify-center py-16">
@@ -235,6 +345,23 @@ export default function PortalCalendar() {
                 Scheduled hearings and key dates will appear here.
               </p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && !isError && data && data.length > 0 && groups.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <Search className="h-8 w-8 text-muted-foreground" />
+            <div>
+              <p className="font-medium text-foreground">No dates match your filters</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Try a different search term or clear the filters.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              Clear filters
+            </Button>
           </CardContent>
         </Card>
       )}
