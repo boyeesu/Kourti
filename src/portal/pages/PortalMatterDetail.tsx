@@ -38,6 +38,7 @@ import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { isSafeHttpsUrl } from '@/lib/safeUrl';
 import { toast } from 'sonner';
 import {
   portalGetMatter,
@@ -502,7 +503,7 @@ export default function PortalMatterDetail() {
                             <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                             <span className="truncate text-sm text-foreground">{doc.name}</span>
                           </div>
-                          {doc.downloadUrl ? (
+                          {isSafeHttpsUrl(doc.downloadUrl) ? (
                             <Button asChild variant="outline" size="sm">
                               <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer">
                                 <Download className="mr-2 h-4 w-4" />

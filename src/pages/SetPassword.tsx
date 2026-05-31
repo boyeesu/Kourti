@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { invokeNodeApi } from '@/lib/backendApi';
+import { logError } from '@/lib/logger';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { validatePassword, PASSWORD_REQUIREMENTS } from '@/lib/passwordValidation';
 
@@ -55,7 +56,7 @@ export default function SetPassword() {
         });
         setTimeout(() => navigate('/auth'), 3000);
       } catch (error) {
-        console.error('Error verifying token:', error);
+        logError('Error verifying invitation token', error);
         setTokenValid(false);
         toast.error('Error', { description: 'Failed to verify invitation link.' });
         setTimeout(() => navigate('/auth'), 3000);

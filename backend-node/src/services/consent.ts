@@ -155,9 +155,11 @@ export async function userHasMarketingConsent(userId: string): Promise<boolean> 
 // and without exposing the raw email in a way that can be tampered with.
 
 function unsubSecret(): string {
-  // Reuse the JWT secret as the HMAC key; falls back to a constant only in
-  // dev where JWT_SECRET may be unset.
-  return env.JWT_SECRET || 'kourti-dev-unsub-key';
+  // Prefer a dedicated unsubscribe HMAC key (segregated from JWT_SECRET to
+  // limit blast radius on a leak); fall back to JWT_SECRET so unsubscribe links
+  // already sent before UNSUBSCRIBE_HMAC_SECRET was introduced keep verifying.
+  // Falls back to a constant only in dev where neither is set.
+  return env.UNSUBSCRIBE_HMAC_SECRET || env.JWT_SECRET || 'kourti-dev-unsub-key';
 }
 
 export function unsubscribeToken(email: string): string {

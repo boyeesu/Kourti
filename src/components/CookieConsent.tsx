@@ -33,7 +33,11 @@ export function CookieConsent() {
   const handleReject = () => {
     localStorage.setItem(CONSENT_KEY, 'declined');
     setVisible(false);
+    // Opt out of Mixpanel and halt Microsoft Clarity session recording (M8).
+    // Analytics init (__kourtiInitAnalytics) is only ever invoked on accept.
     window.mixpanel?.opt_out_tracking?.();
+    window.clarity?.('consent', false);
+    window.clarity?.('stop');
   };
 
   return (

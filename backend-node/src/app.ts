@@ -71,6 +71,34 @@ import { portalNotificationsRouter } from './routes/api/portalNotifications.js';
 import { portalPeopleRouter } from './routes/api/portalPeople.js';
 import { clientPortalRouter } from './routes/api/clientPortal.js';
 
+// Redact sensitive query params from a request URL before it is logged.
+// morgan('combined') logs the full URL, which for signed-file links includes
+// the `sig` HMAC (the credential), and elsewhere `token`/`key`. Replace their
+// values with [REDACTED] so access logs can't be mined for live credentials.
+const REDACT_QUERY_PARAMS = new Set(['sig', 'token', 'key']);
+function redactUrl(originalUrl: string): string {
+  const qIndex = originalUrl.indexOf('?');
+  if (qIndex === -1) return originalUrl;
+  const path = originalUrl.slice(0, qIndex);
+  const query = originalUrl.slice(qIndex + 1);
+  const redacted = query
+    .split('&')
+    .map((pair) => {
+      const eq = pair.indexOf('=');
+      const name = eq === -1 ? pair : pair.slice(0, eq);
+      if (REDACT_QUERY_PARAMS.has(name.toLowerCase())) return `${name}=[REDACTED]`;
+      return pair;
+    })
+    .join('&');
+  return `${path}?${redacted}`;
+}
+
+// morgan 'combined' format with the URL token swapped for a redacting one.
+morgan.token('redacted-url', (req: Request) => redactUrl(req.originalUrl || req.url || ''));
+const MORGAN_FORMAT =
+  ':remote-addr - :remote-user [:date[clf]] ":method :redacted-url HTTP/:http-version" ' +
+  ':status :res[content-length] ":referrer" ":user-agent"';
+
 function stripNullsInPlace(value: unknown): void {
   if (Array.isArray(value)) {
     for (const item of value) stripNullsInPlace(item);
@@ -138,12 +166,34 @@ function enforceHttps(req: Request, _res: Response, next: NextFunction) {
 export function createApp() {
   const app = express();
 
-  // Trust Railway/proxy headers for correct client IP in rate limiting
+  // Trust Railway/proxy headers for correct client IP in rate limiting.
+  // SECURITY-TODO(H3): verify Railway's XFF hop count before changing this.
+  // Railway's edge appends the real client IP as the LAST entry of
+  // X-Forwarded-For; with `trust proxy = 1` Express reads the rightmost hop,
+  // which is the value Railway sets and a client cannot forge past the edge.
+  // If Railway's hop count ever changes, a client-suppliable XFF position could
+  // be used as req.ip and let per-IP rate limits be bypassed by IP rotation.
+  // Leaving as-is (1) pending live verification — req.ip feeds rate-limit
+  // keying app-wide, so a blind change here is riskier than the unverified gap.
   app.set('trust proxy', 1);
   app.use(helmet());
+  // CORS: strict allowlist. The `origin` callback returns the request origin
+  // only when it is in corsOrigins, otherwise false — so the `cors` package
+  // never reflects Access-Control-Allow-Origin for an unknown origin. Because
+  // browsers ignore credentialed responses unless ACAO echoes the exact origin,
+  // `credentials: true` is therefore only ever *effective* for allowlisted
+  // origins even though the header is emitted (VAPT M3 — cosmetic, not
+  // exploitable; documented here so it isn't "fixed" by loosening the allowlist).
+  // Requests with no Origin (server-to-server, curl, same-origin) are allowed.
   app.use(
     cors({
-      origin: corsOrigins.length ? corsOrigins : false,
+      origin: (origin, callback) => {
+        if (!origin || corsOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+      },
       credentials: true,
     })
   );
@@ -163,6 +213,25 @@ export function createApp() {
   app.use('/api/v1/webhooks', paystackWebhookRouter);
 
   app.use(express.json({ limit: '2mb' }));
+  // Malformed JSON body → 400 (not 500). body-parser raises a SyntaxError with
+  // `type: 'entity.parse.failed'` when the payload isn't valid JSON; surface it
+  // as a client error in the standard shape rather than letting it fall through
+  // to the generic 500 handler (which mislabels it and inflates error alerting).
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    const isParseError =
+      (err as { type?: string } | null)?.type === 'entity.parse.failed' ||
+      (err instanceof SyntaxError && 'body' in (err as object));
+    if (isParseError) {
+      res.status(400).json({
+        success: false,
+        error: 'Malformed JSON in request body',
+        errorCode: 'BAD_REQUEST',
+        requestId: req.requestId,
+      });
+      return;
+    }
+    next(err);
+  });
   // Strip nulls from request bodies so zod `.optional()` schemas accept
   // frontends that send `field: null` instead of omitting the key.
   app.use((req, _res, next) => {
@@ -171,7 +240,7 @@ export function createApp() {
     }
     next();
   });
-  app.use(morgan('combined'));
+  app.use(morgan(MORGAN_FORMAT));
   app.use(withRequestContext);
 
   app.get('/', (_req, res) => {

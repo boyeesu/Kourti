@@ -26,7 +26,13 @@ import {
 // The portal auth surface is unauthenticated and password/token-bearing, so it
 // gets the same per-IP / per-email throttling as the staff auth router.
 function clientIp(req: Request): string {
-  return req.ip || req.socket?.remoteAddress || 'unknown';
+  // Require a non-empty value so unknown-IP traffic doesn't all share one
+  // rate-limit bucket. Mirrors clientIp() in authRoutes.ts.
+  const ip = req.ip || req.socket?.remoteAddress;
+  if (!ip) {
+    throw new ApiError('Could not determine client IP', 400, 'NO_CLIENT_IP');
+  }
+  return ip;
 }
 
 function enforceRateLimit(identifier: string, max: number, windowMs: number) {
@@ -137,7 +143,10 @@ portalAuthRouter.post(
   asyncHandler(async (req, res) => {
     enforceRateLimit(`portal:refresh:ip:${clientIp(req)}`, 120, 60_000);
     const { refreshToken } = refreshSchema.parse(req.body);
-    const tokens = await clientRefresh(refreshToken);
+    const tokens = await clientRefresh(refreshToken, {
+      ip: req.ip ?? req.socket?.remoteAddress ?? null,
+      userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null,
+    });
     res.status(200).json(tokens);
   })
 );
@@ -434,7 +443,7 @@ portalRouter.get(
   asyncHandler(async (req, res) => {
     const { clientUserId } = req.clientAuth!;
     const { caseId } = caseIdParamsSchema.parse(req.params);
-    await assertClientCaseAccess(clientUserId, caseId);
+    const { organizationId } = await assertClientCaseAccess(clientUserId, caseId);
 
     const result = await db.query<{
       id: string;
@@ -459,9 +468,10 @@ portalRouter.get(
       from public.cases c
       join public.organizations o on o.id = c.organization_id
       where c.id = $1
+        and c.organization_id = $2
       limit 1
       `,
-      [caseId]
+      [caseId, organizationId]
     );
 
     const row = result.rows[0];
@@ -577,7 +587,7 @@ portalRouter.get(
   asyncHandler(async (req, res) => {
     const { clientUserId } = req.clientAuth!;
     const { caseId } = caseIdParamsSchema.parse(req.params);
-    await assertClientCaseAccess(clientUserId, caseId);
+    const { organizationId } = await assertClientCaseAccess(clientUserId, caseId);
 
     const result = await db.query<{
       id: string;
@@ -591,17 +601,18 @@ portalRouter.get(
       select id, sender_type, sender_id, body, read_at, created_at
         from public.case_client_messages
        where case_id = $1
+         and organization_id = $2
        order by created_at asc
       `,
-      [caseId]
+      [caseId, organizationId]
     );
 
     // Mark unread staff messages as read now that the client has fetched them.
     await db.query(
       `update public.case_client_messages
           set read_at = now()
-        where case_id = $1 and sender_type = 'staff' and read_at is null`,
-      [caseId]
+        where case_id = $1 and organization_id = $2 and sender_type = 'staff' and read_at is null`,
+      [caseId, organizationId]
     );
 
     res.status(200).json(

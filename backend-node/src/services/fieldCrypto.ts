@@ -25,6 +25,12 @@ function key(): Buffer {
       ? process.env.APP_ENCRYPTION_KEY
       : env.JWT_SECRET || 'kourti-field-crypto-dev-fallback';
   // Derive a fixed 32-byte key regardless of input length.
+  //
+  // HARDENING NOTE (VAPT Low): single-pass SHA-256 is an acceptable KDF here
+  // given a >=32-char random APP_ENCRYPTION_KEY, but crypto.hkdfSync (with a
+  // per-use `info` label and salt) would be the stronger choice. NOT changed:
+  // altering this derivation would change the AES key and make every existing
+  // encrypted field (e.g. TOTP secrets at rest) undecryptable without a backfill.
   return crypto.createHash('sha256').update(String(material)).digest();
 }
 

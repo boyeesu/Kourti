@@ -12,6 +12,8 @@
  * mirrored to Brevo for CRM — both fire-and-forget so a provider outage never
  * fails the form.
  */
+import crypto from 'node:crypto';
+
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -47,6 +49,20 @@ function clientIp(req: { ip?: string; socket: { remoteAddress?: string } }): str
   return req.ip || req.socket.remoteAddress || 'unknown';
 }
 
+/**
+ * Constant-time string comparison for shared secrets, immune to the timing
+ * oracle a plain `!==` leaks (an attacker can otherwise recover the secret
+ * byte-by-byte from response-time deltas). Guards against an undefined/empty
+ * configured secret so a missing KB_SYNC_SECRET can never accidentally match.
+ */
+function constantTimeEquals(provided: string, expected: string | undefined): boolean {
+  if (!expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 // ── Plans ────────────────────────────────────────────────────────────────────
 
 interface PlanRow {
@@ -77,9 +93,26 @@ function normaliseLimits(
   return out;
 }
 
+// 60s in-process cache for the (relatively expensive) 4-table plans query.
+// Plans change rarely (admin-edited) so a short TTL keeps the marketing site
+// snappy and shields the DB from a burst of unauthenticated /plans hits.
+interface PlansCacheEntry {
+  data: unknown[];
+  expiresAt: number;
+}
+let plansCache: PlansCacheEntry | null = null;
+const PLANS_CACHE_TTL_MS = 60_000;
+
 publicRouter.get(
   '/plans',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    enforceRateLimit(`public-plans:${clientIp(req)}`, 60, 60_000);
+
+    if (plansCache && plansCache.expiresAt > Date.now()) {
+      res.status(200).json(plansCache.data);
+      return;
+    }
+
     // included_features comes from the plan_features entitlement matrix and
     // limits from plan_limits (both admin-editable) so the marketing comparison
     // reflects exactly what each tier unlocks. LEFT JOINs keep plans even when a
@@ -108,23 +141,29 @@ publicRouter.get(
       )
       .catch(() => ({ rows: [] as PlanRow[] }));
 
-    res.status(200).json(
-      result.rows.map((p) => ({
-        id: p.id,
-        name: p.name,
-        display_name: p.display_name ?? p.name,
-        description: p.description,
-        plan_type: p.plan_type,
-        features: Array.isArray(p.features) ? p.features : [],
-        included_features: Array.isArray(p.included_features) ? p.included_features : [],
-        limits: normaliseLimits(p.limits),
-        // numeric columns come back as strings from pg; normalise to number|null.
-        price_monthly: p.price_monthly == null ? null : Number(p.price_monthly),
-        price_yearly: p.price_yearly == null ? null : Number(p.price_yearly),
-        currency: p.currency ?? 'USD',
-        highlight: p.highlight ?? false,
-      }))
-    );
+    const plans = result.rows.map((p) => ({
+      id: p.id,
+      name: p.name,
+      display_name: p.display_name ?? p.name,
+      description: p.description,
+      plan_type: p.plan_type,
+      features: Array.isArray(p.features) ? p.features : [],
+      included_features: Array.isArray(p.included_features) ? p.included_features : [],
+      limits: normaliseLimits(p.limits),
+      // numeric columns come back as strings from pg; normalise to number|null.
+      price_monthly: p.price_monthly == null ? null : Number(p.price_monthly),
+      price_yearly: p.price_yearly == null ? null : Number(p.price_yearly),
+      currency: p.currency ?? 'USD',
+      highlight: p.highlight ?? false,
+    }));
+
+    // Only cache a non-empty result; an empty array usually means the query
+    // fell through its .catch() (DB blip), and we don't want to pin that for 60s.
+    if (plans.length) {
+      plansCache = { data: plans, expiresAt: Date.now() + PLANS_CACHE_TTL_MS };
+    }
+
+    res.status(200).json(plans);
   })
 );
 
@@ -156,6 +195,7 @@ async function handleUnsubscribe(email: string, token: string, res: import('expr
 publicRouter.get(
   '/unsubscribe',
   asyncHandler(async (req, res) => {
+    enforceRateLimit(`public-unsubscribe:${clientIp(req)}`, 20, 60_000);
     const parsed = unsubscribeSchema.safeParse(req.query);
     if (!parsed.success) {
       res.status(400).type('html').send('<h1>Invalid unsubscribe link</h1>');
@@ -168,6 +208,7 @@ publicRouter.get(
 publicRouter.post(
   '/unsubscribe',
   asyncHandler(async (req, res) => {
+    enforceRateLimit(`public-unsubscribe:${clientIp(req)}`, 20, 60_000);
     const { email, token } = unsubscribeSchema.parse(req.body ?? {});
     const ok = await applyUnsubscribe(email, token);
     res.status(ok ? 200 : 400).json({ success: ok });
@@ -373,6 +414,19 @@ const chatSchema = z.object({
     .optional(),
 });
 
+// Total input budget across message + all history turns. The per-field zod caps
+// above still allow ~50k chars (2000 + 12×4000) to be concatenated into one LLM
+// call; this ceiling bounds the input cost of a single request regardless of how
+// the budget is split. Cost-amplification defense (pairs with the per-IP limit).
+const CHAT_INPUT_CHAR_BUDGET = 6000;
+
+// Process-level ceiling on concurrent MARTHA SSE streams. Each open stream holds
+// an upstream LLM connection; without a cap a handful of clients (or one behind
+// a rotated-IP rate-limit bypass) could pin many long-lived upstream calls and
+// amplify cost. Incremented on connect, decremented on close/end exactly once.
+const MAX_CONCURRENT_CHAT_STREAMS = 10;
+let activeChatStreams = 0;
+
 /** Build a short, always-current pricing summary from the live plans table. */
 async function buildPlanSummary(): Promise<string> {
   const result = await db
@@ -408,6 +462,25 @@ publicRouter.post(
   asyncHandler(async (req, res) => {
     enforceRateLimit(`public-chat:${clientIp(req)}`, 20, 60_000);
     const { message, history = [] } = chatSchema.parse(req.body);
+
+    // Input-token budget: reject before doing any work (retrieval, LLM call) if
+    // the combined message + history exceeds the budget. Plain 400 — we haven't
+    // started the SSE stream yet, so the standard JSON error shape is correct.
+    const inputChars = message.length + history.reduce((sum, h) => sum + h.content.length, 0);
+    if (inputChars > CHAT_INPUT_CHAR_BUDGET) {
+      throw new ApiError(
+        `Message and history exceed the ${CHAT_INPUT_CHAR_BUDGET}-character limit.`,
+        400,
+        'INPUT_TOO_LARGE'
+      );
+    }
+
+    // Concurrency ceiling: refuse once too many MARTHA streams are already open.
+    // Done before flipping the response to SSE so this stays a clean 429 JSON
+    // error rather than an SSE frame.
+    if (activeChatStreams >= MAX_CONCURRENT_CHAT_STREAMS) {
+      throw new ApiError('The assistant is busy. Please try again shortly.', 429, 'RATE_LIMITED');
+    }
 
     // Retrieve grounding context and live pricing in parallel; both degrade to
     // empty so a failure in either never blocks the answer.
@@ -449,12 +522,32 @@ publicRouter.post(
       { role: 'user', content: message },
     ] as Parameters<typeof streamChatCompletion>[0];
 
+    // Reserve a concurrency slot for the duration of the stream. Released
+    // exactly once in `finally` (covers normal completion, errors, and the
+    // client aborting the connection). Re-checked here in case slots filled up
+    // between the early gate and now.
+    if (activeChatStreams >= MAX_CONCURRENT_CHAT_STREAMS) {
+      throw new ApiError('The assistant is busy. Please try again shortly.', 429, 'RATE_LIMITED');
+    }
+    activeChatStreams++;
+    let slotReleased = false;
+    const releaseSlot = () => {
+      if (!slotReleased) {
+        slotReleased = true;
+        activeChatStreams--;
+      }
+    };
+
     // Stream the answer as Server-Sent Events (same frame shape as the in-app
     // AI assistant: {type:'delta'|'done'|'error'}).
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders?.();
+
+    // Also release if the client hangs up mid-stream so an abandoned connection
+    // doesn't leak a slot until the upstream call finishes.
+    res.on('close', releaseSlot);
 
     try {
       await streamChatCompletion(
@@ -473,6 +566,7 @@ publicRouter.post(
         `data: ${JSON.stringify({ type: 'error', error: 'The assistant is briefly unavailable. Please try again.' })}\n\n`
       );
     } finally {
+      releaseSlot();
       res.end();
     }
   })
@@ -504,7 +598,7 @@ publicRouter.post(
     }
     const auth = req.header('authorization') || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (token !== env.KB_SYNC_SECRET) {
+    if (!constantTimeEquals(token, env.KB_SYNC_SECRET)) {
       throw new ApiError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 

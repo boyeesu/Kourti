@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useProfile, useUpdateProfile, useChangePassword } from '@/hooks/useProfile';
 import { TwoFactorEmailCard } from '@/components/auth/TwoFactorEmailCard';
+import { logError } from '@/lib/logger';
 
 const profileSchema = z.object({
   first_name: z.string().min(2, 'First name must be at least 2 characters'),
@@ -66,7 +67,7 @@ export default function ProfileTab() {
       const { email: _email, ...updatePayload } = data;
       await updateProfile.mutateAsync(updatePayload);
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      logError('Failed to update profile', error);
     }
   };
 
@@ -75,7 +76,7 @@ export default function ProfileTab() {
       await changePassword.mutateAsync(data);
       passwordForm.reset();
     } catch (error) {
-      console.error('Failed to change password:', error);
+      logError('Failed to change password', error);
     }
   };
 

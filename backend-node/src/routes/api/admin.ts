@@ -536,6 +536,44 @@ adminRouter.get(
   })
 );
 
+adminRouter.get(
+  '/organizations/:orgId/subscriptions',
+  asyncHandler(async (req, res) => {
+    await requirePlatformAdminUser(req.auth!.userId);
+    const { orgId } = z.object({ orgId: z.string().regex(/^[0-9a-fA-F-]{36}$/) }).parse(req.params);
+
+    const result = await db.query(
+      `
+      select
+        s.id,
+        s.status,
+        s.billing_interval,
+        s.organization_id,
+        s.user_id,
+        s.current_period_end,
+        s.cancel_at_period_end,
+        up.name as plan_name,
+        up.display_name as plan_display_name,
+        up.name as plan_type,
+        up.price_monthly,
+        up.price_yearly,
+        up.currency,
+        o.name as organization_name,
+        au.email as provider_customer_email
+      from public.subscriptions s
+      left join public.user_plans up on up.id = s.plan_id
+      left join public.organizations o on o.id = s.organization_id
+      left join public.auth_users au on au.id = s.user_id
+      where s.organization_id = $1
+      order by s.created_at desc
+      `,
+      [orgId]
+    );
+
+    res.status(200).json(result.rows);
+  })
+);
+
 // ── Storage health: detect and mark missing files ───────────────────────────
 
 const storageScanBody = z.object({

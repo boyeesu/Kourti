@@ -417,11 +417,14 @@ export function createSignedUrl(
   const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
   const aud = audience ?? '';
   const payload = `${bucket}:${filePath}:${expires}:${aud}`;
-  // Use the validated env so we never fall back to a public 'dev-secret'
-  // string; if JWT_SECRET is missing, env.ts already refused to boot.
-  const secret = env.JWT_SECRET ?? '';
+  // Prefer a dedicated signed-URL HMAC key (segregated from JWT_SECRET to limit
+  // blast radius on a leak); fall back to JWT_SECRET so URLs signed before
+  // SIGNED_URL_SECRET was introduced keep verifying. Either way we use the
+  // validated env so we never fall back to a public 'dev-secret' string; if
+  // JWT_SECRET is missing too, env.ts already refused to boot.
+  const secret = env.SIGNED_URL_SECRET ?? env.JWT_SECRET ?? '';
   if (!secret) {
-    throw new Error('JWT_SECRET is not configured');
+    throw new Error('Signed-URL secret is not configured (SIGNED_URL_SECRET / JWT_SECRET)');
   }
   const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
@@ -456,11 +459,12 @@ export function verifySignedUrl(
   }
 
   const payload = `${bucket}:${filePath}:${expiresNum}:${aud}`;
-  // Use the validated env so we never fall back to a public 'dev-secret'
-  // string; if JWT_SECRET is missing, env.ts already refused to boot.
-  const secret = env.JWT_SECRET ?? '';
+  // Must match createSignedUrl's key selection exactly: dedicated
+  // SIGNED_URL_SECRET when set, otherwise JWT_SECRET so pre-existing URLs still
+  // verify. Validated env only — never a public 'dev-secret' fallback.
+  const secret = env.SIGNED_URL_SECRET ?? env.JWT_SECRET ?? '';
   if (!secret) {
-    throw new Error('JWT_SECRET is not configured');
+    throw new Error('Signed-URL secret is not configured (SIGNED_URL_SECRET / JWT_SECRET)');
   }
   const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 

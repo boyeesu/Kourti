@@ -12,7 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Minus, Plus, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAddSeats } from '@/hooks/useSubscription';
+import { isSafeHttpsUrl, PAYMENT_REDIRECT_ORIGINS } from '@/lib/safeUrl';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -63,7 +65,15 @@ export function AddSeatsDialog({ open, onOpenChange }: AddSeatsDialogProps) {
       const url =
         (result as { authorization_url?: string; payment_link?: string }).authorization_url ??
         (result as { authorization_url?: string; payment_link?: string }).payment_link;
-      if (url) window.location.href = url;
+      // Defense-in-depth: only navigate to a server-supplied checkout URL when
+      // it is https and on an expected payment-provider origin.
+      if (isSafeHttpsUrl(url, PAYMENT_REDIRECT_ORIGINS)) {
+        window.location.href = url;
+      } else if (url) {
+        toast.error('Checkout error', {
+          description: 'Received an unexpected payment URL. Please try again or contact support.',
+        });
+      }
     } catch {
       // toast handled by the mutation
     }

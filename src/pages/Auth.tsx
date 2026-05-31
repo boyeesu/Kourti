@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { EmailOtpChallenge } from '@/components/auth/EmailOtpChallenge';
 import type { MfaRequiredResponse } from '@/lib/authClient';
+import { isSafePath } from '@/lib/safeUrl';
 
 const FEATURES = [
   {
@@ -83,7 +84,10 @@ export default function Auth() {
   const invitedEmail = searchParams.get('email');
   const isInvited = searchParams.get('invited') === 'true';
 
-  const from = location.state?.from?.pathname || '/dashboard';
+  // Validate the post-login redirect target to prevent open-redirect via a
+  // tampered location.state; fall back to /dashboard for anything unsafe.
+  const fromCandidate = location.state?.from?.pathname;
+  const from = isSafePath(fromCandidate) ? fromCandidate : '/dashboard';
 
   // Pre-fill email for invited users
   useEffect(() => {
