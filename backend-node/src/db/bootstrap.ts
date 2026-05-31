@@ -525,6 +525,16 @@ const bootstrapStatements = [
   `alter table public.profiles add column if not exists disabled_at timestamptz`,
   `alter table public.profiles add column if not exists disabled_by uuid`,
   `alter table public.profiles add column if not exists disabled_reason text`,
+  // Reconcile the profiles.status CHECK constraint. An out-of-band constraint
+  // (profiles_status_check) on production allowed only {active, disabled} and
+  // rejected the soft-delete value 'deleted', causing POST /bulk/users/delete
+  // to 500 with "violates check constraint profiles_status_check" (disable
+  // worked because 'disabled' was permitted). Drop whichever variant exists and
+  // recreate it covering the full lifecycle set the app actually writes. Safe to
+  // validate: status defaults to 'active' and the only values ever written are
+  // active/disabled/deleted, so no existing row can fall outside the new set.
+  `alter table public.profiles drop constraint if exists profiles_status_check`,
+  `alter table public.profiles add constraint profiles_status_check check (status in ('active','disabled','deleted'))`,
   `alter table public.contracts add column if not exists content text`,
   `alter table public.contracts add column if not exists metadata jsonb`,
   `alter table public.cases add column if not exists custom_fields jsonb`,
