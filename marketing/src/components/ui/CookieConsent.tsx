@@ -13,19 +13,23 @@ const CookieConsent = () => {
     const consent = localStorage.getItem(STORAGE_KEY);
     if (consent) return;
 
-    const timer = setTimeout(() => setVisible(true), 1500);
+    const timer = setTimeout(() => setVisible(true), 300);
     return () => clearTimeout(timer);
   }, []);
 
   const accept = () => {
     setExiting(true);
     localStorage.setItem(STORAGE_KEY, 'accepted');
+    // Initialise analytics now that the user has consented
+    window.__kourtiInitAnalytics?.();
     setTimeout(() => setVisible(false), 300);
   };
 
   const decline = () => {
     setExiting(true);
     localStorage.setItem(STORAGE_KEY, 'declined');
+    // Ensure Mixpanel stops tracking if it was somehow already loaded
+    window.mixpanel?.opt_out_tracking?.();
     setTimeout(() => setVisible(false), 300);
   };
 
@@ -66,6 +70,13 @@ const CookieConsent = () => {
                     className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
                   >
                     Privacy Policy
+                  </Link>{' '}
+                  and{' '}
+                  <Link
+                    to="/cookie-policy"
+                    className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+                  >
+                    Cookie Policy
                   </Link>{' '}
                   to learn more.
                 </p>

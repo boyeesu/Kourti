@@ -30,6 +30,7 @@ import { adminAuditRouter } from './routes/api/adminAudit.js';
 import { adminKbRouter } from './routes/api/adminKb.js';
 import { adminPortalRouter } from './routes/api/adminPortal.js';
 import { adminRulesRouter } from './routes/api/adminRules.js';
+import { adminSecurityRouter } from './routes/api/adminSecurity.js';
 import { adminCaseTypesRouter } from './routes/api/adminCaseTypes.js';
 import { authRouter } from './routes/api/authRoutes.js';
 import { casesRouter } from './routes/api/cases.js';
@@ -209,6 +210,7 @@ export function createApp() {
     adminKbRouter,
     adminPortalRouter,
     adminRulesRouter,
+    adminSecurityRouter,
     adminCaseTypesRouter
   );
   // Bulk ops and CSV exports are heavier + more sensitive — tighter cap on top.

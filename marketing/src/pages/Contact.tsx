@@ -13,6 +13,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Mail, Calendar } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { postJson } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import MouseFollowGlow from '@/components/ui/MouseFollowGlow';
@@ -21,6 +22,7 @@ import SEO from '@/components/SEO';
 const Contact = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -49,7 +51,7 @@ const Contact = () => {
     try {
       const data = await postJson<{ success: boolean; message?: string }>(
         '/api/v1/public/contact',
-        formData
+        { ...formData, marketingConsent }
       );
 
       toast({
@@ -69,6 +71,7 @@ const Contact = () => {
         message: '',
         website: '',
       });
+      setMarketingConsent(false);
     } catch (error: any) {
       console.error('Error submitting form:', error);
       toast({
@@ -291,6 +294,20 @@ const Contact = () => {
                     />
                   </div>
 
+                  {/* Marketing consent — unchecked by default */}
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={marketingConsent}
+                      onChange={(e) => setMarketingConsent(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border border-border accent-primary cursor-pointer"
+                    />
+                    <span className="text-sm text-muted-foreground leading-relaxed group-hover:text-foreground transition-colors">
+                      Keep me updated about Kourti products and legal-tech insights. You can
+                      unsubscribe anytime.
+                    </span>
+                  </label>
+
                   <Button
                     type="submit"
                     size="lg"
@@ -301,7 +318,14 @@ const Contact = () => {
                   </Button>
 
                   <p className="text-sm text-muted-foreground">
-                    By submitting this form, you agree to our Privacy Policy and Terms of Service.
+                    By submitting this form, you agree to our{' '}
+                    <Link
+                      to="/privacy-policy"
+                      className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+                    >
+                      Privacy Policy
+                    </Link>{' '}
+                    and Terms of Service.
                   </p>
                 </form>
               </div>

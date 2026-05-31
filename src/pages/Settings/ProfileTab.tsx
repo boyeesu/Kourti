@@ -61,7 +61,10 @@ export default function ProfileTab() {
 
   const onProfileSubmit = async (data: ProfileData) => {
     try {
-      await updateProfile.mutateAsync(data);
+      // email is read-only — strip it before sending to backend
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { email: _email, ...updatePayload } = data;
+      await updateProfile.mutateAsync(updatePayload);
     } catch (error) {
       console.error('Failed to update profile:', error);
     }
@@ -125,8 +128,18 @@ export default function ProfileTab() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input {...field} type="email" />
+                      <Input
+                        {...field}
+                        type="email"
+                        readOnly
+                        disabled
+                        className="cursor-not-allowed opacity-60"
+                        title="Email cannot be changed here. Contact support to update your email address."
+                      />
                     </FormControl>
+                    <p className="text-[12px] text-muted-foreground">
+                      Email address cannot be changed. Contact support if you need to update it.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

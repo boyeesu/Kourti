@@ -6,7 +6,18 @@ import RolesTab from './RolesTab';
 import PermissionsTab from './PermissionsTab';
 import { useUserRoleAssignments } from '@/hooks/useUserRoleAssignments';
 import { cn } from '@/lib/utils';
-import { User, Building2, CreditCard, ShieldCheck, Lock, KeyRound, Bell } from 'lucide-react';
+import {
+  User,
+  Building2,
+  CreditCard,
+  ShieldCheck,
+  Lock,
+  KeyRound,
+  Bell,
+  ShieldAlert,
+} from 'lucide-react';
+
+const PrivacyTab = lazy(() => import('./PrivacyTab'));
 
 const SSOTab = lazy(() => import('./SSOTab'));
 const BillingTab = lazy(() => import('./BillingTab'));
@@ -20,6 +31,7 @@ const AVAILABLE_TABS = [
   'permissions',
   'sso',
   'monitoring',
+  'privacy',
 ] as const;
 
 type TabValue = (typeof AVAILABLE_TABS)[number];
@@ -112,6 +124,12 @@ export default function Settings() {
         label: 'Monitoring & Alerts',
         description: 'Deadlines, expirations & changes',
         icon: Bell,
+      },
+      {
+        value: 'privacy',
+        label: 'Privacy & Data',
+        description: 'Consent, export & deletion rights',
+        icon: ShieldAlert,
       },
     ],
     []
@@ -232,6 +250,12 @@ function SettingsContent({ tab }: { tab: TabValue; activeItem?: NavItem }) {
       return (
         <Suspense fallback={fallback}>
           <AgentMonitors />
+        </Suspense>
+      );
+    case 'privacy':
+      return (
+        <Suspense fallback={fallback}>
+          <PrivacyTab />
         </Suspense>
       );
     default:

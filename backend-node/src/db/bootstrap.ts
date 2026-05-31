@@ -93,9 +93,9 @@ const bootstrapStatements = [
     updated_at timestamptz not null default now()
   )
   `,
-  // Access-token revocation epoch. Bumped on logout / password change / reset /
-  // 2FA-disable / refresh-token reuse; access JWTs carry the version they were
-  // minted at and are rejected once it no longer matches (services/auth.ts).
+  // Idempotent backfill of the token-revocation column for DBs created before
+  // it was added to the CREATE TABLE above (used by the AUTH lane to invalidate
+  // all outstanding JWTs for a user by bumping the version).
   `alter table public.auth_users add column if not exists token_version integer not null default 0`,
   `
   create table if not exists public.profiles (
@@ -1580,30 +1580,13 @@ const bootstrapStatements = [
   `create index if not exists idx_calendar_rsvps_event on public.calendar_event_rsvps(calendar_event_id)`,
   `create index if not exists idx_calendar_rsvps_client on public.calendar_event_rsvps(client_user_id)`,
 
-  // Security-event audit feed (SOC 2 / CC7): authentication, MFA, privilege
-  // changes, deletions, bulk exports, signed-URL abuse. Written by
-  // services/securityEvents.ts; auto-purged by the retention sweep
-  // (scripts/retentionPurge.ts) per RETENTION_AUDIT_LOG_DAYS.
-  `
-  create table if not exists public.security_events (
-    id uuid primary key default gen_random_uuid(),
-    event_type text not null,
-    severity text not null default 'info' check (severity in ('info','warning','critical')),
-    actor_type text,
-    actor_id uuid,
-    organization_id uuid,
-    ip_address text,
-    details jsonb not null default '{}'::jsonb,
-    created_at timestamptz not null default now()
-  )
-  `,
-  `create index if not exists idx_security_events_type on public.security_events(event_type, created_at desc)`,
-  `create index if not exists idx_security_events_sev on public.security_events(severity, created_at desc)`,
-
-  // NOTE: the local-dev org/user/superadmin seed (00000000-…-000000000001,
-  // dev@kourti.local) lives in `devSeedStatements` and is applied ONLY when
-  // NODE_ENV !== 'production'. In production `prodCleanupStatements` runs
-  // instead to neutralize any such account that may already exist.
+  // NOTE: the hardcoded local-dev superadmin seed (org/profile/auth_user/role
+  // for 00000000-...-000000000001, dev@kourti.local) lives in `devSeedStatements`
+  // below and is ONLY appended to the run list when NODE_ENV !== 'production'.
+  // In production we instead run `prodCleanupStatements` to remediate any
+  // deployment that previously seeded that backdoor. SOC 2: no shared/default
+  // privileged credentials in production.
+  // (security_events table is defined above in the data-protection block.)
 
   // ── Plan feature entitlements ─────────────────────────────────────
   // Source of truth for feature-gating (plan_type → feature_key). Seeded from
@@ -1831,6 +1814,76 @@ const bootstrapStatements = [
   `,
   `create index if not exists idx_sub_adjustments_org on public.subscription_adjustments(organization_id, created_at desc)`,
 
+  // ── Data protection: consent, processing restrictions, breach register ────
+  // (GDPR Art. 7/13/30/33, NDPR). See docs/compliance/.
+
+  // Append-only, versioned consent ledger. One row per consent event so we
+  // can demonstrate WHEN and HOW consent was given/withdrawn (Art. 7(1)).
+  // subject_id is null for pre-signup marketing leads (keyed by email only).
+  `
+  create table if not exists public.consent_records (
+    id uuid primary key default gen_random_uuid(),
+    subject_type text not null check (subject_type in ('user','client_user','lead')),
+    subject_id uuid,
+    email text,
+    consent_type text not null
+      check (consent_type in ('terms','privacy','marketing','cookies','dpa')),
+    granted boolean not null,
+    version text,
+    source text,
+    ip_address text,
+    user_agent text,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_consent_subject on public.consent_records(subject_type, subject_id, consent_type, created_at desc)`,
+  `create index if not exists idx_consent_email on public.consent_records(lower(email), consent_type, created_at desc)`,
+
+  // Quick-access consent state on the profile (denormalized from the ledger
+  // for cheap reads). The ledger remains the source of truth.
+  `alter table public.profiles add column if not exists terms_accepted_at timestamptz`,
+  `alter table public.profiles add column if not exists terms_version text`,
+  `alter table public.profiles add column if not exists marketing_consent boolean not null default false`,
+  `alter table public.profiles add column if not exists marketing_consent_at timestamptz`,
+  `alter table public.profiles add column if not exists processing_restricted boolean not null default false`,
+  `alter table public.profiles add column if not exists processing_restricted_at timestamptz`,
+  `alter table public.profiles add column if not exists deletion_requested_at timestamptz`,
+
+  `alter table public.client_users add column if not exists terms_accepted_at timestamptz`,
+  `alter table public.client_users add column if not exists marketing_consent boolean not null default false`,
+  `alter table public.client_users add column if not exists processing_restricted boolean not null default false`,
+  `alter table public.client_users add column if not exists deletion_requested_at timestamptz`,
+
+  // Marketing-lead opt-out state (covers pre-signup leads not in profiles).
+  `alter table public.contact_submissions add column if not exists marketing_consent boolean not null default false`,
+  `alter table public.contact_submissions add column if not exists unsubscribed_at timestamptz`,
+
+  // Breach incident register (Art. 33/34, NDPR). Drives the 72-hour clock.
+  // Mirrors docs/compliance/BREACH_RESPONSE_RUNBOOK.md.
+  `
+  create table if not exists public.breach_incidents (
+    id uuid primary key default gen_random_uuid(),
+    reference text unique,
+    title text not null,
+    description text,
+    severity text not null default 'sev3' check (severity in ('sev1','sev2','sev3','sev4')),
+    status text not null default 'open'
+      check (status in ('open','triaged','contained','notifying','closed')),
+    detected_at timestamptz not null default now(),
+    awareness_at timestamptz,
+    affected_data_categories text[],
+    affected_subject_count integer,
+    affected_organization_ids uuid[],
+    notify_authority_required boolean,
+    authority_notified_at timestamptz,
+    subjects_notified_at timestamptz,
+    customers_notified_at timestamptz,
+    detected_by uuid,
+    details jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )
+  `,
   // ── Case (matter) types + custom fields ───────────────────────────
   // case_types are either GLOBAL (organization_id NULL, is_global=true,
   // managed by platform admins) or firm-specific (organization_id set). The
@@ -1848,6 +1901,28 @@ const bootstrapStatements = [
     updated_at timestamptz not null default now()
   )
   `,
+  `create index if not exists idx_breach_status on public.breach_incidents(status, detected_at desc)`,
+
+  // Lightweight security-event feed for anomaly signals (auth-failure spikes,
+  // bulk exports, signed-URL abuse). Feeds breach triage; auto-purged by the
+  // retention sweep.
+  `
+  create table if not exists public.security_events (
+    id uuid primary key default gen_random_uuid(),
+    event_type text not null,
+    severity text not null default 'info' check (severity in ('info','warning','critical')),
+    actor_type text,
+    actor_id uuid,
+    organization_id uuid,
+    ip_address text,
+    details jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now()
+  )
+  `,
+  `create index if not exists idx_security_events_type on public.security_events(event_type, created_at desc)`,
+  `create index if not exists idx_security_events_sev on public.security_events(severity, created_at desc)`,
+
+  // ── Case (matter) types + custom fields ───────────────────────────
   // Defensive add-column for any pre-existing table that predates these flags.
   `alter table public.case_types add column if not exists organization_id uuid`,
   `alter table public.case_types add column if not exists description text`,
@@ -1878,10 +1953,13 @@ const bootstrapStatements = [
   ...caseTypeSeedStatements,
 ];
 
-// Local-development seed: a fixed dev org + user granted `superadmin`. This is
-// applied ONLY outside production. It must never run in prod — the committed
-// bcrypt hash would otherwise be a password-only, MFA-less platform-admin
-// backdoor (SOC 2 finding). See `prodCleanupStatements` for the prod path.
+// Local-development convenience seed: a fixed org/profile/auth_user plus the
+// `superadmin` global role for 00000000-...-000000000001 (dev@kourti.local).
+// This is a SHARED, COMMITTED credential — it MUST NEVER exist in production.
+// These statements are appended to the run list ONLY when NODE_ENV !==
+// 'production' (see ensureDatabaseSchema below). The generic global_roles
+// *definitions* (superadmin/admin/user) are seeded unconditionally above —
+// only this privileged *assignment* is gated.
 const devSeedStatements = [
   `
   insert into public.organizations (id, name, email)
@@ -1921,15 +1999,17 @@ const devSeedStatements = [
    end $$`,
 ];
 
-// Production remediation: actively neutralize the dev superadmin account if a
-// prior (pre-fix) deploy ever seeded it. Idempotent and safe when absent.
+// Production remediation: actively neutralize the committed dev superadmin on
+// any deployment that seeded it before this gate existed. Idempotent and safe
+// when the rows are absent — (a) deactivate the auth_user, (b) revoke its
+// superadmin assignment. Runs on every prod boot.
 const prodCleanupStatements = [
   `update public.auth_users
-      set is_active = false, updated_at = now()
-    where id = '00000000-0000-0000-0000-000000000001'`,
+     set is_active = false, updated_at = now()
+   where id = '00000000-0000-0000-0000-000000000001'`,
   `delete from public.user_role_assignments
-    where user_id = '00000000-0000-0000-0000-000000000001'
-      and role_name = 'superadmin'`,
+   where user_id = '00000000-0000-0000-0000-000000000001'
+     and role_name = 'superadmin'`,
 ];
 
 export async function ensureDatabaseSchema() {
@@ -1938,9 +2018,10 @@ export async function ensureDatabaseSchema() {
   // Previously gated behind RUN_BOOTSTRAP=1 in prod, but that caused 500s
   // when new columns were deployed without running the migration first.
   const isProd = process.env.NODE_ENV === 'production';
+  // In non-prod, append the local dev superadmin seed. In prod, append the
+  // remediation statements that remove that backdoor if it was ever seeded.
   const statements = [
     ...bootstrapStatements,
-    // Dev seed only outside production; in production, remediate instead.
     ...(isProd ? prodCleanupStatements : devSeedStatements),
   ];
 

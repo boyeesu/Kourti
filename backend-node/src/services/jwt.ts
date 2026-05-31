@@ -487,8 +487,12 @@ export async function verifyEmailOtpChallenge(
     const firstConfirm = updated.rows[0]?.first_confirm === true;
 
     if (firstConfirm) {
-      const profile = await db.query<{ first_name: string | null; last_name: string | null }>(
-        'select first_name, last_name from public.profiles where user_id = $1 limit 1',
+      const profile = await db.query<{
+        first_name: string | null;
+        last_name: string | null;
+        marketing_consent: boolean | null;
+      }>(
+        'select first_name, last_name, marketing_consent from public.profiles where user_id = $1 limit 1',
         [payload.sub]
       );
       const firstName = profile.rows[0]?.first_name ?? undefined;
@@ -497,11 +501,15 @@ export async function verifyEmailOtpChallenge(
       sendWelcomeEmail(payload.email, firstName).catch((err) =>
         console.error('Welcome email failed:', err instanceof Error ? err.message : err)
       );
-      brevoSyncSignup(payload.email, {
-        firstName,
-        lastName,
-        userId: payload.sub,
-      }).catch(logBrevoError);
+      // Only mirror into the Brevo MARKETING CRM when the user has opted in.
+      // Transactional email (welcome, above) needs no consent. GDPR Art. 6/7.
+      if (profile.rows[0]?.marketing_consent === true) {
+        brevoSyncSignup(payload.email, {
+          firstName,
+          lastName,
+          userId: payload.sub,
+        }).catch(logBrevoError);
+      }
     }
   }
 
@@ -1026,6 +1034,20 @@ export async function signOut(userId: string, ctx?: AuthEventContext): Promise<v
     ip: ctx?.ip ?? null,
     userAgent: ctx?.userAgent ?? null,
   });
+}
+
+/**
+ * Verify a user's current password — used to re-authenticate before
+ * destructive/sensitive actions (e.g. account erasure). Returns true/false;
+ * never reveals whether the user exists.
+ */
+export async function verifyUserPassword(userId: string, password: string): Promise<boolean> {
+  const result = await db.query<{ encrypted_password: string }>(
+    'SELECT encrypted_password FROM public.auth_users WHERE id = $1',
+    [userId]
+  );
+  const hash = result.rows[0]?.encrypted_password ?? DUMMY_PASSWORD_HASH;
+  return bcrypt.compare(password, hash);
 }
 
 export async function changePassword(

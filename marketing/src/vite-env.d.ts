@@ -8,3 +8,14 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  /** Initialises Clarity + Mixpanel. Only called after cookie consent is accepted.
+   *  Defined in index.html; guard with optional chaining before calling. */
+  __kourtiInitAnalytics?: () => void;
+  /** Mixpanel stub/instance loaded on demand after consent. */
+  mixpanel?: {
+    opt_out_tracking?: () => void;
+    [key: string]: unknown;
+  };
+}

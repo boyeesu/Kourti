@@ -173,6 +173,8 @@ export default function Onboarding() {
       password: '',
       confirmPassword: '',
       acceptedTerms: false,
+      ageConfirmed: false,
+      marketingConsent: false,
     },
     organization: {
       name: '',
@@ -268,6 +270,9 @@ export default function Onboarding() {
       if (!formData.account.acceptedTerms) {
         errors.acceptedTerms =
           'You must accept the Terms of Service and Privacy Policy to continue';
+      }
+      if (!formData.account.ageConfirmed) {
+        errors.ageConfirmed = 'You must confirm your age and authority to enter this agreement';
       }
     }
 
@@ -515,6 +520,8 @@ export default function Onboarding() {
               firstName: formData.account.firstName,
               lastName: formData.account.lastName,
             },
+            acceptedTerms: formData.account.acceptedTerms,
+            marketingConsent: formData.account.marketingConsent,
           },
         }
       );
@@ -900,53 +907,111 @@ export default function Onboarding() {
               </ul>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-4">
+              {/* Terms acceptance (required) */}
+              <div className="space-y-2.5">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="acceptedTerms"
+                    className="mt-0.5"
+                    checked={formData.account.acceptedTerms}
+                    onCheckedChange={(checked) => {
+                      setFormData({
+                        ...formData,
+                        account: { ...formData.account, acceptedTerms: checked === true },
+                      });
+                      if (validationErrors.acceptedTerms) {
+                        setValidationErrors({ ...validationErrors, acceptedTerms: '' });
+                      }
+                    }}
+                  />
+                  <Label
+                    htmlFor="acceptedTerms"
+                    className="text-sm font-normal leading-relaxed cursor-pointer text-muted-foreground"
+                  >
+                    I agree to the{' '}
+                    <a
+                      href="https://kourti.com/terms-of-use"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      Terms of Service
+                    </a>{' '}
+                    and{' '}
+                    <a
+                      href="https://kourti.com/privacy-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      Privacy Policy
+                    </a>
+                    . *
+                  </Label>
+                </div>
+                {validationErrors.acceptedTerms && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.acceptedTerms}
+                  </p>
+                )}
+              </div>
+
+              {/* Age / legal capacity (required) */}
+              <div className="space-y-2.5">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="ageConfirmed"
+                    className="mt-0.5"
+                    checked={formData.account.ageConfirmed}
+                    onCheckedChange={(checked) => {
+                      setFormData({
+                        ...formData,
+                        account: { ...formData.account, ageConfirmed: checked === true },
+                      });
+                      if (validationErrors.ageConfirmed) {
+                        setValidationErrors({ ...validationErrors, ageConfirmed: '' });
+                      }
+                    }}
+                  />
+                  <Label
+                    htmlFor="ageConfirmed"
+                    className="text-sm font-normal leading-relaxed cursor-pointer text-muted-foreground"
+                  >
+                    I confirm I am at least 18 years old and have the authority to enter into this
+                    agreement on behalf of myself or my organisation. *
+                  </Label>
+                </div>
+                {validationErrors.ageConfirmed && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.ageConfirmed}
+                  </p>
+                )}
+              </div>
+
+              {/* Marketing consent (optional) */}
               <div className="flex items-start gap-3">
                 <Checkbox
-                  id="acceptedTerms"
+                  id="marketingConsent"
                   className="mt-0.5"
-                  checked={formData.account.acceptedTerms}
+                  checked={formData.account.marketingConsent}
                   onCheckedChange={(checked) => {
                     setFormData({
                       ...formData,
-                      account: { ...formData.account, acceptedTerms: checked === true },
+                      account: { ...formData.account, marketingConsent: checked === true },
                     });
-                    if (validationErrors.acceptedTerms) {
-                      setValidationErrors({ ...validationErrors, acceptedTerms: '' });
-                    }
                   }}
                 />
                 <Label
-                  htmlFor="acceptedTerms"
+                  htmlFor="marketingConsent"
                   className="text-sm font-normal leading-relaxed cursor-pointer text-muted-foreground"
                 >
-                  I agree to the{' '}
-                  <a
-                    href="https://kourti.com/terms-of-use"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline underline-offset-2 hover:no-underline"
-                  >
-                    Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a
-                    href="https://kourti.com/privacy-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline underline-offset-2 hover:no-underline"
-                  >
-                    Privacy Policy
-                  </a>
-                  .
+                  I would like to receive product updates, tips, and occasional marketing emails
+                  from Kourti. You can unsubscribe at any time.
                 </Label>
               </div>
-              {validationErrors.acceptedTerms && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {validationErrors.acceptedTerms}
-                </p>
-              )}
             </div>
           </div>
         );

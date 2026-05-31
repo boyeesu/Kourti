@@ -459,7 +459,12 @@ clientPortalRouter.get(
       throw new ApiError('Client not found', 404, 'NOT_FOUND');
     }
 
-    const mattersRes = await db.query<{ id: string; title: string; status: string | null; portal_private: boolean }>(
+    const mattersRes = await db.query<{
+      id: string;
+      title: string;
+      status: string | null;
+      portal_private: boolean;
+    }>(
       `select id, title, status, portal_private
          from public.cases
         where client_id = $1 and organization_id = $2
@@ -566,7 +571,12 @@ clientPortalRouter.post(
 
     try {
       if (inviteToken) {
-        await sendClientPortalInviteEmail({ email: client.email, firmName, inviterName, inviteToken });
+        await sendClientPortalInviteEmail({
+          email: client.email,
+          firmName,
+          inviterName,
+          inviteToken,
+        });
       } else {
         await sendClientPortalAccessGrantedEmail({ email: client.email, firmName, inviterName });
       }

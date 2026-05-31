@@ -245,6 +245,73 @@ portalRouter.get(
   })
 );
 
+// ── PATCH /me — rectification (Art. 16): client edits their own profile ─────
+
+const updateMeSchema = z.object({
+  fullName: z.string().trim().max(200).optional(),
+  phone: z.string().trim().max(50).optional().nullable(),
+});
+
+portalRouter.patch(
+  '/me',
+  asyncHandler(async (req, res) => {
+    const { clientUserId } = req.clientAuth!;
+    const body = updateMeSchema.parse(req.body ?? {});
+    const result = await db.query<{
+      id: string;
+      email: string;
+      full_name: string | null;
+      phone: string | null;
+    }>(
+      `update public.client_users
+          set full_name = coalesce($2, full_name),
+              phone = coalesce($3, phone),
+              updated_at = now()
+        where id = $1
+        returning id, email, full_name, phone`,
+      [clientUserId, body.fullName ?? null, body.phone ?? null]
+    );
+    const row = result.rows[0];
+    if (!row) throw new ApiError('Client not found', 404, 'NOT_FOUND');
+    res
+      .status(200)
+      .json({ id: row.id, email: row.email, fullName: row.full_name, phone: row.phone });
+  })
+);
+
+// ── GET /me/export — access + portability (Art. 15/20) ──────────────────────
+
+portalRouter.get(
+  '/me/export',
+  asyncHandler(async (req, res) => {
+    const { clientUserId } = req.clientAuth!;
+    const { exportClientData } = await import('../../services/privacy.js');
+    const data = await exportClientData(clientUserId);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="kourti-portal-data-${clientUserId}.json"`
+    );
+    res.status(200).send(JSON.stringify(data, null, 2));
+  })
+);
+
+// ── DELETE /me — erasure (Art. 17). Deletes the portal identity; the firm's
+//    contact record is unlinked, not deleted (the firm remains controller). ──
+
+const deleteMeSchema = z.object({ confirm: z.literal('DELETE') });
+
+portalRouter.delete(
+  '/me',
+  asyncHandler(async (req, res) => {
+    const { clientUserId } = req.clientAuth!;
+    deleteMeSchema.parse(req.body ?? {});
+    const { eraseClientUser } = await import('../../services/privacy.js');
+    const result = await eraseClientUser(clientUserId);
+    res.status(200).json({ erased: true, ...result });
+  })
+);
+
 // ── GET /matters — list of granted matters, each labeled with the firm ─────
 
 portalRouter.get(

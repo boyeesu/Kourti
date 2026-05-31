@@ -16,12 +16,14 @@ import './agents/weeklyDigest.js';
 import './agents/trialExpirySweep.js';
 import './agents/unverifiedUserSweep.js';
 import './agents/lifecycleRulesSweep.js';
+import './agents/retentionSweep.js';
 import { startMonitorScheduler } from './agents/monitorScheduler.js';
 import { startWeeklyDigestScheduler } from './agents/weeklyDigest.js';
 import { startTrialExpirySweep } from './agents/trialExpirySweep.js';
 import { startUnverifiedUserSweep } from './agents/unverifiedUserSweep.js';
 import { startMarketingKbScheduler } from './agents/marketingKbSync.js';
 import { startLifecycleRulesSweep } from './agents/lifecycleRulesSweep.js';
+import { startRetentionSweep } from './agents/retentionSweep.js';
 import { purgeExpiredAuditData } from './scripts/retentionPurge.js';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,6 +69,7 @@ async function start() {
     await startUnverifiedUserSweep();
     await startMarketingKbScheduler();
     await startLifecycleRulesSweep();
+    await startRetentionSweep();
   } catch (error) {
     console.error(
       'Agent worker startup failed (server will still start):',
