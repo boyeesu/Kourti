@@ -11,6 +11,7 @@ import FeaturesPage from './pages/Features';
 import Security from './pages/Security';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
+import AIPolicy from './pages/AIPolicy';
 import NotFound from './pages/NotFound';
 import Report from './pages/Report';
 import Assessment from './pages/Assessment';
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/about" element={<About />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-of-use" element={<TermsOfUse />} />
+          <Route path="/ai-policy" element={<AIPolicy />} />
           <Route path="/report/legaltech-nigeria-q1-2026" element={<Report />} />
           <Route path="/assessment" element={<Assessment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

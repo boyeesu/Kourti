@@ -96,6 +96,14 @@ const Footer = () => {
                   Terms of Use
                 </Link>
               </li>
+              <li>
+                <Link
+                  to="/ai-policy"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  AI Policy
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
