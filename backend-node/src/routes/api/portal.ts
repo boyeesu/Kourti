@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { z } from 'zod';
 
+import { env } from '../../config/env.js';
 import { db } from '../../db/pool.js';
 import { ApiError, asyncHandler } from '../../lib/http.js';
 import { checkRateLimit } from '../../lib/rateLimit.js';
@@ -46,6 +47,54 @@ function enforceRateLimit(identifier: string, max: number, windowMs: number) {
   }
 }
 
+// ── Refresh-token cookie helpers (mirrors authRoutes.ts) ───────────────────
+// The portal refresh token lives in an httpOnly cookie scoped to the portal
+// auth path, so it's never exposed to JS (XSS-safe) and is sent automatically
+// on /api/v1/portal/auth/* requests. Mirrors the staff app's `kourti_rt`.
+
+const PORTAL_REFRESH_COOKIE = 'kourti_prt';
+const portalIsProduction = env.NODE_ENV === 'production';
+
+/** Parse a JWT-style duration (e.g. "7d", "30m") into seconds. Copied from authRoutes.ts. */
+function parseExpiry(val: string): number {
+  const match = val.match(/^(\d+)(s|m|h|d)$/);
+  if (!match) return 604800; // 7 days default
+  const num = parseInt(match[1], 10);
+  switch (match[2]) {
+    case 's':
+      return num;
+    case 'm':
+      return num * 60;
+    case 'h':
+      return num * 3600;
+    case 'd':
+      return num * 86400;
+    default:
+      return 604800;
+  }
+}
+
+const portalRefreshMaxAge = parseExpiry(env.JWT_REFRESH_EXPIRES_IN);
+
+function setPortalRefreshCookie(res: Response, refreshToken: string) {
+  res.cookie(PORTAL_REFRESH_COOKIE, refreshToken, {
+    httpOnly: true,
+    secure: portalIsProduction,
+    sameSite: portalIsProduction ? 'none' : 'lax', // 'none' needed for cross-origin Vercel→Railway
+    path: '/api/v1/portal/auth',
+    maxAge: portalRefreshMaxAge * 1000,
+  });
+}
+
+function clearPortalRefreshCookie(res: Response) {
+  res.clearCookie(PORTAL_REFRESH_COOKIE, {
+    httpOnly: true,
+    secure: portalIsProduction,
+    sameSite: portalIsProduction ? 'none' : 'lax',
+    path: '/api/v1/portal/auth',
+  });
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // Client-facing portal routers.
 //
@@ -70,7 +119,7 @@ const loginSchema = z.object({
 });
 
 const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
+  refreshToken: z.string().min(1).optional(),
 });
 
 const acceptInviteSchema = z.object({
@@ -108,6 +157,13 @@ portalAuthRouter.post(
     // ClientSignInResult is either { kind:'tokens', ... } or
     // { kind:'otp_required', otpToken, otpTokenExpiresIn, emailHint }.
     const result = await clientSignIn(email, password);
+    if (result.kind === 'tokens') {
+      // Stash the refresh token in an httpOnly cookie; never expose it to JS.
+      setPortalRefreshCookie(res, result.refreshToken);
+      const { refreshToken: _omit, ...safe } = result;
+      res.status(200).json(safe);
+      return;
+    }
     res.status(200).json(result);
   })
 );
@@ -120,7 +176,9 @@ portalAuthRouter.post(
     enforceRateLimit(`portal:verify-otp:ip:${clientIp(req)}`, 10, 60_000);
     const { otpToken, code } = verifyOtpSchema.parse(req.body);
     const tokens = await clientVerifyOtp(otpToken, code);
-    res.status(200).json(tokens);
+    setPortalRefreshCookie(res, tokens.refreshToken);
+    const { refreshToken: _omit, ...safe } = tokens;
+    res.status(200).json(safe);
   })
 );
 
@@ -142,12 +200,19 @@ portalAuthRouter.post(
   '/refresh',
   asyncHandler(async (req, res) => {
     enforceRateLimit(`portal:refresh:ip:${clientIp(req)}`, 120, 60_000);
-    const { refreshToken } = refreshSchema.parse(req.body);
+    const parsed = refreshSchema.parse(req.body ?? {});
+    // Prefer the httpOnly cookie; fall back to a body token for legacy callers.
+    const refreshToken = req.cookies?.[PORTAL_REFRESH_COOKIE] || parsed.refreshToken;
+    if (!refreshToken) {
+      throw new ApiError('Missing refresh token', 401, 'CLIENT_AUTH_UNAUTHORIZED');
+    }
     const tokens = await clientRefresh(refreshToken, {
       ip: req.ip ?? req.socket?.remoteAddress ?? null,
       userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null,
     });
-    res.status(200).json(tokens);
+    setPortalRefreshCookie(res, tokens.refreshToken);
+    const { refreshToken: _omit, ...safe } = tokens;
+    res.status(200).json(safe);
   })
 );
 
@@ -159,7 +224,9 @@ portalAuthRouter.post(
     enforceRateLimit(`portal:accept-invite:ip:${clientIp(req)}`, 10, 60_000);
     const { token, password, fullName } = acceptInviteSchema.parse(req.body);
     const tokens = await acceptClientInvite(token, password, fullName);
-    res.status(200).json(tokens);
+    setPortalRefreshCookie(res, tokens.refreshToken);
+    const { refreshToken: _omit, ...safe } = tokens;
+    res.status(200).json(safe);
   })
 );
 
@@ -215,6 +282,7 @@ portalAuthRouter.post(
         // An invalid/expired token on logout is a no-op — never error.
       }
     }
+    clearPortalRefreshCookie(res);
     res.status(200).json({ ok: true });
   })
 );
