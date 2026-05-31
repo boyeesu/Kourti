@@ -25,7 +25,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 bg-black/55 backdrop-blur-sm',
+      'fixed inset-0 bg-black/55 backdrop-blur-sm duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
       highZ ? 'z-[105]' : 'z-50',
       className
     )}
@@ -56,6 +56,7 @@ const DialogContent = React.forwardRef<
           // scroll on short viewports. Per-dialog desktop sizing (sm:max-w-*) layers on top.
           'fixed left-1/2 top-1/2 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-5 rounded-lg border border-border/60 bg-[hsl(var(--surface))] p-6 shadow-lg',
           'max-h-[calc(100dvh-2rem)] overflow-y-auto',
+          'duration-200 ease-smooth data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95',
           className
         )}
         style={{ zIndex }}

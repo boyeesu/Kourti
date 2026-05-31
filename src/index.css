@@ -424,6 +424,25 @@ All colors MUST be HSL. Focus on trust, professionalism, and clarity.
     transition-duration: 150ms;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  /* Radix positions popovers/menus/selects/tooltips via a transform on this wrapper.
+   The global transform transition above makes them slide ("fly") in from the origin —
+   opt the positioning wrapper out so only the content's own enter animation plays. */
+  [data-radix-popper-content-wrapper] {
+    transition: none !important;
+  }
+
+  /* Respect users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
