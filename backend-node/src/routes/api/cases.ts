@@ -68,6 +68,8 @@ type CaseRow = {
   assigned_to: string | null;
   custom_fields: Record<string, unknown> | null;
   court: string | null;
+  portal_private: boolean | null;
+  client_summary: string | null;
   client_name: string | null;
   client_email: string | null;
   client_company: string | null;
@@ -91,6 +93,8 @@ function mapCaseRow(row: CaseRow) {
     assigned_to: row.assigned_to,
     custom_fields: row.custom_fields,
     court: row.court,
+    portal_private: row.portal_private,
+    client_summary: row.client_summary,
     client:
       row.client_name || row.client_email || row.client_company
         ? {
@@ -149,6 +153,8 @@ casesRouter.get(
         c.assigned_to,
         c.custom_fields,
         c.court,
+        c.portal_private,
+        c.client_summary,
         cl.name as client_name,
         cl.email as client_email,
         cl.company as client_company
@@ -201,6 +207,8 @@ casesRouter.get(
         c.assigned_to,
         c.custom_fields,
         c.court,
+        c.portal_private,
+        c.client_summary,
         cl.name as client_name,
         cl.email as client_email,
         cl.company as client_company
@@ -272,7 +280,7 @@ casesRouter.post(
         $8,
         $9,
         $10,
-        coalesce($11, false),
+        coalesce($11, true),
         $12::jsonb,
         $13,
         $14
@@ -294,6 +302,8 @@ casesRouter.post(
         assigned_to,
         custom_fields,
         court,
+        portal_private,
+        client_summary,
         null::text as client_name,
         null::text as client_email,
         null::text as client_company
@@ -394,6 +404,8 @@ casesRouter.patch(
         assigned_to,
         custom_fields,
         court,
+        portal_private,
+        client_summary,
         null::text as client_name,
         null::text as client_email,
         null::text as client_company

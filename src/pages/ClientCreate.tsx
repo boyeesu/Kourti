@@ -29,7 +29,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 const clientSchema = z.object({
   name: z.string().min(1, 'Client name is required'),
   status: z.string().min(1, 'Status is required'),
-  email: z.string().email('Invalid email address').optional().or(z.literal('')),
+  email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
   phone: z.string().optional(),
   address: z.string().optional(),
   company: z.string().optional(),
@@ -64,7 +64,7 @@ export default function ClientCreate({ onSuccess, showHeader = true }: ClientCre
     try {
       const clientData = {
         name: data.name,
-        email: data.email || undefined,
+        email: data.email,
         phone: data.phone,
         address: data.address,
         company: data.company,
@@ -144,7 +144,7 @@ export default function ClientCreate({ onSuccess, showHeader = true }: ClientCre
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email *</FormLabel>
                       <FormControl>
                         <Input placeholder="Enter email address" type="email" {...field} />
                       </FormControl>
