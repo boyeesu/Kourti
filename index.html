@@ -77,7 +77,21 @@
 
   <body>
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:text-black">Skip to main content</a>
-    <div id="root"></div>
+    <div id="root">
+      <!-- App preloader: shown until React mounts and replaces #root's contents -->
+      <div class="app-preloader" role="status" aria-label="Loading Kourti">
+        <div class="app-preloader__mark">
+          <span class="app-preloader__ring"></span>
+          <img
+            src="https://storage.googleapis.com/gpt-engineer-file-uploads/HHCXzjPOUfg9KVVhfUadI6o8sMl2/uploads/1757594453813-Jonathan%20kaulana.png"
+            alt=""
+            width="56"
+            height="56"
+            class="app-preloader__icon"
+          />
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
 
     <!-- Fallback for no JavaScript -->
@@ -85,6 +99,60 @@
       noscript .no-js-wrapper {
         padding: 2rem;
         text-align: center;
+      }
+
+      /* App preloader — favicon-based splash shown until React mounts */
+      .app-preloader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #eef1f5;
+        z-index: 9999;
+      }
+      .app-preloader__mark {
+        position: relative;
+        width: 88px;
+        height: 88px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .app-preloader__icon {
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+        border-radius: 14px;
+        animation: app-preloader-pulse 1.6s ease-in-out infinite;
+      }
+      .app-preloader__ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 9999px;
+        border: 2px solid rgba(37, 106, 218, 0.15);
+        border-top-color: rgba(37, 106, 218, 0.85);
+        animation: app-preloader-spin 0.9s linear infinite;
+      }
+      @keyframes app-preloader-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.85; transform: scale(0.94); }
+      }
+      @keyframes app-preloader-spin {
+        to { transform: rotate(360deg); }
+      }
+      @media (prefers-color-scheme: dark) {
+        .app-preloader { background: #0f1722; }
+        .app-preloader__ring {
+          border-color: rgba(120, 160, 235, 0.2);
+          border-top-color: rgba(120, 160, 235, 0.9);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .app-preloader__icon,
+        .app-preloader__ring {
+          animation: none;
+        }
       }
     </style>
     <noscript>
