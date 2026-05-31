@@ -494,6 +494,8 @@ export function SubscriptionManagement() {
                     const monthlyVal = getEditedValue(plan, 'price_monthly');
                     const yearlyVal = getEditedValue(plan, 'price_yearly');
                     const currencyVal = getEditedValue(plan, 'currency');
+                    // Enterprise is sales-led — price is not settable here.
+                    const isEnterprise = plan.plan_type === 'enterprise';
 
                     return (
                       <TableRow key={plan.id}>
@@ -504,30 +506,38 @@ export function SubscriptionManagement() {
                             {plan.plan_type}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min={0}
-                            className="w-28"
-                            placeholder="0"
-                            value={monthlyVal ?? ''}
-                            onChange={(e) =>
-                              handlePriceChange(plan.id, 'price_monthly', e.target.value)
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min={0}
-                            className="w-28"
-                            placeholder="0"
-                            value={yearlyVal ?? ''}
-                            onChange={(e) =>
-                              handlePriceChange(plan.id, 'price_yearly', e.target.value)
-                            }
-                          />
-                        </TableCell>
+                        {isEnterprise ? (
+                          <TableCell colSpan={2} className="text-sm text-muted-foreground">
+                            Sales-led — contact sales for custom pricing
+                          </TableCell>
+                        ) : (
+                          <>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="w-28"
+                                placeholder="0"
+                                value={monthlyVal ?? ''}
+                                onChange={(e) =>
+                                  handlePriceChange(plan.id, 'price_monthly', e.target.value)
+                                }
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="w-28"
+                                placeholder="0"
+                                value={yearlyVal ?? ''}
+                                onChange={(e) =>
+                                  handlePriceChange(plan.id, 'price_yearly', e.target.value)
+                                }
+                              />
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>
                           <Input
                             className="w-20"
