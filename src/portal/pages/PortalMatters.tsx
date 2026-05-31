@@ -8,11 +8,11 @@ import {
   ChevronRight,
   FolderOpen,
   AlertCircle,
-  CalendarClock,
   Gavel,
   CalendarDays,
+  ArrowRight,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -23,6 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { usePortalAuth } from '../PortalAuthContext';
 import {
   portalGetMatters,
   portalGetCalendar,
@@ -34,109 +36,116 @@ function isHearing(eventType: string | null): boolean {
   return !!eventType && /hearing|court/i.test(eventType);
 }
 
-function UpcomingStrip() {
-  const navigate = useNavigate();
-  const { data } = useQuery({
-    queryKey: ['portal', 'calendar'],
-    queryFn: portalGetCalendar,
-    staleTime: 60 * 1000,
-  });
-
-  if (!data || data.length === 0) return null;
-
-  const events = data.slice(0, 4);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <CalendarClock className="h-4 w-4 text-muted-foreground" />
-          Upcoming
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {events.map((event: PortalCalendarEventWithMatter) => {
-            const hearing = isHearing(event.event_type);
-            const Icon = hearing ? Gavel : CalendarDays;
-            return (
-              <li key={event.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/portal/matters/${event.caseId}`)}
-                  className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 ${
-                    hearing ? 'border-primary/30 bg-primary/5' : 'border-border'
-                  }`}
-                >
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                      hearing ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {event.title || 'Event'}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">{event.matterTitle}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {format(new Date(event.start_date), 'PP')}
-                    </p>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
 function prettyStatus(status: string | null): string {
   if (!status) return 'In progress';
   return status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function MatterCard({ matter }: { matter: PortalMatterSummary }) {
+/** Map a raw status to a calm status-dot colour. */
+function statusTone(status: string | null): string {
+  const s = (status ?? '').toLowerCase();
+  if (/closed|complete|won|resolved/.test(s)) return 'bg-success';
+  if (/hold|pending|wait|review/.test(s)) return 'bg-warning';
+  if (/urgent|hearing|overdue/.test(s)) return 'bg-destructive';
+  return 'bg-primary';
+}
+
+/** Highlight banner for the single soonest upcoming event across all matters. */
+function NextUp({ event }: { event: PortalCalendarEventWithMatter }) {
+  const navigate = useNavigate();
+  const hearing = isHearing(event.event_type);
+  const Icon = hearing ? Gavel : CalendarDays;
+  return (
+    <Card className="border-primary/30 bg-primary/5">
+      <CardContent className="flex items-center gap-4 p-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Next up</p>
+          <p className="truncate text-sm font-medium text-foreground">
+            {event.title || 'Event'} · {format(new Date(event.start_date), 'PPP')}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">{event.matterTitle}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 text-primary hover:text-primary"
+          onClick={() => navigate('/portal/calendar')}
+        >
+          Calendar
+          <ArrowRight className="ml-1 h-4 w-4" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MatterCard({
+  matter,
+  nextEvent,
+}: {
+  matter: PortalMatterSummary;
+  nextEvent?: PortalCalendarEventWithMatter;
+}) {
   const navigate = useNavigate();
   return (
     <Card
-      className="cursor-pointer transition-shadow hover:shadow-card"
+      className="cursor-pointer transition-all hover:border-primary/40 hover:shadow-card"
       onClick={() => navigate(`/portal/matters/${matter.caseId}`)}
     >
       <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <Building2 className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{matter.firm.name}</span>
-            </div>
-
-            <h3 className="truncate text-base font-semibold text-foreground">{matter.title}</h3>
-
-            {matter.clientSummary && (
-              <p className="line-clamp-2 text-sm text-muted-foreground">{matter.clientSummary}</p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <Badge variant="secondary">{prettyStatus(matter.status)}</Badge>
-              {matter.unreadMessages > 0 && (
-                <Badge variant="default" className="gap-1">
-                  <MessageSquare className="h-3 w-3" />
-                  {matter.unreadMessages} new
-                </Badge>
-              )}
-              {matter.lastEventAt && (
-                <span className="text-xs text-muted-foreground">
-                  Updated {formatDistanceToNow(new Date(matter.lastEventAt), { addSuffix: true })}
-                </span>
-              )}
-            </div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <Building2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{matter.firm.name}</span>
           </div>
+          {matter.unreadMessages > 0 && (
+            <Badge variant="default" className="shrink-0 gap-1">
+              <MessageSquare className="h-3 w-3" />
+              {matter.unreadMessages}
+            </Badge>
+          )}
+        </div>
 
-          <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
+        <h3 className="mt-2 line-clamp-1 text-base font-semibold text-foreground">
+          {matter.title}
+        </h3>
+
+        {matter.clientSummary && (
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{matter.clientSummary}</p>
+        )}
+
+        <div className="mt-3 flex items-center gap-2">
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', statusTone(matter.status))} />
+          <span className="text-xs font-medium text-foreground">{prettyStatus(matter.status)}</span>
+          {matter.lastEventAt && (
+            <span className="text-xs text-muted-foreground">
+              · Updated {formatDistanceToNow(new Date(matter.lastEventAt), { addSuffix: true })}
+            </span>
+          )}
+        </div>
+
+        {nextEvent && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
+            {isHearing(nextEvent.event_type) ? (
+              <Gavel className="h-3.5 w-3.5 shrink-0 text-primary" />
+            ) : (
+              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span className="truncate text-xs text-foreground">
+              {nextEvent.title || 'Next date'}
+            </span>
+            <span className="ml-auto shrink-0 text-xs font-medium text-muted-foreground">
+              {format(new Date(nextEvent.start_date), 'MMM d')}
+            </span>
+          </div>
+        )}
+
+        <div className="mt-3 flex items-center justify-end text-xs font-medium text-muted-foreground">
+          View matter
+          <ChevronRight className="ml-0.5 h-4 w-4" />
         </div>
       </CardContent>
     </Card>
@@ -144,23 +153,46 @@ function MatterCard({ matter }: { matter: PortalMatterSummary }) {
 }
 
 export default function PortalMatters() {
+  const { client } = usePortalAuth();
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['portal', 'matters'],
     queryFn: portalGetMatters,
     staleTime: 60 * 1000,
   });
 
+  const { data: calendar } = useQuery({
+    queryKey: ['portal', 'calendar'],
+    queryFn: portalGetCalendar,
+    staleTime: 60 * 1000,
+  });
+
   const [firmFilter, setFirmFilter] = useState<string>('all');
+
+  // Soonest upcoming event per case (calendar is grouped by date by the server).
+  const nextByCase = useMemo(() => {
+    const map = new Map<string, PortalCalendarEventWithMatter>();
+    const sorted = [...(calendar ?? [])].sort(
+      (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    );
+    for (const ev of sorted) {
+      if (!map.has(ev.caseId)) map.set(ev.caseId, ev);
+    }
+    return map;
+  }, [calendar]);
+
+  const soonest = useMemo(() => {
+    const sorted = [...(calendar ?? [])].sort(
+      (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    );
+    return sorted[0];
+  }, [calendar]);
 
   // Distinct firms across the returned matters (preserve first-seen order).
   const firms = useMemo(() => {
     const seen = new Map<string, { id: string; name: string }>();
     for (const m of data ?? []) {
       if (!seen.has(m.firm.organizationId)) {
-        seen.set(m.firm.organizationId, {
-          id: m.firm.organizationId,
-          name: m.firm.name,
-        });
+        seen.set(m.firm.organizationId, { id: m.firm.organizationId, name: m.firm.name });
       }
     }
     return Array.from(seen.values());
@@ -174,24 +206,24 @@ export default function PortalMatters() {
     return data.filter((m) => m.firm.organizationId === firmFilter);
   }, [data, multiFirm, firmFilter]);
 
-  // Group visible matters by firm (only used when multiFirm).
   const groups = useMemo(() => {
     const byFirm = new Map<string, { name: string; matters: PortalMatterSummary[] }>();
     for (const m of visibleMatters) {
       const existing = byFirm.get(m.firm.organizationId);
-      if (existing) {
-        existing.matters.push(m);
-      } else {
-        byFirm.set(m.firm.organizationId, { name: m.firm.name, matters: [m] });
-      }
+      if (existing) existing.matters.push(m);
+      else byFirm.set(m.firm.organizationId, { name: m.firm.name, matters: [m] });
     }
     return Array.from(byFirm.entries()).map(([id, g]) => ({ id, ...g }));
   }, [visibleMatters]);
 
+  const firstName = client?.fullName?.trim().split(/\s+/)[0];
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Your matters</h1>
+        <h1 className="text-2xl font-semibold text-foreground">
+          {firstName ? `Welcome back, ${firstName}` : 'Your matters'}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Follow your matters and stay updated on what's happening.
         </p>
@@ -233,13 +265,15 @@ export default function PortalMatters() {
 
       {!isLoading && !isError && data && data.length > 0 && (
         <>
-          <UpcomingStrip />
+          {soonest && <NextUp event={soonest} />}
 
-          {multiFirm && (
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-foreground">
+              {visibleMatters.length} {visibleMatters.length === 1 ? 'matter' : 'matters'}
+            </h2>
+            {multiFirm && (
               <Select value={firmFilter} onValueChange={setFirmFilter}>
-                <SelectTrigger className="w-full sm:w-64">
+                <SelectTrigger className="w-48 sm:w-64">
                   <SelectValue placeholder="All firms" />
                 </SelectTrigger>
                 <SelectContent>
@@ -251,29 +285,37 @@ export default function PortalMatters() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            )}
+          </div>
 
           {multiFirm ? (
             <div className="space-y-6">
               {groups.map((group) => (
                 <div key={group.id} className="space-y-3">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                    <Building2 className="h-4 w-4 shrink-0" />
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Building2 className="h-3.5 w-3.5 shrink-0" />
                     {group.name}
-                  </h2>
-                  <div className="space-y-3">
+                  </h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {group.matters.map((matter) => (
-                      <MatterCard key={matter.caseId} matter={matter} />
+                      <MatterCard
+                        key={matter.caseId}
+                        matter={matter}
+                        nextEvent={nextByCase.get(matter.caseId)}
+                      />
                     ))}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
-              {data.map((matter) => (
-                <MatterCard key={matter.caseId} matter={matter} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              {visibleMatters.map((matter) => (
+                <MatterCard
+                  key={matter.caseId}
+                  matter={matter}
+                  nextEvent={nextByCase.get(matter.caseId)}
+                />
               ))}
             </div>
           )}

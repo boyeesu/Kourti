@@ -27,14 +27,17 @@ import {
   MapPin,
   CalendarDays,
   CalendarPlus,
+  Activity,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
   portalGetMatter,
@@ -86,6 +89,20 @@ const RSVP_OPTIONS: { value: PortalRsvpResponse; label: string }[] = [
   { value: 'tentative', label: 'Tentative' },
   { value: 'declined', label: 'Declined' },
 ];
+
+/** A small badge used on tab triggers to show item counts. */
+function CountPill({ count }: { count: number }) {
+  if (!count) return null;
+  return (
+    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-medium text-muted-foreground">
+      {count}
+    </span>
+  );
+}
+
+function SectionEmpty({ children }: { children: React.ReactNode }) {
+  return <p className="py-8 text-center text-sm text-muted-foreground">{children}</p>;
+}
 
 function CalendarItem({
   event,
@@ -353,6 +370,10 @@ export default function PortalMatterDetail() {
   }
 
   const matter = matterQ.data;
+  const docCount = documentsQ.data?.length ?? 0;
+  const calCount = calendarQ.data?.length ?? 0;
+  const msgCount = messagesQ.data?.length ?? 0;
+  const teamCount = teamQ.data?.length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -372,7 +393,7 @@ export default function PortalMatterDetail() {
             <span>{matter.firm.name}</span>
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold text-foreground">{matter.title}</h1>
             <Badge variant="secondary">{prettyStatus(matter.status)}</Badge>
           </div>
@@ -397,254 +418,275 @@ export default function PortalMatterDetail() {
         </CardContent>
       </Card>
 
-      {/* Timeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Updates</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {timelineQ.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Spinner />
-            </div>
-          ) : timelineQ.data && timelineQ.data.length > 0 ? (
-            <ul className="relative">
-              {timelineQ.data.map((event) => (
-                <TimelineItem key={event.id} event={event} />
-              ))}
-            </ul>
-          ) : (
-            <p className="py-4 text-sm text-muted-foreground">No updates yet.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Documents */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Documents</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {documentsQ.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Spinner />
-            </div>
-          ) : documentsQ.data && documentsQ.data.length > 0 ? (
-            <ul className="divide-y divide-border">
-              {documentsQ.data.map((doc) => (
-                <li key={doc.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate text-sm text-foreground">{doc.name}</span>
-                  </div>
-                  {doc.downloadUrl ? (
-                    <Button asChild variant="outline" size="sm">
-                      <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer">
-                        <Download className="mr-2 h-4 w-4" />
-                        Download
-                      </a>
-                    </Button>
-                  ) : (
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      Available on request
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="py-4 text-sm text-muted-foreground">No documents shared yet.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Upcoming dates */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <CalendarClock className="h-5 w-5 text-muted-foreground" />
-            Upcoming dates
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {calendarQ.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Spinner />
-            </div>
-          ) : calendarQ.data && calendarQ.data.length > 0 ? (
-            <ul className="space-y-2">
-              {calendarQ.data.map((event) => (
-                <CalendarItem
-                  key={event.id}
-                  event={event}
-                  onRsvp={handleRsvp}
-                  rsvpPending={rsvpEvent.isPending}
-                />
-              ))}
-            </ul>
-          ) : (
-            <p className="py-4 text-sm text-muted-foreground">No upcoming dates scheduled.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Team */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Users className="h-5 w-5 text-muted-foreground" />
+      {/* Tabbed sections */}
+      <Tabs defaultValue="updates" className="space-y-4">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/60 p-1">
+          <TabsTrigger value="updates">
+            <Activity className="mr-1.5 h-4 w-4" />
+            Updates
+          </TabsTrigger>
+          <TabsTrigger value="calendar">
+            <CalendarDays className="mr-1.5 h-4 w-4" />
+            Calendar
+            <CountPill count={calCount} />
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            <FileText className="mr-1.5 h-4 w-4" />
+            Documents
+            <CountPill count={docCount} />
+          </TabsTrigger>
+          <TabsTrigger value="messages">
+            <MessageSquare className="mr-1.5 h-4 w-4" />
+            Messages
+            <CountPill count={msgCount} />
+          </TabsTrigger>
+          <TabsTrigger value="team">
+            <Users className="mr-1.5 h-4 w-4" />
             Team
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {teamQ.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Spinner />
-            </div>
-          ) : teamQ.data && teamQ.data.length > 0 ? (
-            <ul className="divide-y divide-border">
-              {teamQ.data.map((member) => (
-                <li
-                  key={member.clientUserId}
-                  className="flex items-center justify-between gap-3 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-medium text-foreground">
-                        {member.fullName || member.email}
-                      </span>
-                      {member.pending && (
-                        <Badge variant="secondary" className="h-5 text-[10px]">
-                          Pending
-                        </Badge>
+            <CountPill count={teamCount} />
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Updates */}
+        <TabsContent value="updates">
+          <Card>
+            <CardContent className="p-6">
+              {timelineQ.isLoading ? (
+                <div className="flex justify-center py-6">
+                  <Spinner />
+                </div>
+              ) : timelineQ.data && timelineQ.data.length > 0 ? (
+                <ul className="relative">
+                  {timelineQ.data.map((event) => (
+                    <TimelineItem key={event.id} event={event} />
+                  ))}
+                </ul>
+              ) : (
+                <SectionEmpty>No updates yet.</SectionEmpty>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Calendar */}
+        <TabsContent value="calendar">
+          <Card>
+            <CardContent className="p-6">
+              {calendarQ.isLoading ? (
+                <div className="flex justify-center py-6">
+                  <Spinner />
+                </div>
+              ) : calendarQ.data && calendarQ.data.length > 0 ? (
+                <ul className="space-y-2">
+                  {calendarQ.data.map((event) => (
+                    <CalendarItem
+                      key={event.id}
+                      event={event}
+                      onRsvp={handleRsvp}
+                      rsvpPending={rsvpEvent.isPending}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <SectionEmpty>No upcoming dates scheduled.</SectionEmpty>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Documents */}
+        <TabsContent value="documents">
+          <Card>
+            <CardContent className="p-6">
+              {documentsQ.isLoading ? (
+                <div className="flex justify-center py-6">
+                  <Spinner />
+                </div>
+              ) : documentsQ.data && documentsQ.data.length > 0 ? (
+                <ul className="divide-y divide-border">
+                  {documentsQ.data.map((doc) => (
+                    <li key={doc.id} className="flex items-center justify-between gap-3 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-sm text-foreground">{doc.name}</span>
+                      </div>
+                      {doc.downloadUrl ? (
+                        <Button asChild variant="outline" size="sm">
+                          <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer">
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                          </a>
+                        </Button>
+                      ) : (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          Available on request
+                        </span>
                       )}
-                    </div>
-                    {member.fullName && (
-                      <p className="truncate text-xs text-muted-foreground">{member.email}</p>
-                    )}
-                  </div>
-                  {member.invitedByMe && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                      aria-label={`Remove ${member.fullName || member.email}`}
-                      disabled={removeTeam.isPending}
-                      onClick={() => removeTeam.mutate(member.clientUserId)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No teammates yet. Invite a colleague to follow this matter.
-            </p>
-          )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <SectionEmpty>No documents shared yet.</SectionEmpty>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <Separator />
-
-          <form onSubmit={handleInvite} className="space-y-2">
-            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
-              Invite a teammate
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                type="email"
-                placeholder="colleague@example.com"
-                autoComplete="off"
-                value={invite.email}
-                onChange={(e) => setInvite({ ...invite, email: e.target.value })}
-                disabled={inviteTeam.isPending}
-                required
-              />
-              <Input
-                type="text"
-                placeholder="Full name (optional)"
-                autoComplete="off"
-                value={invite.fullName}
-                onChange={(e) => setInvite({ ...invite, fullName: e.target.value })}
-                disabled={inviteTeam.isPending}
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button type="submit" disabled={inviteTeam.isPending || !invite.email.trim()}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                {inviteTeam.isPending ? 'Inviting…' : 'Invite teammate'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Messages */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Messages</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {messagesQ.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Spinner />
-            </div>
-          ) : messagesQ.data && messagesQ.data.length > 0 ? (
-            <div className="space-y-3">
-              {messagesQ.data.map((msg) => {
-                const fromClient = msg.senderType === 'client';
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${fromClient ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
-                        fromClient
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-foreground'
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap">{msg.body}</p>
-                      <p
-                        className={`mt-1 text-[11px] ${
-                          fromClient ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                        }`}
+        {/* Messages */}
+        <TabsContent value="messages">
+          <Card>
+            <CardContent className="space-y-4 p-6">
+              {messagesQ.isLoading ? (
+                <div className="flex justify-center py-6">
+                  <Spinner />
+                </div>
+              ) : messagesQ.data && messagesQ.data.length > 0 ? (
+                <div className="space-y-3">
+                  {messagesQ.data.map((msg) => {
+                    const fromClient = msg.senderType === 'client';
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${fromClient ? 'justify-end' : 'justify-start'}`}
                       >
-                        {fromClient ? 'You' : matter.firm.name} ·{' '}
-                        {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No messages yet. Send a message to your legal team below.
-            </p>
-          )}
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                            fromClient
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-foreground'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">{msg.body}</p>
+                          <p
+                            className={`mt-1 text-[11px] ${
+                              fromClient ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                            }`}
+                          >
+                            {fromClient ? 'You' : matter.firm.name} ·{' '}
+                            {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <SectionEmpty>
+                  No messages yet. Send a message to your legal team below.
+                </SectionEmpty>
+              )}
 
-          <Separator />
+              <Separator />
 
-          <form onSubmit={handleSend} className="space-y-2">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Write a message to your legal team…"
-              rows={3}
-              disabled={postMessage.isPending}
-            />
-            <div className="flex justify-end">
-              <Button type="submit" disabled={postMessage.isPending || !draft.trim()}>
-                <Send className="mr-2 h-4 w-4" />
-                {postMessage.isPending ? 'Sending…' : 'Send'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              <form onSubmit={handleSend} className="space-y-2">
+                <Textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="Write a message to your legal team…"
+                  rows={3}
+                  disabled={postMessage.isPending}
+                />
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={postMessage.isPending || !draft.trim()}>
+                    <Send className="mr-2 h-4 w-4" />
+                    {postMessage.isPending ? 'Sending…' : 'Send'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Team */}
+        <TabsContent value="team">
+          <Card>
+            <CardContent className="space-y-4 p-6">
+              {teamQ.isLoading ? (
+                <div className="flex justify-center py-6">
+                  <Spinner />
+                </div>
+              ) : teamQ.data && teamQ.data.length > 0 ? (
+                <ul className="divide-y divide-border">
+                  {teamQ.data.map((member) => (
+                    <li
+                      key={member.clientUserId}
+                      className="flex items-center justify-between gap-3 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-medium text-foreground">
+                            {member.fullName || member.email}
+                          </span>
+                          {member.pending && (
+                            <Badge variant="secondary" className="h-5 text-[10px]">
+                              Pending
+                            </Badge>
+                          )}
+                        </div>
+                        {member.fullName && (
+                          <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                        )}
+                      </div>
+                      {member.invitedByMe && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            'h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive'
+                          )}
+                          aria-label={`Remove ${member.fullName || member.email}`}
+                          disabled={removeTeam.isPending}
+                          onClick={() => removeTeam.mutate(member.clientUserId)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <SectionEmpty>
+                  No teammates yet. Invite a colleague to follow this matter.
+                </SectionEmpty>
+              )}
+
+              <Separator />
+
+              <form onSubmit={handleInvite} className="space-y-2">
+                <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <UserPlus className="h-4 w-4 text-muted-foreground" />
+                  Invite a teammate
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Input
+                    type="email"
+                    placeholder="colleague@example.com"
+                    autoComplete="off"
+                    value={invite.email}
+                    onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+                    disabled={inviteTeam.isPending}
+                    required
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Full name (optional)"
+                    autoComplete="off"
+                    value={invite.fullName}
+                    onChange={(e) => setInvite({ ...invite, fullName: e.target.value })}
+                    disabled={inviteTeam.isPending}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={inviteTeam.isPending || !invite.email.trim()}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    {inviteTeam.isPending ? 'Inviting…' : 'Invite teammate'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

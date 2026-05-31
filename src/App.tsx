@@ -97,6 +97,7 @@ const PortalForgotPassword = lazy(() => import('./portal/pages/PortalForgotPassw
 const PortalResetPassword = lazy(() => import('./portal/pages/PortalResetPassword'));
 const PortalMatters = lazy(() => import('./portal/pages/PortalMatters'));
 const PortalMatterDetail = lazy(() => import('./portal/pages/PortalMatterDetail'));
+const PortalCalendar = lazy(() => import('./portal/pages/PortalCalendar'));
 
 type ProtectedRouteConfig = {
   path: string;
@@ -790,6 +791,20 @@ const App = () => (
                             <ModuleErrorBoundary name="Portal Matters">
                               <Suspense fallback={<LoadingFallback />}>
                                 <PortalMatters />
+                              </Suspense>
+                            </ModuleErrorBoundary>
+                          </PortalLayout>
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="calendar"
+                      element={
+                        <PortalProtectedRoute>
+                          <PortalLayout>
+                            <ModuleErrorBoundary name="Portal Calendar">
+                              <Suspense fallback={<LoadingFallback />}>
+                                <PortalCalendar />
                               </Suspense>
                             </ModuleErrorBoundary>
                           </PortalLayout>
