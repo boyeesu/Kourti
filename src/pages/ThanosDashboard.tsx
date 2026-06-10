@@ -14,6 +14,7 @@ import { BillingOpsTab } from '@/components/super-admin/BillingOpsTab';
 import { OrgUsageTab } from '@/components/super-admin/OrgUsageTab';
 import { SystemHealthTab } from '@/components/super-admin/SystemHealthTab';
 import { EmailLogTab } from '@/components/super-admin/EmailLogTab';
+import { MarketingLeadsTab } from '@/components/super-admin/MarketingLeadsTab';
 import { AuditLogProTab } from '@/components/super-admin/AuditLogProTab';
 import { KbAdminTab } from '@/components/super-admin/KbAdminTab';
 import { ClientPortalAdminTab } from '@/components/super-admin/ClientPortalAdminTab';
@@ -75,6 +76,7 @@ export default function ThanosDashboard() {
               <Route path="analytics" element={<AnalyticsTab />} />
               <Route path="health" element={<SystemHealthTab />} />
               <Route path="email" element={<EmailLogTab />} />
+              <Route path="leads" element={<MarketingLeadsTab />} />
               <Route path="audit" element={<AuditLogProTab />} />
               <Route path="knowledge-base" element={<KbAdminTab />} />
               <Route path="client-portal" element={<ClientPortalAdminTab />} />
