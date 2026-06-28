@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 /**
  * One-off backfill: copies every file under STORAGE_PATH (the filesystem
- * driver's root, default /app/storage) into the configured S3 bucket using
+ * driver's root, default /app/storage) into the configured object bucket using
  * the same logical layout the runtime driver uses: `<bucket>/<filePath>`
- * becomes the S3 key.
+ * becomes the object key.
  *
  * Idempotent: skips objects that already exist in S3 with the same size.
  *
- * Usage (from a Railway shell on the backend service, with S3_* env vars set):
+ * Usage (from a Railway shell on the backend service, with S3_* or R2_* env vars set):
  *
  *   node scripts/migrate-storage-to-s3.mjs            # dry run, lists what would copy
  *   node scripts/migrate-storage-to-s3.mjs --apply    # actually upload
  *   node scripts/migrate-storage-to-s3.mjs --apply --concurrency 8
  *
  * Does NOT delete source files. Verify the bucket, then flip STORAGE_DRIVER=s3
- * and redeploy. Keep the volume for at least a week as rollback.
+ * (or STORAGE_DRIVER=r2) and redeploy. Keep the volume for at least a week
+ * as rollback.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -29,11 +30,15 @@ const concIdx = process.argv.indexOf('--concurrency');
 const CONCURRENCY = concIdx >= 0 ? Math.max(1, parseInt(process.argv[concIdx + 1], 10) || 4) : 4;
 
 const STORAGE_ROOT = process.env.STORAGE_PATH || '/app/storage';
-const ENDPOINT = process.env.S3_ENDPOINT;
-const REGION = process.env.S3_REGION || 'garage';
-const BUCKET = process.env.S3_BUCKET;
-const ACCESS_KEY = process.env.S3_ACCESS_KEY;
-const SECRET_KEY = process.env.S3_SECRET_KEY;
+const ENDPOINT =
+  process.env.S3_ENDPOINT ||
+  (process.env.R2_ACCOUNT_ID
+    ? `https://${process.env.R2_ACCOUNT_ID.trim()}.r2.cloudflarestorage.com`
+    : undefined);
+const REGION = process.env.S3_REGION || (process.env.R2_ACCOUNT_ID ? 'auto' : 'garage');
+const BUCKET = process.env.S3_BUCKET || process.env.R2_BUCKET;
+const ACCESS_KEY = process.env.S3_ACCESS_KEY || process.env.R2_ACCESS_KEY_ID;
+const SECRET_KEY = process.env.S3_SECRET_KEY || process.env.R2_SECRET_ACCESS_KEY;
 const FORCE_PATH_STYLE = (process.env.S3_FORCE_PATH_STYLE || 'true') !== 'false';
 
 for (const [name, val] of [

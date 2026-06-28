@@ -1,6 +1,39 @@
 # Garage S3 storage migration plan
 
-Status: **driver landed, awaiting prod cutover.** `STORAGE_DRIVER=fs` by default (no behavior change). Flip to `s3` after backfill.
+Status: **driver landed, awaiting prod cutover.** `STORAGE_DRIVER=fs` by default (no behavior change). Flip to `s3` or `r2` after backfill.
+
+## Cloudflare R2 cutover (recommended)
+
+Use this variant when migrating off Railway volume storage to Cloudflare R2.
+
+1. In Cloudflare R2, create a bucket (example: `kourti-prod-files`).
+2. Create an API token scoped to that bucket with Object Read + Write.
+3. Set these variables on the Railway backend service:
+   ```
+   STORAGE_DRIVER=r2
+   R2_ACCOUNT_ID=<cloudflare-account-id>
+   R2_BUCKET=kourti-prod-files
+   R2_ACCESS_KEY_ID=<r2-access-key-id>
+   R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
+   STORAGE_READ_FALLBACK_FS=true
+   ```
+4. Redeploy backend (still safe; fallback allows old files to read from FS).
+5. Dry-run backfill:
+   ```
+   railway ssh --service kourti-backend --environment production \
+     "cd /app && node scripts/migrate-storage-to-s3.mjs"
+   ```
+6. Apply backfill:
+   ```
+   railway ssh --service kourti-backend --environment production \
+     "cd /app && node scripts/migrate-storage-to-s3.mjs --apply --concurrency 8"
+   ```
+7. Verify uploads/downloads from the app and confirm objects appear in R2.
+8. After verification window, disable fallback:
+   ```
+   STORAGE_READ_FALLBACK_FS=false
+   ```
+9. Keep the old volume mounted for at least 7 days, then detach to cut cost.
 
 ## Cutover steps (prod)
 

@@ -5,7 +5,7 @@
  *   - 'fs' (default): local filesystem at STORAGE_PATH, used on the
  *     backend's Railway volume. Same behavior the codebase has shipped
  *     with since day one.
- *   - 's3' : any S3-compatible store (Garage on Railway, R2, AWS, etc.)
+ *   - 's3'/'r2': any S3-compatible store (Garage on Railway, R2, AWS, etc.)
  *     selected via S3_ENDPOINT / S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY.
  *
  * The public API (uploadFile / downloadFile / deleteFile / fileExists /
@@ -34,7 +34,8 @@ import type { PutObjectCommandInput } from '@aws-sdk/client-s3';
 import { env } from '../config/env.js';
 
 const STORAGE_ROOT = env.STORAGE_PATH;
-const USE_S3 = env.STORAGE_DRIVER === 's3';
+const USE_S3 = env.STORAGE_DRIVER === 's3' || env.STORAGE_DRIVER === 'r2';
+const ENABLE_FS_READ_FALLBACK = env.STORAGE_READ_FALLBACK_FS;
 
 // Single shared S3 client; only constructed when the driver is 's3' so
 // the fs driver has zero S3 SDK overhead at import time.
@@ -243,6 +244,26 @@ async function ensureDir(dirPath: string) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+async function readFromFs(
+  bucket: string,
+  filePath: string,
+  options?: DownloadOptions
+): Promise<{ data: Buffer; contentType: string; sha256: string }> {
+  const fullPath = bucketPath(bucket, filePath);
+  const raw = await fs.readFile(fullPath);
+  // Transparently decrypt files we sealed at write time; legacy plaintext
+  // files (no magic header) pass through unchanged. SHA-256 is computed on
+  // the plaintext so it matches the hash captured at upload.
+  const data = decryptLocal(raw);
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = mimeFromExt(ext);
+  const sha256 = sha256Hex(data);
+  if (options?.expectedSha256 && options.expectedSha256 !== sha256) {
+    throw new StorageIntegrityError(bucket, filePath, options.expectedSha256, sha256);
+  }
+  return { data, contentType, sha256 };
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export async function uploadFile(
@@ -326,26 +347,26 @@ export async function downloadFile(
       if (err instanceof StorageIntegrityError) throw err;
       const name = (err as { name?: string }).name;
       if (name === 'NoSuchKey' || name === 'NotFound') {
+        // Migration bridge: after flipping to S3/R2, allow temporary reads from
+        // the old fs volume for objects not copied yet.
+        if (ENABLE_FS_READ_FALLBACK) {
+          try {
+            return await readFromFs(bucket, filePath, options);
+          } catch (fallbackErr) {
+            if ((fallbackErr as NodeJS.ErrnoException).code === 'ENOENT') {
+              throw new Error(`File not found: ${filePath}`);
+            }
+            throw fallbackErr;
+          }
+        }
         throw new Error(`File not found: ${filePath}`);
       }
       throw err;
     }
   }
 
-  const fullPath = bucketPath(bucket, filePath);
   try {
-    const raw = await fs.readFile(fullPath);
-    // Transparently decrypt files we sealed at write time; legacy plaintext
-    // files (no magic header) pass through unchanged. SHA-256 is computed on
-    // the plaintext so it matches the hash captured at upload.
-    const data = decryptLocal(raw);
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = mimeFromExt(ext);
-    const sha256 = sha256Hex(data);
-    if (options?.expectedSha256 && options.expectedSha256 !== sha256) {
-      throw new StorageIntegrityError(bucket, filePath, options.expectedSha256, sha256);
-    }
-    return { data, contentType, sha256 };
+    return await readFromFs(bucket, filePath, options);
   } catch (err) {
     if (err instanceof StorageIntegrityError) throw err;
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -383,7 +404,15 @@ export async function fileExists(bucket: string, filePath: string): Promise<bool
       return true;
     } catch (err) {
       const name = (err as { name?: string }).name;
-      if (name === 'NotFound' || name === 'NoSuchKey') return false;
+      if (name === 'NotFound' || name === 'NoSuchKey') {
+        if (!ENABLE_FS_READ_FALLBACK) return false;
+        try {
+          await fs.access(bucketPath(bucket, filePath));
+          return true;
+        } catch {
+          return false;
+        }
+      }
       throw err;
     }
   }

@@ -90,16 +90,46 @@ const envSchema = z.object({
   AGENT_MAX_CONCURRENT_JOBS: z.coerce.number().int().positive().default(3),
 
   // File storage driver. 'fs' = local Railway volume at STORAGE_PATH (default,
-  // unchanged behavior). 's3' = S3-compatible object store (Garage on Railway).
-  STORAGE_DRIVER: z.enum(['fs', 's3']).default('fs'),
+  // unchanged behavior). 's3' and 'r2' both use the S3-compatible object path.
+  STORAGE_DRIVER: z.enum(['fs', 's3', 'r2']).default('fs'),
   STORAGE_PATH: z.string().default('/app/storage'),
+  STORAGE_READ_FALLBACK_FS: z
+    .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
+    .default(false),
 
-  // S3 driver settings (only required when STORAGE_DRIVER=s3).
-  S3_ENDPOINT: optionalUrl,
-  S3_REGION: z.string().default('garage'),
-  S3_BUCKET: optionalNonEmptyString,
-  S3_ACCESS_KEY: optionalNonEmptyString,
-  S3_SECRET_KEY: optionalNonEmptyString,
+  // S3-compatible settings (required when STORAGE_DRIVER=s3|r2).
+  // R2 aliases are accepted and mapped automatically:
+  //   R2_ACCOUNT_ID -> S3_ENDPOINT (https://<id>.r2.cloudflarestorage.com)
+  //   R2_BUCKET -> S3_BUCKET
+  //   R2_ACCESS_KEY_ID -> S3_ACCESS_KEY
+  //   R2_SECRET_ACCESS_KEY -> S3_SECRET_KEY
+  S3_ENDPOINT: z.preprocess((value) => {
+    if (typeof value === 'string' && value.trim() !== '') return value;
+    const accountId = process.env.R2_ACCOUNT_ID;
+    if (accountId && accountId.trim() !== '') {
+      return `https://${accountId.trim()}.r2.cloudflarestorage.com`;
+    }
+    return undefined;
+  }, z.string().url().optional()),
+  S3_REGION: z.preprocess((value) => {
+    if (typeof value === 'string' && value.trim() !== '') return value;
+    return process.env.R2_ACCOUNT_ID ? 'auto' : 'garage';
+  }, z.string()),
+  S3_BUCKET: z.preprocess((value) => {
+    if (typeof value === 'string' && value.trim() !== '') return value;
+    const bucket = process.env.R2_BUCKET;
+    return typeof bucket === 'string' && bucket.trim() !== '' ? bucket : undefined;
+  }, z.string().min(1).optional()),
+  S3_ACCESS_KEY: z.preprocess((value) => {
+    if (typeof value === 'string' && value.trim() !== '') return value;
+    const key = process.env.R2_ACCESS_KEY_ID;
+    return typeof key === 'string' && key.trim() !== '' ? key : undefined;
+  }, z.string().min(1).optional()),
+  S3_SECRET_KEY: z.preprocess((value) => {
+    if (typeof value === 'string' && value.trim() !== '') return value;
+    const key = process.env.R2_SECRET_ACCESS_KEY;
+    return typeof key === 'string' && key.trim() !== '' ? key : undefined;
+  }, z.string().min(1).optional()),
   // Garage requires path-style addressing (no virtual-hosted subdomain).
   S3_FORCE_PATH_STYLE: z
     .preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean())
@@ -219,15 +249,15 @@ if (
   );
 }
 
-// S3 driver requires its full credential set — refuse to boot half-configured.
-if (env.STORAGE_DRIVER === 's3') {
+// S3-compatible driver requires its full credential set.
+if (env.STORAGE_DRIVER === 's3' || env.STORAGE_DRIVER === 'r2') {
   const missing: string[] = [];
   if (!env.S3_ENDPOINT) missing.push('S3_ENDPOINT');
   if (!env.S3_BUCKET) missing.push('S3_BUCKET');
   if (!env.S3_ACCESS_KEY) missing.push('S3_ACCESS_KEY');
   if (!env.S3_SECRET_KEY) missing.push('S3_SECRET_KEY');
   if (missing.length) {
-    throw new Error(`STORAGE_DRIVER=s3 requires: ${missing.join(', ')}`);
+    throw new Error(`STORAGE_DRIVER=${env.STORAGE_DRIVER} requires: ${missing.join(', ')}`);
   }
 }
 
