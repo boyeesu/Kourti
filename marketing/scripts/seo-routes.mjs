@@ -181,4 +181,36 @@ export const routes = [
     changefreq: 'yearly',
     priority: '0.3',
   },
+  {
+    path: '/ai-policy',
+    title: 'AI Policy | Kourti Legal',
+    description:
+      'Learn how Kourti Legal builds, governs and uses artificial intelligence responsibly. Read our AI policy covering data handling, model providers, human oversight, accuracy, confidentiality and your rights.',
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
+  {
+    path: '/dpa',
+    title: 'Data Processing Agreement | Kourti Legal',
+    description:
+      "Kourti Legal's Data Processing Agreement (DPA) - governing how we process customer personal data as a data processor under GDPR and NDPR.",
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
+  {
+    path: '/subprocessors',
+    title: 'Sub-processors | Kourti Legal',
+    description:
+      'List of third-party sub-processors used by Kourti Legal to deliver its services, including their purpose, data categories, and location.',
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
+  {
+    path: '/cookie-policy',
+    title: 'Cookie Policy | Kourti Legal',
+    description:
+      'Learn how Kourti Legal uses cookies and similar technologies, what categories of cookies are set, and how to manage your cookie preferences.',
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
 ];
