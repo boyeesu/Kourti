@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Check, Minus, ChevronDown, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import MouseFollowGlow from '@/components/ui/MouseFollowGlow';
-import SpecialOfferModal from '@/components/ui/SpecialOfferModal';
 import SEO from '@/components/SEO';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { fetchPublicPlans, type PublicPlan } from '@/lib/api';
@@ -264,7 +263,6 @@ const Pricing = () => {
         description="Simple, transparent per-seat pricing for solo practitioners, growing firms, and enterprise legal teams. Compare every feature. 7-day free trial, no credit card required."
         path="/pricing"
       />
-      <SpecialOfferModal triggerDelay={15} maxWeeklyShows={2} />
       <MouseFollowGlow />
       <Navigation />
       <main className="relative z-10 pt-24">
