@@ -403,9 +403,7 @@ function FormattedDocumentText({ text }: { text: string }) {
     const lines = text.split(/\n/);
     if (lines.length <= 1) {
       // Truly flat text — try to split on sentence boundaries near section patterns
-      const sections = text.split(
-        /(?=(?:^|\s)(?:\d+\.(?:\d+\.?)*\s|ARTICLE\s|SECTION\s|CLAUSE\s|SCHEDULE\s|EXHIBIT\s|APPENDIX\s))/i
-      );
+      const sections = splitFlatSections(text);
       if (sections.length > 1) {
         return (
           <>
@@ -449,7 +447,7 @@ function DocumentLine({ text }: { text: string }) {
 
   // Section headings: "1. TITLE", "ARTICLE I", "SECTION 4.2", all-caps lines
   const isHeading =
-    /^(?:\d+\.(?:\d+\.?)*\s+[A-Z])/.test(text) ||
+    isNumberedSectionHeading(text) ||
     /^(?:ARTICLE|SECTION|CLAUSE|SCHEDULE|EXHIBIT|APPENDIX)\s/i.test(text) ||
     (text.length < 80 && text === text.toUpperCase() && /[A-Z]/.test(text));
 
@@ -465,6 +463,54 @@ function DocumentLine({ text }: { text: string }) {
   }
 
   return <span className="whitespace-pre-wrap">{text}</span>;
+}
+
+const SECTION_LABELS = ['ARTICLE ', 'SECTION ', 'CLAUSE ', 'SCHEDULE ', 'EXHIBIT ', 'APPENDIX '];
+
+/**
+ * Detect a numeric heading without a nested, repeated regex. Contract text is
+ * user-provided and can contain long malformed number sequences, which can
+ * trigger catastrophic backtracking in patterns such as `(\d+\.)+`.
+ */
+function numberedHeadingEnd(text: string, start = 0): number | null {
+  let cursor = start;
+  let sawNumber = false;
+
+  while (cursor < text.length && text[cursor] >= '0' && text[cursor] <= '9') {
+    sawNumber = true;
+    cursor++;
+  }
+  if (!sawNumber || text[cursor] !== '.') return null;
+  cursor++;
+
+  while (cursor < text.length) {
+    const segmentStart = cursor;
+    while (cursor < text.length && text[cursor] >= '0' && text[cursor] <= '9') cursor++;
+    if (cursor === segmentStart) break;
+    if (text[cursor] !== '.') break;
+    cursor++;
+  }
+
+  return cursor < text.length && /\s/.test(text[cursor]) ? cursor : null;
+}
+
+function isNumberedSectionHeading(text: string): boolean {
+  const end = numberedHeadingEnd(text);
+  return end !== null && /[A-Z]/.test(text.slice(end + 1, end + 2));
+}
+
+function startsSection(text: string, index: number): boolean {
+  if (numberedHeadingEnd(text, index) !== null) return true;
+  const prefix = text.slice(index, index + 9).toUpperCase();
+  return SECTION_LABELS.some((label) => prefix.startsWith(label));
+}
+
+function splitFlatSections(text: string): string[] {
+  const starts = [0];
+  for (let index = 1; index < text.length; index++) {
+    if (/\s/.test(text[index - 1]) && startsSection(text, index)) starts.push(index);
+  }
+  return starts.map((start, index) => text.slice(start, starts[index + 1]).trim());
 }
 
 // --- Document viewer with highlights ---
