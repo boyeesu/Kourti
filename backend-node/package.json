@@ -2,6 +2,7 @@
   "name": "kourti-backend-node",
   "private": true,
   "version": "0.0.1",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",

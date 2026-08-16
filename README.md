@@ -1,175 +1,103 @@
-# Kourti AI – Next-Gen Legal Operations Platform
+# Kourti Legal
 
-Unlock the power of AI and automation in your legal workflows. Kourti AI delivers advanced case, contract, and document management for legal professionals — now with seamless AI document analysis, smart contract generation, and one-click document export.
+Kourti Legal is a self-hostable legal operations platform for managing matters,
+clients, documents, contracts, workflows, and AI-assisted review.
 
----
+> **Important:** Kourti Legal is software, not legal advice. AI-generated
+> content can be inaccurate and must be reviewed by a qualified professional
+> before it is relied upon or shared.
 
-## Key Features
+## Features
 
-- **AI-Powered Contract Generation**: Instantly draft new contracts based on user prompts utilizing embedded OpenAI models (via Node backend).
-- **AI Document & Contract Analysis**: Summarize, extract clauses, surface risks, or generate redlines using the latest LLMs.
-- **AI Document Comparison**: Compare two legal documents/contracts side-by-side with clause-level highlights, similarity scoring, and AI change detection.
-- **Smart Document Export**: Export contracts, cases, and documents to PDF or Word (DOCX) with a single click — all versions supported.
-- **Case & Client Management**: Organize, search, and manage all legal case data, clients, and client interactions securely.
-- **Role-Based Dashboards**: Customized dashboards and widgets per user role (admin, lawyer, staff, client).
-- **Weekly Insights Digest**: Automated weekly email summarizing key metrics — cases, tasks, clients, documents, contracts, and revenue — delivered every Monday.
-- **Smart Notifications & Reminders**: Automated reminders, due dates, and case activity notifications.
-- **Dark Mode Support**: Full dark mode with light, dark, and system theme options for comfortable viewing in any environment.
-- **Modern UI/UX**: Built with React, shadcn-ui, TypeScript, and Tailwind CSS.
-- **Seamless Integrations**: Native OpenAI, embeddable API for e-signature, and more.
-- **Enterprise SSO**: Per-organization OAuth (Google Workspace / Microsoft Entra ID) with secure Node backend endpoints.
+- Matter, client, document, contract, task, calendar, invoice, and client-portal workflows.
+- Role-based access controls, audit-oriented administration, notifications, and team management.
+- AI-assisted drafting, review, comparison, risk extraction, and legal-workflow automation.
+- PostgreSQL-backed Node/Express API, React/Vite frontend, and Docker Compose local stack.
+- Optional integrations for AI providers, Resend email, S3-compatible storage, ClamAV, SSO, and Paystack.
 
----
+## Quick start
 
-## Project Info
+### With Docker (recommended)
 
-**URL**: [https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12)
+```sh
+git clone https://github.com/boyeesu/Kourti.git
+cd Kourti
+cp .env.example .env
+cp backend-node/.env.example backend-node/.env
+docker compose up --build
+```
 
----
+Open `http://localhost:8080`. The API health endpoint is available at
+`http://localhost:4000/health`.
 
-## How to Edit the Code
+The supplied development defaults are for a local machine only. Before any
+public deployment, use `AUTH_MODE=custom`, strong distinct JWT secrets, TLS,
+restricted CORS origins, a production database, and persistent object storage.
 
-You can edit your application in a few ways:
+See [Docker setup](docs/docker-local-setup.md), [environment reference](docs/ENVIRONMENT.md),
+and [database bootstrap](APPLY_MIGRATIONS.md) for complete setup details.
 
-### Use Lovable
+### Without Docker
 
-To get started quickly, simply visit your [Lovable Project](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12) and begin prompting. Any changes you make in Lovable will be committed automatically to this repository.
+Requirements: Node.js 22+, npm, and PostgreSQL 16+.
 
-### Use Your Preferred IDE
+```sh
+# frontend
+npm ci
+npm run dev
 
-To work on the project locally, you can clone the repository and push your changes. Any changes you push will also be reflected in Lovable.
+# in another terminal: backend
+cd backend-node
+cp .env.example .env
+npm ci
+npm run dev
+```
 
-This project requires **Node.js 18 or newer** and uses npm for package management. You can [install Node.js and npm with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Set `DATABASE_URL` in `backend-node/.env` to a local PostgreSQL instance. The
+backend bootstraps its schema in development; see [APPLY_MIGRATIONS.md](APPLY_MIGRATIONS.md).
 
-Follow these steps to get started:
+## Configuration
 
-1.  **Clone the repository:**
+- `.env.example` contains only browser-safe Vite configuration.
+- `backend-node/.env.example` documents server-side database, auth, AI, email,
+  storage, payment, and security configuration.
+- Never put a secret in a `VITE_*` value: Vite embeds it in the browser bundle.
+- Do not point a local environment at a production database.
 
-    ```sh
-    git clone <YOUR_GIT_URL>
-    ```
+## Development and validation
 
-2.  **Navigate to the project directory:**
+```sh
+npm test
+npm run lint
+npm run build
 
-    ```sh
-    cd <YOUR_PROJECT_NAME>
-    ```
+cd backend-node && npm run build
+```
 
-3.  **Install dependencies:**
+The frontend test suite has optional live-provider tests; they are skipped
+unless explicitly configured. CI runs frontend build/test/lint plus security
+scans. Backend and end-to-end coverage are being expanded.
 
-    ```sh
-    npm i
-    ```
+## Self-hosting
 
-4.  **(Optional) Start the Node backend for local development:**
+Kourti Legal can run with Docker Compose for local development and can be
+deployed behind a TLS reverse proxy with PostgreSQL and persistent storage.
+Operators are responsible for access control, backups, key management, updates,
+and applicable professional, privacy, and data-residency obligations.
 
-    The backend lives in the `backend-node/` folder. To run it locally with Docker:
+## Contributing and security
 
-    ```sh
-    docker compose up --build         # starts Postgres, Node backend, and frontend
-    ```
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Support](SUPPORT.md)
+- [Governance](GOVERNANCE.md)
+- [AI policy](docs/ai-policy.md)
+- [CI/CD security and release controls](docs/CI_CD_SECURITY.md)
 
-    Or run the backend standalone:
+## License and trademarks
 
-    ```sh
-    cd backend-node && npm install && npm run dev
-    ```
-
-5.  **Start the development server:**
-
-    ```sh
-    npm run dev
-    ```
-
-### Edit Directly on GitHub
-
-You can also make quick changes by editing files directly on GitHub.
-
-1.  Navigate to the file you want to edit.
-2.  Click the "Edit" (pencil) icon.
-3.  Make your changes and commit them.
-
-### Use GitHub Codespaces
-
-If you prefer an online IDE, you can use GitHub Codespaces.
-
-1.  On the main repository page, click the **Code** button.
-2.  Select the **Codespaces** tab.
-3.  Click **New codespace** to launch a new environment.
-4.  Edit files directly in Codespaces and then commit and push your changes.
-
----
-
-## What Technologies Are Used?
-
-- **Vite**
-- **TypeScript**
-- **React**
-- **shadcn-ui**
-- **Tailwind CSS**
-- **Node.js / Express** (backend API)
-- **PostgreSQL** (database)
-- **OpenAI API / LLMs** (for all contract/document AI and NLP tasks)
-- **Resend** (transactional & digest emails)
-- **pg-boss** (job queue & scheduled tasks)
-
----
-
-## AI-Enabled Workflows in Kourti AI
-
-### AI Contract Generation
-
-Draft standard or custom legal agreements powered by OpenAI. Input your requirements; the app outputs a ready-to-edit contract draft, which you can further analyze, review, and export.
-
-### AI Document & Clause Analysis
-
-Run a risk review, summary, or automate due diligence on any uploaded document or contract. AI surfaces missing clauses, renewal deadlines, or non-standard terms.
-
-### AI Document Comparison
-
-Select two documents (or versions) to see highlighted clause changes, AI similarity scores, and a list of key differences (redlines or summaries).
-
-### Document Export
-
-Export any document, contract, or generated content in PDF or DOCX. All export jobs preserve original structure and versioning information.
-
----
-
----
-
-## Searching and Filtering Your Data
-
-The app has a global search bar in the header of every page, so you can quickly find matters, documents, contracts, clients, calendar events, and voice/transcription records from anywhere.
-
-Additionally, each major page has its own filters:
-
-- **Cases**: Search by name, client, or ID, and filter by status.
-- **Documents**: Search by document or case name, and filter by file type.
-- **Contracts**: Search across contracts and filter by status.
-
-You can also use the keyboard shortcut **Ctrl + B** (or **⌘ + B** on macOS) to toggle the sidebar.
-
----
-
-## How to Deploy Your Project
-
-To deploy your project, open [Lovable](https://lovable.dev/projects/005e5c79-c166-4469-87c6-4b3e0766de12) and click on **Share -\> Publish**.
-
----
-
-## Connecting a Custom Domain
-
-Yes, you can\! To connect a custom domain, go to **Project \> Settings \> Domains** and click **Connect Domain**.
-
-For a detailed guide, check out [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide).
-
----
-
-## Viewing Logs
-
-This project includes a simple in-browser logging utility located in `src/lib/logger.ts`.
-
-1. Start the development server with `npm run dev` and open the app in your browser.
-2. Open your browser's developer tools and check the **Console** for log messages.
-3. All log entries are also stored in memory and exposed on `window.__APP_LOGS__`.
-4. In the console, run `window.__APP_LOGS__` to view the full log history. Each entry includes a timestamp, log level, message and any captured error details from the error boundary.
+Kourti Legal source code is released under the [MIT License](LICENSE).
+Third-party components retain their own terms; see [third-party notices](THIRD_PARTY_NOTICES.md).
+The Kourti name and logos are not licensed for use as your own brand; see
+[TRADEMARKS.md](TRADEMARKS.md).
