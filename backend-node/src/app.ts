@@ -129,6 +129,30 @@ function globalRateLimit(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const AUTH_COOKIES = new Set(['kourti_rt', 'kourti_prt']);
+
+/**
+ * Cookie refresh tokens are deliberately cross-origin in production so the
+ * Vercel app can call the Railway API. Require an allowlisted Origin before a
+ * state-changing request may use either cookie; a hostile site cannot satisfy
+ * this check. Bearer-token and body-token clients remain unaffected.
+ */
+function requireTrustedCookieOrigin(req: Request, _res: Response, next: NextFunction) {
+  if (!UNSAFE_METHODS.has(req.method.toUpperCase())) return next();
+
+  const usesAuthCookie = Object.keys(req.cookies ?? {}).some((name) => AUTH_COOKIES.has(name));
+  if (!usesAuthCookie) return next();
+
+  const origin = req.get('origin');
+  if (!origin || !corsOrigins.includes(origin)) {
+    return next(
+      new ApiError('Untrusted origin for cookie-authenticated request', 403, 'CSRF_ORIGIN')
+    );
+  }
+  next();
+}
+
 /**
  * Defense-in-depth backstop for the /api/v1/admin surface. Runs after
  * requireAuth and rejects any caller who is not platform staff, even though
@@ -199,6 +223,7 @@ export function createApp() {
     })
   );
   app.use(cookieParser());
+  app.use(requireTrustedCookieOrigin);
 
   // Reject plaintext requests in production (Railway terminates TLS upstream).
   // Runs before everything else so no handler processes an http request.
@@ -248,7 +273,9 @@ export function createApp() {
     res.status(200).json({ ok: true, service: 'kourti-backend-node' });
   });
 
-  app.use('/health', healthRouter);
+  // Health is public for Railway probes, but it still touches the database and
+  // must not be an unbounded request-amplification surface.
+  app.use('/health', globalRateLimit, healthRouter);
 
   // Auth routes are public (no requireAuth)
   app.use('/api/v1/auth', authRouter);

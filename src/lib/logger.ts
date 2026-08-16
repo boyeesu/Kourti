@@ -82,8 +82,7 @@ function getSessionId(): string {
     return _sessionId;
   }
 
-  const newId =
-    Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const newId = crypto.randomUUID();
   localStorage.setItem('kourti_session_id', newId);
   _sessionId = newId;
   return _sessionId;

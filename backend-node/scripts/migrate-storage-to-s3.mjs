@@ -160,7 +160,7 @@ async function drain() {
 }
 
 console.log(`Source: ${STORAGE_ROOT}`);
-console.log(`Target: s3://${BUCKET} @ ${ENDPOINT}`);
+console.log('Target: configured S3 bucket and endpoint');
 console.log(`Mode  : ${APPLY ? 'APPLY' : 'DRY RUN — pass --apply to upload'}`);
 console.log(`Concurrency: ${CONCURRENCY}`);
 console.log('');
