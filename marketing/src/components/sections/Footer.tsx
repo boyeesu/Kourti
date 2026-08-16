@@ -7,7 +7,7 @@ const Footer = () => (
     <div className="mx-auto max-w-[1360px] px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
       <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr]">
         <div>
-          <img src={kourtiLogo} alt="Kourti Legal" className="h-10 w-auto" />
+          <img src={kourtiLogo} alt="Kourti Legal" className="h-10 w-auto brightness-0" />
           <p className="mt-5 max-w-sm text-sm leading-6 text-[#68706d]">
             An open-source workspace for the matters, documents, clients and deadlines behind a legal practice.
           </p>

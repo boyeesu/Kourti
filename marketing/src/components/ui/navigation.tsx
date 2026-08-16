@@ -25,7 +25,7 @@ const Navigation = () => {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-[#17211d]/15 bg-[#f4f1e8]/95 backdrop-blur-md">
       <div className="mx-auto flex h-[72px] max-w-[1360px] items-center justify-between px-5 sm:px-8 lg:px-12">
         <Link to="/" aria-label="Kourti home" className="flex items-center gap-3">
-          <img src={kourtiLogo} alt="" className="h-9 w-auto" />
+          <img src={kourtiLogo} alt="" className="h-9 w-auto brightness-0" />
           <span className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-[#57605c] sm:inline">
             Open-source legal OS
           </span>
