@@ -16,7 +16,9 @@ This document provides a comprehensive guide to all environment variables used i
 
 The application uses different environment variables for the frontend (prefixed with `VITE_`) and backend (Node.js). Frontend variables are embedded at build time, while backend variables are set in the deployment platform (Railway, Docker, etc.).
 
-**CRITICAL**: Never commit `.env` files to version control. Always use `.env.example` as a template.
+**CRITICAL**: Never commit `.env` files to version control. Use the root
+`.env.example` only for browser-safe Vite configuration and
+`backend-node/.env.example` for server-side configuration.
 
 ## Frontend Variables (Vite)
 
@@ -110,13 +112,15 @@ These variables are set in your deployment platform (Railway, Docker, etc.) or i
 git clone <repo-url>
 cd kouti-legal-hub-41
 
-# Copy the example environment file
+# Copy browser-safe frontend configuration
 cp .env.example .env
 
-# Edit .env and fill in your values
-# At minimum, you MUST set:
+# Copy server-side configuration (contains the database and secrets settings)
+cp backend-node/.env.example backend-node/.env
+
+# Edit backend-node/.env and set at minimum:
 # - DATABASE_URL
-# - JWT_SECRET and JWT_REFRESH_SECRET
+# - JWT_SECRET and JWT_REFRESH_SECRET (when AUTH_MODE=custom)
 ```
 
 ### 2. Configure Backend Environment

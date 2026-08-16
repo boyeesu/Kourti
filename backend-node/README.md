@@ -1,6 +1,6 @@
 # backend-node
 
-Initial Node backend scaffold for the Supabase-to-Node migration.
+Node/Express API for Kourti Legal.
 
 ## Run locally
 
@@ -11,8 +11,6 @@ Initial Node backend scaffold for the Supabase-to-Node migration.
 ## Required environment variables
 
 - `DATABASE_URL` (Postgres connection string)
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
 
 Optional:
 
@@ -30,8 +28,10 @@ Optional:
 
 Note:
 
-- Document file signing/preview/download endpoints (`/api/v1/documents/:id/signed-url`) require
-  `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` even when `AUTH_MODE=development`.
+- See [`.env.example`](.env.example) and
+  [`../docs/ENVIRONMENT.md`](../docs/ENVIRONMENT.md) for the complete and
+  current configuration reference. Storage is configured with local filesystem
+  or S3/R2-compatible settings; no Supabase credentials are required.
 
 ## Email System
 
