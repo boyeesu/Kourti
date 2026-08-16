@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { User, Building2, Scale, ArrowRight } from 'lucide-react';
 
 const personas = [
@@ -78,13 +77,15 @@ const Personas = () => {
         </div>
 
         <div className="mt-10 text-center">
-          <Link
-            to="/pricing"
+          <a
+            href="https://github.com/boyeesu/Kourti"
+            target="_blank"
+            rel="noopener noreferrer"
             className="group inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80"
           >
-            Compare plans &amp; pricing
+            Explore the open-source project
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
+          </a>
         </div>
       </div>
     </section>

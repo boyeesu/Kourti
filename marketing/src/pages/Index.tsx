@@ -1,15 +1,9 @@
 import Navigation from '@/components/ui/navigation';
 import Hero from '@/components/sections/Hero';
-import TrustedBy from '@/components/sections/TrustedBy';
 import HowItWorks from '@/components/sections/HowItWorks';
 import Features from '@/components/sections/Features';
-import Personas from '@/components/sections/Personas';
-import Stats from '@/components/sections/Stats';
-import Testimonials from '@/components/sections/Testimonials';
 import CTA from '@/components/sections/CTA';
 import Footer from '@/components/sections/Footer';
-import MouseFollowGlow from '@/components/ui/MouseFollowGlow';
-import PromoPopup from '@/components/ui/PromoPopup';
 import SEO from '@/components/SEO';
 
 // JSON-LD structured data for this route lives in scripts/seo-routes.mjs and is
@@ -19,26 +13,20 @@ import SEO from '@/components/SEO';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-[#f4f1e8]">
       <SEO
-        title="Kourti Legal | AI-Powered Legal Practice Management Software"
-        description="Run your law practice on AI. Manage matters, clients, contracts, and deadlines in one place — while AI summarizes documents, flags risk, and keeps your team on track. Start your 7-day free trial."
+        title="Kourti Legal | The open-source workspace for legal practice"
+        description="Keep matters, clients, documents and deadlines in one focused workspace. Kourti is open source and available for guided demos."
         path="/"
       />
-      <MouseFollowGlow />
       <Navigation />
-      <main className="relative z-10">
+      <main>
         <Hero />
-        <TrustedBy />
-        <HowItWorks />
         <Features />
-        <Personas />
-        <Stats />
-        <Testimonials />
+        <HowItWorks />
         <CTA />
       </main>
       <Footer />
-      <PromoPopup />
     </div>
   );
 };

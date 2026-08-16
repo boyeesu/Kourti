@@ -1,87 +1,36 @@
-import { Upload, FileSearch, Bell, CheckCircle } from 'lucide-react';
+import { ArrowDown } from "lucide-react";
 
-const HowItWorks = () => {
-  const steps = [
-    {
-      icon: Upload,
-      step: '1',
-      title: 'Add matters & clients',
-      description: 'Import your existing cases or start fresh with our intuitive setup.',
-    },
-    {
-      icon: FileSearch,
-      step: '2',
-      title: 'Upload contracts & documents',
-      description: 'Drag and drop files. We support all common legal document formats.',
-    },
-    {
-      icon: Bell,
-      step: '3',
-      title: 'Let AI summarize & flag risk',
-      description: 'Get instant summaries, key clauses, and risk flags in minutes.',
-    },
-    {
-      icon: CheckCircle,
-      step: '4',
-      title: 'Track deadlines & automate reminders',
-      description: 'Never miss a filing date, renewal, or client follow-up again.',
-    },
-  ];
+const steps = [
+  ["01", "Bring in the work", "Create a matter, add the client and bring over the files you already have."],
+  ["02", "Work with full context", "Review a contract, assign the next task and keep every decision attached to the matter."],
+  ["03", "Stay ahead", "See deadlines and follow-ups before they become urgent, then close the loop with your team."],
+];
 
-  return (
-    <section className="py-16 sm:py-20 bg-muted/20 relative overflow-hidden">
-      <div className="absolute inset-0 bg-dot-pattern opacity-20"></div>
-
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center mb-12 sm:mb-16 max-w-2xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 leading-tight">
-            How it <span className="text-gradient">works</span>
-          </h2>
-          <p className="text-base sm:text-lg text-muted-foreground">
-            Get up and running in minutes, not months.
-          </p>
+const HowItWorks = () => (
+  <section id="workflow" className="bg-[#15201c] py-20 text-[#f4f1e8] sm:py-28">
+    <div className="mx-auto max-w-[1360px] px-5 sm:px-8 lg:px-12">
+      <div className="grid gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:gap-24">
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#8facff]">A simpler working day</p>
+          <h2 className="mt-4 font-display text-5xl font-semibold leading-[0.95] tracking-[-0.05em] sm:text-7xl">Open.<br />Work.<br />Move on.</h2>
+          <p className="mt-7 max-w-sm text-base leading-7 text-[#aeb8b3]">No lengthy implementation story. Start with the matter in front of you and build from there.</p>
         </div>
 
-        {/* Steps Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-          {steps.map((step, index) => {
-            const Icon = step.icon;
-            return (
-              <div key={step.step} className="relative group">
-                {/* Connector Line (hidden on first item and mobile) */}
-                {index > 0 && (
-                  <div className="hidden lg:block absolute top-8 -left-4 w-8 h-0.5 bg-border group-hover:bg-primary/30 transition-colors" />
-                )}
-
-                <div className="card-dark-hover p-6 text-center h-full">
-                  {/* Step Number Badge */}
-                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-bold mb-4">
-                    {step.step}
-                  </div>
-
-                  {/* Icon */}
-                  <div className="flex justify-center mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Icon className="h-6 w-6 text-primary" />
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2">
-                    {step.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {step.description}
-                  </p>
-                </div>
+        <ol className="border-t border-white/20">
+          {steps.map(([number, title, text]) => (
+            <li key={number} className="grid gap-5 border-b border-white/20 py-9 sm:grid-cols-[90px_1fr_auto] sm:items-start sm:py-12">
+              <span className="font-mono text-sm text-[#8facff]">{number}</span>
+              <div>
+                <h3 className="text-2xl font-semibold tracking-[-0.025em] sm:text-3xl">{title}</h3>
+                <p className="mt-3 max-w-xl text-base leading-7 text-[#aeb8b3]">{text}</p>
               </div>
-            );
-          })}
-        </div>
+              <ArrowDown className="hidden h-5 w-5 text-[#8facff] sm:block" />
+            </li>
+          ))}
+        </ol>
       </div>
-    </section>
-  );
-};
+    </div>
+  </section>
+);
 
 export default HowItWorks;

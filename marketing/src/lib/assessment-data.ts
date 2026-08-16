@@ -290,7 +290,7 @@ const recommendationMap: Record<DimensionKey, Record<ScoreBracket, string[]>> = 
     low: [
       'Start with a paid legal database like LawPavilion or LegalPedia to cut research time by 60%+.',
       'Explore AI-powered research tools that understand natural language queries in Nigerian law context.',
-      'Kourti AI can surface relevant case law in seconds -- consider a free trial to see the difference.',
+      'Kourti AI can surface relevant case law in seconds -- book a guided demo to see the difference.',
     ],
     medium: [
       'You have a solid research foundation. Consider adding AI-assisted tools to handle complex, multi-jurisdictional queries.',

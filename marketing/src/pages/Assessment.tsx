@@ -803,9 +803,9 @@ const AssessmentResults = ({ answers }: { answers: Answers }) => {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button
                 className="btn-primary h-12 px-6 text-sm group"
-                onClick={() => window.open('https://app.kourti.com', '_blank')}
+                onClick={() => window.open('https://cal.com/kourti-legal/discovery', '_blank')}
               >
-                Try Kourti AI Free
+                Book a Kourti AI Demo
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button

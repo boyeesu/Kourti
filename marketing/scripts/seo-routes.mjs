@@ -19,13 +19,18 @@ const organizationSchema = {
   url: 'https://kourti.com',
   logo: 'https://kourti.com/favicon.png',
   description:
-    'AI-powered legal practice management software for matters, contracts, deadlines and document analysis.',
+    'Open-source AI-powered legal practice management software for matters, contracts, deadlines and document analysis.',
   contactPoint: {
     '@type': 'ContactPoint',
     email: 'info@kourti.com',
     contactType: 'customer support',
   },
-  sameAs: [],
+  sameAs: ['https://github.com/boyeesu/Kourti'],
+  parentOrganization: {
+    '@type': 'Organization',
+    name: 'Navigi',
+    url: 'https://navigi.io',
+  },
 };
 
 const softwareSchema = {
@@ -35,47 +40,8 @@ const softwareSchema = {
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   description:
-    'AI-powered legal practice management app for matters, contracts, deadlines, document analysis and client management.',
-  // Prices are dynamic (per-seat, multi-currency, served from the live plans
-  // API) so we intentionally omit an Offer block to avoid structured-data
-  // vs. visible-price mismatch.
-};
-
-const faqText = (name, text) => ({
-  '@type': 'Question',
-  name,
-  acceptedAnswer: { '@type': 'Answer', text },
-});
-
-const pricingFaqSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: [
-    faqText(
-      'Can I switch plans anytime?',
-      'Yes, you can upgrade or downgrade your plan at any time. Changes take effect on your next billing cycle.'
-    ),
-    faqText(
-      'How does per-seat pricing work?',
-      'Plans are priced per user, per month. You add or remove seats as your team changes and only pay for the seats you use.'
-    ),
-    faqText(
-      'What payment methods do you accept?',
-      'We accept cards (Visa, Mastercard, Verve), bank transfers, USSD, and mobile money. Enterprise plans can be invoiced.'
-    ),
-    faqText(
-      'Is my data secure?',
-      'Yes. Your data is encrypted in transit and at rest, with role-based access and tenant isolation. We follow SOC 2-aligned controls and are working toward formal SOC 2 Type II certification.'
-    ),
-    faqText(
-      'Do you offer discounts for annual plans?',
-      'Yes, save when you pay annually. Contact our sales team for volume discounts on Enterprise plans.'
-    ),
-    faqText(
-      'Can I cancel anytime?',
-      'Yes, you can cancel your subscription at any time with no cancellation fees or penalties.'
-    ),
-  ],
+    'Open-source AI-powered legal practice management app for matters, contracts, deadlines, document analysis and client management.',
+  isAccessibleForFree: true,
 };
 
 const reportSchema = {
@@ -100,21 +66,12 @@ const reportSchema = {
 export const routes = [
   {
     path: '/',
-    title: 'Kourti Legal | AI-Powered Legal Practice Management Software',
+    title: 'Kourti Legal | The open-source workspace for legal practice',
     description:
-      'Run your law practice on AI. Manage matters, clients, contracts, and deadlines in one place — while AI summarizes documents, flags risk, and keeps your team on track. Start your 7-day free trial.',
+      'Keep matters, clients, documents and deadlines in one focused workspace. Kourti is open source and available for guided demos.',
     jsonLd: [organizationSchema, softwareSchema],
     changefreq: 'weekly',
     priority: '1.0',
-  },
-  {
-    path: '/pricing',
-    title: 'Pricing | Kourti Legal',
-    description:
-      'Simple, transparent per-seat pricing for solo practitioners, growing firms, and enterprise legal teams. Compare every feature. 7-day free trial, no credit card required.',
-    jsonLd: [pricingFaqSchema],
-    changefreq: 'monthly',
-    priority: '0.9',
   },
   {
     path: '/features',
@@ -178,6 +135,38 @@ export const routes = [
     title: 'Terms of Service | Kourti Legal',
     description:
       'Read the Terms of Service for Kourti Legal. Understand your rights and obligations when using our AI-powered legal practice management platform.',
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
+  {
+    path: '/ai-policy',
+    title: 'AI Policy | Kourti Legal',
+    description:
+      'Learn how Kourti Legal builds, governs and uses artificial intelligence responsibly, including data handling, human oversight, accuracy and confidentiality.',
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
+  {
+    path: '/dpa',
+    title: 'Data Processing Agreement | Kourti Legal',
+    description:
+      "Kourti Legal's Data Processing Agreement governing how customer personal data is processed under GDPR and NDPR.",
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
+  {
+    path: '/subprocessors',
+    title: 'Sub-processors | Kourti Legal',
+    description:
+      'Third-party sub-processors used by Kourti Legal, including their purpose, data categories and location.',
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
+  {
+    path: '/cookie-policy',
+    title: 'Cookie Policy | Kourti Legal',
+    description:
+      'Learn how Kourti Legal uses cookies and similar technologies and how to manage your preferences.',
     changefreq: 'yearly',
     priority: '0.3',
   },
