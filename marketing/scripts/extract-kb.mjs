@@ -22,7 +22,6 @@ const SKIP_FILES = new Set(['NotFound.tsx', 'ChatBubble.tsx']);
 
 function categoryFor(file) {
   const n = file.toLowerCase();
-  if (n.includes('pricing')) return 'pricing';
   if (n.includes('contact') || n.includes('assessment')) return 'faq';
   if (n.includes('about') || n.includes('privacy') || n.includes('terms')) return 'company';
   return 'product';

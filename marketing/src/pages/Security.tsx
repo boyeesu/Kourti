@@ -181,14 +181,15 @@ const Security = () => {
               Run your practice on AI, <span className="text-gradient">safely.</span>
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-base text-muted-foreground">
-              Start a free trial, or talk to us about your security and compliance requirements.
+              Review the open-source code, or talk to us about your security and compliance
+              requirements.
             </p>
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <button
                 className="btn-primary h-12 px-8 text-sm"
-                onClick={() => window.open('https://app.kourti.com', '_blank')}
+                onClick={() => window.open('https://github.com/boyeesu/Kourti', '_blank')}
               >
-                Start free trial
+                View source
               </button>
               <button
                 className="btn-secondary h-12 px-8 text-sm"

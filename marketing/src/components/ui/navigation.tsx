@@ -1,153 +1,141 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from './button';
-import { Menu, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ArrowUpRight, Github, Menu, X } from 'lucide-react';
 import kourtiLogo from '@/assets/kourti-logo.png';
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleHashNavigation = (href: string) => {
-    if (href.startsWith('/#')) {
-      const targetId = href.substring(2);
-      const element = document.getElementById(targetId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
-    }
-    setIsOpen(false);
-  };
-
-  const navItems = [
-    { name: 'Features', href: '/features', isExternal: false },
-    { name: 'Pricing', href: '/pricing', isExternal: false },
-    { name: 'Security', href: '/security', isExternal: false },
-    { name: 'About', href: '/about', isExternal: false },
-    { name: 'Contact', href: '/contact', isExternal: false },
+  const links = [
+    { label: 'Product', href: '/#features' },
+    { label: 'How it works', href: '/#workflow' },
+    { label: 'About', href: '/about' },
+    { label: 'Contact', href: '/contact' },
   ];
 
+  const closeAndScroll = (href: string) => {
+    setIsOpen(false);
+    if (!href.startsWith('/#')) return;
+
+    const section = document.getElementById(href.slice(2));
+    section?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <nav className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-5xl">
-      <div className="nav-container px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center">
-            <Link to="/" className="block">
-              <img src={kourtiLogo} alt="Kourti Legal Hub" className="h-10 sm:h-12 w-auto" />
-            </Link>
-          </div>
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-[#17211d]/15 bg-[#f4f1e8]/95 backdrop-blur-md">
+      <div className="mx-auto flex h-[72px] max-w-[1360px] items-center justify-between px-5 sm:px-8 lg:px-12">
+        <Link to="/" aria-label="Kourti home" className="flex items-center gap-3">
+          <img src={kourtiLogo} alt="" className="h-9 w-auto brightness-0" />
+          <span className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-[#57605c] sm:inline">
+            Open-source legal OS
+          </span>
+        </Link>
 
-          {/* Desktop Navigation - Center */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) =>
-              item.isExternal ? (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleHashNavigation(item.href);
-                  }}
-                  className="nav-link text-sm font-medium cursor-pointer"
-                >
-                  {item.name}
-                </a>
-              ) : (
-                <Link key={item.name} to={item.href} className="nav-link text-sm font-medium">
-                  {item.name}
-                </Link>
-              )
-            )}
-          </div>
+        <nav className="hidden items-center gap-8 lg:flex" aria-label="Main navigation">
+          {links.map((link) =>
+            link.href.startsWith('/#') ? (
+              <a
+                key={link.label}
+                href={link.href}
+                onClick={(event) => {
+                  event.preventDefault();
+                  closeAndScroll(link.href);
+                }}
+                className="text-sm font-medium text-[#4f5854] transition-colors hover:text-[#0d1512]"
+              >
+                {link.label}
+              </a>
+            ) : (
+              <Link
+                key={link.label}
+                to={link.href}
+                className="text-sm font-medium text-[#4f5854] transition-colors hover:text-[#0d1512]"
+              >
+                {link.label}
+              </Link>
+            )
+          )}
+        </nav>
 
-          {/* CTA Buttons - Right */}
-          <div className="hidden md:flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground px-4 font-medium"
-              onClick={() => window.open('https://app.kourti.com', '_blank')}
-            >
-              Log In
-            </Button>
-            <Button
-              size="sm"
-              className="bg-foreground text-background hover:bg-foreground/90 rounded-full px-5 font-semibold"
-              onClick={() => window.open('https://app.kourti.com', '_blank')}
-            >
-              Start free trial
-            </Button>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsOpen(!isOpen)}
-              aria-label={isOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={isOpen}
-              className="text-foreground"
-            >
-              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-          </div>
+        <div className="hidden items-center gap-3 lg:flex">
+          <a
+            href="https://github.com/boyeesu/Kourti"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center gap-2 px-3 text-sm font-semibold text-[#17211d] transition-opacity hover:opacity-60"
+          >
+            <Github className="h-4 w-4" /> Source
+          </a>
+          <a
+            href="https://cal.com/kourti-legal/discovery"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center gap-2 bg-[#2457ff] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#1946dd]"
+          >
+            Book a demo <ArrowUpRight className="h-4 w-4" />
+          </a>
         </div>
 
-        {/* Mobile Navigation */}
-        <div
-          className={cn(
-            'md:hidden transition-all duration-300 ease-in-out overflow-hidden',
-            isOpen ? 'max-h-80 opacity-100 pb-4' : 'max-h-0 opacity-0'
-          )}
+        <button
+          type="button"
+          className="grid h-10 w-10 place-items-center text-[#17211d] lg:hidden"
+          onClick={() => setIsOpen((open) => !open)}
+          aria-expanded={isOpen}
+          aria-label={isOpen ? 'Close menu' : 'Open menu'}
         >
-          <div className="space-y-1 pt-2">
-            {navItems.map((item) =>
-              item.isExternal ? (
+          {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="border-t border-[#17211d]/15 bg-[#f4f1e8] px-5 pb-6 pt-4 lg:hidden">
+          <nav className="mx-auto flex max-w-[1360px] flex-col" aria-label="Mobile navigation">
+            {links.map((link) =>
+              link.href.startsWith('/#') ? (
                 <a
-                  key={item.name}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleHashNavigation(item.href);
+                  key={link.label}
+                  href={link.href}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    closeAndScroll(link.href);
                   }}
-                  className="block px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-smooth cursor-pointer text-sm"
+                  className="border-b border-[#17211d]/10 py-3 text-base font-medium text-[#17211d]"
                 >
-                  {item.name}
+                  {link.label}
                 </a>
               ) : (
                 <Link
-                  key={item.name}
-                  to={item.href}
-                  className="block px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-smooth text-sm"
+                  key={link.label}
+                  to={link.href}
                   onClick={() => setIsOpen(false)}
+                  className="border-b border-[#17211d]/10 py-3 text-base font-medium text-[#17211d]"
                 >
-                  {item.name}
+                  {link.label}
                 </Link>
               )
             )}
-            <div className="pt-2 px-3 flex flex-col gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-muted-foreground hover:text-foreground font-medium"
-                onClick={() => window.open('https://app.kourti.com', '_blank')}
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <a
+                href="https://github.com/boyeesu/Kourti"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-11 items-center justify-center gap-2 border border-[#17211d]/30 text-sm font-semibold text-[#17211d]"
               >
-                Log In
-              </Button>
-              <Button
-                size="sm"
-                className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-full font-semibold"
-                onClick={() => window.open('https://app.kourti.com', '_blank')}
+                <Github className="h-4 w-4" /> Source
+              </a>
+              <a
+                href="https://cal.com/kourti-legal/discovery"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-11 items-center justify-center gap-2 bg-[#2457ff] text-sm font-semibold text-white"
               >
-                Start free trial
-              </Button>
+                Book a demo
+              </a>
             </div>
-          </div>
+          </nav>
         </div>
-      </div>
-    </nav>
+      )}
+    </header>
   );
 };
 

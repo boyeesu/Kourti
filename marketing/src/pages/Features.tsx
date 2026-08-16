@@ -22,7 +22,7 @@ import MouseFollowGlow from '@/components/ui/MouseFollowGlow';
 import Navigation from '@/components/ui/navigation';
 import Footer from '@/components/sections/Footer';
 
-const APP_URL = 'https://app.kourti.com';
+const SOURCE_URL = 'https://github.com/boyeesu/Kourti';
 const DEMO_URL = 'https://cal.com/kourti-legal/discovery';
 
 /* ── Illustrative mini-UIs (not real product captures — honest representations) ── */
@@ -461,9 +461,9 @@ const Features = () => {
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <button
                 className="btn-primary inline-flex h-12 items-center justify-center gap-2 px-6 text-sm"
-                onClick={() => window.open(APP_URL, '_blank')}
+                onClick={() => window.open(SOURCE_URL, '_blank')}
               >
-                Start free trial
+                View source
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button
@@ -474,7 +474,7 @@ const Features = () => {
               </button>
             </div>
             <p className="mt-6 text-sm text-muted-foreground">
-              7-day free trial · No credit card required
+              Open source · Guided demos available
             </p>
           </div>
         </section>

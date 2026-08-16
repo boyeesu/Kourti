@@ -26,6 +26,7 @@ import { adminBillingRouter } from './routes/api/adminBilling.js';
 import { adminUsageRouter } from './routes/api/adminUsage.js';
 import { adminHealthRouter } from './routes/api/adminHealth.js';
 import { adminEmailRouter } from './routes/api/adminEmail.js';
+import { adminLeadsRouter } from './routes/api/adminLeads.js';
 import { adminAuditRouter } from './routes/api/adminAudit.js';
 import { adminKbRouter } from './routes/api/adminKb.js';
 import { adminPortalRouter } from './routes/api/adminPortal.js';
@@ -277,6 +278,7 @@ export function createApp() {
     adminUsageRouter,
     adminHealthRouter,
     adminEmailRouter,
+    adminLeadsRouter,
     adminAuditRouter,
     adminKbRouter,
     adminPortalRouter,

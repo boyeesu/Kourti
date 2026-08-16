@@ -57,7 +57,7 @@ const About = () => {
     'Seamless migration from legacy practice management tools',
     'White-glove onboarding and continuous support from legal tech experts',
     'Regular feature updates based on direct feedback from legal professionals',
-    'Transparent pricing with no hidden fees or surprise charges',
+    'Open-source development shaped by feedback from legal professionals',
   ];
 
   const colorClasses: Record<string, string> = {
@@ -121,9 +121,9 @@ const About = () => {
               <Button
                 size="lg"
                 className="btn-primary h-12 px-6 text-sm group"
-                onClick={() => window.open('https://app.kourti.com', '_blank')}
+                onClick={() => window.open('https://github.com/boyeesu/Kourti', '_blank')}
               >
-                Start Your Free Trial
+                View Source
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button
@@ -337,9 +337,9 @@ const About = () => {
               <Button
                 size="lg"
                 className="gradient-primary text-primary-foreground hover:shadow-glow"
-                onClick={() => window.open('https://app.kourti.com', '_blank')}
+                onClick={() => window.open('https://github.com/boyeesu/Kourti', '_blank')}
               >
-                Start Free Trial
+                View Source
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button
@@ -352,7 +352,7 @@ const About = () => {
             </div>
 
             <p className="text-sm text-muted-foreground mt-6">
-              No credit card required · Setup in minutes · Full access to all features
+              Open source · Full access to the codebase
             </p>
           </div>
         </section>

@@ -30,6 +30,7 @@ import {
   Gauge,
   Eye,
   Briefcase,
+  Inbox,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminCapabilities, type AdminCapability } from '@/hooks/useAdminCapabilities';
@@ -77,6 +78,7 @@ const sections: NavSection[] = [
     items: [
       { title: 'Org Usage', url: '/thanos/usage', icon: Gauge },
       { title: 'System Health', url: '/thanos/health', icon: Activity },
+      { title: 'Marketing Leads', url: '/thanos/leads', icon: Inbox },
       { title: 'Email Log', url: '/thanos/email', icon: Mail },
       { title: 'Audit Log', url: '/thanos/audit', icon: ScrollText },
     ],

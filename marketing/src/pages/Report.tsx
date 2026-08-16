@@ -952,7 +952,7 @@ const ChallengesOpportunities = () => {
     },
     {
       challenge: 'Cost & Affordability',
-      challengeDesc: 'Enterprise pricing beyond reach of small firms',
+      challengeDesc: 'Enterprise tools beyond reach of small firms',
       opportunity: 'Affordable, naira-denominated SaaS solutions',
       icon: TrendingUp,
     },
@@ -1135,9 +1135,9 @@ const ReportDownloadCTA = () => {
                 </p>
                 <Button
                   className="btn-primary h-12 px-6 text-sm group"
-                  onClick={() => window.open('https://app.kourti.com', '_blank')}
+                  onClick={() => window.open('https://cal.com/kourti-legal/discovery', '_blank')}
                 >
-                  Try Kourti AI Free
+                  Book a Kourti AI Demo
                   <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
