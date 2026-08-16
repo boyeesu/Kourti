@@ -55,7 +55,7 @@
     "@tiptap/extension-text-align": "^3.13.0",
     "@tiptap/extension-underline": "^3.13.0",
     "@tiptap/pm": "^3.13.0",
-    "@tiptap/react": "^3.13.0",
+    "@tiptap/react": "^3.30.1",
     "@tiptap/starter-kit": "^3.13.0",
     "@types/dompurify": "^3.0.5",
     "@types/papaparse": "^5.3.16",
