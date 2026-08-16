@@ -46,7 +46,15 @@ const STATUS_VARIANT: Record<LeadStatus, 'default' | 'secondary' | 'outline'> = 
   resolved: 'outline',
 };
 
-function StatCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+function StatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+}) {
   return (
     <div className="rounded-lg border p-4">
       <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -204,7 +212,11 @@ export function MarketingLeadsTab() {
     }
   };
 
-  const typeTabs: { label: string; value?: LeadType; icon: React.ComponentType<{ className?: string }> }[] = [
+  const typeTabs: {
+    label: string;
+    value?: LeadType;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [
     { label: 'All', value: undefined, icon: Mail },
     { label: 'Assessments', value: 'assessment', icon: ClipboardList },
     { label: 'Q1 Report Downloads', value: 'report', icon: FileText },

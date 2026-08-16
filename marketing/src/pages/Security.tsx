@@ -181,7 +181,8 @@ const Security = () => {
               Run your practice on AI, <span className="text-gradient">safely.</span>
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-base text-muted-foreground">
-              Review the open-source code, or talk to us about your security and compliance requirements.
+              Review the open-source code, or talk to us about your security and compliance
+              requirements.
             </p>
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <button

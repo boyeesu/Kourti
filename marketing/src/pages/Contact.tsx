@@ -100,8 +100,8 @@ const Contact = () => {
               Talk to the <span className="text-gradient">Kourti team.</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-              Tell us about your practice and we'll help you explore Kourti through a guided demo
-              or the open-source codebase.
+              Tell us about your practice and we'll help you explore Kourti through a guided demo or
+              the open-source codebase.
             </p>
           </div>
         </section>

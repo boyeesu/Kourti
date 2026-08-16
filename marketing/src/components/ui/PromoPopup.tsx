@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { X, FileText, ClipboardCheck, Sparkles } from 'lucide-react';
+import { X, ClipboardCheck, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STORAGE_KEY = 'kourti_promo_dismissed';
@@ -69,12 +69,11 @@ const PromoPopup = () => {
             How Tech-Ready Is Your Practice?
           </h3>
           <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-            Discover where your firm stands with our free assessment, or explore the latest
-            LegalTech insights for Nigeria.
+            Discover where your firm stands with our free LegalTech assessment in just 2 minutes.
           </p>
 
           {/* CTA Cards */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="mb-4">
             <Link
               to="/assessment"
               onClick={dismiss}
@@ -86,20 +85,6 @@ const PromoPopup = () => {
               <span className="text-sm font-semibold text-foreground">Take Assessment</span>
               <span className="text-[11px] text-muted-foreground leading-tight">
                 2 min &middot; Free
-              </span>
-            </Link>
-
-            <Link
-              to="/report/legaltech-nigeria-q1-2026"
-              onClick={dismiss}
-              className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/5 hover:border-white/20 transition-all"
-            >
-              <div className="p-2 rounded-lg bg-white/5 text-muted-foreground group-hover:text-foreground group-hover:scale-110 transition-all">
-                <FileText className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-semibold text-foreground">View Report</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">
-                Q1 2026 Insights
               </span>
             </Link>
           </div>

@@ -48,21 +48,21 @@ Kourti is open source. The repository is available at https://github.com/boyeesu
 
 ## Important routes
 
-| Path | Purpose |
-| --- | --- |
-| `/` | Product overview and open-source links |
-| `/features` | Detailed product capabilities |
-| `/security` | Security and data-handling overview |
-| `/about` | Company background and mission |
-| `/contact` | Contact and demo requests |
-| `/assessment` | Practice technology maturity assessment |
-| `/report/legaltech-nigeria-q1-2026` | State of LegalTech in Nigeria report |
-| `/privacy-policy` | Privacy policy |
-| `/terms-of-use` | Terms of use |
-| `/ai-policy` | AI policy |
-| `/dpa` | Data processing agreement |
-| `/subprocessors` | Sub-processor information |
-| `/cookie-policy` | Cookie policy |
+| Path                                | Purpose                                 |
+| ----------------------------------- | --------------------------------------- |
+| `/`                                 | Product overview and open-source links  |
+| `/features`                         | Detailed product capabilities           |
+| `/security`                         | Security and data-handling overview     |
+| `/about`                            | Company background and mission          |
+| `/contact`                          | Contact and demo requests               |
+| `/assessment`                       | Practice technology maturity assessment |
+| `/report/legaltech-nigeria-q1-2026` | State of LegalTech in Nigeria report    |
+| `/privacy-policy`                   | Privacy policy                          |
+| `/terms-of-use`                     | Terms of use                            |
+| `/ai-policy`                        | AI policy                               |
+| `/dpa`                              | Data processing agreement               |
+| `/subprocessors`                    | Sub-processor information               |
+| `/cookie-policy`                    | Cookie policy                           |
 
 ## Contact
 

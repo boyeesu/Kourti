@@ -89,13 +89,26 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+    font-family:
+      'Instrument Sans',
+      system-ui,
+      -apple-system,
+      sans-serif;
     letter-spacing: -0.01em;
     line-height: 1.6;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family:
+      'Instrument Sans',
+      system-ui,
+      -apple-system,
+      sans-serif;
     letter-spacing: -0.02em;
     font-weight: 700;
   }
@@ -113,11 +126,7 @@
 
   /* ===== BACKGROUND PATTERNS ===== */
   .bg-dot-pattern {
-    background-image: radial-gradient(
-      circle at 1px 1px,
-      hsl(0 0% 100% / 0.03) 1px,
-      transparent 0
-    );
+    background-image: radial-gradient(circle at 1px 1px, hsl(0 0% 100% / 0.03) 1px, transparent 0);
     background-size: 24px 24px;
   }
 
@@ -168,7 +177,9 @@
   .card-dark-hover:hover {
     @apply border-primary/30;
     transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 16px 48px -12px hsl(0 0% 0% / 0.6), 0 0 40px -10px hsl(215 70% 76% / 0.3);
+    box-shadow:
+      0 16px 48px -12px hsl(0 0% 0% / 0.6),
+      0 0 40px -10px hsl(215 70% 76% / 0.3);
   }
 
   /* ===== BUTTON STYLES ===== */
@@ -207,8 +218,12 @@
     padding: 1px;
     border-radius: 9999px;
     background: linear-gradient(135deg, #afc8f0 0%, #79a5ea 100%);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     z-index: -1;
@@ -268,12 +283,24 @@
   }
 
   /* ===== ICON COLORS ===== */
-  .icon-pastel-blue { color: hsl(var(--pastel-blue)); }
-  .icon-pastel-green { color: hsl(var(--pastel-green)); }
-  .icon-pastel-yellow { color: hsl(var(--pastel-yellow)); }
-  .icon-pastel-purple { color: hsl(var(--pastel-purple)); }
-  .icon-pastel-pink { color: hsl(var(--pastel-pink)); }
-  .icon-pastel-cyan { color: hsl(var(--pastel-cyan)); }
+  .icon-pastel-blue {
+    color: hsl(var(--pastel-blue));
+  }
+  .icon-pastel-green {
+    color: hsl(var(--pastel-green));
+  }
+  .icon-pastel-yellow {
+    color: hsl(var(--pastel-yellow));
+  }
+  .icon-pastel-purple {
+    color: hsl(var(--pastel-purple));
+  }
+  .icon-pastel-pink {
+    color: hsl(var(--pastel-pink));
+  }
+  .icon-pastel-cyan {
+    color: hsl(var(--pastel-cyan));
+  }
 
   /* ===== CONTAINER ===== */
   .container {
@@ -293,8 +320,12 @@
     padding: 1px;
     border-radius: inherit;
     background: linear-gradient(135deg, hsl(215 70% 82% / 0.5) 0%, hsl(215 65% 70% / 0.3) 100%);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
@@ -375,7 +406,8 @@
 }
 
 @keyframes glow-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 20px hsl(215 70% 76% / 0.3);
   }
   50% {
@@ -393,7 +425,8 @@
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px);
   }
   50% {
@@ -402,17 +435,28 @@
 }
 
 @keyframes wiggle {
-  0%, 100% { transform: rotate(-3deg); }
-  50% { transform: rotate(3deg); }
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
 }
 
 @keyframes bounce-subtle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 @keyframes mascot-glow {
-  0%, 100% {
+  0%,
+  100% {
     filter: drop-shadow(0 0 8px hsl(215 70% 76% / 0.3));
   }
   50% {
