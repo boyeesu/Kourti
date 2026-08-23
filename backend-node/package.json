@@ -42,7 +42,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.1.0",
-    "@types/node": "^22.15.29",
+    "@types/node": "^26.2.0",
     "@types/pg": "^8.15.2",
     "esbuild": "^0.28.1",
     "tsx": "^4.22.4",
